@@ -73,18 +73,18 @@ if MAIN:
 	fig.add_scatter(x=[], y=[], mode="markers", marker_size=12, marker_symbol="x")
 	fig.update_layout(showlegend=False, xaxis_range=[-1.5, 2.5], yaxis_range=[-1.5, 2.5], template="simple_white")
 	
-@interact(seed=(0, 10, 1), v=(-2.0, 2.0, 0.01))
-def response(seed=0, v=0.5):
-	t.manual_seed(seed)
-	L_1, L_2 = t.rand(2, 2)
-	P = lambda v: L_1 + v * (L_2 - L_1)
-	x, y = zip(P(-2), P(2))
-	with fig.batch_update(): 
-		fig.data[0].update({"x": x, "y": y}) 
-		fig.data[1].update({"x": [L_1[0], L_2[0]], "y": [L_1[1], L_2[1]]}) 
-		fig.data[2].update({"x": [P(v)[0]], "y": [P(v)[1]]})
 
 if MAIN:
+	@interact(seed=(0, 10, 1), v=(-2.0, 2.0, 0.01))
+	def response(seed=0, v=0.5):
+		t.manual_seed(seed)
+		L_1, L_2 = t.rand(2, 2)
+		P = lambda v: L_1 + v * (L_2 - L_1)
+		x, y = zip(P(-2), P(2))
+		with fig.batch_update(): 
+			fig.data[0].update({"x": x, "y": y}) 
+			fig.data[1].update({"x": [L_1[0], L_2[0]], "y": [L_1[1], L_2[1]]}) 
+			fig.data[2].update({"x": [P(v)[0]], "y": [P(v)[1]]})
 	display(fig)
 
 # %%
@@ -250,12 +250,12 @@ if MAIN:
 		)
 	)
 	
-@interact(u=(-0.5, 1.5, 0.01), v=(-0.5, 1.5, 0.01))
-def response(u=0.0, v=0.0):
-	P = A + u * (B - A) + v * (C - A)
-	fig.data[2].update({"x": [P[0]], "y": [P[1]]})
 
 if MAIN:
+	@interact(u=(-0.5, 1.5, 0.01), v=(-0.5, 1.5, 0.01))
+	def response(u=0.0, v=0.0):
+		P = A + u * (B - A) + v * (C - A)
+		fig.data[2].update({"x": [P[0]], "y": [P[1]]})
 	display(fig)
 
 # %%
