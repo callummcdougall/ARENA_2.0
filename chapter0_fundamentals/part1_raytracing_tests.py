@@ -1,12 +1,11 @@
 import torch as t
 
 def test_intersect_ray_1d(intersect_ray_1d):
-    import part1_raytracing_solution as soln
-
+    import part1_raytracing_solutions as solutions
     expected = [(0, 0), (0, 1), (2, 7), (2, 8)]
     actual = []
-    for i, segment in enumerate(soln.segments):
-        for j, ray in enumerate(soln.rays1d):
+    for i, segment in enumerate(solutions.segments):
+        for j, ray in enumerate(solutions.rays1d):
             if intersect_ray_1d(ray, segment):
                 actual.append((i, j))
     if expected != actual:
@@ -25,10 +24,9 @@ def test_intersect_ray_1d_special_case(intersect_ray_1d):
 
 
 def test_intersect_rays_1d(intersect_rays_1d):
-    import part1_raytracing_solution as soln
-
+    import part1_raytracing_solutions as solutions
     expected = t.tensor([True, True, False, False, False, False, False, True, True])
-    actual = intersect_rays_1d(soln.rays1d, soln.segments)
+    actual = intersect_rays_1d(solutions.rays1d, solutions.segments)
     t.testing.assert_close(actual, expected)
     print("All tests in `test_intersect_rays_1d` passed!")
 

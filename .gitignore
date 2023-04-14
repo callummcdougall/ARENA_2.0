@@ -1,5 +1,7 @@
 */data
 */models
 */wandb
-*/notebooks
-*/__pycache__
+*__pycache__
+*generate_files.py
+*draft*
+*/colab

@@ -1,5 +1,6 @@
 # Make sure to install the torch dependencies with conda:
 # conda install pytorch=1.11.0 torchdata torchvision -c pytorch -y
+# conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
 
 fancy_einsum
 einops
@@ -31,9 +32,12 @@ accelerate
 pre-commit
 diffusers
 torchtyping
+jaxtyping
 typeguard
 streamlit
 torchinfo
 frozendict
 streamlit-chat
 openai
+transformer_lens
+git+https://github.com/callummcdougall/CircuitsVis.git#subdirectory=python
