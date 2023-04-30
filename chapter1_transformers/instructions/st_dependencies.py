@@ -1,7 +1,6 @@
 import streamlit as st
 import base64
 import platform
-from streamlit_chat import message
 import openai
 import json
 import plotly.io as pio
