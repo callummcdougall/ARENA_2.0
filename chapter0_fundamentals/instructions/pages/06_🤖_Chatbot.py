@@ -34,6 +34,8 @@ for stem in [".", "instructions", "..", "chapter0_fundamentals"]:
     if len(names) > 0:
         break
 
+st.write(names)
+
 # names are ["Ray Tracing", "CNNs", "Backprop", "ResNets", "Optimization"]
 
 # %%
