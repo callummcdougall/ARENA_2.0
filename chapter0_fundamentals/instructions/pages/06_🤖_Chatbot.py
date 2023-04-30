@@ -1,8 +1,6 @@
 # %%
 
 import os
-from regex import R
-import sklearn
 import streamlit as st
 import pickle
 import sys
