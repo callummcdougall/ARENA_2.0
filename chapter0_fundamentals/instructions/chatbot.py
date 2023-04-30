@@ -29,7 +29,7 @@ CHAPTER = r"chapter0_fundamentals"
 chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
 sys.path.append(chapter_dir + CHAPTER)
 
-from exercises.plotly_utils import hist
+# from exercises.plotly_utils import hist
 
 openai.api_key = st.secrets["openai_api_key"]
 
@@ -98,12 +98,12 @@ class EmbeddingGroup:
                 t0 = time.time()
         return e
 
-    def hist(self, **kwargs):
-        hist(
-            self.n_tokens, 
-            labels={"x": "Number of tokens", "y": "Chunk freq"},
-            **kwargs,
-        )
+    # def hist(self, **kwargs):
+    #     hist(
+    #         self.n_tokens, 
+    #         labels={"x": "Number of tokens", "y": "Chunk freq"},
+    #         **kwargs,
+    #     )
 
     def save(self, path: Path = Path("my_embeddings.pkl")):
         with path.open('wb') as f:
