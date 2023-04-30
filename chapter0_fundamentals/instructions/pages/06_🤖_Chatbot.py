@@ -27,6 +27,10 @@ MAIN = __name__ == "__main__"
 #     ipython.run_line_magic("load_ext", "autoreload")
 #     ipython.run_line_magic("autoreload", "2")
 
+st.write(os.getcwd())
+
+st.write(list(Path(".").glob("*")))
+
 for stem in [".", "instructions", "..", "chapter0_fundamentals"]:
     files = Path(f"{stem}/pages").glob("*.py")
     names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem]
