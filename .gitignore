@@ -1,7 +1,12 @@
 */data
+*/logs
 */models
 */wandb
 *__pycache__
-*generate_files.py
-*draft*
-*/colab
+*generate_*.py
+*/drafts*
+*/colab*
+*chunk_*.txt
+*.chroma
+*.pytest_cache
+*data
