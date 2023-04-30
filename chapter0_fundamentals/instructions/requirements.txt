@@ -4,3 +4,4 @@ openai
 plotly
 matplotlib
 scipy
+torch
