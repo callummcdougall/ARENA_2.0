@@ -26,9 +26,12 @@ MAIN = __name__ == "__main__"
 #     ipython.run_line_magic("load_ext", "autoreload")
 #     ipython.run_line_magic("autoreload", "2")
 
-files = Path(r"instructions\pages").glob("*.py")
-names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem]
-names = [name.split("]")[1].replace("_", " ").strip() for name in names]
+for stem in [".", "instructions", "..", "chapter0_fundamentals"]:
+    files = Path(f"{stem}/pages").glob("*.py")
+    names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem]
+    names = [name.split("]")[1].replace("_", " ").strip() for name in names]
+    if len(names) > 0:
+        break
 
 # names are ["Ray Tracing", "CNNs", "Backprop", "ResNets", "Optimization"]
 
