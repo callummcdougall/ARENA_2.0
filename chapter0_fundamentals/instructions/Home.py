@@ -1,6 +1,19 @@
 import os, sys
 import streamlit as st
-# st.set_page_config(layout="wide")
+import platform
+from pathlib import Path
+is_local = (platform.processor() != "")
+
+# Get to the right directory: the streamlit one (not pages)
+# Get to chapter0_fundamentals directory (or whatever the chapter dir is)
+
+# Navigate to the root directory, i.e. ARENA_2 for me, or the working directory for people locally
+while "chapter" in os.getcwd():
+    os.chdir("..")
+# Now with this reference point, we can add things to sys.path
+root_dir = os.getcwd() + r"\chapter0_fundamentals\instructions"
+root_path = Path(root_dir)
+if root_dir not in sys.path: sys.path.append(root_dir)
 
 if os.getcwd().endswith("chapter0_fundamentals") and "./instructions" not in sys.path:
     sys.path.append("./instructions")

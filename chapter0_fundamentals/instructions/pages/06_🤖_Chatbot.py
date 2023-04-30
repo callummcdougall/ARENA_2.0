@@ -1,57 +1,40 @@
 # %%
 
 import os
+from regex import R
 import sklearn
 import streamlit as st
 import pickle
 import sys
+import platform
+from pathlib import Path
+
+is_local = (platform.processor() != "")
 
 # Get to the right directory: the streamlit one (not pages)
 # Get to chapter0_fundamentals directory (or whatever the chapter dir is)
 
-from pathlib import Path
+# Navigate to the root directory, i.e. ARENA_2 for me, or the working directory for people locally
+while "chapter" in os.getcwd():
+    os.chdir("..")
+# Now with this reference point, we can add things to sys.path
+root_dir = os.getcwd() + r"\chapter0_fundamentals\instructions"
+root_path = Path(root_dir)
+if root_dir not in sys.path: sys.path.append(root_dir)
+
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
-if "./chapter0_fundamentals/instructions" not in sys.path:
-    sys.path.append("./chapter0_fundamentals/instructions")
-if os.getcwd().endswith("chapter0_fundamentals") and "./instructions" not in sys.path:
-    sys.path.append("./instructions")
-if os.getcwd().endswith("pages") and "../" not in sys.path:
-    sys.path.append("../")
-
-MAIN = __name__ == "__main__"
-
-# if MAIN:
-#     from IPython import get_ipython
-#     ipython = get_ipython()
-#     ipython.run_line_magic("load_ext", "autoreload")
-#     ipython.run_line_magic("autoreload", "2")
-
-# st.write(os.getcwd())
-
-# st.write(list(Path(".").glob("*")))
-
-for stem in [".", "instructions", "..", "chapter0_fundamentals/instructions"]:
-    files = Path(f"{stem}/pages").glob("*.py")
-    names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem]
-    names = [name.split("]")[1].replace("_", " ").strip() for name in names]
-    if len(names) > 0:
-        break
-
-# st.write(names)
-
+files = (root_path / "pages").glob("*.py")
+names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem]
+names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # names are ["Ray Tracing", "CNNs", "Backprop", "ResNets", "Optimization"]
 
 # %%
 
 if "my_embeddings" not in st.session_state:
-    paths = ["my_embeddings.pkl", "instructions/my_embeddings.pkl", "chapter0_fundamentals/instructions/my_embeddings.pkl"]
-    for path in paths:
-        if os.path.exists(path):
-            # st.session_state["my_embeddings"] = EmbeddingGroup.load(path=path)
-            with open(path, "rb") as f:
-                st.session_state["my_embeddings"] = pickle.load(f)
-            break
+    path = root_path / "my_embeddings.pkl"
+    with open(path, "rb") as f:
+        st.session_state["my_embeddings"] = pickle.load(f)
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
