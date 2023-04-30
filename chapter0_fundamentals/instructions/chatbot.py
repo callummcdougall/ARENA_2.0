@@ -3,6 +3,7 @@
 # imports
 
 import streamlit as st
+import sklearn
 import openai
 from openai.embeddings_utils import distances_from_embeddings
 from tensorboard import notebook

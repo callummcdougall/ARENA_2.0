@@ -1,6 +1,6 @@
+sklearn
 tiktoken
 openai
 plotly
 matplotlib
 scipy
-sklearn
