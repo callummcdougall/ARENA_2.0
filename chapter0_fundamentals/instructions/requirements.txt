@@ -1,3 +1,4 @@
 tiktoken
 openai
 plotly
+matplotlib
