@@ -8,15 +8,12 @@ import re
 # from st_on_hover_tabs import on_hover_tabs
 
 is_local = (platform.processor() != "")
-st.write(is_local)
 
 def read_from_html(filename):
-    try:
-        with open(filename) as f:
-            html = f.read()
-    except:
-        with open("chapter0_fundamentals/instructions/" + filename) as f:
-            html = f.read()
+    if not is_local:
+        filename = "chapter0_fundamentals/instructions/" + filename
+    with open(filename) as f:
+        html = f.read()
     call_arg_str = re.findall(r'Plotly\.newPlot\((.*)\)', html)[0]
     call_args = json.loads(f'[{call_arg_str}]')
     try:
