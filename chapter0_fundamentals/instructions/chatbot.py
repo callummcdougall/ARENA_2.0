@@ -24,19 +24,14 @@ import time
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
 # Get to chapter0_fundamentals directory (or whatever the chapter dir is)
-if os.getcwd().endswith("pages"):
-    os.chdir("..")
-if os.getcwd().endswith("instructions") or os.getcwd().endswith("exercises"):
-    os.chdir("..")
-if not os.getcwd().endswith("chapter0_fundamentals"):
-    if os.path.isdir("chapter0_fundamentals"):
-        os.chdir("chapter0_fundamentals")
-    else:
-        raise Exception(f"Current dir is {os.getcwd()}. Please navigate to the `chapter0_fundamentals` directory, using `os.chdir`.")
+import os, sys
+CHAPTER = r"chapter0_fundamentals"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+sys.path.append(chapter_dir + CHAPTER)
 
 from exercises.plotly_utils import hist
 
-openai.api_key = "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"
+openai.api_key = st.secrets["openai_api_key"]
 
 SEPARATOR = "\n" + "=" * 30 + "\n"
 

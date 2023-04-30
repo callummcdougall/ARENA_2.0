@@ -1,6 +1,11 @@
-import os
+import os, sys
 import streamlit as st
 # st.set_page_config(layout="wide")
+
+if os.getcwd().endswith("chapter0_fundamentals") and "./instructions" not in sys.path:
+    sys.path.append("./instructions")
+if os.getcwd().endswith("pages") and "../" not in sys.path:
+    sys.path.append("../")
 
 import st_dependencies
 st_dependencies.styling()
@@ -52,30 +57,30 @@ If you want to change to dark mode, you can do this by clicking the three horizo
 
 ### Option 1: Colab
 
-The simplest way to get these exercises up and running is to use Colab. This guarantees good GPU support, and means you'll spend less time messing around with environments and IDEs. Each set of exercises will have a link to the accompanying Colab notebook, which you should make a copy of and work through. The Colabs have essentially the same structure as the Streamlit pages.
+The simplest way to get these exercises up and running is to use Colab. This guarantees good GPU support, and means you'll spend less time messing around with environments and IDEs. Each set of exercises will have a link to the accompanying Colab notebook, which you should make a copy of and work through. The Colabs have the same exercises as these pages, although they are presented in a different way (with you filling out and running cells rather than working in your own IDE).
 
 [Here](https://drive.google.com/drive/folders/1YnTChxQTJnJfFhqyHA44h9Nro79AaYpn?usp=sharing) is the link to the folder containing all the Colabs, and the data you'll need. You can find the individual Colabs below:
 
 <div style='text-align: center'>
 <img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/raytracing.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Raytracing<br>[**exercises**](https://colab.research.google.com/drive/1tp-vd591FarVyn7pA2V9oYDqYiWmjEjF?usp=share_link) | [**solutions**](https://colab.research.google.com/drive/19QroufIT25oZ5yG7JGWL5Jp9IPcsq0d4?usp=sharing)
+Raytracing<br>[**exercises**](https://drive.google.com/file/d/1T3yXhK9CgK49HfN_x2WwD2CUv_bcPjA5/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/17qAsbvGChdA1zCjJ3QU8bv-4-rXpdppZ/view?usp=share_link)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/cnn.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-as_strided, convolutions and CNNs<br>[**exercises**](https://colab.research.google.com/drive/1hQE1inYldFI_mmpCiLbIW8yI2C-PxBev?usp=sharing) | [**solutions**](https://colab.research.google.com/drive/1VZk9ba3j7HJP9ChntblOoEAwxZukCgHn?usp=sharing)
+as_strided, convolutions and CNNs<br>[**exercises**](https://drive.google.com/file/d/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa/view?usp=share_link)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Build Your Own Backprop Framework<br>[**exercises**](https://colab.research.google.com/drive/1n-OG0x7kZfZaMCNO-S4L86-W6bE_jiVz?usp=sharing) | [**solutions**](https://colab.research.google.com/drive/1K3f_ebaaHDufnGbn_zzzTisejXTM_b01?usp=sharing)
+Build Your Own Backprop Framework<br>[**exercises**](https://drive.google.com/file/d/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu/view?usp=share_link)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/resnet.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-ResNets & Model Training: Links to Colab<br>[**exercises**](https://colab.research.google.com/drive/1N1Cu13q4dk2Z0qYgdy7Cnb6ESAlOu5ge?usp=sharing) | [**solutions**](https://colab.research.google.com/drive/1obMRz1Y9iXrJbQBXaYCBS61S-mxOIhWO?usp=sharing)
+ResNets & Model Training: Links to Colab<br>[**exercises**](https://drive.google.com/file/d/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD/view?usp=share_link)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/stats.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Optimization & Hyperparameters<br>[**exercises**](https://colab.research.google.com/drive/1Wi_SVL8eDYiNcmcmUeF4GfkNfQKT6x3O?usp=sharing) | [**solutions**](https://colab.research.google.com/drive/1JfIRCJZ_Fi_WJGneuOKKqF_qsxJfdbfZ?usp=sharing)
+Optimization & Hyperparameters<br>[**exercises**](https://drive.google.com/file/d/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP/view?usp=share_link)
 </div>
 
 You can make a copy of the **exercises** notebooks in your own drive, and fill in the code cells whenever indicated. The solutions will be available in dropdowns next to each of the code cells. You can also look at the **solutions** notebooks if you're just interested in the output (since they have all the correct code filled in, and all the output on display within the notebook).
@@ -93,13 +98,13 @@ Full instructions for running the exercises in this way:
 * Install requirements.
     * First, install PyTorch using the following command: `conda install pytorch=1.11.0 torchdata torchvision -c pytorch -y`.
     * Then install the rest of the requirements by navigating to the directory and running `pip install -r requirements.txt`.
-* While in the directory, run `streamlit run Home.py` in your terminal (this should work since Streamlit is one of the libraries in `requirements.txt`).
+* Next, navigate to the `instructions` directory, and run `streamlit run Home.py` in your terminal (this should work since Streamlit is one of the libraries in `requirements.txt`).
     * This should open up a local copy of the page you're reading right now, and you're good to go!
 
 To complete one of the exercise pages, you should:
 
-* Navigate to `exercises` in the repo
-* Create a file called `part1_answers.py` (or `part1_answers.ipynb` if you prefer using notebooks)
+* Navigate to the appropriate directory in the repo (e.g. `exercises/part1_raytracing` for the first set of exercises)
+* Create a file called `answers.py`
 * Go through the Streamlit page, and copy over / fill in then run the appropriate code as you go through the exercises.
 
 ### Chatbot assistant
@@ -108,7 +113,7 @@ In the sidebar of this page, below the contents page, you will (at first) see an
 
 * Go to the [OpenAI API](https://openai.com/blog/openai-api) and sign up for an account.
 * Create a secret key from [this page](https://platform.openai.com/account/api-keys). Copy this key.
-* Create a file `.streamlit/secrets.toml` in this repo, and have the first line read `api_secret = "<your key>"`.
+* Create a file `.streamlit/secrets.toml` in this repo, and have the first line read `openai_api_key = "<your key>"`.
 * Refresh the page, and you should now be able to use the chatbot.
 
 This interface was built using the `openai` library, and it exists to help answer questions you might have about the material. All prompts from this chatbot are prepended with most\* of the material on the page and section you're currently reading. For instance, try passing in the question ***What are 2 ways to use this material?*** to the chatbot, and it should describe the two options given above (i.e. colab, or your own IDE). This feature is very experimental, so please [let me know](mailto:cal.s.mcdougall@gmail.com) if you have any feedback!
@@ -161,10 +166,4 @@ If you have any feedback on this course (e.g. bugs, confusing explanations, part
 
 # if is_local or check_password():
 
-def page():
-    section_home()
-    current_page = r"home"
-    st.session_state["current_page"] = [current_page, st.session_state["current_page"][0]]
-    new_page = st.session_state["current_page"][0] != st.session_state["current_page"][1]
-
-page()
+section_home()

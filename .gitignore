@@ -10,3 +10,4 @@
 *.chroma
 *.pytest_cache
 *data
+secrets.toml

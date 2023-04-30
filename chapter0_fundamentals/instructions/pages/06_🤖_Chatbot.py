@@ -6,15 +6,14 @@ import pickle
 
 # Get to the right directory: the streamlit one (not pages)
 # Get to chapter0_fundamentals directory (or whatever the chapter dir is)
-if os.path.exists("chapter0_fundamentals"):
-    os.chdir("chapter0_fundamentals")
-if "chapter0_fundamentals" not in os.getcwd():
-    raise Exception(f"Current dir is {os.getcwd()}. Please navigate to the `chapter0_fundamentals` directory, using `os.chdir`.")
-while not os.getcwd().endswith("chapter0_fundamentals"):
-    os.chdir("..")
 
 from pathlib import Path
-from instructions.chatbot import answer_question, Embedding, EmbeddingGroup
+from chatbot import answer_question, Embedding, EmbeddingGroup
+
+if os.getcwd().endswith("chapter0_fundamentals") and "./instructions" not in sys.path:
+    sys.path.append("./instructions")
+if os.getcwd().endswith("pages") and "../" not in sys.path:
+    sys.path.append("../")
 
 MAIN = __name__ == "__main__"
 
@@ -33,7 +32,7 @@ names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # %%
 
 if "my_embeddings" not in st.session_state:
-    path = Path.cwd() / "instructions/my_embeddings.pkl"
+    path = "my_embeddings.pkl"
     # st.session_state["my_embeddings"] = EmbeddingGroup.load(path=path)
     with path.open("rb") as f:
         st.session_state["my_embeddings"] = pickle.load(f)
