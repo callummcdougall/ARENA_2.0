@@ -2,3 +2,4 @@ tiktoken
 openai
 plotly
 matplotlib
+scipy
