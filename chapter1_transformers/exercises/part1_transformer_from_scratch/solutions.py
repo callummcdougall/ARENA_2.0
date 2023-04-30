@@ -16,10 +16,9 @@ import torch.nn as nn
 import numpy as np
 import math
 from tqdm.notebook import tqdm
-from pathlib import Path
-from typing import Callable, Tuple, Dict, List, Optional
-import sys
+from typing import Tuple, List, Optional
 from jaxtyping import Float, Int
+from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 from collections import defaultdict
 from rich.table import Table
 from rich import print as rprint
@@ -28,7 +27,6 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 import wandb
-import time
 
 from plotly_utils import imshow
 # import part1_transformer_from_scratch.solutions as solutions
@@ -312,7 +310,6 @@ class Attention(nn.Module):
 	def forward(
 		self, normalized_resid_pre: Float[Tensor, "batch posn d_model"]
 	) -> Float[Tensor, "batch posn d_model"]:
-		
 
 		# Calculate query, key and value vectors
 		q = einops.einsum(
@@ -385,7 +382,6 @@ class MLP(nn.Module):
 	def forward(
 		self, normalized_resid_mid: Float[Tensor, "batch posn d_model"]
 	) -> Float[Tensor, "batch posn d_model"]:
-		
 		pre = einops.einsum(
 			normalized_resid_mid, self.W_in,
 			"batch position d_model, d_model d_mlp -> batch position d_mlp", 
@@ -417,7 +413,6 @@ class TransformerBlock(nn.Module):
 	def forward(
 		self, resid_pre: Float[Tensor, "batch position d_model"]
 	) -> Float[Tensor, "batch position d_model"]:
-		
 		resid_mid = self.attn(self.ln1(resid_pre)) + resid_pre
 		resid_post = self.mlp(self.ln2(resid_mid)) + resid_mid
 		return resid_post
@@ -441,7 +436,6 @@ class Unembed(nn.Module):
 	def forward(
 		self, normalized_resid_final: Float[Tensor, "batch position d_model"]
 	) -> Float[Tensor, "batch position d_vocab"]:
-		
 		return einops.einsum(
 			normalized_resid_final, self.W_U,
 			"batch posn d_model, d_model d_vocab -> batch posn d_vocab",
@@ -467,7 +461,6 @@ class DemoTransformer(nn.Module):
 		self.unembed = Unembed(cfg)
 
 	def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
-		# tokens [batch, position]
 		residual = self.embed(tokens) + self.pos_embed(tokens)
 		for block in self.blocks:
 			residual = block(residual)
@@ -525,7 +518,7 @@ if MAIN:
 	
 	print(test_string)
 
-# %%
+# %% 3️⃣ TRAINING A TRANSFORMER
 
 
 if MAIN:
@@ -652,11 +645,7 @@ if MAIN:
 	
 	print(f"Entropy of training data = {entropy}")
 
-# %%
-
-from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
-
-# %%
+# %% 4️⃣ SAMPLING FROM A TRANSFORMER
 
 
 if MAIN:
@@ -665,71 +654,6 @@ if MAIN:
 	model.load_state_dict(reference_gpt2.state_dict(), strict=False)
 	
 	tokenizer = reference_gpt2.tokenizer
-
-# %%
-
-def print_sequences(name, logitsums_and_completions, tokenizer: GPT2TokenizerFast, max_print_chars=84):
-	'''
-	Prints out a set of sequences with their corresponding logitsums.
-
-	prefix: message which is printed out before any of the sequences (to provide context)
-	logitsums_and_completions: list of tuples of (logitsum: float, completion: List[int])
-	tokenizer: used to decode the completion
-	'''
-	if len(logitsums_and_completions) == 0: 
-		return
-	table = Table("logitsum", "completion", title=name)
-	for logitsums_and_completion in logitsums_and_completions:
-		logit_sum, completion = logitsums_and_completion[:2]
-		text = tokenizer.decode(completion)
-		if len(repr(text)) > max_print_chars:
-			text = text[:int(0.3 * max_print_chars)] + " ... " + text[-int(0.7 * max_print_chars):]
-		table.add_row(f"{logit_sum:>8.3f}", repr(text))
-	rprint(table)
-
-
-def sort_by_logits_and_crop(logitsums_and_completions, max_size):
-	'''
-	Given a list of tuples of (logitsum: float, completion: List[int]), returns the same
-	list sorted in descending order of logitsum (and cropped to size max_size).
-	'''
-	logitsums_and_completions = sorted(logitsums_and_completions, key=lambda x: x[0], reverse=True)
-	logitsums_and_completions = logitsums_and_completions[:min(max_size, len(logitsums_and_completions))]
-	return logitsums_and_completions
-
-
-def get_topk_non_repeating(
-	logprobs: Float[Tensor, "d_vocab"], 
-	completion: List[int], 
-	k: int, 
-	no_repeat_ngram_size: int
-) -> Tuple[Float[Tensor, "k"], Int[Tensor, "k"]]:
-	'''
-	logprobs: tensor of the log-probs for the next token
-	completion: list of token ids up to (not including) the next token
-	k: number of top logits to return
-	no_repeat_ngram_size: size of ngram to avoid repeating
-
-	Returns the top k logits which don't produce a repeating ngram of size `no_repeat_ngram_size`,
-	when appended onto the indices in `completion`. Should return in the form (values, indices), 
-	like the standard output of torch.topk.
-	'''
-	# If completion isn't long enough for a repetition, or we have no restructions, just return topk
-	if (len(completion) <= no_repeat_ngram_size-1) or (no_repeat_ngram_size == 0):
-		return logprobs.topk(k=k)
-	
-	# Otherwise, we need to check for ngram repetitions
-	# First, get the most recent (no_repeat_ngram_size-1) tokens
-	last_ngram_prefix = completion[-(no_repeat_ngram_size-1):]
-	# Next, find all the tokens we're not allowed to generate
-	banned_tokens_mask = t.zeros_like(logprobs).bool()
-	for i in range(len(completion) - (no_repeat_ngram_size-1)):
-		ngram = completion[i:i+no_repeat_ngram_size]
-		if ngram[:-1] == last_ngram_prefix:
-			banned_tokens_mask[ngram[-1]] = True
-	# Finally, get our actual tokens
-	output_masked = t.where(banned_tokens_mask, t.tensor(-1.0e4).to(device), logprobs)
-	return output_masked.topk(k=k)
 
 # %%
 
@@ -751,7 +675,6 @@ class TransformerSampler:
 		kwargs are passed to sample_next_token, to give detailed instructions on how 
 		new tokens are chosen.
 		'''
-		
 		self.model.eval()
 		input_ids = self.tokenizer.encode(prompt, return_tensors="pt").to(device)[0]
 
@@ -773,6 +696,7 @@ class TransformerSampler:
 		
 		return self.tokenizer.decode(input_ids)
 	
+	
 	@t.inference_mode()
 	def beam_search(
 		self,
@@ -793,6 +717,7 @@ class TransformerSampler:
 		new tokens are chosen.
 		'''
 		raise NotImplementedError()
+	
 
 	@staticmethod
 	def sample_next_token(
@@ -828,29 +753,29 @@ class TransformerSampler:
 			return TransformerSampler.sample_top_p(logits, top_p)
 		return TransformerSampler.sample_basic(logits)
 
+
 	@staticmethod
 	def greedy_search(logits: Float[Tensor, "d_vocab"]) -> int:
 		'''
 		Returns the most likely token (as an int).
 		'''
-		# SOLUTION; # TODO: implement greedy search; raise NotImplementedError()
 		out = logits.argmax().item()
 		return out
 	
+
 	@staticmethod
 	def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
 		'''
 		Applies temperature scaling to the logits.
 		'''
-		# SOLUTION; # TODO: implement temperature; raise NotImplementedError()
 		return logits / temperature
 	
+
 	@staticmethod
 	def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
 		'''
 		Applies a frequency penalty to the logits.
 		'''
-		# SOLUTION; # TODO: implement frequency penalty; raise NotImplementedError()
 		d_vocab = logits.size(0)
 		id_freqs = t.bincount(input_ids, minlength=d_vocab)
 		return logits - freq_penalty * id_freqs
@@ -861,28 +786,27 @@ class TransformerSampler:
 		'''
 		Samples from the distribution defined by the logits.
 		'''
-		# SOLUTION; # TODO: implement basic sampling; raise NotImplementedError()
 		sampled_token = t.distributions.categorical.Categorical(logits=logits).sample()
 		return sampled_token.item()
 	
+
 	@staticmethod
 	def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
 		'''
 		Samples from the top k most likely tokens.
 		'''
-		# SOLUTION; # TODO: implement top-k sampling; raise NotImplementedError()
 		top_k_logits, top_k_token_ids = logits.topk(k)
 		# Get sampled token (which is an index corresponding to the list of top-k tokens)
 		sampled_token_idx = t.distributions.categorical.Categorical(logits=top_k_logits).sample()
 		# Get the actual token id, as an int
 		return top_k_token_ids[sampled_token_idx].item()
 	
+
 	@staticmethod
 	def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
 		'''
 		Samples from the most likely tokens which make up at least p cumulative probability.
 		'''
-		# SOLUTION; # TODO: implement top-p sampling; raise NotImplementedError()
 		# Sort logits, and get cumulative probabilities
 		logits_sorted, indices = logits.sort(descending=True, stable=True)
 		cumul_probs = logits_sorted.softmax(-1).cumsum(-1)

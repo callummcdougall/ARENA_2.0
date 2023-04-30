@@ -160,11 +160,17 @@ ul.contents a:hover {
     color: black;
     text-decoration: underline;
 }
+.css-ffhzg2 details {
+    background-color: #333;
+}
+.css-fg4pbf details {
+    background-color: #eee;
+}
 details {
     margin-bottom: 10px;
-    padding: 5px 15px 1px;
-    background-color: #eee;
-    border-radius: 10px;
+    padding: 0px 10px;
+    padding-top:5px;
+    padding-bottom:1px;
 }
 summary {
     margin-bottom: 5px;
