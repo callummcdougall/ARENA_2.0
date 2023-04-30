@@ -3,3 +3,4 @@ openai
 plotly
 matplotlib
 scipy
+sklearn
