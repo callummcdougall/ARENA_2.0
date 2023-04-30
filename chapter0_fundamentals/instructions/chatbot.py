@@ -105,8 +105,8 @@ class EmbeddingGroup:
     #         **kwargs,
     #     )
 
-    def save(self, path: Path = Path("my_embeddings.pkl")):
-        with path.open('wb') as f:
+    def save(self, path: Union[str, Path] = "my_embeddings.pkl"):
+        with open(path, 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     def filter(
