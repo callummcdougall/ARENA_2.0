@@ -11,7 +11,8 @@ is_local = (platform.processor() != "")
 while "chapter" in os.getcwd():
     os.chdir("..")
 # Now with this reference point, we can add things to sys.path
-root_dir = os.getcwd() + r"\chapter0_fundamentals\instructions"
+root_suffix = r"\chapter0_fundamentals\instructions" if is_local else "/chapter0_fundamentals/instructions"
+root_dir = os.getcwd() + root_suffix
 root_path = Path(root_dir)
 if root_dir not in sys.path: sys.path.append(root_dir)
 
