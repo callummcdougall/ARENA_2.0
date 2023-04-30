@@ -3,6 +3,7 @@
 import os
 import streamlit as st
 import pickle
+import sys
 
 # Get to the right directory: the streamlit one (not pages)
 # Get to chapter0_fundamentals directory (or whatever the chapter dir is)
@@ -34,7 +35,7 @@ names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 if "my_embeddings" not in st.session_state:
     path = "my_embeddings.pkl"
     # st.session_state["my_embeddings"] = EmbeddingGroup.load(path=path)
-    with path.open("rb") as f:
+    with open(path, "rb") as f:
         st.session_state["my_embeddings"] = pickle.load(f)
 if "history" not in st.session_state:
     st.session_state["history"] = []
