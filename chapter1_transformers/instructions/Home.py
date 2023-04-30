@@ -44,7 +44,7 @@ st.sidebar.markdown(r"""
 def section_home():
     # start
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/transformers/magnifying-glass-2.png" width="600">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/magnifying-glass-2.png" width="600">
 
 # Chapter 1: Transformers & Mechanistic Interpretability 
 
