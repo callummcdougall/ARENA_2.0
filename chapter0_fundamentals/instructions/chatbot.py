@@ -2,23 +2,18 @@
 
 # imports
 
-import streamlit as st
 import sklearn
+import streamlit as st
 import openai
 from openai.embeddings_utils import distances_from_embeddings
-from tensorboard import notebook
 import torch as t
-import numpy as np
 import pandas as pd
 import tiktoken
 from pathlib import Path
-import plotly.express as px
-import plotly.graph_objects as go
 import os
-from transformer_lens import utils
 from tqdm.notebook import tqdm
 import torch as t
-from typing import List, Optional, Dict, Union, Callable
+from typing import List, Dict, Union, Callable
 import pickle
 from dataclasses import dataclass
 import time
