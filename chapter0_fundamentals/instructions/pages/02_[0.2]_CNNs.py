@@ -2533,4 +2533,22 @@ In subsequent exercises, we'll proceed to a more advanced architecture: residual
 
 """, unsafe_allow_html=True)
 
-section_0()
+
+func_page_list = [
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Einops and Einsum'),     (section_2, '2️⃣ Array strides'),     (section_3, '3️⃣ Convolutions'),     (section_4, '4️⃣ Making your own modules'), 
+]
+
+func_list = [func for func, page in func_page_list]
+page_list = [page for func, page in func_page_list]
+
+page_dict = dict(zip(page_list, range(len(page_list))))
+
+def page():
+    with st.sidebar:
+        radio = st.radio("Section", page_list)
+        st.markdown("---")
+    idx = page_dict[radio]
+    func = func_list[idx]
+    func()
+
+page()

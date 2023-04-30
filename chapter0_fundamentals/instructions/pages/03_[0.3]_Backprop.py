@@ -3351,4 +3351,22 @@ So far we've registered a separate backwards for each input argument that could 
 
 """, unsafe_allow_html=True)
 
-section_0()
+
+func_page_list = [
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Introduction'),     (section_2, '2️⃣ Autograd'),     (section_3, '3️⃣ More forward & backward functions'),     (section_4, '4️⃣ Putting everything together'),     (section_5, '5️⃣ Bonus'), 
+]
+
+func_list = [func for func, page in func_page_list]
+page_list = [page for func, page in func_page_list]
+
+page_dict = dict(zip(page_list, range(len(page_list))))
+
+def page():
+    with st.sidebar:
+        radio = st.radio("Section", page_list)
+        st.markdown("---")
+    idx = page_dict[radio]
+    func = func_list[idx]
+    func()
+
+page()

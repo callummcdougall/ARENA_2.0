@@ -2075,4 +2075,22 @@ Congratulations for finishing the exercises! In the next day, we'll dig a bit de
 
 """, unsafe_allow_html=True)
 
-section_0()
+
+func_page_list = [
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Building & Training a CNN'),     (section_2, '2️⃣ Assembling ResNet'),     (section_3, '3️⃣ ResNet feature extraction'), 
+]
+
+func_list = [func for func, page in func_page_list]
+page_list = [page for func, page in func_page_list]
+
+page_dict = dict(zip(page_list, range(len(page_list))))
+
+def page():
+    with st.sidebar:
+        radio = st.radio("Section", page_list)
+        st.markdown("---")
+    idx = page_dict[radio]
+    func = func_list[idx]
+    func()
+
+page()
