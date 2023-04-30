@@ -8,6 +8,7 @@ import re
 # from st_on_hover_tabs import on_hover_tabs
 
 is_local = (platform.processor() != "")
+st.write(is_local)
 
 def read_from_html(filename):
     try:
