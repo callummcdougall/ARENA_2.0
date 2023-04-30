@@ -10,8 +10,12 @@ import re
 is_local = (platform.processor() != "")
 
 def read_from_html(filename):
-    with open(filename) as f:
-        html = f.read()
+    try:
+        with open(filename) as f:
+            html = f.read()
+    except:
+        with open("chapter0_funamentals/instructions/" + filename) as f:
+            html = f.read()
     call_arg_str = re.findall(r'Plotly\.newPlot\((.*)\)', html)[0]
     call_args = json.loads(f'[{call_arg_str}]')
     try:
