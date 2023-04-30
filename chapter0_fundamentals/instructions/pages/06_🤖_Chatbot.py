@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
+if "./chapter0_fundamentals/instructions" not in sys.path:
+    sys.path.append("./chapter0_fundamentals/instructions")
 if os.getcwd().endswith("chapter0_fundamentals") and "./instructions" not in sys.path:
     sys.path.append("./instructions")
 if os.getcwd().endswith("pages") and "../" not in sys.path:
@@ -33,10 +35,13 @@ names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # %%
 
 if "my_embeddings" not in st.session_state:
-    path = "my_embeddings.pkl"
-    # st.session_state["my_embeddings"] = EmbeddingGroup.load(path=path)
-    with open(path, "rb") as f:
-        st.session_state["my_embeddings"] = pickle.load(f)
+    paths = ["my_embeddings.pkl", "instructions/my_embeddings.pkl"]
+    for path in paths:
+        if os.path.exists(path):
+            # st.session_state["my_embeddings"] = EmbeddingGroup.load(path=path)
+            with open(path, "rb") as f:
+                st.session_state["my_embeddings"] = pickle.load(f)
+            break
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
