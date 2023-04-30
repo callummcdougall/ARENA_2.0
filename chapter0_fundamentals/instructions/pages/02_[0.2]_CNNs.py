@@ -189,7 +189,7 @@ A series of images follow below, which have been created using `einops` function
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("../media/fundamentals/fig1.html")
+    fig = st_dependencies.read_from_html("media/fig1.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
