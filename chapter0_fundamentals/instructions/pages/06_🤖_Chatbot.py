@@ -38,7 +38,7 @@ for stem in [".", "instructions", "..", "chapter0_fundamentals"]:
 # %%
 
 if "my_embeddings" not in st.session_state:
-    paths = ["my_embeddings.pkl", "instructions/my_embeddings.pkl"]
+    paths = ["my_embeddings.pkl", "instructions/my_embeddings.pkl", "chapter0_fundamentals/instructions/my_embeddings.pkl"]
     for path in paths:
         if os.path.exists(path):
             # st.session_state["my_embeddings"] = EmbeddingGroup.load(path=path)
