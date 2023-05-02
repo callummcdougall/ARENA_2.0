@@ -6,6 +6,8 @@ import pickle
 import sys
 import platform
 from pathlib import Path
+import st_dependencies
+st.set_page_config(layout="wide", page_icon="🔬")
 
 is_local = (platform.processor() != "")
 
@@ -51,6 +53,24 @@ You can configure the chatbot with the settings on the right hand side:
 * **Temperature** controls the temperature parameter of the chatbot's output, or how "creative" the chatbot is.
 * **Include solutions in context?** controls whether solutions to exercises are included in the model's context. You should generally not do this, unless you're e.g. asking for hints about the solution.
 """)
+
+# with st.expander("Click here to see examples of chatbot use."):   
+video = open('chapter0_fundamentals/instructions/media/chatbot_demo_small.mp4', 'rb').read()
+# cols = st.columns(2)
+# with cols[0]:
+#     st.markdown("### Video of chatbot in action:")
+#     st.video(video)
+tabs = st.tabs(["*(instructions)*", "Video demo", "Example #1", "Example #2"])
+with tabs[0]:
+    st.markdown("Click through the tabs above to see examples of the chatbot in action.")
+with tabs[1]:
+    with st.columns(2)[0]: st.video(video)
+with tabs[2]:
+    st.markdown(r"""<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/example1.png" width="700">""", unsafe_allow_html=True)
+with tabs[3]:
+    st.markdown(r"""<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/example2.png" width="700">""", unsafe_allow_html=True)
+
+st.markdown("")
 
 question = st.text_area(
     label = "Prompt:", 

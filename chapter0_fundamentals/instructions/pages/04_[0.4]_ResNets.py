@@ -3,6 +3,8 @@ import streamlit as st
 import st_dependencies
 st_dependencies.styling()
 
+import platform
+is_local = (platform.processor() != "")
 
 def section_0():
 
@@ -101,6 +103,12 @@ import json
 import pandas as pd
 import pytorch_lightning as pl
 from jaxtyping import Float, Int
+
+# Make sure exercises are in the path
+CHAPTER = r"chapter0_fundamentals"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
 
 from part2_cnns.solutions import *
 from part4_resnets.utils import print_param_count

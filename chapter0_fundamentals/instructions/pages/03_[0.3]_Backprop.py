@@ -3,6 +3,8 @@ import streamlit as st
 import st_dependencies
 st_dependencies.styling()
 
+import platform
+is_local = (platform.processor() != "")
 
 def section_0():
 
@@ -112,6 +114,12 @@ from tqdm import tqdm
 
 Arr = np.ndarray
 grad_tracking_enabled = True
+
+# Make sure exercises are in the path
+CHAPTER = r"chapter0_fundamentals"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
 
 import part3_backprop.tests as tests
 from part3_backprop.utils import *

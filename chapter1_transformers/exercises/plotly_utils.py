@@ -1,11 +1,11 @@
 import torch as t
-from typing import List, Union
+from typing import List, Union, Optional
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import re
-from transformer_lens import utils
+from transformer_lens import utils, HookedTransformer
 
 update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap"}
 
@@ -110,3 +110,35 @@ def hist(tensor, renderer=None, **kwargs):
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     px.histogram(x=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+
+def plot_comp_scores(model, comp_scores, title: str = "", baseline: Optional[t.Tensor] = None) -> go.Figure:
+    return px.imshow(
+        utils.to_numpy(comp_scores),
+        y=[f"L0H{h}" for h in range(model.cfg.n_heads)],
+        x=[f"L1H{h}" for h in range(model.cfg.n_heads)],
+        labels={"x": "Layer 1", "y": "Layer 0"},
+        title=title,
+        color_continuous_scale="RdBu" if baseline is not None else "Blues",
+        color_continuous_midpoint=baseline if baseline is not None else None,
+        zmin=None if baseline is not None else 0.0,
+    )
+
+def convert_tokens_to_string(model: HookedTransformer, tokens, batch_index=0):
+    '''
+    Helper function to convert tokens into a list of strings, for printing.
+    '''
+    if len(tokens.shape) == 2:
+        tokens = tokens[batch_index]
+    return [f"|{model.tokenizer.decode(tok)}|_{c}" for (c, tok) in enumerate(tokens)]
+
+
+def plot_logit_attribution(model: HookedTransformer, logit_attr: t.Tensor, tokens: t.Tensor, title: str = ""):
+    tokens = tokens.squeeze()
+    y_labels = convert_tokens_to_string(model, tokens[:-1])
+    x_labels = ["Direct"] + [f"L{l}H{h}" for l in range(model.cfg.n_layers) for h in range(model.cfg.n_heads)]
+    imshow(
+        utils.to_numpy(logit_attr), 
+        x=x_labels, y=y_labels, 
+        labels={"x": "Term", "y": "Position", "color": "logit"}, title=title if title else None, 
+        height=18*len(y_labels), width=24*len(x_labels)
+    )

@@ -32,6 +32,7 @@ accelerate
 pre-commit
 diffusers
 torchtyping
+gdown
 jaxtyping
 typeguard
 streamlit

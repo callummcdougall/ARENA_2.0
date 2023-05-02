@@ -17,6 +17,12 @@ import pytorch_lightning as pl
 from dataclasses import dataclass
 import numpy as np
 
+# Make sure exercises are in the path
+CHAPTER = r"chapter0_fundamentals"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+
 from plotly_utils import bar, imshow
 from part4_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
 from part5_optimization.utils import plot_fn, plot_fn_with_points

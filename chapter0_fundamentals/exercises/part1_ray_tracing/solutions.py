@@ -16,8 +16,13 @@ import plotly.graph_objects as go
 from ipywidgets import interact
 from IPython.display import display
 
-from plotly_utils import imshow
+# Make sure exercises are in the path
+CHAPTER = r"chapter0_fundamentals"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
 
+from plotly_utils import imshow
 from part1_raytracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
 import part1_raytracing.tests as tests
 # import part1_raytracing.solutions as solutions

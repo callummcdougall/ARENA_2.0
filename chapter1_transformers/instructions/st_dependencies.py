@@ -166,7 +166,8 @@ ul.contents a:hover {
 }
 details {
     margin-bottom: 10px;
-    padding: 0px 10px;
+    padding-left: 15px;
+    padding-right: 15px;
     padding-top:5px;
     padding-bottom:1px;
 }
@@ -185,6 +186,3 @@ summary {
 #     background-color: #f9f5ff;
 #     padding: 15px;
 # }
-
-def concat_lists(lists):
-    return [item for sublist in lists for item in sublist]

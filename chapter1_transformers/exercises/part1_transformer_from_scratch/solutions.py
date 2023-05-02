@@ -27,6 +27,13 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 import wandb
+import webbrowser
+
+# Make sure exercises are in the path
+CHAPTER = r"chapter1_transformers"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
 
 from plotly_utils import imshow
 # import part1_transformer_from_scratch.solutions as solutions
@@ -98,9 +105,7 @@ if MAIN:
 
 
 if MAIN:
-	log_probs = logits.log_softmax(dim=-1)
-	probs = logits.log_softmax(dim=-1)
-	print(log_probs.shape)
+	probs = logits.softmax(dim=-1)
 	print(probs.shape)
 
 # %%

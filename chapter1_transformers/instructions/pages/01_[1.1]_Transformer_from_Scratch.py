@@ -124,6 +124,13 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 import wandb
+import webbrowser
+
+# Make sure exercises are in the path
+CHAPTER = r"chapter1_transformers"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
 
 from plotly_utils import imshow
 # import part1_transformer_from_scratch.solutions as solutions
@@ -339,6 +346,8 @@ TransformerLens adds this token automatically (including in forward passes of tr
 
 **Key Point: *If you get weird off-by-one errors, check whether there's an unexpected `prepend_bos`!***
 
+Why are the BOS, EOS and PAD tokens the same? This is because GPT-2 is an autoregressive model, and uses these kinds of tokens in a slightly different way to other transformer families (e.g. BERT). For instance, GPT has no need to distinguish between BOS and EOS tokens, because it only processes text from left to right.
+
 </details>
 
 ### Some tokenization annoyances
@@ -425,9 +434,7 @@ This doesn't change the shape, it is still `[batch, seq_len, vocab_size]`.
 ```python
 
 if MAIN:
-    log_probs = logits.log_softmax(dim=-1)
-    probs = logits.log_softmax(dim=-1)
-    print(log_probs.shape)
+    probs = logits.softmax(dim=-1)
     print(probs.shape)
 
 ```
@@ -889,6 +896,7 @@ class LayerNorm(nn.Module):
         pass
 
 
+
 if MAIN:
     rand_float_test(LayerNorm, [2, 4, 768])
     load_gpt2_test(LayerNorm, reference_gpt2.ln_final, cache["resid_post", 11])
@@ -921,7 +929,7 @@ class LayerNorm(nn.Module):
 ## Embedding
 
 
-Basically a lookup table from tokens to residual stream vectors.
+This is basically a lookup table from tokens to residual stream vectors.
 
 (Hint - you can implement this in just one line!)
 
@@ -936,6 +944,7 @@ class Embed(nn.Module):
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
         pass
+
 
 
 if MAIN:
@@ -976,6 +985,9 @@ class Embed(nn.Module):
 ## Positional Embedding
 
 
+Positional embedding can also be thought of as a lookup table, but rather than the indices being our token IDs, the indices are just the numbers `0`, `1`, `2`, ..., `seq_len-1` (i.e. the position indices of the tokens in the sequence).
+
+
 ```python
 class PosEmbed(nn.Module):
     def __init__(self, cfg: Config):
@@ -987,6 +999,7 @@ class PosEmbed(nn.Module):
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
         
         pass
+
 
 
 if MAIN:
@@ -1111,25 +1124,27 @@ You can also use the `attention_heads` function, which has similar syntax but pr
 
 
 <details>
-<summary>Help - my rendered output is behaving weirdly.</summary>
+<summary>Help - my <code>attention_heads</code> plots are behaving weirdly.</summary>
 
-The circuitsvis library can be a bit unpredictable. If you're having trouble rendering the output, try saving it as an html file, then opening it in your browser. You can do this all in code, with the following code:
+This seems to be a bug in `circuitsvis` - on VSCode, the attention head plots continually shrink in size.
+
+Until this is fixed, one way to get around it is to open the plots in your browser. You can do this inline with the `webbrowser` library:
 
 ```python
-import webbrowser
+attn_heads = cv.attention.attention_heads(
+    tokens=reference_gpt2.to_str_tokens(reference_text), 
+    attention=cache["pattern", 0][0]
+)
 
-filename = "attention.html"
+path = "attn_heads.html"
 
-with open(filename, "w") as f:
-    f.write(str(cv.attention.attention_patterns(
-        tokens=reference_gpt2.to_str_tokens(reference_text), 
-        attention=cache["pattern", 0][0]
-    )))
+with open(path, "w") as f:
+    f.write(str(attn_heads))
 
-webbrowser.open(filename);
+webbrowser.open(path)
 ```
 
-Note that the `cv.attention.attention_patterns` function returns an object of type `RenderedHTML`, which needs to be converted to a string before being saved.
+To check exactly where this is getting saved, you can print your current working directory with `os.getcwd()`.
 </details>
 
 
@@ -1181,6 +1196,7 @@ class Attention(nn.Module):
     ) -> Float[Tensor, "batch posn d_model"]:
         pass
 
+
     def apply_causal_mask(
         self, attn_scores: Float[Tensor, "batch n_heads query_pos key_pos"]
     ) -> Float[Tensor, "batch n_heads query_pos key_pos"]:
@@ -1188,6 +1204,7 @@ class Attention(nn.Module):
         Applies a causal mask to attention scores, and returns masked scores.
         '''
         pass
+
 
 
 if MAIN:
@@ -1331,6 +1348,7 @@ class MLP(nn.Module):
         pass
 
 
+
 if MAIN:
     rand_float_test(MLP, [2, 4, 768])
     load_gpt2_test(MLP, reference_gpt2.blocks[0].mlp, cache["normalized", 0, "ln2"])
@@ -1390,6 +1408,7 @@ class TransformerBlock(nn.Module):
         pass
 
 
+
 if MAIN:
     rand_float_test(TransformerBlock, [2, 4, 768])
     load_gpt2_test(TransformerBlock, reference_gpt2.blocks[0], cache["resid_pre", 0])
@@ -1437,6 +1456,7 @@ class Unembed(nn.Module):
         self, normalized_resid_final: Float[Tensor, "batch position d_model"]
     ) -> Float[Tensor, "batch position d_vocab"]:
         pass
+
 
 
 if MAIN:
@@ -1487,6 +1507,7 @@ class DemoTransformer(nn.Module):
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
         pass
+
 
 
 if MAIN:
@@ -1785,11 +1806,13 @@ class LitTransformer(pl.LightningModule):
         '''
         pass
 
+
     def configure_optimizers(self):
         '''
         Choose what optimizers and learning-rate schedulers to use in your optimization.
         '''
         pass
+
 
 
 ```
@@ -1993,6 +2016,7 @@ class TransformerSampler:
         '''
         pass
 
+
     @t.inference_mode()
     def beam_search(
         self,
@@ -2057,12 +2081,14 @@ class TransformerSampler:
         '''
         pass
 
+
     @staticmethod
     def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
         '''
         Applies temperature scaling to the logits.
         '''
         pass
+
 
     @staticmethod
     def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
@@ -2071,12 +2097,14 @@ class TransformerSampler:
         '''
         pass
 
+
     @staticmethod
     def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
         '''
         Samples from the distribution defined by the logits.
         '''
         pass
+
 
     @staticmethod
     def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
@@ -2085,12 +2113,14 @@ class TransformerSampler:
         '''
         pass
 
+
     @staticmethod
     def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
         '''
         Samples from the most likely tokens which make up at least p cumulative probability.
         '''
         pass
+
 
 
 ```
@@ -2823,6 +2853,7 @@ class Beams:
         '''
         pass
 
+
     def filter(self, num_beams: int) -> Tuple["Beams", "Beams"]:
         '''
         Returns:
@@ -2834,6 +2865,7 @@ class Beams:
                 i.e. the sum of lengths of these two should equal `num_beams`.
         '''
         pass
+
 
     def print(self, title="Best completions", max_print_chars=80) -> None:
         '''
@@ -2875,6 +2907,7 @@ def beam_search(
     self.model.eval()
 
         pass
+
 
 
 ```
@@ -3585,6 +3618,8 @@ print("Tests passed!")
 
 You may find that your cache implementation provides a modest speedup, but probably not close to the `seq_len`-factor speedup you'd expect from the fact that you only compute one additional token at each step rather than all of them. Why is this? The answer is that, much like everything to do with computational and memory costs in deep learning, it's not so simple. There are a host of different factors which might be bottlenecking our model's forward pass speed. If you try this on the CPU, you should get a much more noticeable speedup.
 
+For a bit more on these topics, see [here](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache).
+
 
 ## Bonus - cached beam search
 
@@ -3859,7 +3894,12 @@ print("Tests passed!")
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Understanding Inputs & Outputs of a Transformer'),     (section_2, '2️⃣ Clean Transformer Implementation'),     (section_3, '3️⃣ Training a Transformer'),     (section_4, '4️⃣ Sampling from a Transformer'), 
+    (section_0, '🏠 Home'),
+    (section_1, '1️⃣ Understanding Inputs & Outputs of a Transformer'),
+    (section_2, '2️⃣ Clean Transformer Implementation'),
+    (section_3, '3️⃣ Training a Transformer'),
+    (section_4, '4️⃣ Sampling from a Transformer'),
+
 ]
 
 func_list = [func for func, page in func_page_list]

@@ -3,6 +3,8 @@ import streamlit as st
 import st_dependencies
 st_dependencies.styling()
 
+import platform
+is_local = (platform.processor() != "")
 
 def section_0():
 
@@ -103,6 +105,12 @@ import functools
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
+
+# Make sure exercises are in the path
+CHAPTER = r"chapter0_fundamentals"
+chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
+exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
+if exercises_dir not in sys.path: sys.path.append(exercises_dir)
 
 from plotly_utils import imshow, line, bar
 from part2_cnns.utils import *
