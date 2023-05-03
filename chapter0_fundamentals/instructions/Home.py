@@ -11,7 +11,7 @@ is_local = (platform.processor() != "")
 while "chapter" in os.getcwd():
     os.chdir("..")
 # Now with this reference point, we can add things to sys.path
-root_suffix = r"\chapter0_fundamentals\instructions" if is_local else "/chapter0_fundamentals/instructions"
+root_suffix = r"/chapter0_fundamentals/instructions"
 root_dir = os.getcwd() + root_suffix
 root_path = Path(root_dir)
 if root_dir not in sys.path: sys.path.append(root_dir)
@@ -45,7 +45,7 @@ st.sidebar.markdown(r"""
 def section_home():
     # start
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/prereqs.png" width="600">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/beam-search.png" width="600">
 
 # Chapter 0: Fundamentals
 

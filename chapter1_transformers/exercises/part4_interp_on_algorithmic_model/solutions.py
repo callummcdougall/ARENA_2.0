@@ -27,20 +27,9 @@ from transformer_lens import utils, ActivationCache, HookedTransformer, HookedTr
 from transformer_lens.hook_points import HookPoint
 from transformer_lens.components import LayerNorm
 
-from brackets_datasets import SimpleTokenizer, BracketsDataset
-import tests
-import plot_utils
-
-def imshow(tensor, xaxis="", yaxis="", **kwargs):
-    return px.imshow(utils.to_numpy(tensor), color_continuous_midpoint=0.0, color_continuous_scale="RdBu", labels={"x":xaxis, "y":yaxis}, **kwargs)
-
-def line(tensor, xaxis="", yaxis="", **kwargs):
-    return px.line(utils.to_numpy(tensor), labels={"x":xaxis, "y":yaxis}, **kwargs)
-
-def scatter(x, y, xaxis="", yaxis="", caxis="", **kwargs):
-    x = utils.to_numpy(x)
-    y = utils.to_numpy(y)
-    return px.scatter(y=y, x=x, labels={"x":xaxis, "y":yaxis, "color":caxis}, **kwargs)
+from part4_interp_on_algorithmic_model.brackets_datasets import SimpleTokenizer, BracketsDataset
+import part4_interp_on_algorithmic_model.tests as tests
+import plotly_utils
 
 # %%
 
@@ -398,7 +387,7 @@ if MAIN:
 
     tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
     # Plot the histograms
-    plot_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
+    plotly_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
 
 # %%
 
@@ -424,7 +413,7 @@ if MAIN:
         "just total elevation failure": ~negative_failure & total_elevation_failure,
         "balanced": ~negative_failure & ~total_elevation_failure
     }
-    plot_utils.plot_failure_types_scatter(
+    plotly_utils.plot_failure_types_scatter(
         h20_in_unbalanced_dir,
         h21_in_unbalanced_dir,
         failure_types_dict,
@@ -434,7 +423,7 @@ if MAIN:
 # %%
 
 if MAIN:
-    plot_utils.plot_contribution_vs_open_proportion(h20_in_unbalanced_dir, "2.0", failure_types_dict, data)
+    plotly_utils.plot_contribution_vs_open_proportion(h20_in_unbalanced_dir, "2.0", failure_types_dict, data)
 
 # %%
 
@@ -501,13 +490,13 @@ if MAIN:
         get_pre_20_dir(model, data)
     )
     out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
-    plot_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
+    plotly_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
 
 # %%
 # %%
 
 if MAIN:
-    plot_utils.mlp_attribution_scatter(out_by_component_in_pre_20_unbalanced_dir, data, failure_types_dict)
+    plotly_utils.mlp_attribution_scatter(out_by_component_in_pre_20_unbalanced_dir, data, failure_types_dict)
 
 # %%
 
@@ -587,7 +576,7 @@ if MAIN:
         # Get neuron significances for head 2.0, sequence position #1 output
         neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[data.starts_open, :]
         # Plot neurons' activations
-        plot_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer)
+        plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer)
 
 # %%
 
@@ -635,7 +624,7 @@ if MAIN:
         head_idx: int = 0
     ) -> None:
         avg_head_attn_pattern = pattern[:, head_idx].mean(0)
-        plot_utils.plot_attn_pattern(avg_head_attn_pattern)
+        plotly_utils.plot_attn_pattern(avg_head_attn_pattern)
     
     # Run our model on left parens, but patch in the average key values for left vs right parens
     # This is to give us a rough idea how the model behaves on average when the query is a left paren

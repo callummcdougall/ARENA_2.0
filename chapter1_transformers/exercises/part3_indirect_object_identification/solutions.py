@@ -1091,9 +1091,6 @@ if MAIN:
 # %%
 
 
-if MAIN:
-	# FLAT SOLUTION
-	# 
 def patch_head_input(
 	orig_activation: Float[Tensor, "batch pos head_idx d_head"],
 	hook: HookPoint,
@@ -1343,9 +1340,6 @@ if MAIN:
 # %%
 
 
-if MAIN:
-	# FLAT SOLUTION
-	# 
 def get_heads_and_posns_to_keep(
 	means_dataset: IOIDataset,
 	model: HookedTransformer,
@@ -1563,9 +1557,6 @@ def plot_minimal_set_results(minimality_scores: Dict[Tuple[int, int], float]):
 # %%
 
 
-if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - define the `minimality_scores` dictionary, to be used in the plot function given above
 def get_score(
 	model: HookedTransformer, 
 	ioi_dataset: IOIDataset, 

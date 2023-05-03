@@ -1,8 +1,9 @@
 # %%
 
 import torch as t
+from torch import Tensor
 from typing import Tuple, Union, List
-from torchtyping import TensorType as TT
+from jaxtyping import Float, Int
 
 device = t.device("cpu")
 
@@ -23,7 +24,7 @@ class SimpleTokenizer:
         self.t_to_i = {**{c: i + 3 for i, c in enumerate(alphabet)}, **self.base_d}
         self.i_to_t = {i: c for c, i in self.t_to_i.items()}
 
-    def tokenize(self, strs: List[str], max_len = None) -> TT["batch", "seq"]:
+    def tokenize(self, strs: List[str], max_len = None) -> Int[Tensor, "batch seq"]:
         def c_to_int(c: str) -> int:
             if c in self.t_to_i:
                 return self.t_to_i[c]
@@ -71,8 +72,8 @@ class BracketsDataset:
         """
         self.tokenizer = SimpleTokenizer("()")
         self.strs = [x[0] for x in data_tuples]
-        self.isbal = t.tensor([x[1] for x in data_tuples]).to(device=device, dtype=t.bool)
-        self.toks = self.tokenizer.tokenize(self.strs).to(device)
+        self.isbal = t.tensor([x[1] for x in data_tuples])
+        self.toks = self.tokenizer.tokenize(self.strs)
         self.open_proportion = t.tensor([s.count("(") / len(s) for s in self.strs])
         self.starts_open = t.tensor([s[0] == "(" for s in self.strs]).bool()
 
@@ -83,6 +84,13 @@ class BracketsDataset:
         if type(idx) == slice:
             return self.__class__(list(zip(self.strs[idx], self.isbal[idx])))
         return (self.strs[idx], self.isbal[idx], self.toks[idx])
+
+    def to(self, device) -> "BracketsDataset":
+        self.isbal = self.isbal.to(device)
+        self.toks = self.toks.to(device)
+        self.open_proportion = self.open_proportion.to(device)
+        self.starts_open = self.starts_open.to(device)
+        return self
 
     @property
     def seq_length(self) -> int:

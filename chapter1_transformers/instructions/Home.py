@@ -13,7 +13,7 @@ st_dependencies.styling()
 while "chapter" in os.getcwd():
     os.chdir("..")
 # Now with this reference point, we can add things to sys.path
-root_suffix = r"\chapter1_transformers\instructions" if is_local else "/chapter1_transformers/instructions"
+root_suffix = r"/chapter1_transformers/instructions"
 root_dir = os.getcwd() + root_suffix
 root_path = Path(root_dir)
 if root_dir not in sys.path: sys.path.append(root_dir)
