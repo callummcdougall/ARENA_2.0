@@ -43,5 +43,3 @@ Links coming soon!
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/training_at_scale.png" width="400">
 
 Links coming soon!
-
-# [Chapter 4: Meta-Learning](https://arena-ch4-meta-learning.streamlit.app/)
