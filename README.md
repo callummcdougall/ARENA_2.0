@@ -30,3 +30,18 @@ Some highlights from this chapter include:
 * Replicating Anthropic's results on [superposition](https://transformer-circuits.pub/2022/toy_model/index.html)
 
 Unlike the first chapter (where all the material was compulsory), this chapter has 4 days of compulsory content and 4 days of bonus content. During the compulsory days you will build and train transformers, and get a basic understanding of mechanistic interpretability of transformer models which includes induction heads & use of TransformerLens. The next 4 days, you have the option to continue with whatever material interests you out of the remaining sets of exercises. There will also be bonus material if you want to leave the beaten track of exercises all together!
+
+
+# Chapter 2: Reinforcement Learning
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/rl.png" width="400">
+
+Links coming soon!
+
+# Chapter 3: Training at Scale
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/training_at_scale.png" width="400">
+
+Links coming soon!
+
+# [Chapter 4: Meta-Learning](https://arena-ch4-meta-learning.streamlit.app/)
