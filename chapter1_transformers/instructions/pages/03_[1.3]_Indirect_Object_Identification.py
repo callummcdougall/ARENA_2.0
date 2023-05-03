@@ -428,7 +428,6 @@ def logits_to_ave_logit_diff(logits: Float[Tensor, "batch seq d_vocab"], answer_
     pass
 
 
-
 if MAIN:
     tests.test_logits_to_ave_logit_diff(logits_to_ave_logit_diff)
 
@@ -755,7 +754,6 @@ def residual_stack_to_logit_diff(
     stack of components in the residual stream.
     '''
     pass
-
 
 
 if MAIN:
@@ -1168,7 +1166,6 @@ def ioi_metric(
     pass
 
 
-
 if MAIN:
     t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
     t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
@@ -1297,7 +1294,6 @@ def patch_residual_component(
     '''
     pass
 
-
 def get_act_patch_resid_pre(
     model: HookedTransformer, 
     corrupted_tokens: Float[Tensor, "batch pos"], 
@@ -1312,7 +1308,6 @@ def get_act_patch_resid_pre(
     called on the model's logit output.
     '''
     pass
-
 
 
 if MAIN:
@@ -1497,7 +1492,6 @@ def get_act_patch_block_every(
     pass
 
 
-
 ```
 
 ```python
@@ -1626,7 +1620,6 @@ def patch_head_vector(
     '''
     pass
 
-
 def get_act_patch_attn_head_out_all_pos(
     model: HookedTransformer, 
     corrupted_tokens: Float[Tensor, "batch pos"], 
@@ -1641,7 +1634,6 @@ def get_act_patch_attn_head_out_all_pos(
     called on the model's logit output.
     '''
     pass
-
 
 
 if MAIN:
@@ -1770,7 +1762,6 @@ def patch_attn_patterns(
     '''
     pass
 
-
 def get_act_patch_attn_head_all_pos_every(
     model: HookedTransformer,
     corrupted_tokens: Float[Tensor, "batch pos"],
@@ -1786,7 +1777,6 @@ def get_act_patch_attn_head_all_pos_every(
     called on the model's logit output.
     '''
     pass
-
 
 
 if MAIN:
@@ -2416,7 +2406,6 @@ def get_path_patch_head_to_final_resid_post(
 ```python
     pass
 
-
 def patch_or_freeze_head_vectors(
     orig_head_vector: Float[Tensor, "batch pos head_index d_head"],
     hook: HookPoint, 
@@ -2448,7 +2437,6 @@ def get_path_patch_head_to_final_resid_post(
     orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
     pass
-
 
 
 if MAIN:
@@ -2639,7 +2627,6 @@ def calculate_and_show_scatter_embedding_vs_attn(
     pass
 
 
-
 if MAIN:
     nmh = (9, 9)
     calculate_and_show_scatter_embedding_vs_attn(*nmh)
@@ -2751,7 +2738,6 @@ def get_copying_scores(
     Returns these in a 3D tensor (the first dimension is for positive vs negative).
     '''
     pass
-
 
 
 ```
@@ -2881,9 +2867,7 @@ In section 3, since your receiver nodes are in the middle of the model rather th
 
 
 ```python
-
-if MAIN:
-    # 
+# 
 def patch_head_input(
     orig_activation: Float[Tensor, "batch pos head_idx d_head"],
     hook: HookPoint,
@@ -2925,7 +2909,6 @@ def get_path_patch_head_to_heads(
         tensor of metric values for every possible sender head
     '''
     pass
-
 
 
 ```
@@ -3022,7 +3005,6 @@ def get_attn_scores(
     Returns attention scores for sequence of duplicated tokens, for every head.
     '''
     pass
-
 
 def plot_early_head_validation_results(seq_len: int = 50, batch: int = 50):
     '''
@@ -3267,9 +3249,7 @@ where `hook_name` can be a string or a filter function mapping strings to boolea
 
 
 ```python
-
-if MAIN:
-    # 
+# 
 def get_heads_and_posns_to_keep(
     means_dataset: IOIDataset,
     model: HookedTransformer,
@@ -3702,9 +3682,7 @@ def plot_minimal_set_results(minimality_scores: Dict[Tuple[int, int], float]):
 ```
 
 ```python
-
-if MAIN:
-    # YOUR CODE HERE - define the `minimality_scores` dictionary, to be used in the plot function given above
+# YOUR CODE HERE - define the `minimality_scores` dictionary, to be used in the plot function given above
 def get_score(
     model: HookedTransformer, 
     ioi_dataset: IOIDataset, 

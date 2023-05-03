@@ -518,7 +518,7 @@ def section_2():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#high-level-architecture'>High-Level architecture</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#summary'>Summary</a></li>
+        <li><a class='contents-el' href='#tokenization-&-embedding'>Tokenization & Embedding</a></li>
         <li><a class='contents-el' href='#residual-stream'>Residual stream</a></li>
         <li><a class='contents-el' href='#transformer-blocks'>Transformer blocks</a></li>
         <li><a class='contents-el' href='#mlp'>MLP</a></li>
@@ -566,18 +566,14 @@ def section_2():
 
 Go watch my [Transformer Circuits walkthrough](https://www.youtube.com/watch?v=KV5gbOmHbjU) if you want more intuitions!
 
-(Diagram is bottom to top)
+(Diagram is bottom to top.)
 
 
-
-
-### Summary
+### Tokenization & Embedding
 
 The input tokens $t$ are integers. We get them from taking a sequence, and tokenizing it (like we saw in the previous section).
 
 The token embedding is a lookup table mapping tokens to vectors, which is implemented as a matrix $W_E$. The matrix consists of a stack of token embedding vectors (one for each token).
-
-
 
 
 ### Residual stream
@@ -655,13 +651,15 @@ Intuition - once attention has moved relevant information to a single position i
 <details>
 <summary>Key intuition - MLPs as key-value pairs</summary>
 
-We can write the MLP's output as $f(xW^{in})W^{out}$, where $W^{in}$ and $W^{out}$ are the different weights of the MLP (ignoring biases), $f$ is the activation function, and $x$ is a vector in the residual stream. This can be rewritten as:
+We can write the MLP's output as $f(x^T W^{in})W^{out}$, where $W^{in}$ and $W^{out}$ are the different weights of the MLP (ignoring biases), $f$ is the activation function, and $x$ is a vector in the residual stream. This can be rewritten as:
 
 $$
-f(xW^{in}) W^{out} = \sum_{i=1}^{d_{mlp}} f(x^T W^{in}_{[:, i]}) W^{out}_{[i, :]}
+f(x^T W^{in}) W^{out} = \sum_{i=1}^{d_{mlp}} f(x^T W^{in}_{[:, i]}) W^{out}_{[i, :]}
 $$
 
 We can view the vectors $W^{in}_{[:, i]}$ as the **input directions**, and $W^{out}_{[i, :]}$ as the **output directions**. We say the input directions are **activated** by certain textual features, and when they are activated, vectors are written in the corresponding output direction. This is very similar to the concept of keys and values in attention layers, which is why these vectors are also sometimes called keys and values (e.g. see the paper [Transformer Feed-Forward Layers Are Key-Value Memories](https://arxiv.org/pdf/2012.14913.pdf)).
+
+Terminology note - sometimes we refer to each of these $d_{mlp}$ input-output pairs as **neurons**.
 
 </details>
 
@@ -671,6 +669,8 @@ We can view the vectors $W^{in}_{[:, i]}$ as the **input directions**, and $W^{o
 We can think of MLPs as where knowledge gets stored in our transformer. The attention mechanism is what moves information around between sequence positions, but the MLPs is where this information is processed, and new information is written into the residual stream which is a function of the old information.
 
 This is deeply connected to the key-value pairs model, since you can treat key-value pairs as a kind of associative memory system (where the key serves as a unique identifier, and the value holds the related information).
+
+Another related intuition (for which there is some evidence) is **MLPs as memory management**. In an idealized case, we might find that the $i$-th neuron satisfies $W^{in}_{[:, i]} \approx - W^{out}_{[i, :]} \approx \vec v$ for some unit vector $\vec v$, meaning it may be responsible for erasing the positive component of vector $\vec x$ in the direction $\vec v$ (exercise - can you show why this is the case?). This can free up space in the residual stream for other components to write to.
 </details>
 
 
@@ -896,7 +896,6 @@ class LayerNorm(nn.Module):
         pass
 
 
-
 if MAIN:
     rand_float_test(LayerNorm, [2, 4, 768])
     load_gpt2_test(LayerNorm, reference_gpt2.ln_final, cache["resid_post", 11])
@@ -928,10 +927,9 @@ class LayerNorm(nn.Module):
 
 ## Embedding
 
-
 This is basically a lookup table from tokens to residual stream vectors.
 
-(Hint - you can implement this in just one line!)
+(Hint - you can implement this in just one line, without any complicated functions.)
 
 
 ```python
@@ -944,7 +942,6 @@ class Embed(nn.Module):
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
         pass
-
 
 
 if MAIN:
@@ -984,7 +981,6 @@ class Embed(nn.Module):
 
 ## Positional Embedding
 
-
 Positional embedding can also be thought of as a lookup table, but rather than the indices being our token IDs, the indices are just the numbers `0`, `1`, `2`, ..., `seq_len-1` (i.e. the position indices of the tokens in the sequence).
 
 
@@ -999,7 +995,6 @@ class PosEmbed(nn.Module):
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
         
         pass
-
 
 
 if MAIN:
@@ -1030,7 +1025,6 @@ class PosEmbed(nn.Module):
 
 
 ## Attention
-
 
 * **Step 1:** Produce an attention pattern - for each destination token, probability distribution over previous tokens (including current token)
     * Linear map from input -> query, key shape `[batch, seq_posn, head_index, d_head]`
@@ -1196,7 +1190,6 @@ class Attention(nn.Module):
     ) -> Float[Tensor, "batch posn d_model"]:
         pass
 
-
     def apply_causal_mask(
         self, attn_scores: Float[Tensor, "batch n_heads query_pos key_pos"]
     ) -> Float[Tensor, "batch n_heads query_pos key_pos"]:
@@ -1204,7 +1197,6 @@ class Attention(nn.Module):
         Applies a causal mask to attention scores, and returns masked scores.
         '''
         pass
-
 
 
 if MAIN:
@@ -1326,8 +1318,11 @@ class Attention(nn.Module):
 
 ## MLP
 
+Next, you should implement the MLP layer, which consists of:
 
-Note, we have the `gelu_new` function imported from transformer lens, which you should use as your activation function.
+* A linear layer, with weight `W_in`, bias `b_in`
+* A nonlinear functino (we usually use GELU; the function `gelu_new` has been imported for this purpose)
+* A linear layer, with weight `W_out`, bias `b_out`
 
 
 ```python
@@ -1346,7 +1341,6 @@ class MLP(nn.Module):
         self, normalized_resid_mid: Float[Tensor, "batch posn d_model"]
     ) -> Float[Tensor, "batch posn d_model"]:
         pass
-
 
 
 if MAIN:
@@ -1391,6 +1385,8 @@ class MLP(nn.Module):
 
 ## Transformer Block
 
+Now, we can put together the attention, MLP and layernorms into a single transformer block. Remember to implement the residual connections correctly!
+
 
 ```python
 class TransformerBlock(nn.Module):
@@ -1406,7 +1402,6 @@ class TransformerBlock(nn.Module):
         self, resid_pre: Float[Tensor, "batch position d_model"]
     ) -> Float[Tensor, "batch position d_model"]:
         pass
-
 
 
 if MAIN:
@@ -1442,6 +1437,8 @@ class TransformerBlock(nn.Module):
 
 ## Unembedding
 
+The unembedding is jus a linear layer (with weight `W_U` and bias `b_U`).
+
 
 ```python
 class Unembed(nn.Module):
@@ -1456,7 +1453,6 @@ class Unembed(nn.Module):
         self, normalized_resid_final: Float[Tensor, "batch position d_model"]
     ) -> Float[Tensor, "batch position d_vocab"]:
         pass
-
 
 
 if MAIN:
@@ -1507,7 +1503,6 @@ class DemoTransformer(nn.Module):
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
         pass
-
 
 
 if MAIN:
@@ -1806,13 +1801,11 @@ class LitTransformer(pl.LightningModule):
         '''
         pass
 
-
     def configure_optimizers(self):
         '''
         Choose what optimizers and learning-rate schedulers to use in your optimization.
         '''
         pass
-
 
 
 ```
@@ -2016,7 +2009,6 @@ class TransformerSampler:
         '''
         pass
 
-
     @t.inference_mode()
     def beam_search(
         self,
@@ -2081,14 +2073,12 @@ class TransformerSampler:
         '''
         pass
 
-
     @staticmethod
     def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
         '''
         Applies temperature scaling to the logits.
         '''
         pass
-
 
     @staticmethod
     def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
@@ -2097,14 +2087,12 @@ class TransformerSampler:
         '''
         pass
 
-
     @staticmethod
     def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
         '''
         Samples from the distribution defined by the logits.
         '''
         pass
-
 
     @staticmethod
     def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
@@ -2113,14 +2101,12 @@ class TransformerSampler:
         '''
         pass
 
-
     @staticmethod
     def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
         '''
         Samples from the most likely tokens which make up at least p cumulative probability.
         '''
         pass
-
 
 
 ```
@@ -2853,7 +2839,6 @@ class Beams:
         '''
         pass
 
-
     def filter(self, num_beams: int) -> Tuple["Beams", "Beams"]:
         '''
         Returns:
@@ -2865,7 +2850,6 @@ class Beams:
                 i.e. the sum of lengths of these two should equal `num_beams`.
         '''
         pass
-
 
     def print(self, title="Best completions", max_print_chars=80) -> None:
         '''
@@ -2907,7 +2891,6 @@ def beam_search(
     self.model.eval()
 
         pass
-
 
 
 ```

@@ -798,20 +798,17 @@ def current_attn_detector(cache: ActivationCache) -> List[str]:
     '''
     pass
 
-
 def prev_attn_detector(cache: ActivationCache) -> List[str]:
     '''
     Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be prev-token heads
     '''
     pass
 
-
 def first_attn_detector(cache: ActivationCache) -> List[str]:
     '''
     Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be first-token heads
     '''
     pass
-
 
 
 if MAIN:
@@ -935,7 +932,6 @@ def generate_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int 
     '''
     pass
 
-
 def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> Tuple[t.Tensor, t.Tensor, ActivationCache]:
     '''
     Generates a sequence of repeated random tokens, and runs the model on it, returning logits, tokens and cache
@@ -948,7 +944,6 @@ def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, 
         rep_cache: The cache of the model run on rep_tokens
     '''
     pass
-
 
 
 if MAIN:
@@ -1065,7 +1060,6 @@ def induction_attn_detector(cache: ActivationCache) -> List[str]:
     Remember - the tokens used to generate rep_cache are (bos_token, *rand_tokens, *rand_tokens)
     '''
     pass
-
 
 
 if MAIN:
@@ -1566,7 +1560,6 @@ def logit_attribution(embed, l1_results, l2_results, W_U, tokens) -> t.Tensor:
     pass
 
 
-
 if MAIN:
     text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
     logits, cache = model.run_with_cache(text, remove_batch_dim=True)
@@ -1759,7 +1752,6 @@ def head_ablation_hook(
     head_index_to_ablate: int
 ) -> Float[Tensor, "batch seq n_heads d_model"]:
     pass
-
 
 def cross_entropy_loss(logits, tokens):
     '''
@@ -2496,7 +2488,6 @@ def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
     pass
 
 
-
 if MAIN:
     print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit):.4f}")
 
@@ -2762,7 +2753,6 @@ def decompose_qk_input(cache: ActivationCache) -> t.Tensor:
     '''
     pass
 
-
 def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     Output is decomposed_q with shape [2+num_heads, position, d_head]
@@ -2771,7 +2761,6 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     pass
 
-
 def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     Output is decomposed_k with shape [2+num_heads, position, d_head]
@@ -2779,7 +2768,6 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     The [i, 0, 0]th element is y_i @ W_K(so the sum along axis 0 is just the k-values)
     '''
     pass
-
 
 
 if MAIN:
@@ -2913,7 +2901,6 @@ def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.T
     The [i, j, 0, 0]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
     '''
     pass
-
 
 
 if MAIN:
@@ -3061,7 +3048,6 @@ def find_K_comp_full_circuit(
     pass
 
 
-
 if MAIN:
     prev_token_head_index = 7
     ind_head_index = 4
@@ -3162,7 +3148,6 @@ def get_comp_score(
     pass
 
 
-
 if MAIN:
     tests.test_get_comp_score(get_comp_score)
 
@@ -3248,7 +3233,6 @@ def generate_single_random_comp_score() -> float:
     Write a function which generates a single composition score for random matrices
     '''
     pass
-
 
 
 if MAIN:
@@ -3423,7 +3407,6 @@ def get_batched_comp_scores(
     Return: tensor of shape (*A_idx, *B_idx) where the [*a_idx, *b_idx]th element is the compositional score from W_As[*a_idx] to W_Bs[*b_idx].
     '''
     pass
-
 
 
 if MAIN:

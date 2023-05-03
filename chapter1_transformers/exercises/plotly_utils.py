@@ -108,6 +108,8 @@ def bar(tensor, renderer=None, **kwargs):
     '''
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    if "hovermode" not in kwargs_post:
+        kwargs_post["hovermode"] = "x unified"
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     px.bar(y=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
@@ -180,7 +182,7 @@ def plot_failure_types_scatter(
 ):
     failure_types = np.full(len(unbalanced_component_1), "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
-        failure_types = np.where(mask, name, failure_types)
+        failure_types = np.where(utils.to_numpy(mask), name, failure_types)
     failures_df = pd.DataFrame({
         "Head 2.0 contribution": utils.to_numpy(unbalanced_component_1),
         "Head 2.1 contribution": utils.to_numpy(unbalanced_component_2),
@@ -197,7 +199,7 @@ def plot_failure_types_scatter(
 def plot_contribution_vs_open_proportion(unbalanced_component: Float[Tensor, "batch"], title: str, failure_types_dict: Dict, data: BracketsDataset):
     failure_types = np.full(len(unbalanced_component), "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
-        failure_types = np.where(mask, name, failure_types)
+        failure_types = np.where(utils.to_numpy(mask), name, failure_types)
     fig = px.scatter(
         x=utils.to_numpy(data.open_proportion), y=utils.to_numpy(unbalanced_component), color=failure_types, color_discrete_map=color_discrete_map,
         title=f"Head {title} contribution vs proportion of open brackets '('", template="simple_white", height=500, width=800,
@@ -225,7 +227,7 @@ def mlp_attribution_scatter(
         ).update_traces(marker_size=4, opacity=0.5).update_layout(legend_title_text='Failure type')
         fig.show()
 
-def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], model: HookedTransformer, data: BracketsDataset, failure_types_dict: Dict, layer: int):
+def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], model: HookedTransformer, data: BracketsDataset, failure_types_dict: Dict, layer: int, renderer=None):
     
     failure_types = np.full(neurons_in_unbalanced_dir.shape[0], "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
@@ -248,7 +250,7 @@ def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], mode
         title=f"Neuron contributions from layer {layer}", 
         template="simple_white", height=800, width=1100
     ).update_traces(marker_size=3).update_layout(xaxis_range=[0, 1], yaxis_range=[-5, 5])
-    fig.show(renderer="browser")
+    fig.show(renderer=renderer)
 
 def plot_attn_pattern(pattern: Float[Tensor, "batch head_idx seqQ seqK"]):
     fig = px.imshow(
