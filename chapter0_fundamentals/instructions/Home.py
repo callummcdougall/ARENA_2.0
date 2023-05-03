@@ -102,6 +102,7 @@ Once you've cloned the repo and navigated into it (at the root directory), you s
 
 * Make & activate a virtual environment.
     * We strongly recommend using `conda` for this. You can install `conda` [here](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), and find basic instructions [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
+    * The command for creating a new env is `conda create -–name arena python=3.10`.
 * Install requirements.
     * First, install PyTorch.
         * If you're on Windows, the command is `conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia`.

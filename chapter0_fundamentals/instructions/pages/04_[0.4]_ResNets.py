@@ -85,6 +85,7 @@ Before starting the exercises, you should download `imagenet_labels.json` and th
 
 ```python
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import sys
 import torch as t
 from torch import Tensor as T
 from torch import nn
@@ -98,6 +99,7 @@ from tqdm.notebook import tqdm
 from typing import List, Tuple
 from PIL import Image
 from IPython.display import display
+from pathlib import Path
 import torchinfo
 import json
 import pandas as pd
@@ -106,9 +108,9 @@ from jaxtyping import Float, Int
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 from part2_cnns.solutions import *
 from part4_resnets.utils import print_param_count

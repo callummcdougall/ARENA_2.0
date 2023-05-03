@@ -109,6 +109,7 @@ from IPython.display import display, HTML
 from rich.table import Table, Column
 from rich import print as rprint
 import circuitsvis as cv
+from pathlib import Path
 from transformer_lens.hook_points import HookPoint
 from transformer_lens import utils, HookedTransformer, ActivationCache
 from transformer_lens.components import Embed, Unembed, LayerNorm, MLP
@@ -117,9 +118,9 @@ t.set_grad_enabled(False)
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter1_transformers"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 from plotly_utils import imshow, line, scatter, bar
 import part3_indirect_object_identification.tests as tests

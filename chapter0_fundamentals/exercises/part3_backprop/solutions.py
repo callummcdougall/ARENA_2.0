@@ -5,10 +5,13 @@ CHAPTER = r"chapter0_fundamentals"
 chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
 sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
 
+import os
+import sys
 import re
 import time
 import torch as t
 import numpy as np
+from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Iterable, Optional, Union, Dict, List, Tuple
@@ -19,9 +22,9 @@ grad_tracking_enabled = True
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 import part3_backprop.tests as tests
 from part3_backprop.utils import *

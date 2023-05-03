@@ -135,14 +135,8 @@ from transformer_lens.hook_points import HookPoint
 from transformer_lens.components import LayerNorm
 
 # Make sure exercises are in the path
-# CHAPTER = r"chapter1_transformers"
-# chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-# exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-# if exercises_dir not in sys.path: sys.path.append(exercises_dir)
-
-# Make sure exercises are in the path
 CHAPTER = r"chapter1_transformers"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises")
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
 os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 

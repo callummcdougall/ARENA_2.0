@@ -5,22 +5,22 @@ CHAPTER = r"chapter0_fundamentals"
 chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
 sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
 
-# Get to the right directory: the streamlit one (not pages)
-# Get to chapter0_fundamentals directory (or whatever the chapter dir is)
-
+import os
+import sys
 import torch as t
 import einops
 from ipywidgets import interact
 import plotly.express as px
 import plotly.graph_objects as go
 from ipywidgets import interact
+from pathlib import Path
 from IPython.display import display
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 from plotly_utils import imshow
 from part1_raytracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle

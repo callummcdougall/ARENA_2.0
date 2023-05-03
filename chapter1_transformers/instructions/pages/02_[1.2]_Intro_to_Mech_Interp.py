@@ -124,9 +124,9 @@ import circuitsvis as cv
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter1_transformers"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 from plotly_utils import imshow, plot_comp_scores, hist, plot_logit_attribution
 from part1_transformer_from_scratch.solutions import get_log_probs

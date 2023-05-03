@@ -96,22 +96,22 @@ Run these cells below (don't worry about reading through them).
 
 
 ```python
-# Get to the right directory: the streamlit one (not pages)
-# Get to chapter0_fundamentals directory (or whatever the chapter dir is)
-
+import os
+import sys
 import torch as t
 import einops
 from ipywidgets import interact
 import plotly.express as px
 import plotly.graph_objects as go
 from ipywidgets import interact
+from pathlib import Path
 from IPython.display import display
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 from plotly_utils import imshow
 from part1_raytracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
@@ -121,6 +121,28 @@ import part1_raytracing.tests as tests
 MAIN = __name__ == "__main__"
 
 ```
+
+<details>
+<summary>Help - in VSCode, I get yellow line warnings under lines like <code>part1_raytracing.utils</code>.</summary>
+
+This is because VSCode's typechecker doesn't know where to look to resolve local imports. To fix this, take the following steps:
+
+* `Ctrl + Shift + P` to open the command palette (or `Cmd + Shift + P` on Mac)
+* Start to type "workspace settings", and choose the `Preferences: Open Workspace Settings (JSON)` option
+* Add the following lines to the JSON file:
+
+```json
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/chapter0_fundamentals",
+        "${workspaceFolder}/chapter0_fundamentals/exercises",
+    ],
+}
+```
+
+Make sure these are the only lines in `"python.analysis.extraPaths"` (the others should be commented out). When you're working on later chapters, you'll need to change this accordingly.
+
+</details>
 
 <details>
 <summary>Note on using <code>MAIN</code></summary>

@@ -6,6 +6,7 @@ chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0
 sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
 
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import sys
 import pandas as pd
 import torch as t
 from torch import optim
@@ -15,13 +16,14 @@ from torch.utils.data import DataLoader, Subset
 from typing import Callable, Iterable, Tuple, Optional
 import pytorch_lightning as pl
 from dataclasses import dataclass
+from pathlib import Path
 import numpy as np
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-exercises_dir = chapter_dir + f"{CHAPTER}/exercises"
-if exercises_dir not in sys.path: sys.path.append(exercises_dir)
+EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
+if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
+os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
 
 from plotly_utils import bar, imshow
 from part4_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
