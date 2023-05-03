@@ -1,4 +1,10 @@
-# Chapter 1: Fundamentals
+This GitHub repo hosts the exercises and Streamlit pages for the ARENA 2.0 program.
+
+You can find a summary of each of the chapters below. For more detailed information (including the different ways you can access the exercises), click on the links in the chapter headings.
+
+# [Chapter 0: Fundamentals](https://arena-ch0-fundamentals.streamlit.app/)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/prereqs.png" width="400">
 
 The material on this page covers the first five days of the curriculum. It can be seen as a grounding in all the fundamentals necessary to complete the more advanced sections of this course (such as RL, transformers, mechanistic interpretability, and generative models).
 
@@ -8,44 +14,19 @@ Some highlights from this chapter include:
 * Working with [weights and biases](https://wandb.ai/site) to optimise hyperparameters
 * Implementing your own backpropagation mechanism
 
-The exercises exist in two forms: as self-contained Colab notebooks (links below), and in this GitHub repo (accessible via the [Streamlit homepage](https://fundamentals.streamlit.app/) which reads from this repo). Streamlit also allows you to publish webpages, so you can access that link to go to the Streamlit app homepage, and read all the same content from this README there.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/prereqs.png" width=450>
+# [Chapter 1: Transformers](https://arena-ch1-transformers.streamlit.app/)
 
-## How you should use this material
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/magnifying-glass-2.png" width="400">
 
-### Option 1: Colab
+The material on this page covers the next 8 days of the curriculum. It will cover transformers (what they are, how they are trained, how they are used to generate output) as well as mechanistic interpretability (what it is, what are some of the most important results in the field so far, why it might be important for alignment).
 
-The simplest way to get these exercises up and running is to use Colab. This guarantees good GPU support, and means you'll spend less time messing around with environments and IDEs. Each set of exercises will have a link to the accompanying Colab notebook, which you should make a copy of and work through. The Colabs have essentially the same structure as the Streamlit pages.
+Some highlights from this chapter include:
 
-[Here](https://drive.google.com/drive/folders/1YnTChxQTJnJfFhqyHA44h9Nro79AaYpn?usp=sharing) is the link to the folder containing all the Colabs, and the data you'll need. You can find the individual Colabs below (not all the exercises have been converted into Colab form yet):
+* Building your own transformer from scratch, and using it to sample autoregressive output
+* Using the [TransformerLens](https://github.com/neelnanda-io/TransformerLens) library developed by Neel Nanda to locate induction heads in a 2-layer model
+* Finding a circuit for [indirect object identification](https://arxiv.org/abs/2211.00593) in GPT-2 small
+* Intepreting model trained on toy tasks, e.g. classification of bracket strings, or modular arithmetic
+* Replicating Anthropic's results on [superposition](https://transformer-circuits.pub/2022/toy_model/index.html)
 
-* Raytracing: [**exercises**](https://colab.research.google.com/drive/1tp-vd591FarVyn7pA2V9oYDqYiWmjEjF?usp=share_link), [**solutions**](https://colab.research.google.com/drive/19QroufIT25oZ5yG7JGWL5Jp9IPcsq0d4?usp=sharing)
-* as_strided, convolutions and CNNs: [**exercises**](https://colab.research.google.com/drive/1hQE1inYldFI_mmpCiLbIW8yI2C-PxBev?usp=sharing), [**solutions**](https://colab.research.google.com/drive/1VZk9ba3j7HJP9ChntblOoEAwxZukCgHn?usp=sharing)
-* Build Your Own Backprop Framework: [**exercises**](https://colab.research.google.com/drive/1n-OG0x7kZfZaMCNO-S4L86-W6bE_jiVz?usp=sharing), [**solutions**](https://colab.research.google.com/drive/1K3f_ebaaHDufnGbn_zzzTisejXTM_b01?usp=sharing)
-* ResNets & Model Training: Links to Colab: [**exercises**](https://colab.research.google.com/drive/1N1Cu13q4dk2Z0qYgdy7Cnb6ESAlOu5ge?usp=sharing), [**solutions**](https://colab.research.google.com/drive/1obMRz1Y9iXrJbQBXaYCBS61S-mxOIhWO?usp=sharing)
-* Optimization & Hyperparameters: [**exercises**](https://colab.research.google.com/drive/1Wi_SVL8eDYiNcmcmUeF4GfkNfQKT6x3O?usp=sharing), [**solutions**](https://colab.research.google.com/drive/1JfIRCJZ_Fi_WJGneuOKKqF_qsxJfdbfZ?usp=sharing)
-
-You can make a copy of the **exercises** notebooks in your own drive, and fill in the code cells whenever indicated. The solutions will be available in dropdowns next to each of the code cells. You can also look at the **solutions** notebooks if you're just interested in the output (since they have all the correct code filled in, and all the output on display within the notebook).
-
-### Option 2: Your own IDE
-
-An alternative way to use this material is to run it on an IDE of your own choice (we strongly recommend VSCode). The vast majority of the exercises will not require a particularly good GPU, and where there are exceptions we will give some advice for how to get the most out of the exercises regardless.
-
-Full instructions for running the exercises in this way:
-
-* Clone the [GitHub repo](https://github.com/callummcdougall/TransformerLens-intro) into your local directory.
-* Open in your choice of IDE (we recommend VSCode).
-* Make & activate a virtual environment
-    * We strongly recommend using `conda` for this. You can install `conda` [here](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), and find basic instructions [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
-* Install requirements.
-    * First, install PyTorch using the following command: `conda install pytorch=1.11.0 torchdata torchvision -c pytorch -y`.
-    * Then install the rest of the requirements by navigating to the directory and running `pip install -r requirements.txt`.
-* While in the directory, run `streamlit run Home.py` in your terminal (this should work since Streamlit is one of the libraries in `requirements.txt`).
-    * This should open up a local copy of the page you're reading right now, and you're good to go!
-
-To complete one of the exercise pages, you should:
-
-* Navigate to `exercises` in the repo
-* Create a file called `part1_answers.py` (or `part1_answers.ipynb` if you prefer using notebooks)
-* Go through the Streamlit page, and copy over / fill in then run the appropriate code as you go through the exercises.
+Unlike the first chapter (where all the material was compulsory), this chapter has 4 days of compulsory content and 4 days of bonus content. During the compulsory days you will build and train transformers, and get a basic understanding of mechanistic interpretability of transformer models which includes induction heads & use of TransformerLens. The next 4 days, you have the option to continue with whatever material interests you out of the remaining sets of exercises. There will also be bonus material if you want to leave the beaten track of exercises all together!

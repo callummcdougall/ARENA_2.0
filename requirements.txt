@@ -1,11 +1,8 @@
 # Make sure to install the torch dependencies with conda:
-# conda install pytorch=1.11.0 torchdata torchvision -c pytorch -y
 # conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
 
-fancy_einsum
 einops
 requests
-transformers
 pytest
 click
 joblib
@@ -22,7 +19,6 @@ pandas
 scikit-learn
 black
 wandb
-sentence-transformers
 ftfy
 tensorboard
 pygame
@@ -31,7 +27,6 @@ sympy
 accelerate
 pre-commit
 diffusers
-torchtyping
 gdown
 jaxtyping
 typeguard

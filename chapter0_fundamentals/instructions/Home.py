@@ -45,7 +45,7 @@ st.sidebar.markdown(r"""
 def section_home():
     # start
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/beam-search.png" width="600">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/prereqs.png" width="600">
 
 # Chapter 0: Fundamentals
 
@@ -69,76 +69,98 @@ If you want to change to dark mode, you can do this by clicking the three horizo
 
 ## How you should use this material
 
-### Option 1: Colab
+### Option 1: VSCode
 
-The simplest way to get these exercises up and running is to use Colab. This guarantees good GPU support, and means you'll spend less time messing around with environments and IDEs. Each set of exercises will have a link to the accompanying Colab notebook, which you should make a copy of and work through. The Colabs have the same exercises as these pages, although they are presented in a different way (with you filling out and running cells rather than working in your own IDE).
+This is the option we strongly recommend for all participants of the in-person ARENA program.
 
-[Here](https://drive.google.com/drive/folders/1YnTChxQTJnJfFhqyHA44h9Nro79AaYpn?usp=sharing) is the link to the folder containing all the Colabs, and the data you'll need. You can find the individual Colabs below:
+<details>
+<summary>Click this dropdown for setup instructions.</summary>
+
+First, clone the [GitHub repo](https://github.com/callummcdougall/ARENA_2.0) into your local directory. The repo has the following structure (omitting the unimportant parts):
+
+```
+.
+├── chapter0_fundamentals
+│   ├── exercises
+│   │   ├── part1_ray_tracing
+│   │   │   ├── solutions.py
+│   │   │   ├── tests.py
+│   │   │   └── answers.py*
+│   │   ├── part2_cnns
+│   │   ⋮    ⋮
+│   └── instructions
+│       └── Home.py
+├── chapter1_transformers
+├── chapter2_rl
+├── chapter3_training_at_scale
+└── requirements.txt
+```
+
+There is a directory for each chapter of the course (e.g. `chapter0_fundamentals`). Each of these directories has an `instructions` folder (which contain the files used to generate the pages you're reading right now) `exercises` folder (where you'll be doing the actual exercises). The latter will contain a subfolder for each day of exercises, and that folder will contain files such as `solutions.py` and `tests.py` (as well as other data sometimes, which gets used as part of the exercises). You'll be completing the exercises in an `answers.py` file in this subfolder (which you'll need to create).
+
+Once you've cloned the repo and navigated into it (at the root directory), you should do the following:
+
+* Make & activate a virtual environment.
+    * We strongly recommend using `conda` for this. You can install `conda` [here](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), and find basic instructions [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
+* Install requirements.
+    * First, install PyTorch.
+        * If you're on Windows, the command is `conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia`.
+        * If you're on MAC, the command is `conda install pytorch=1.13.1 torchvision`.
+    * Then install the rest of the requirements by navigating running `pip install -r requirements.txt`.
+* To run a set of exercises, navigate to the appropriate `instructions` directory (e.g. `chapter0_fundamentals/instructions`) and run `streamlit run Home.py` in your terminal.
+    * This should open up a local copy of the page you're reading right now, and you're good to go!
+
+</details>
+
+### Option 2: Colab
+
+This option is recommended if either of the following is true:
+
+* You have limited access to GPU support
+* You want to avoid the hassle of setting up your own environment
+
+You can see all files in [this Google Drive folder](https://drive.google.com/drive/folders/1uq1pV6-9aQ5fO5ZhTfcL_GL2GXU8ANcy?usp=share_link). Also, you can get individual links in the dropdown below.
+
+<details>
+<summary>Click this dropdown for links to each of the colab exercises.</summary>
 
 <div style='text-align: center'>
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/raytracing.png" width="160" style="margin-bottom:3px;margin-top:15px">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/raytracing.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 Raytracing<br>[**exercises**](https://drive.google.com/file/d/1T3yXhK9CgK49HfN_x2WwD2CUv_bcPjA5/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/17qAsbvGChdA1zCjJ3QU8bv-4-rXpdppZ/view?usp=share_link)
 
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/cnn.png" width="160" style="margin-bottom:3px;margin-top:15px">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cnn.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 as_strided, convolutions and CNNs<br>[**exercises**](https://drive.google.com/file/d/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa/view?usp=share_link)
 
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 Build Your Own Backprop Framework<br>[**exercises**](https://drive.google.com/file/d/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu/view?usp=share_link)
 
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/resnet.png" width="160" style="margin-bottom:3px;margin-top:15px">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 ResNets & Model Training: Links to Colab<br>[**exercises**](https://drive.google.com/file/d/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD/view?usp=share_link)
 
-<img src="https://raw.githubusercontent.com/callummcdougall/ARENA_2.0/main/media/fundamentals/stats.png" width="160" style="margin-bottom:3px;margin-top:15px">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/stats.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 Optimization & Hyperparameters<br>[**exercises**](https://drive.google.com/file/d/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP/view?usp=share_link)
 </div>
+</details>
 
-You can make a copy of the **exercises** notebooks in your own drive, and fill in the code cells whenever indicated. The solutions will be available in dropdowns next to each of the code cells. You can also look at the **solutions** notebooks if you're just interested in the output (since they have all the correct code filled in, and all the output on display within the notebook).
-
-### Option 2: Your own IDE
-
-An alternative way to use this material is to run it on an IDE of your own choice (we strongly recommend VSCode). The vast majority of the exercises will not require a particularly good GPU, and where there are exceptions we will give some advice for how to get the most out of the exercises regardless.
-
-Full instructions for running the exercises in this way:
-
-* Clone the [GitHub repo](https://github.com/callummcdougall/TransformerLens-intro) into your local directory.
-* Open in your choice of IDE (we recommend VSCode).
-* Make & activate a virtual environment
-    * We strongly recommend using `conda` for this. You can install `conda` [here](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), and find basic instructions [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
-* Install requirements.
-    * First, install PyTorch using the following command: `conda install pytorch=1.11.0 torchdata torchvision -c pytorch -y`.
-    * Then install the rest of the requirements by navigating to the directory and running `pip install -r requirements.txt`.
-* Next, navigate to the `instructions` directory, and run `streamlit run Home.py` in your terminal (this should work since Streamlit is one of the libraries in `requirements.txt`).
-    * This should open up a local copy of the page you're reading right now, and you're good to go!
-
-To complete one of the exercise pages, you should:
-
-* Navigate to the appropriate directory in the repo (e.g. `exercises/part1_raytracing` for the first set of exercises)
-* Create a file called `answers.py`
-* Go through the Streamlit page, and copy over / fill in then run the appropriate code as you go through the exercises.
+For each of these sections, you can make a copy of the **exercises** notebooks in your own drive, and fill in the code cells whenever indicated. The solutions will be available in dropdowns next to each of the code cells (or you can look at the **solutions** notebooks, which have all code pre-run and output displayed).
 
 ### Chatbot assistant
 
-In the sidebar of this page, below the contents page, you will (at first) see an error message saying "Please set the OpenAI key...". This is space for a chatbot assistant, which can help answer your questions about the material. Take the following steps to set it up:
+We've created an experimental chatbot assistant to help you answer questions about the material. It performs a low-dimensional embedding of any questions that it is asked, then assembles context from the curriculum by choosing blocks of content with an embedding that has high cosine similarity of the question's embedding. This was inspired by [AlignmentSearch](https://www.lesswrong.com/posts/bGn9ZjeuJCg7HkKBj/introducing-alignmentsearch-an-ai-alignment-informed), and has similar benefits and drawbacks relative to the alternative of using GPT directly.
+
+You'll be able to access the assistant just fine using the public link, but if you want to use the chatbot while running the page locally, you'll need to do the following:
 
 * Go to the [OpenAI API](https://openai.com/blog/openai-api) and sign up for an account.
 * Create a secret key from [this page](https://platform.openai.com/account/api-keys). Copy this key.
-* Create a file `.streamlit/secrets.toml` in this repo, and have the first line read `openai_api_key = "<your key>"`.
-* Refresh the page, and you should now be able to use the chatbot.
+* Create a file `.streamlit/secrets.toml` in the appropriate `instructions` directory, and have the first line be `openai_api_key = "<your key>"`.
+* Refresh the Streamlit page, and you should now be able to use the chatbot.
 
-This interface was built using the `openai` library, and it exists to help answer questions you might have about the material. All prompts from this chatbot are prepended with most\* of the material on the page and section you're currently reading. For instance, try passing in the question ***What are 2 ways to use this material?*** to the chatbot, and it should describe the two options given above (i.e. colab, or your own IDE). This feature is very experimental, so please [let me know](mailto:cal.s.mcdougall@gmail.com) if you have any feedback!
-
-\**Because of the context window, the entire page isn't always included in the prompt (e.g. generally code blocks aren't included). When in doubt, you can copy sections of the page into the prompt and run it! If you get an error message saying that the prompt is too long, then you can use the **clear chat** button and start again.*
-
-Here are some suggestions for the kinds of questions you can ask the chatbot (in the appropriate sections of the course):
-
-* *(copying in a function to the start of your prompt)* What does this function do?
-* What is an intuitive explanation of induction heads?
-* What is the difference between top-k and top-p sampling?
+You can see example questions to ask the chatbot if you navigate to the chatbot page.
 
 ## Hints
 
