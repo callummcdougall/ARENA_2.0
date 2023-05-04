@@ -1,5 +1,5 @@
 import torch as t
-import bonus1_indirect_object_identification.solutions as solutions
+import part3_indirect_object_identification.solutions as solutions
 from typing import Tuple, List, Callable
 from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
 

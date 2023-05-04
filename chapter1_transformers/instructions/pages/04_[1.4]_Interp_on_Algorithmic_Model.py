@@ -119,7 +119,6 @@ import json
 from typing import List, Tuple, Union, Optional, Callable, Dict
 import torch as t
 from torch import Tensor
-from fancy_einsum import einsum
 from sklearn.linear_model import LinearRegression
 import numpy as np
 from plotly.subplots import make_subplots
@@ -1225,27 +1224,7 @@ Don't forget to subtract the mean for each component across all the balanced sam
 <details>
 <summary>Solution</summary>
 
-```python
-# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
-# remember to subtract the mean per component on balanced samples
 
-# Get output by components, at sequence position 0 (which is used for classification)
-out_by_components_seq0: Float[Tensor, "comp", "batch", "d_model"] = out_by_components[:, :, 0, :]
-# Get the unbalanced direction for tensors being fed into the final layernorm
-pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
-# Get the size of the contributions for each component
-out_by_component_in_unbalanced_dir = einsum(
-    "comp batch d_model, d_model -> comp batch",
-    out_by_components_seq0, 
-    pre_final_ln_dir
-)
-# Subtract the mean
-out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
-
-test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
-
-hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
-```
 ```python
 # remember to subtract the mean per component on balanced samples
 # Get output by components, at sequence position 0 (which is used for classification)
@@ -1253,10 +1232,10 @@ out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[
 # Get the unbalanced direction for tensors being fed into the final layernorm
 pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
 # Get the size of the contributions for each component
-out_by_component_in_unbalanced_dir = einsum(
+out_by_component_in_unbalanced_dir = einops.einsum(
+    out_by_components_seq0,
+    pre_final_ln_dir,
     "comp batch d_model, d_model -> comp batch",
-    out_by_components_seq0, 
-    pre_final_ln_dir
 # Subtract the mean
 out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
 
@@ -1586,10 +1565,10 @@ if MAIN:
 ```python
 # Remember to subtract the mean for each component for balanced inputs
 pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
-out_by_component_in_pre_20_unbalanced_dir = einsum(
-    "comp batch emb, emb -> comp batch",
+out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
     pre_layer2_outputs_seqpos1,
-    get_pre_20_dir(model, data)
+    get_pre_20_dir(model, data),
+    "comp batch emb, emb -> comp batch",
 out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
 
 ```
@@ -1718,9 +1697,10 @@ def get_out_by_neuron(
         f_x_W_in: Float[Tensor, "batch neurons"] = f_x_W_in[:, seq, :]
 
     # Calculate the output by neuron (i.e. so summing over the `neurons` dimension gives the output of the MLP)
-    out = einsum(
+    out = einops.einsum(
+        f_x_W_in, 
+        W_out,
         "... neurons, neurons d_model -> ... neurons d_model",
-        f_x_W_in, W_out
     )
     return out
 
@@ -1736,10 +1716,10 @@ def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset,
     out_by_neuron_seqpos1 = get_out_by_neuron(model, data, layer, seq=1)
 
     # For each neuron, project the vector it writes to residual stream along the pre-2.0 unbalanced direction
-    return einsum(
-        "batch neurons d_model, d_model -> batch neurons",
+    return einops.einsum(
+        get_pre_20_dir(model, data),
         out_by_neuron_seqpos1,
-        get_pre_20_dir(model, data)
+        "batch neurons d_model, d_model -> batch neurons",
     )
 ```
 </details>
@@ -2191,7 +2171,7 @@ def cos_sim_with_MLP_weights(model: HookedTransformer, v: Float[Tensor, "d_model
     v_unit = v / v.norm()
     W_in_unit = model.W_in[layer] / model.W_in[layer].norm(dim=0)
 
-    return einsum("d_model, d_model d_mlp -> d_mlp", v_unit, W_in_unit)
+    return einops.einsum(v_unit, W_in_unit, "d_model, d_model d_mlp -> d_mlp")
 
 def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> float:
     '''
