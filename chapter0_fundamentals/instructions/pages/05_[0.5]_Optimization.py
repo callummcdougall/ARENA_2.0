@@ -28,7 +28,7 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/stats.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp) | [**solutions**](https://colab.research.google.com/drive/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP)
 
 
 # [0.5] Optimization & Hyperparameters

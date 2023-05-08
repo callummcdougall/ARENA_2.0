@@ -128,23 +128,23 @@ You can see all files in [this Google Drive folder](https://drive.google.com/dri
 <div style='text-align: center'>
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/raytracing.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Raytracing<br>[**exercises**](https://drive.google.com/file/d/1T3yXhK9CgK49HfN_x2WwD2CUv_bcPjA5/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/17qAsbvGChdA1zCjJ3QU8bv-4-rXpdppZ/view?usp=share_link)
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cnn.png" width="160" style="margin-bottom:3px;margin-top:15px">
-
-as_strided, convolutions and CNNs<br>[**exercises**](https://drive.google.com/file/d/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa/view?usp=share_link)
+Raytracing<br>[**exercises**](https://colab.research.google.com/drive/1T3yXhK9CgK49HfN_x2WwD2CUv_bcPjA5) | [**solutions**](https://colab.research.google.com/drive/17qAsbvGChdA1zCjJ3QU8bv-4-rXpdppZ)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Build Your Own Backprop Framework<br>[**exercises**](https://drive.google.com/file/d/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu/view?usp=share_link)
+Build Your Own Backprop Framework<br>[**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cnn.png" width="160" style="margin-bottom:3px;margin-top:15px">
+
+as_strided, convolutions and CNNs<br>[**exercises**](https://colab.research.google.com/drive/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf) | [**solutions**](https://colab.research.google.com/drive/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-ResNets & Model Training: Links to Colab<br>[**exercises**](https://drive.google.com/file/d/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD/view?usp=share_link)
+ResNets & Model Training: Links to Colab<br>[**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/stats.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Optimization & Hyperparameters<br>[**exercises**](https://drive.google.com/file/d/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP/view?usp=share_link)
+Optimization & Hyperparameters<br>[**exercises**](https://colab.research.google.com/drive/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp) | [**solutions**](https://colab.research.google.com/drive/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP)
 </div>
 </details>
 

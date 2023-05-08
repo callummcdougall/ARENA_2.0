@@ -30,7 +30,7 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/backprop.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
 
 
 # [0.3] - Build Your Own Backpropagation Framework

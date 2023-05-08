@@ -28,7 +28,7 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/resnet.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
 
 
 # [0.4] - ResNets & Model Training

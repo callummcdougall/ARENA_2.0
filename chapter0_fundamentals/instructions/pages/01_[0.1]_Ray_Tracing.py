@@ -71,7 +71,7 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/raytracing.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/1T3yXhK9CgK49HfN_x2WwD2CUv_bcPjA5) | [**solutions**](https://colab.research.google.com/drive/17qAsbvGChdA1zCjJ3QU8bv-4-rXpdppZ)
 
 
 # [0.1] - Ray Tracing
