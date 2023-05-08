@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os
 import sys
 import re
@@ -24,7 +19,7 @@ grad_tracking_enabled = True
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+os.chdir(EXERCISES_DIR / "part3_backprop")
 
 import part3_backprop.tests as tests
 from part3_backprop.utils import *

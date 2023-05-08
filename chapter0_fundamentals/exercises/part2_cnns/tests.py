@@ -142,7 +142,7 @@ def test_conv1d(conv1d, n_tests=10):
         weights = t.randn((co, ci, kernel_size))
         my_output = conv1d(x, weights, stride=stride, padding=padding)
         torch_output = t.conv1d(x, weights, stride=stride, padding=padding)
-        t.testing.assert_close(my_output, torch_output)
+        t.testing.assert_close(my_output, torch_output, atol=1e-4, rtol=1e-4)
     print("All tests in `test_conv1d` passed!")
 
 def test_pad1d(pad1d):

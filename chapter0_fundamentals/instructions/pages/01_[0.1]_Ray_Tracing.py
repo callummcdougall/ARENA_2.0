@@ -111,19 +111,19 @@ from IPython.display import display
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+os.chdir(EXERCISES_DIR / "part1_ray_tracing")
 
 from plotly_utils import imshow
-from part1_raytracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
-import part1_raytracing.tests as tests
-# import part1_raytracing.solutions as solutions
+from part1_ray_tracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
+import part1_ray_tracing.tests as tests
+# import part1_ray_tracing.solutions as solutions
 
 MAIN = __name__ == "__main__"
 
 ```
 
 <details>
-<summary>Help - in VSCode, I get yellow line warnings under lines like <code>part1_raytracing.utils</code>.</summary>
+<summary>Help - in VSCode, I get yellow line warnings under lines like <code>part1_ray_tracing.utils</code>.</summary>
 
 This is because VSCode's typechecker doesn't know where to look to resolve local imports. To fix this, take the following steps:
 
@@ -1200,7 +1200,7 @@ Use the given code to load the triangles for your Pikachu. By convention, files 
 ```python
 
 if MAIN:
-    with open("part1_raytracing/pikachu.pt", "rb") as f:
+    with open("pikachu.pt", "rb") as f:
         triangles = t.load(f)
 
 ```
@@ -1306,13 +1306,13 @@ def raytrace_mesh(
 
 Congratulations, you've now got to the end of the exercises! 
 
-To wrap up today, we're going to have a further discussion of **testing**. So far, our test functions have been pretty simple - we imported a test from the `part1_raytracing/tests.py` file, and ran it to compare our answers to the answers in `part1_raytracing/solutions.py`. This works perfectly fine, but there are other Python libraries which can make testing easier and more powerful. In particular, two such libraries are `unittest` and `pytest`. Both these libraries provide extensive features for modularizing and running test functions, and have nice integrations with VSCode. `unittest` is very powerful, but also has a steep learning curve and isn't worth the trouble of learning during a 6 week course. However, `pytest` is very useful and easy to learn, so we'll spend some time here discussing it.
+To wrap up today, we're going to have a further discussion of **testing**. So far, our test functions have been pretty simple - we imported a test from the `part1_ray_tracing/tests.py` file, and ran it to compare our answers to the answers in `part1_ray_tracing/solutions.py`. This works perfectly fine, but there are other Python libraries which can make testing easier and more powerful. In particular, two such libraries are `unittest` and `pytest`. Both these libraries provide extensive features for modularizing and running test functions, and have nice integrations with VSCode. `unittest` is very powerful, but also has a steep learning curve and isn't worth the trouble of learning during a 6 week course. However, `pytest` is very useful and easy to learn, so we'll spend some time here discussing it.
 
 The pytest framework makes it easy to write small, readable tests, and can scale to support complex functional testing for applications and libraries. Today we'll just discuss a few features which will be particularly useful for the kinds of tests we'll be writing, but you're welcome to explore more tests later on.
 
 *Important note - if you're working on Colab or a notebook for these exercises, your tests won't work, because in this setup we'll be importing answers from our test file, rather than importing tests from our answers file. For this reason, we won't be using pytest for the structured exercises in this course (in case anybody is following these exercises in a notebook), but you're strongly recommended to use pytest when you're working from `.py` files instead - which is strongly recommended during much of the bonus content.*
 
-First, look at `part1_raytracing/tests.py`. The tests in this file all follow a similar pattern: evaluate your function on some input, check it equals the solution. This is a clear sign that we can use modularization to simplify our code! Compare this file to `part1_raytracing/test_with_pytest.py`, which contains the same tests but refactored using pytest. The latter is clearly separated into three sections: one for library imports, one for defining the inputs we'll use for our test functions, and one where we define our test functions. 
+First, look at `part1_ray_tracing/tests.py`. The tests in this file all follow a similar pattern: evaluate your function on some input, check it equals the solution. This is a clear sign that we can use modularization to simplify our code! Compare this file to `part1_ray_tracing/test_with_pytest.py`, which contains the same tests but refactored using pytest. The latter is clearly separated into three sections: one for library imports, one for defining the inputs we'll use for our test functions, and one where we define our test functions. 
 
 ### Parametrization
 
@@ -1352,8 +1352,8 @@ To do this, you need to call `pytest.main` (make sure this is wrapped in an `if 
 ```python
 if MAIN:
     pytest.main([])
-    pytest.main(["test_part1_raytracing.py"])
-    pytest.main(["test_part1_raytracing.py::test_intersect_ray_1d"])
+    pytest.main(["test_part1_ray_tracing.py"])
+    pytest.main(["test_part1_ray_tracing.py::test_intersect_ray_1d"])
 ```
 
 3. **From VSCode's testing display**

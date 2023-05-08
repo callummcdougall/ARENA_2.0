@@ -89,7 +89,7 @@ import numpy as np
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+os.chdir(EXERCISES_DIR / "part5_optimization")
 
 from plotly_utils import bar, imshow
 from part4_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics

@@ -8,7 +8,7 @@ os.chdir("exercises")
 
 
 def test_intersect_ray_1d(intersect_ray_1d):
-    import part1_raytracing.solutions as solutions
+    import part1_ray_tracing.solutions as solutions
     expected = [(0, 0), (0, 1), (2, 7), (2, 8)]
     actual = []
     for i, segment in enumerate(solutions.segments):
@@ -22,7 +22,7 @@ def test_intersect_ray_1d(intersect_ray_1d):
     print("All tests in `test_intersect_ray_1d` passed!")
 
 def test_intersect_ray_1d_special_case(intersect_ray_1d):
-    import part1_raytracing.solutions as solutions
+    import part1_ray_tracing.solutions as solutions
     ray = t.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 1.0]])
     segment = t.tensor([[0.0, 2.0, 2.0], [0.0, 4.0, 4.0]])
     actual = intersect_ray_1d(ray, segment)
@@ -32,7 +32,7 @@ def test_intersect_ray_1d_special_case(intersect_ray_1d):
 
 
 def test_intersect_rays_1d(intersect_rays_1d):
-    import part1_raytracing.solutions as solutions
+    import part1_ray_tracing.solutions as solutions
     expected = solutions.intersect_rays_1d(solutions.rays1d, solutions.segments)
     actual = intersect_rays_1d(solutions.rays1d, solutions.segments)
     t.testing.assert_close(actual, expected)
@@ -40,7 +40,7 @@ def test_intersect_rays_1d(intersect_rays_1d):
 
 
 def test_intersect_rays_1d_special_case(intersect_rays_1d):
-    import part1_raytracing.solutions as solutions
+    import part1_ray_tracing.solutions as solutions
     ray = t.tensor([[[0.0, 0.0, 0.0], [0.0, 1.0, 1.0]], [[0.0, 0.0, 0.0], [1.0, -10.0, 0.0]]])
     segment = t.tensor(
         [
@@ -55,7 +55,7 @@ def test_intersect_rays_1d_special_case(intersect_rays_1d):
 
 
 def test_triangle_ray_intersects(triangle_ray_intersects):
-    import part1_raytracing.solutions as solutions
+    import part1_ray_tracing.solutions as solutions
     A = t.tensor([2, 0.0, -1.0])
     B = t.tensor([2, -1.0, 0.0])
     C = t.tensor([2, 1.0, 1.0])

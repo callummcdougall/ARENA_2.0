@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os
 import sys
 import torch as t
@@ -20,12 +15,12 @@ from IPython.display import display
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+os.chdir(EXERCISES_DIR / "part1_ray_tracing")
 
 from plotly_utils import imshow
-from part1_raytracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
-import part1_raytracing.tests as tests
-# import part1_raytracing.solutions as solutions
+from part1_ray_tracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
+import part1_ray_tracing.tests as tests
+# import part1_ray_tracing.solutions as solutions
 
 MAIN = __name__ == "__main__"
 
@@ -333,7 +328,7 @@ if MAIN:
 
 
 if MAIN:
-	with open("part1_raytracing/pikachu.pt", "rb") as f:
+	with open("pikachu.pt", "rb") as f:
 		triangles = t.load(f)
 
 # %%

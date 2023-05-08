@@ -5,8 +5,8 @@ sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
 
 import torch as t
 import pytest
-import part1_raytracing.solutions as solutions
-import part1_raytracing.answers as answers # type: ignore
+import part1_ray_tracing.solutions as solutions
+import part1_ray_tracing.answers as answers # type: ignore
 
 # Get a basic set of rays and segments
 ray_segment_batch = (

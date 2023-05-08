@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
 import torch as t
@@ -31,7 +26,7 @@ from jaxtyping import Float, Int
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+os.chdir(EXERCISES_DIR / "part4_resnets")
 
 from part2_cnns.solutions import *
 from part4_resnets.utils import print_param_count

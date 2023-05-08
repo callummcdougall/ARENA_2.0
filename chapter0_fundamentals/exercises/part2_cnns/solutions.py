@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os
 import sys
 import numpy as np
@@ -25,7 +20,7 @@ from tqdm.notebook import tqdm
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+os.chdir(EXERCISES_DIR / "part2_cnns")
 
 from plotly_utils import imshow, line, bar
 from part2_cnns.utils import *
@@ -37,7 +32,7 @@ MAIN = __name__ == "__main__"
 
 
 if MAIN:
-	arr = np.load("part2_cnns/numbers.npy")
+	arr = np.load("numbers.npy")
 
 # %%
 
