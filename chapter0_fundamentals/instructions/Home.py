@@ -130,13 +130,13 @@ You can see all files in [this Google Drive folder](https://drive.google.com/dri
 
 Raytracing<br>[**exercises**](https://colab.research.google.com/drive/1T3yXhK9CgK49HfN_x2WwD2CUv_bcPjA5) | [**solutions**](https://colab.research.google.com/drive/17qAsbvGChdA1zCjJ3QU8bv-4-rXpdppZ)
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
-
-Build Your Own Backprop Framework<br>[**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
-
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cnn.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 as_strided, convolutions and CNNs<br>[**exercises**](https://colab.research.google.com/drive/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf) | [**solutions**](https://colab.research.google.com/drive/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
+
+Build Your Own Backprop Framework<br>[**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
