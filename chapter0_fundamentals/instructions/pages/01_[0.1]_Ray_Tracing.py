@@ -102,21 +102,19 @@ import torch as t
 import einops
 from ipywidgets import interact
 import plotly.express as px
-import plotly.graph_objects as go
 from ipywidgets import interact
 from pathlib import Path
 from IPython.display import display
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter0_fundamentals"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part1_ray_tracing")
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part1_ray_tracing"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
 from part1_ray_tracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
 import part1_ray_tracing.tests as tests
-# import part1_ray_tracing.solutions as solutions
 
 MAIN = __name__ == "__main__"
 
@@ -150,6 +148,21 @@ Make sure these are the only lines in `"python.analysis.extraPaths"` (the others
 We define the `MAIN` object at the start of every set of exercises. Lots of the code below will be wrapped in an `if MAIN:` block. The purpose of this is so that the code doesn't get called when we import the file. `__name__` only equals `"__main__"` when the file is run directly; when it's imported then `__name__` equals the name of that file (to test this you can add the line `print(__name__)` in the solutions file for today, then import it from whatever file you're working from).
 
 For example, suppose you create a file `part2_cnns_answers.py` (which you will do tomorrow!), and you define certain classes in that file. You still want to be able to use those classes in subsequent exercises, so you import those classes when you're working on e.g. `part4_resnets_answers.py`. The classes will be defined, but code wrapped in `if MAIN:` (e.g. test functions or model training) will not.
+</details>
+
+<details>
+<summary>Note on <code>pathlib</code></summary>
+
+We'll be using the `pathlib` library to define file paths. This is a more modern way of working with file paths than the `os` library, and is more cross-platform. You can read more about it [here](https://realpython.com/python-pathlib/).
+
+A major advantage of using `pathlib` rather than just relative path names is that it is more robust to which file / directory you happen to be running your code in. There's nothing more frustrating than failing to import or load a file, even though you can see it right there in your directory! Most of our code to load files will look something like this:
+
+```python
+with open(section_dir / "pikachu.pt", "rb") as f:
+    triangles = t.load(f)
+```
+
+since `section_dir` is the name of the `part1_ray_tracing` directory, and forward slashes are used to define files or directories within that directory.
 </details>
 
 
@@ -1192,15 +1205,13 @@ These were all relatively easy bugs to diagnose (not all bugs will present as ac
 
 ## Mesh Loading
 
-You can download the pikachu `.pt` file from [this link](https://drive.google.com/drive/folders/15k_u8ESO2gVzs8_HUBgCAk-EFcb01LZw?usp=sharing), and save it to your Colab's local storage.
-
 Use the given code to load the triangles for your Pikachu. By convention, files written with `torch.save` end in the `.pt` extension, but these are actually just zip files.
 
 
 ```python
 
 if MAIN:
-    with open("pikachu.pt", "rb") as f:
+    with open(section_dir / "pikachu.pt", "rb") as f:
         triangles = t.load(f)
 
 ```

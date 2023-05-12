@@ -1,6 +1,13 @@
+import sys, os
 import plotly.express as px
 import einops
 import numpy as np
+from pathlib import Path
+
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part2_cnns"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 def display_array_as_img(img_array):
     '''
@@ -23,7 +30,7 @@ def display_array_as_img(img_array):
     fig.update_layout(coloraxis_showscale=False, margin=dict.fromkeys("tblr", 0), height=height, width=width)
     fig.show(config=dict(displayModeBar=False))
 
-arr = np.load("numbers.npy")
+arr = np.load(section_dir / "numbers.npy")
 
 arr1_soln = einops.rearrange(arr, "b c h w -> c h (b w)")
 arr2_soln = einops.repeat(arr[0], "c h w -> c (2 h) w")

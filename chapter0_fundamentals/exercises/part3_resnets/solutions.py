@@ -23,10 +23,11 @@ import pytorch_lightning as pl
 from jaxtyping import Float, Int
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter0_fundamentals"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part3_resnets")
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part3_resnets"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+os.chdir(section_dir)
 
 from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
 from part3_resnets.utils import print_param_count
@@ -644,9 +645,9 @@ if MAIN:
 		"dragonfly.jpg",
 	]
 	
-	IMAGE_FOLDER = "resnet_inputs"
+	IMAGE_FOLDER = section_dir / "resnet_inputs"
 	
-	images = [Image.open(f"{IMAGE_FOLDER}/{filename}") for filename in IMAGE_FILENAMES]
+	images = [Image.open(IMAGE_FOLDER / filename) for filename in IMAGE_FILENAMES]
 
 # %%
 
@@ -656,17 +657,15 @@ if MAIN:
 
 # %%
 
+IMAGE_SIZE = 224
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
-if MAIN:
-	IMAGE_SIZE = 224
-	IMAGENET_MEAN = [0.485, 0.456, 0.406]
-	IMAGENET_STD = [0.229, 0.224, 0.225]
-	
-	IMAGENET_TRANSFORM = transforms.Compose([
-		transforms.ToTensor(),
-		transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-		transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-	])
+IMAGENET_TRANSFORM = transforms.Compose([
+	transforms.ToTensor(),
+	transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+	transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+])
 
 # %%
 
@@ -694,7 +693,7 @@ def predict(model, images):
 
 
 if MAIN:
-	with open("imagenet_labels.json") as f:
+	with open(section_dir / "imagenet_labels.json") as f:
 		imagenet_labels = list(json.load(f).values())
 
 # %%
@@ -916,53 +915,6 @@ if MAIN:
 	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 	
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
-
-# %% 4️⃣ BONUS
-
-import torch
-from torch import nn
-from d2l import torch as d2l
-
-# %%
-
-def cpu():  #@save
-	"""Get the CPU device."""
-	return torch.device('cpu')
-
-def gpu(i=0):  #@save
-	"""Get a GPU device."""
-	return torch.device(f'cuda:{i}')
-
-
-if MAIN:
-	cpu(), gpu(), gpu(1)
-
-# %%
-
-def num_gpus():  #@save
-	"""Get the number of available GPUs."""
-	return torch.cuda.device_count()
-
-
-if MAIN:
-	num_gpus()
-
-# %%
-
-def try_gpu(i=0):  #@save
-	"""Return gpu(i) if exists, otherwise return cpu()."""
-	if num_gpus() >= i + 1:
-		return gpu(i)
-	return cpu()
-
-def try_all_gpus():  #@save
-	"""Return all available GPUs, or [cpu(),] if no GPU exists."""
-	return [gpu(i) for i in range(num_gpus())]
-
-
-if MAIN:
-	try_gpu(), try_gpu(10), try_all_gpus()
-	
 
 # %%
 

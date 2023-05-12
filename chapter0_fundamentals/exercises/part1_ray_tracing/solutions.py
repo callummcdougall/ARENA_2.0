@@ -6,21 +6,19 @@ import torch as t
 import einops
 from ipywidgets import interact
 import plotly.express as px
-import plotly.graph_objects as go
 from ipywidgets import interact
 from pathlib import Path
 from IPython.display import display
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter0_fundamentals"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part1_ray_tracing")
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part1_ray_tracing"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
 from part1_ray_tracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
 import part1_ray_tracing.tests as tests
-# import part1_ray_tracing.solutions as solutions
 
 MAIN = __name__ == "__main__"
 
@@ -328,7 +326,7 @@ if MAIN:
 
 
 if MAIN:
-	with open("pikachu.pt", "rb") as f:
+	with open(section_dir / "pikachu.pt", "rb") as f:
 		triangles = t.load(f)
 
 # %%

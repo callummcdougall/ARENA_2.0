@@ -110,13 +110,13 @@ from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter0_fundamentals"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part2_cnns")
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part2_cnns"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line, bar
-from part2_cnns.utils import *
+from part2_cnns.utils import display_array_as_img, display_soln_array_as_img
 import part2_cnns.tests as tests
 
 MAIN = __name__ == "__main__"
@@ -167,9 +167,7 @@ def section_1():
 
 
 ```python
-
-if MAIN:
-    arr = np.load("numbers.npy")
+arr = np.load(section_dir / "numbers.npy")
 
 ```
 

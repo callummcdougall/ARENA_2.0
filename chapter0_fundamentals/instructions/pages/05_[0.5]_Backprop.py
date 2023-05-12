@@ -120,10 +120,11 @@ Arr = np.ndarray
 grad_tracking_enabled = True
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter0_fundamentals"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part5_backprop")
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part5_backprop"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+os.chdir(section_dir)
 
 import part5_backprop.tests as tests
 from part5_backprop.utils import visualize, get_mnist

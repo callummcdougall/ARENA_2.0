@@ -88,13 +88,14 @@ import numpy as np
 from IPython.display import display, HTML
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter0_fundamentals"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_optimization")
+chapter = r"chapter0_fundamentals"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part4_optimization"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+os.chdir(section_dir)
 
 from plotly_utils import bar, imshow
-from part3_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
+from part3_resnets.solutions import IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
 from part4_optimization.utils import plot_fn, plot_fn_with_points
 import part4_optimization.tests as tests
 
