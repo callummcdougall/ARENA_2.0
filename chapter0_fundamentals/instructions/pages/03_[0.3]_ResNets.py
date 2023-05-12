@@ -31,13 +31,13 @@ def section_0():
 Colab: [**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
 
 
-# [0.4] - ResNets & Model Training
+# [0.3] - ResNets & Model Training
 
 
 ## Introduction
 
 
-Today's exercises are probably the most directly relevant for the rest of the programme out of everything we've done this week. This is because we'll be looking at important concepts like training loops and neural network architectures. Additionally, the task of assembling a complicated neural network architecture from a set of instructions will lead straight into next week, when we'll be building our own transformers! So forming a deep understanding of everything that's going on in today's exercises will be very helpful going forwards.
+Today's exercises are probably the most directly relevant for the rest of the program out of everything we'll do this week. This is because we'll be looking at important concepts like training loops and neural network architectures. Additionally, the task of assembling a complicated neural network architecture from a set of instructions will lead straight into next week, when we'll be building our own transformers! So forming a deep understanding of everything that's going on in today's exercises will be very helpful going forwards.
 
 
 ## Content & Learning Objectives
@@ -110,11 +110,12 @@ from jaxtyping import Float, Int
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_resnets")
+os.chdir(EXERCISES_DIR / "part3_resnets")
 
-from part2_cnns.solutions import *
-from part4_resnets.utils import print_param_count
-import part4_resnets.tests as tests
+from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
+from part3_resnets.utils import print_param_count
+import part3_resnets.tests as tests
+from plotly_utils import line
 
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
@@ -523,7 +524,7 @@ This training loop is perfectly servicable for the simple task we were trying to
 
 PyTorch Lightning is a library that provides a high-level interface for training PyTorch models. It's designed to remove boilerplate code during a training loop. It's also designed to be compatible with other libraries, such as `wandb` (which we'll look at tomorrow).
 
-Rather than including parts like backprop, training step, testing step all within the same loop, it provides a more modular approach. The base module `lightning.pytorch.LightningModule` defines a full system (which includes a model and a protocol for training it). The two most important methods when using this module are:
+Rather than including parts like backpropogation, training step, testing step all within the same loop, it provides a more modular approach. The base module `lightning.pytorch.LightningModule` defines a full system (which includes a model and a protocol for training it). The two most important methods when using this module are:
 
 * `training_step` - defines what happens during a training step (for a single batch)
     * This is the most important method
@@ -554,6 +555,12 @@ for batch_idx, batch in enumerate(train_dataloader):
 
 There are also a number of other methods which you can define to override the default behaviour of the training loop in other ways (e.g. validation sets, early stopping, saving and loading from checkpoints, GPU utilization). We'll look at some of these later on, but for now you don't need to worry about them.
 
+
+```python
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger
+
+```
 
 ```python
 class LitConvNet(pl.LightningModule):
@@ -602,7 +609,7 @@ if MAIN:
     testloader = DataLoader(testset, shuffle=True, batch_size=batch_size)
     
     # Get a logger, to record metrics during training
-    logger = pl.loggers.CSVLogger(save_dir=os.getcwd() + "/logs", name="day4-convenet")
+    logger = CSVLogger(save_dir=os.getcwd() + "/logs", name="day4-convenet")
     
     # Train the model (hint: here are some helpful Trainer arguments for rapid idea iteration)
     trainer = pl.Trainer(
@@ -687,7 +694,7 @@ class ConvNetTrainingArgs():
         trainset, testset = get_mnist(subset=self.sample)
         self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size)
         self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size)
-        self.logger = pl.loggers.CSVLogger(save_dir=self.log_dir, name=self.log_name)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 
 class LitConvNet(pl.LightningModule):
@@ -730,7 +737,7 @@ Note that PyTorch has its own functions for saving and loading models (`torch.sa
 
 Edit the `LitConvNet` class above to include a testing loop. Run a testing loop, and plot the test accuracy.
 
-The method is called `validation_step`. It takes the same arguments as `training_step`, and follows the same basic structure (run the model, get the test accuracy, and log it). We don't need to return the loss (because we don't need to backprop on it), logging is the only important thing. Note that variables logged by `validation_step` are automatically averaged over the validation set. This means that if you log the accuracy for each batch, this will end up giving you a single row in your metrics dataframe, representing the the average accuracy over all batches in the validation set.
+The method is called `validation_step`. It takes the same arguments as `training_step`, and follows the same basic structure (run the model, get the test accuracy, and log it). We don't need to return the loss (because we don't need to do backpropagation on it), logging is the only important thing. Note that variables logged by `validation_step` are automatically averaged over the validation set. This means that if you log the accuracy for each batch, this will end up giving you a single row in your metrics dataframe, representing the the average accuracy over all batches in the validation set.
 
 <details>
 <summary>Terminology note - validation vs testing</summary>
@@ -960,6 +967,7 @@ def section_2():
     <li><ul class="contents">
         <li><a class='contents-el' href='#sequential'>Sequential</a></li>
         <li><a class='contents-el' href='#batchnorm10d'>BatchNorm2d</a></li>
+        <li><a class='contents-el' href='#train-and-eval-modes'>Train and Eval Modes</a></li>
         <li><a class='contents-el' href='#exercise-implement-batchnorm10d'><b>Exercise</b> - implement <code>BatchNorm2d</code></a></li>
         <li><a class='contents-el' href='#averagepool'>AveragePool</a></li>
         <li><a class='contents-el' href='#exercise-implement-averagepool'><b>Exercise</b> - implement <code>AveragePool</code></a></li>
@@ -1043,11 +1051,10 @@ The implementation is given to you below. A few notes:
     * This is a special type of dict called an **ordered dictionary**, which preserves the order of elements that get added (although Python sort-of does this now by default).
     * When we call `self.parameters()`, this recursively goes through all modules in `self._modules`, and returns the params in those modules. This means we can nest sequentials within sequentials!
 * The special `__getitem__` and `__setitem__` methods determine behaviour when we get and set modules within the sequential.
-    * There is also a line to deal with the index being negative (e.g. we might want to index with `-1` to get the last module in the sequential).
 * The `repr` of the base class `nn.Module` already recursively prints out the submodules, so we don't need to write anything in `extra_repr`.
     * To see how this works in practice, try defining a `Sequential` which takes a sequence of modules that you've defined above, and see what it looks like when you print it.
 
-Make sure you understand what's going on here, before moving on.
+Don't worry about deeply understanding this code. The main takeaway is that `nn.Sequential` is a useful list-like object to store modules, and apply them all sequentially.
 
 <details>
 <summary>Aside - initializing Sequential with an OrderedDict</summary>
@@ -1089,11 +1096,11 @@ class Sequential(nn.Module):
             self._modules[str(index)] = mod
 
     def __getitem__(self, index: int) -> nn.Module:
-        if index < 0: index += len(self._modules)
+        if index < 0: index += len(self._modules) # deal with negative indices
         return self._modules[str(index)]
 
     def __setitem__(self, index: int, module: nn.Module) -> None:
-        if index < 0: index += len(self._modules)
+        if index < 0: index += len(self._modules) # deal with negative indices
         self._modules[str(index)] = module
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -1119,7 +1126,7 @@ The reason we have a different name for this is to describe how it is treated by
 * It is not included in `module.parameters`, so optimizers won't see or modify it. Instead, your module will modify it as appropriate within `forward`.
 
 
-#### Train and Eval Modes
+### Train and Eval Modes
 
 This is your first implementation that needs to care about the value of `self.training`, which is set to True by default, and can be set to False by `self.eval()` or to True by `self.train()`.
 
@@ -1628,7 +1635,7 @@ This function uses the `state_dict()` method, which returns an  `OrderedDict` (d
 
 If the copying fails, this means that your model's layers don't match up with the layers in the PyTorch model implementation.
 
-To debug here, we've given you a helpful function `utils.print_param_count`, which takes one or more models (as `*args`) and prints out a stylized dataframe comparing the parameter names and shapes of each model. It will tell you when your model matches up with the PyTorch implementation. It can be used as follows:
+To debug here, we've given you a helpful function `print_param_count` (from `utils.py`), which takes two models and prints out a stylized dataframe comparing the parameter names and shapes of each model. It will tell you when your model matches up with the PyTorch implementation. It can be used as follows:
 
 ```python
 print_param_count(my_resnet, pretrained_resnet)
@@ -1684,15 +1691,17 @@ In the normalization step, we'll use a mean of `[0.485, 0.456, 0.406]`, and a st
 
 
 ```python
-IMAGE_SIZE = 224
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
 
-IMAGENET_TRANSFORM = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-])
+if MAIN:
+    IMAGE_SIZE = 224
+    IMAGENET_MEAN = [0.485, 0.456, 0.406]
+    IMAGENET_STD = [0.229, 0.224, 0.225]
+    
+    IMAGENET_TRANSFORM = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+    ])
 
 ```
 
@@ -1743,7 +1752,7 @@ Finally, we have provided you with a simple function which predicts the image's 
 
 ```python
 def predict(model, images):
-    logits = model(images)
+    logits: t.Tensor = model(images)
     return logits.argmax(dim=1)
 
 ```
@@ -1917,7 +1926,7 @@ def section_3():
 
 Now that you've seen how to build a training loop using PyTorch lightning, and you've seen how ResNet works and is built, we're going to put these two things together to perform feature extraction on a ResNet model.
 
-**Feature extraction** is when we freeze most layers of a model except the last few, and perform gradient descent on those. We call this feature extraction because the earlier layers of the model have already learned to identify important features of the data (and these features are also relevant for the new task), so all that we have to do is train a few final layers in the model to extract these features. 
+**Feature extraction** is when we freeze most layers of a model except the last few, and perform gradient descent on these last few. We call this feature extraction because the earlier layers of the model have already learned to identify important features of the data (and these features are also relevant for the new task), so all that we have to do is train a few final layers in the model to extract these features. 
 
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/feature_extraction.png" width="400">
@@ -1931,13 +1940,26 @@ Now that you've seen how to build a training loop using PyTorch lightning, and y
 </details>
 
 
-As you probably noticed from yesterday's material, backpropagation is a bit of a headache! In most models it's much computationally expensive than forward passes, and uses much more memory. This is wasteful if we're only training the last few layers. To handle this, we can freeze the gradients of all parameters except for the last few layers. Once the backpropagation reaches a frozen layer, it won't go any further, so we won't waste time calculating gradients for layers which don't need them. The generic code for freezing a model's parameters is:
+We'll discuss freezing layers & the backpropagation algorithm in much more detail tomorrow, but for now it's fine to just understand what's going on at a basic level. When we call `loss.backward()` in our training loop (or when this is implicitly called by our PyTorch Lightning trainer), this propagates gradients from our `loss` scalar back to all parameters in our model. If a parameter has its `requires_grad` attribute set to `False`, it means gradients won't be computed for this tensor during backpropagation. Thanks to PyTorch helpfully keeping track of the parameters which require gradients (using a structure called the **computational graph**), if we set `requires_grad = False` for the first few layers of parameters in our model, PyTorch will actually save us time and compute by not calculating gradients for these parameters at all.
+
+See the code below as an example of how gradient propagation stops at tensors with `requires_grad = False`.
+
 
 ```python
-for param in model.parameters():
-    param.requires_grad = False
-```
 
+if MAIN:
+    layer0, layer1 = nn.Linear(3, 4), nn.Linear(4, 5)
+    
+    layer0.requires_grad_(False) # generic code to set `param.requires_grad = False` recursively for a module (or entire model)
+    
+    x = t.randn(3)
+    out = layer1(layer0(x)).sum()
+    out.backward()
+    
+    assert layer0.weight.grad is None
+    assert layer1.weight.grad is not None
+
+```
 
 #### Exercise - prepare ResNet for feature extraction
 
@@ -1997,7 +2019,7 @@ class ResNetTrainingArgs():
         trainset, testset = get_cifar(self.subset)
         self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size)
         self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size)
-        self.logger = pl.loggers.CSVLogger(save_dir=self.log_dir, name=self.log_name)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 ```
 
@@ -2012,18 +2034,16 @@ Your task is to write a PyTorch Lightning training loop for your ResNet model. M
 * In the `__init__` method, you'll need to define your model using the `get_resnet_for_feature_extraction` function you wrote above.
 * You'll need to define an optimizer to work just on your final linear layer. You can do this by passing a submodule's parameters to the optimizer, rather than the entire model (e.g. `Adam(self.resnet.fc.parameters(), ...)`).
 
-
-Note that, if you were using vanilla PyTorch, you'd have to call `model.train()` and `model.eval()` to switch between training and eval modes. This is necessary because it changes the behaviour of your BatchNorm. However, PyTorch Lightning does this for you automatically at the start of `training_step` and `validation_step`, so you don't need to worry about this.
-
+Note that, if you were using vanilla PyTorch, you'd have to call `model.train()` and `model.eval()` to switch between training and eval modes. This is necessary because it changes the behaviour of your BatchNorm. However, PyTorch Lightning does this for you automatically at the start of `training_step` and `validation_step`, so you don't need to worry about this, but it's a useful thing to be aware of.
 
 There is code below to run your training loop, and plot results. You can also compare these results to what you get when you try to train the model from scratch.
 
 <details>
 <summary>Spoilers - what kind of results should you get?</summary>
 
-If you train the whole model rather than just the final layer, you should find accuracy increases very slowly, not getting far above random chance.
+If you train the whole model rather than just the final layer, you should find accuracy increases very slowly, not getting very far above random chance. This reflects the fact that the model is trying to learn a new task (classifying images into 10 classes) from scratch, rather than just learning to extract features from images, and this takes a long time!
 
-If you train just the final layer, your accuracy should reach around 70-80% by the first epoch.
+If you train just the final layer, your accuracy should reach around 70-80% by the first epoch. This is because the model is already very good at extracting features from images, and it just needs to learn how to turn these features into predictions for this new set of classes.
 </details>
 
 
@@ -2078,7 +2098,9 @@ if MAIN:
 
 ```
 
-Congratulations for finishing the exercises! In the next day, we'll dig a bit deeper into training and optimizers, and we'll end by training a ResNet from scratch on data from ImageNet.
+Congratulations for finishing the exercises! 
+
+Tomorrow, we'll dig a bit deeper into training and optimizers, and we'll end by training a ResNet from scratch on data from ImageNet.
 
 
 
@@ -2086,8 +2108,81 @@ Congratulations for finishing the exercises! In the next day, we'll dig a bit de
 """, unsafe_allow_html=True)
 
 
+def section_4():
+
+    st.sidebar.markdown(r"""
+
+## Table of Contents
+
+<ul class="contents">
+</ul></li>""", unsafe_allow_html=True)
+
+    st.markdown(r"""
+
+# 4️⃣ Bonus
+
+
+If you've got some free time at the end of the day, here are some things you might want to look into.
+
+
+```python
+import torch
+from torch import nn
+from d2l import torch as d2l
+
+```
+
+```python
+def cpu():  #@save
+    '''Get the CPU device.'''
+    return torch.device('cpu')
+
+def gpu(i=0):  #@save
+    '''Get a GPU device.'''
+    return torch.device(f'cuda:{i}')
+
+
+if MAIN:
+    cpu(), gpu(), gpu(1)
+
+```
+
+```python
+def num_gpus():  #@save
+    '''Get the number of available GPUs.'''
+    return torch.cuda.device_count()
+
+
+if MAIN:
+    num_gpus()
+
+```
+
+```python
+def try_gpu(i=0):  #@save
+    '''Return gpu(i) if exists, otherwise return cpu().'''
+    if num_gpus() >= i + 1:
+        return gpu(i)
+    return cpu()
+
+def try_all_gpus():  #@save
+    '''Return all available GPUs, or [cpu(),] if no GPU exists.'''
+    return [gpu(i) for i in range(num_gpus())]
+
+
+if MAIN:
+    try_gpu(), try_gpu(10), try_all_gpus()
+    
+
+```
+
+
+
+""", unsafe_allow_html=True)
+
+
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Building & Training a CNN'),     (section_2, '2️⃣ Assembling ResNet'),     (section_3, '3️⃣ ResNet feature extraction'), 
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Building & Training a CNN'),     (section_2, '2️⃣ Assembling ResNet'),     (section_3, '3️⃣ ResNet feature extraction'),     (section_4, '4️⃣ Bonus'), 
 ]
 
 func_list = [func for func, page in func_page_list]

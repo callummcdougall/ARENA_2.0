@@ -5,9 +5,9 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.analysis.extraPaths": [
-        // "${workspaceFolder}/chapter0_fundamentals",
-        // "${workspaceFolder}/chapter0_fundamentals/exercises",
-        "${workspaceFolder}/chapter1_transformers",
-        "${workspaceFolder}/chapter1_transformers/exercises",
+        "${workspaceFolder}/chapter0_fundamentals",
+        "${workspaceFolder}/chapter0_fundamentals/exercises",
+        // "${workspaceFolder}/chapter1_transformers",
+        // "${workspaceFolder}/chapter1_transformers/exercises",
     ]
 }

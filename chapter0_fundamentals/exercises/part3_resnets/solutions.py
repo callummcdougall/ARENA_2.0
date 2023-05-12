@@ -26,11 +26,12 @@ from jaxtyping import Float, Int
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_resnets")
+os.chdir(EXERCISES_DIR / "part3_resnets")
 
-from part2_cnns.solutions import *
-from part4_resnets.utils import print_param_count
-import part4_resnets.tests as tests
+from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
+from part3_resnets.utils import print_param_count
+import part3_resnets.tests as tests
+from plotly_utils import line
 
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
@@ -155,6 +156,11 @@ if MAIN:
 
 # %%
 
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger
+
+# %%
+
 class LitConvNet(pl.LightningModule):
 	def __init__(self):
 		super().__init__()
@@ -194,7 +200,7 @@ if MAIN:
 	testloader = DataLoader(testset, shuffle=True, batch_size=batch_size)
 	
 	# Get a logger, to record metrics during training
-	logger = pl.loggers.CSVLogger(save_dir=os.getcwd() + "/logs", name="day4-convenet")
+	logger = CSVLogger(save_dir=os.getcwd() + "/logs", name="day4-convenet")
 	
 	# Train the model (hint: here are some helpful Trainer arguments for rapid idea iteration)
 	trainer = pl.Trainer(
@@ -253,7 +259,7 @@ class ConvNetTrainingArgs():
 		trainset, testset = get_mnist(subset=self.sample)
 		self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size)
 		self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size)
-		self.logger = pl.loggers.CSVLogger(save_dir=self.log_dir, name=self.log_name)
+		self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 
 class LitConvNet(pl.LightningModule):
@@ -381,11 +387,11 @@ class Sequential(nn.Module):
 			self._modules[str(index)] = mod
 
 	def __getitem__(self, index: int) -> nn.Module:
-		if index < 0: index += len(self._modules)
+		if index < 0: index += len(self._modules) # deal with negative indices
 		return self._modules[str(index)]
 
 	def __setitem__(self, index: int, module: nn.Module) -> None:
-		if index < 0: index += len(self._modules)
+		if index < 0: index += len(self._modules) # deal with negative indices
 		self._modules[str(index)] = module
 
 	def forward(self, x: t.Tensor) -> t.Tensor:
@@ -650,15 +656,17 @@ if MAIN:
 
 # %%
 
-IMAGE_SIZE = 224
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
 
-IMAGENET_TRANSFORM = transforms.Compose([
-	transforms.ToTensor(),
-	transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-	transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-])
+if MAIN:
+	IMAGE_SIZE = 224
+	IMAGENET_MEAN = [0.485, 0.456, 0.406]
+	IMAGENET_STD = [0.229, 0.224, 0.225]
+	
+	IMAGENET_TRANSFORM = transforms.Compose([
+		transforms.ToTensor(),
+		transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+		transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+	])
 
 # %%
 
@@ -679,7 +687,7 @@ if MAIN:
 # %%
 
 def predict(model, images):
-	logits = model(images)
+	logits: t.Tensor = model(images)
 	return logits.argmax(dim=1)
 
 # %%
@@ -768,6 +776,21 @@ if MAIN:
 
 # %% 3️⃣ RESNET FEATURE EXTRACTION
 
+
+if MAIN:
+	layer0, layer1 = nn.Linear(3, 4), nn.Linear(4, 5)
+	
+	layer0.requires_grad_(False) # generic code to set `param.requires_grad = False` recursively for a module (or entire model)
+	
+	x = t.randn(3)
+	out = layer1(layer0(x)).sum()
+	out.backward()
+	
+	assert layer0.weight.grad is None
+	assert layer1.weight.grad is not None
+
+# %%
+
 def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
 	'''
 	Creates a ResNet34 instance, replaces its final linear layer with a classifier
@@ -786,8 +809,7 @@ def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
 	my_resnet = copy_weights(my_resnet, pretrained_resnet)
 
 	# Freeze gradients for all layers (note that when we redefine the last layer, it will be unfrozen)
-	for param in my_resnet.parameters():
-		param.requires_grad = False
+	my_resnet.requires_grad_(False)    
 
 	# Redefine last layer
 	my_resnet.out_layers[-1] = Linear(
@@ -832,7 +854,7 @@ class ResNetTrainingArgs():
 		trainset, testset = get_cifar(self.subset)
 		self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size)
 		self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size)
-		self.logger = pl.loggers.CSVLogger(save_dir=self.log_dir, name=self.log_name)
+		self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 # %%
 
@@ -894,6 +916,53 @@ if MAIN:
 	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 	
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+
+# %% 4️⃣ BONUS
+
+import torch
+from torch import nn
+from d2l import torch as d2l
+
+# %%
+
+def cpu():  #@save
+	"""Get the CPU device."""
+	return torch.device('cpu')
+
+def gpu(i=0):  #@save
+	"""Get a GPU device."""
+	return torch.device(f'cuda:{i}')
+
+
+if MAIN:
+	cpu(), gpu(), gpu(1)
+
+# %%
+
+def num_gpus():  #@save
+	"""Get the number of available GPUs."""
+	return torch.cuda.device_count()
+
+
+if MAIN:
+	num_gpus()
+
+# %%
+
+def try_gpu(i=0):  #@save
+	"""Return gpu(i) if exists, otherwise return cpu()."""
+	if num_gpus() >= i + 1:
+		return gpu(i)
+	return cpu()
+
+def try_all_gpus():  #@save
+	"""Return all available GPUs, or [cpu(),] if no GPU exists."""
+	return [gpu(i) for i in range(num_gpus())]
+
+
+if MAIN:
+	try_gpu(), try_gpu(10), try_all_gpus()
+	
 
 # %%
 

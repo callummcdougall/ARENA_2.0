@@ -31,13 +31,13 @@ def section_0():
 Colab: [**exercises**](https://colab.research.google.com/drive/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp) | [**solutions**](https://colab.research.google.com/drive/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP)
 
 
-# [0.5] Optimization & Hyperparameters
+# [0.4] Optimization & Hyperparameters
 
 
 ## Introduction
 
 
-Today's exercises have more of a focus on large models and training.
+In today's exercises, we will explore various optimization algorithms and their roles in training deep learning models. We will delve into the inner workings of different optimization techniques such as Stochastic Gradient Descent (SGD), RMSprop, and Adam, and learn how to implement them using code. Additionally, we will discuss the concept of loss landscapes and their significance in visualizing the challenges faced during the optimization process. By the end of this set of exercises, you will have a solid understanding of optimization algorithms and their impact on model performance. We'll also take a look at Weights and Biases, a tool that can be used to track and visualize the training process, and test different values of hyperparameters to find the most effective ones.
 
 
 ## Content & Learning Objectives
@@ -81,20 +81,22 @@ from torchvision import datasets
 from torch.utils.data import DataLoader, Subset
 from typing import Callable, Iterable, Tuple, Optional
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
+from IPython.display import display, HTML
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part5_optimization")
+os.chdir(EXERCISES_DIR / "part4_optimization")
 
 from plotly_utils import bar, imshow
-from part4_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
-from part5_optimization.utils import plot_fn, plot_fn_with_points
-import part5_optimization.tests as tests
+from part3_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
+from part4_optimization.utils import plot_fn, plot_fn_with_points
+import part4_optimization.tests as tests
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
@@ -133,6 +135,7 @@ def section_1():
         <li><a class='contents-el' href='#exercise-implement-sgd'><b>Exercise</b> - implement SGD</a></li>
         <li><a class='contents-el' href='#exercise-implement-rmsprop'><b>Exercise</b> - implement RMSprop</a></li>
         <li><a class='contents-el' href='#exercise-implement-adam'><b>Exercise</b> - implement Adam</a></li>
+        <li><a class='contents-el' href='#exercise-implement-adamw-optional'><b>Exercise</b> - implement AdamW (optional)</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#plotting-multiple-optimisers'>Plotting multiple optimisers</a></li>
     <li><ul class="contents">
@@ -170,10 +173,7 @@ Some of these are strongly recommended, while others are optional. If you like, 
 
 ## Gradient Descent
 
-Yesterday, you implemented backpropagation. Today, we're going to use the gradients produced by backpropagation for optimizing a loss function using gradient descent.
-
-
-> Note the conceptual shift here - we're not optimising the parameters of a neural network; we're optimising parameters `(x, y)` which represent coordinates at which we evaluate a function. We're doing this because the image of "loss landscapes" can be very helpful when thinking about the behaviour of different gradient descent algorithms.
+Tomorrow, we'll look in detail about how the backpropagation algorithm works. But for now, let's take it as read that calling `loss.backward()` on a scalar `loss` will result in the computation of the gradients $\frac{\partial loss}{\partial w}$ for every parameter `w` in the model, and store these values in `w.grad`. How do we use these gradients to update our parameters in a way which decreases loss?
 
 
 A loss function can be any differentiable function such that we prefer a lower value. To apply gradient descent, we start by initializing the parameters to random values (the details of this are subtle), and then repeatedly compute the gradient of the loss with respect to the model parameters. It [can be proven](https://tutorial.math.lamar.edu/Classes/CalcIII/DirectionalDeriv.aspx) that for an infinitesimal step, moving in the direction of the gradient would increase the loss by the largest amount out of all possible directions.
@@ -274,6 +274,8 @@ Implement the `opt_fn_with_sgd` function using `torch.optim.SGD`. Starting from 
 Gotcha - `torch.optim.SGD` (and other optimizers you'll use) expect iterables of parameters, rather than a single parameter. So rather than passing in the tensor `xy` as the `params` argumen, you need to pass in a length-1 list containing `xy`.
 
 Second gotcha - remember to call `detach()` on your `xy` tensor at each step before you add it to your list of points. This is necessary to remove `xy` it from the computational graph.
+
+> An important note here - we're not optimising the parameters of a neural network; we're optimising parameters `(x, y)` which represent coordinates at which we evaluate a function. The perspective to have here is that of a "loss landscape", where moving in the x or y direction can increase or decrease your altitude, and we're trying to chart a path through this landscape which reaches a global minimum.
 
 
 ```python
@@ -548,6 +550,8 @@ Once you've implemented SGD, you should do RMSprop in a similar way. Although th
 
 If you want to better understand why RMSprop works, then you can return to some of the readings at the top of this page.
 
+[Here](https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html) is a link to the PyTorch version.
+
 
 ```python
 class RMSprop:
@@ -563,7 +567,7 @@ class RMSprop:
         '''Implements RMSprop.
 
         Like the PyTorch version, but assumes centered=False
-            https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html#torch.optim.RMSprop
+            https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
 
         '''
         pass
@@ -603,7 +607,7 @@ class RMSprop:
         '''Implements RMSprop.
 
         Like the PyTorch version, but assumes centered=False
-            https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html#torch.optim.RMSprop
+            https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
 
         '''
         # SOLUTION
@@ -648,7 +652,9 @@ class RMSprop:
 
 ### Exercise - implement Adam
 
-Finally, you'll do the same for Adam. This is a very popular optimizer in deep learning, which empirically often outperforms most others. It combines the heuristics of both momentum (via the $\beta_1$ parameter), and RMSprop's handling of noisy data by dividing by the $l_2$ norm of gradients (via the $\beta_2$ parameter).
+Next, you'll do the same for Adam. This is a very popular optimizer in deep learning, which empirically often outperforms most others. It combines the heuristics of both momentum (via the $\beta_1$ parameter), and RMSprop's handling of noisy data by dividing by the $l_2$ norm of gradients (via the $\beta_2$ parameter).
+
+[Here](https://pytorch.org/docs/stable/generated/torch.optim.Adam.html) is a link to the PyTorch version.
 
 
 ```python
@@ -664,7 +670,7 @@ class Adam:
         '''Implements Adam.
 
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
-            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html#torch.optim.Adam
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
         '''
         pass
 
@@ -702,7 +708,7 @@ class Adam:
         '''Implements Adam.
 
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
-            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html#torch.optim.Adam
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
         '''
         # SOLUTION
         self.params = list(params)
@@ -744,6 +750,55 @@ class Adam:
 </details>
 
 
+### Exercise - implement AdamW (optional)
+
+Finally, you'll adapt your Adam implementation to implement AdamW. This is a variant of Adam which is designed to work better with decoupled weight decay. You can read more about it [here](https://arxiv.org/abs/1711.05101). If you have time, we strongly recommend reading this paper - it is fairly accessible and forces you to engage with what Adam is actually doing.
+
+[Here](https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html) is a link to the PyTorch version.
+
+<details>
+<summary>Question - can you see why AdamW is different to Adam with weight decay, from the PyTorch documentation pages?</summary>
+
+The answer lies in how the weight decay parameter $\lambda$ is used. In Adam, weight decay is applied to the gradients (before first and second moments are calculated), whereas in AdamW weight decay is applied to the weights themselves (moving them back towards zero).
+
+The way AdamW implements weight decay is now generally seen as the "correct" way to do it (at least, it's more correct to use the name "weight decay" to describe the `weight_decay` hyperparameter in AdamW than it is for the `weight_decay` hyperparameter in Adam).
+</details>
+
+
+```python
+class AdamW:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        pass
+
+    def zero_grad(self) -> None:
+        pass
+
+    @t.inference_mode()
+    def step(self) -> None:
+        pass
+
+    def __repr__(self) -> str:
+        return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_adamw(AdamW)
+
+```
+
 ## Plotting multiple optimisers
 
 Finally, we've provided some code which should allow you to plot more than one of your optimisers at once.
@@ -771,6 +826,58 @@ def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: d
 
 
 ```python
+class AdamW:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        # SOLUTION
+        self.params = list(params)
+        self.lr = lr
+        self.beta1, self.beta2 = betas
+        self.eps = eps
+        self.lmda = weight_decay
+        self.t = 1
+
+        self.gs = [t.zeros_like(p) for p in self.params]
+        self.ms = [t.zeros_like(p) for p in self.params]
+        self.vs = [t.zeros_like(p) for p in self.params]
+
+    def zero_grad(self) -> None:
+        # SOLUTION
+        for p in self.params:
+            p.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        # SOLUTION
+        for i, (p, g, m, v) in enumerate(zip(self.params, self.gs, self.ms, self.vs)):
+            new_g = p.grad
+            if self.lmda != 0:
+                # new_g = new_g + self.lmda * p
+                p -= p * self.lmda * self.lr
+            self.gs[i] = new_g
+            new_m = self.beta1 * m + (1 - self.beta1) * new_g
+            new_v = self.beta2 * v + (1 - self.beta2) * new_g.pow(2)
+            self.ms[i] = new_m
+            self.vs[i] = new_v
+            m_hat = new_m / (1 - self.beta1 ** self.t)
+            v_hat = new_v / (1 - self.beta2 ** self.t)
+            p -= self.lr * m_hat / (v_hat.sqrt() + self.eps)
+        self.t += 1
+
+    def __repr__(self) -> str:
+        return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
 def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
     '''Optimize the a given function starting from the specified point.
 
@@ -806,7 +913,7 @@ if MAIN:
     optimizer_list = [
         (SGD, {"lr": 0.03, "momentum": 0.99}),
         (RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
-        (Adam, {"lr": 0.2, "betas": (0.99, 0.99)}),
+        (Adam, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
     ]
     
     for optimizer_class, params in optimizer_list:
@@ -818,7 +925,11 @@ if MAIN:
 
 ```
 
-You can try and play around with a few optimisers. Which ones perform best for this particular function? Which ones become unstable when you increase their learning rates?
+You can try and play around with a few optimisers. 
+
+* Which ones perform best for this particular function? 
+* Which ones become unstable when you increase their learning rates?
+* With the same parameters, does `AdamW` beat `Adam`?
 
 Here are a few functions you might also want to try out:
 
@@ -894,7 +1005,8 @@ Parameter groups can be useful in several different circumstances. A few example
 
 * Finetuning a model by freezing earlier layers and only training later layers is an extreme form of parameter grouping. We can use the parameter group syntax to apply a modified form, where the earlier layers have a smaller learning rate. This allows these earlier layers to adapt to the specifics of the problem, while making sure they don't forget all the useful features they've already learned.
 * Often it's good to treat weights and biases differently, e.g. effects like weight decay are often applied to weights but not biases. PyTorch doesn't differentiate between these two, so you'll have to do this manually using paramter groups.
-    * This in particular, we'll be doing next week when we train BERT from scratch.
+    * This in particular, you might be doing later in the course, if you choose the "train BERT from scratch" exercises during the transformers chapter.
+* On the subject of transformers, weight decay is often *not* applied to embeddings and layernorms in transformer models.
 
 More generally, if you're trying to replicate a paper, it's important to be able to use all the same training details that the original authors did, so you can get the same results.
 
@@ -1040,7 +1152,7 @@ class ResNetFinetuningArgs():
             self.trainset, self.testset = get_cifar(self.subset)
         self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
         self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
-        self.logger = pl.loggers.CSVLogger(save_dir=self.log_dir, name=self.log_name)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 ```
 
@@ -1091,15 +1203,7 @@ class LitResNet(pl.LightningModule):
 
 ```
 
-```python
-import torch as t
-
-if MAIN:
-    t.arange(5).topk(3).values
-
-```
-
-Lastly, we run our model. Note how we're running the `trainer.validate` method once before `trainer.fit`. This means we'll log a validation step before we start training, which is a useful sanity check (we expect to get a validation accuracy equivalent to random chance - in this case, 10%).
+Lastly, we run our model.
 
 
 ```python
@@ -1114,8 +1218,6 @@ if MAIN:
         logger=args.logger,
         log_every_n_steps=args.log_every_n_steps,
     )
-    
-    trainer.validate(model=model, dataloaders=args.testloader)
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
 
 ```
@@ -1143,17 +1245,7 @@ def test_resnet_on_random_input(n_inputs: int = 3):
     probs = logits.softmax(-1)
     if probs.ndim == 1: probs = probs.unsqueeze(0)
     for img, label, prob in zip(imgs, classes, probs):
-        bar(
-            prob,
-            x=cifar_trainset.classes,
-            template="ggplot2",
-            width=600,
-            height=450,
-            title=f"Classification probabilities (true class = {label})", 
-            labels={"x": "Classification", "y": "Probability"}, 
-            text_auto='.2f',
-            showlegend=False,
-        )
+        display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
         imshow(
             img, 
             width=200, 
@@ -1161,6 +1253,16 @@ def test_resnet_on_random_input(n_inputs: int = 3):
             margin=0,
             xaxis_visible=False,
             yaxis_visible=False
+        )
+        bar(
+            prob,
+            x=cifar_trainset.classes,
+            template="ggplot2",
+            width=600,
+            height=400,
+            labels={"x": "Classification", "y": "Probability"}, 
+            text_auto='.2f',
+            showlegend=False,
         )
 
 
@@ -1193,7 +1295,7 @@ class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
     def __post_init__(self):
         super().__post_init__()
         if self.use_wandb:
-            self.logger = pl.loggers.WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
+            self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
 
 ```
 
@@ -1229,7 +1331,6 @@ if MAIN:
         logger=args.logger,
         log_every_n_steps=args.log_every_n_steps
     )
-    trainer.validate(model=model, dataloaders=args.testloader)
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
     wandb.finish()
 
@@ -1315,7 +1416,6 @@ def train():
         logger=args.logger,
         log_every_n_steps=args.log_every_n_steps
     )
-    trainer.validate(model=model, dataloaders=args.testloader)
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
     wandb.finish()
 
@@ -1326,8 +1426,8 @@ def train():
 
 
 if MAIN:
-    sweep_id = wandb.sweep(sweep=sweep_config, project='day5-resnet')
-    wandb.agent(sweep_id=sweep_id, function=train, count=2)
+    sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet')
+    wandb.agent(sweep_id=sweep_id, function=train, count=3)
 
 ```
 
@@ -1385,6 +1485,7 @@ def section_3():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#loading-from-checkpoints-with-lightning'>Loading from checkpoints with Lightning</a></li>
     <li class='margtop'><a class='contents-el' href='#tracking-gradients'>Tracking gradients</a></li>
+    <li class='margtop'><a class='contents-el' href='#other-wandb-features'>Other WandB features</a></li>
     <li class='margtop'><a class='contents-el' href='#train-your-model-from-scratch'>Train your model from scratch</a></li>
     <li class='margtop'><a class='contents-el' href='#the-optimizer's-curse'>The Optimizer's Curse</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -1446,6 +1547,15 @@ class LitResNetWandb(LitResNet):
 Now, run the code to train your model, and visit the run page. You should eventually see dropdowns for **gradients** and **parameters** appear (you can change the `log` argument above to just `"gradients"` or `"parameters"` if you only want to see one of these). 
 
 Have a poke around some of the gradients and parameters. Do most of them look normally distributed? Do they usually have mean around zero?
+
+
+## Other WandB features
+
+Here are a few things you might also want to play around with:
+
+* [Logging media and objects in experiments](https://docs.wandb.ai/guides/track/log?fbclid=IwAR3NxKsGpEjZwq3vSwYkohZllMpBwxHgOCc_k0ByuD9XGUsi_Scf5ELvGsQ) - you'll be doing this during the RL week, and it's useful when you're training generative image models like VAEs and diffusion models.
+* [Code saving](https://docs.wandb.ai/guides/app/features/panels/code?fbclid=IwAR2BkaXbRf7cqEH8kc1VzqH_kOJWGxqjUb_JCBq_SCnXOx1oF-Rt-hHydb4) - this captures all python source code files in the current director and all subdirectories. It's great for reproducibility, and also for sharing your code with others.
+* [Saving and loading PyTorch models](https://wandb.ai/wandb/common-ml-errors/reports/How-to-Save-and-Load-Models-in-PyTorch--VmlldzozMjg0MTE?fbclid=IwAR1Y9MzFTxIiVBJG06b4ppitwKWR4H5_ncKyT2F_rR5Z_IHawmpBTKskPcQ) - you can do this easily using `torch.save`, but it's also possible to do this directly through Weights and Biases as an **artifact**
 
 
 ## Train your model from scratch

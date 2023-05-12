@@ -33,7 +33,7 @@ def section_0():
 Colab: [**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
 
 
-# [0.3] - Build Your Own Backpropagation Framework
+# [0.5] - Build Your Own Backpropagation Framework
 
 
 ## Introduction
@@ -49,7 +49,7 @@ The main differences between the full PyTorch and our version are:
 
 Note - for today, I'd lean a lot more towards being willing to read the solutions, and even move on from some of them if you don't fully understand them. The low-level messy implementation details for today are much less important than the high-level conceptual takeaways.
 
-Also, if you don't have enough time to finish all sections (which is understandable, because there's a *lot* of content today!), I'd focus on sections **1️⃣ Introduction** and **2️⃣ Autograd**, since conceptually these are the most important. Once you've done both of these, you should have a strong working understanding of the mechanics of backpropagation.
+Also, if you don't have enough time to finish all sections (which is understandable, because there's a *lot* of content today!), I'd focus on sections **1️⃣ Introduction** and **2️⃣ Autograd**, since conceptually these are the most important. Once you've done both of these, you should have a strong working understanding of the mechanics of backpropagation. If you've finished these sections but you're still short on time, others I'd recommend taking a closer look at are the backwards functions for matrix multiplication (at the end of section 3) and the `NoGrad` context manager (near the end of section 4).
 
 
 ## Content & Learning Objectives
@@ -113,6 +113,7 @@ from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Iterable, Optional, Union, Dict, List, Tuple
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 Arr = np.ndarray
@@ -122,10 +123,11 @@ grad_tracking_enabled = True
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part3_backprop")
+os.chdir(EXERCISES_DIR / "part5_backprop")
 
-import part3_backprop.tests as tests
-from part3_backprop.utils import *
+import part5_backprop.tests as tests
+from part5_backprop.utils import visualize, get_mnist
+from plotly_utils import line
 
 MAIN = __name__ == "__main__"
 
@@ -2662,7 +2664,7 @@ def section_4():
     <li class='margtop'><a class='contents-el' href='#build-your-own-nn-module'>Build Your Own <code>nn.Module</code></a></li>
     <li class='margtop'><a class='contents-el' href='#build-your-own-linear-layer'>Build Your Own Linear Layer</a></li>
     <li class='margtop'><a class='contents-el' href='#build-your-own-cross-entropy-loss'>Build Your Own Cross-Entropy Loss</a></li>
-    <li class='margtop'><a class='contents-el' href='#no-grad'><code>no_grad</code></a></li>
+    <li class='margtop'><a class='contents-el' href='#build-your-own-nograd-context-manager'>Build your own <code>NoGrad</code> context manager</a></li>
     <li class='margtop'><a class='contents-el' href='#training-your-network'>Training Your Network</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#training-loop'>Training Loop</a></li>
@@ -3084,7 +3086,7 @@ def cross_entropy(logits: Tensor, true_labels: Tensor) -> Tensor:
 </details>
 
 
-## `no_grad`
+## Build your own `NoGrad` context manager
 
 The last thing our backpropagation system needs is the ability to turn it off completely like `torch.no_grad`. 
 
@@ -3191,7 +3193,7 @@ class SGD:
                 p.add_(p.grad, -self.lr)
 
 
-def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int):
+def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int, train_loss_list: Optional[list] = None):
     print(f"Epoch: {epoch}")
     progress_bar = tqdm(enumerate(train_loader))
     for (batch_idx, (data, target)) in progress_bar:
@@ -3203,9 +3205,10 @@ def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int):
         loss.backward()
         progress_bar.set_description(f"Train set: Avg loss: {loss.item():.3f}")
         optimizer.step()
+        if train_loss_list is not None: train_loss_list.append(loss.item())
 
 
-def test(model: MLP, test_loader: DataLoader):
+def test(model: MLP, test_loader: DataLoader, test_loss_list: Optional[list] = None):
     test_loss = 0
     correct = 0
     with NoGrad():
@@ -3218,6 +3221,7 @@ def test(model: MLP, test_loader: DataLoader):
             correct += (pred == target.reshape(pred.shape)).sum().item()
     test_loss /= len(test_loader.dataset)
     print(f"Test set:  Avg loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({correct / len(test_loader.dataset):.1%})")
+    if test_loss_list is not None: test_loss_list.append(test_loss)
 
 ```
 
@@ -3232,14 +3236,34 @@ if MAIN:
     num_epochs = 5
     model = MLP()
     start = time.time()
+    train_loss_list = []
+    test_loss_list = []
     optimizer = SGD(model.parameters(), 0.01)
     for epoch in range(num_epochs):
-        train(model, train_loader, optimizer, epoch)
-        test(model, test_loader)
+        train(model, train_loader, optimizer, epoch, train_loss_list)
+        test(model, test_loader, test_loss_list)
         optimizer.step()
     print(f"\nCompleted in {time.time() - start: .2f}s")
 
 ```
+
+```python
+
+if MAIN:
+    line(
+        train_loss_list,
+        yaxis_range=[0, max(train_loss_list) + 0.1],
+        labels={"x": "Batches seen", "y": "Cross entropy loss"},
+        title="ConvNet training on MNIST",
+        width=800,
+        hovermode="x unified",
+        template="ggplot2", # alternative aesthetic for your plots (-:
+    )
+
+```
+
+Note - this training loop (if done correctly) will look to the one we used in earlier sections is that we're using SGD rather than Adam. You can try adapting your Adam code from the previous day's exercises, and get the same results as you have in earlier sections.
+
 
 
 

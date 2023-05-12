@@ -155,7 +155,6 @@ def create_context(
     """
     Create a context for a question by finding the most similar context from the dataframe
     """
-
     # Get the embeddings for the question
     q_embeddings = openai.Embedding.create(input=question, engine=engine)['data'][0]['embedding']
 

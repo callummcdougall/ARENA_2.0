@@ -134,10 +134,6 @@ Raytracing<br>[**exercises**](https://colab.research.google.com/drive/1T3yXhK9Cg
 
 as_strided, convolutions and CNNs<br>[**exercises**](https://colab.research.google.com/drive/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf) | [**solutions**](https://colab.research.google.com/drive/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa)
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
-
-Build Your Own Backprop Framework<br>[**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
-
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 ResNets & Model Training: Links to Colab<br>[**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
@@ -145,6 +141,10 @@ ResNets & Model Training: Links to Colab<br>[**exercises**](https://colab.resear
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/stats.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 Optimization & Hyperparameters<br>[**exercises**](https://colab.research.google.com/drive/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp) | [**solutions**](https://colab.research.google.com/drive/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/backprop.png" width="160" style="margin-bottom:3px;margin-top:15px">
+
+Build Your Own Backprop Framework<br>[**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
 </div>
 </details>
 

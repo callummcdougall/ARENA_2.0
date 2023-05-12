@@ -10,6 +10,7 @@ from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Iterable, Optional, Union, Dict, List, Tuple
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 Arr = np.ndarray
@@ -19,10 +20,11 @@ grad_tracking_enabled = True
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part3_backprop")
+os.chdir(EXERCISES_DIR / "part5_backprop")
 
-import part3_backprop.tests as tests
-from part3_backprop.utils import *
+import part5_backprop.tests as tests
+from part5_backprop.utils import visualize, get_mnist
+from plotly_utils import line
 
 MAIN = __name__ == "__main__"
 
@@ -1234,7 +1236,7 @@ class SGD:
 				p.add_(p.grad, -self.lr)
 
 
-def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int):
+def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int, train_loss_list: Optional[list] = None):
 	print(f"Epoch: {epoch}")
 	progress_bar = tqdm(enumerate(train_loader))
 	for (batch_idx, (data, target)) in progress_bar:
@@ -1246,9 +1248,10 @@ def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int):
 		loss.backward()
 		progress_bar.set_description(f"Train set: Avg loss: {loss.item():.3f}")
 		optimizer.step()
+		if train_loss_list is not None: train_loss_list.append(loss.item())
 
 
-def test(model: MLP, test_loader: DataLoader):
+def test(model: MLP, test_loader: DataLoader, test_loss_list: Optional[list] = None):
 	test_loss = 0
 	correct = 0
 	with NoGrad():
@@ -1261,6 +1264,7 @@ def test(model: MLP, test_loader: DataLoader):
 			correct += (pred == target.reshape(pred.shape)).sum().item()
 	test_loss /= len(test_loader.dataset)
 	print(f"Test set:  Avg loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({correct / len(test_loader.dataset):.1%})")
+	if test_loss_list is not None: test_loss_list.append(test_loss)
 
 # %%
 
@@ -1269,12 +1273,28 @@ if MAIN:
 	num_epochs = 5
 	model = MLP()
 	start = time.time()
+	train_loss_list = []
+	test_loss_list = []
 	optimizer = SGD(model.parameters(), 0.01)
 	for epoch in range(num_epochs):
-		train(model, train_loader, optimizer, epoch)
-		test(model, test_loader)
+		train(model, train_loader, optimizer, epoch, train_loss_list)
+		test(model, test_loader, test_loss_list)
 		optimizer.step()
 	print(f"\nCompleted in {time.time() - start: .2f}s")
+
+# %%
+
+
+if MAIN:
+	line(
+		train_loss_list,
+		yaxis_range=[0, max(train_loss_list) + 0.1],
+		labels={"x": "Batches seen", "y": "Cross entropy loss"},
+		title="ConvNet training on MNIST",
+		width=800,
+		hovermode="x unified",
+		template="ggplot2", # alternative aesthetic for your plots (-:
+	)
 
 # %% 5️⃣ BONUS
 

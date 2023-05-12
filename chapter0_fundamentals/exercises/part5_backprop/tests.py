@@ -491,4 +491,3 @@ def test_cross_entropy(Tensor, cross_entropy):
         actual = cross_entropy(logits, true_labels)
     np.testing.assert_allclose(actual.array, expected.array)
     print("All tests in `test_cross_entropy` passed!")
-

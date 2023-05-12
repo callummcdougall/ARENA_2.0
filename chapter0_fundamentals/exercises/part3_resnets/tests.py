@@ -63,3 +63,5 @@ otherwise this can cause issues for the test function."
                 assert tuple(param.shape) == (10, 512), f"Expected final linear layer weights to have shape (n_classes=10, 512), instead found {tuple(param.shape)}" + error_msg
             else:
                 assert tuple(param.shape) == (10,), f"Expected final linear layer bias to have shape (n_classes=10,), instead found {tuple(param.shape)}" + error_msg
+    
+    print("All tests in `test_get_resnet_for_feature_extraction` passed!")

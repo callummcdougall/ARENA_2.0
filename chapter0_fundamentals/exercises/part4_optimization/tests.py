@@ -95,12 +95,12 @@ def test_sgd_param_groups(SGD):
         _train_with_opt(model, opt)
         w0_submitted = model.base[0].weight
 
-        print("\nTesting configuration: ", description)
+        print("Testing configuration: ", description)
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         t.testing.assert_close(w0_correct, w0_submitted, rtol=0, atol=1e-5)
 
-    print("\nTesting that your function doesn't allow duplicates (this should raise an error): ")
+    print("Testing that your function doesn't allow duplicates (this should raise an error): ")
     description, kwargs = (
         [{'params': "base", "lr": 1e-2, "momentum": 0.95}, {'params': "base", 'lr': 1e-3}],
         dict(momentum=0.9, weight_decay=0.1),
@@ -153,10 +153,12 @@ def test_sgd(SGD):
         _train_with_opt(model, opt)
         w0_submitted = model.layers[0].weight
 
-        print("\nTesting configuration: ", opt_config)
+        print("Testing configuration: ", opt_config)
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         t.testing.assert_close(w0_correct, w0_submitted, rtol=0, atol=1e-5)
+    
+    print("All tests in `test_sgd` passed!")
 
 
 def test_rmsprop(RMSprop):
@@ -180,10 +182,12 @@ def test_rmsprop(RMSprop):
         _train_with_opt(model, opt)
         w0_submitted = model.layers[0].weight
 
-        print("\nTesting configuration: ", opt_config)
+        print("Testing configuration: ", opt_config)
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         t.testing.assert_close(w0_correct, w0_submitted, rtol=0, atol=1e-5)
+
+    print("All tests in `test_rmsprop` passed!")
 
 def test_adam(Adam):
 
@@ -205,10 +209,39 @@ def test_adam(Adam):
         _train_with_opt(model, opt)
         w0_submitted = model.layers[0].weight
 
-        print("\nTesting configuration: ", opt_config)
+        print("Testing configuration: ", opt_config)
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         t.testing.assert_close(w0_correct, w0_submitted, rtol=0, atol=1e-5)
+    
+    print("All tests in `test_adam` passed!")
+
+def test_adamw(AdamW):
+
+    test_cases = [
+        dict(lr=0.1, betas=(0.8, 0.95), eps=0.001, weight_decay=0.0),
+        dict(lr=0.1, betas=(0.8, 0.9), eps=0.001, weight_decay=0.05),
+        dict(lr=0.2, betas=(0.9, 0.95), eps=0.01, weight_decay=0.08),
+    ]
+    for opt_config in test_cases:
+        t.manual_seed(819)
+        model = Net(2, 32, 2)
+        opt = t.optim.AdamW(model.parameters(), **opt_config)
+        _train_with_opt(model, opt)
+        w0_correct = model.layers[0].weight
+
+        t.manual_seed(819)
+        model = Net(2, 32, 2)
+        opt = AdamW(model.parameters(), **opt_config)
+        _train_with_opt(model, opt)
+        w0_submitted = model.layers[0].weight
+
+        print("Testing configuration: ", opt_config)
+        assert isinstance(w0_correct, t.Tensor)
+        assert isinstance(w0_submitted, t.Tensor)
+        t.testing.assert_close(w0_correct, w0_submitted, rtol=0, atol=1e-5)
+    
+    print("All tests in `test_adamw` passed!")
 
 def get_sgd_optimizer(model, opt_config, SGD):
     if isinstance(opt_config, dict):
@@ -252,7 +285,7 @@ def test_ExponentialLR(ExponentialLR, SGD):
         w0_submitted = model.layers[0].weight
         b0_submitted = model.layers[0].bias
 
-        print("\nTesting configuration:\n\toptimizer: ", format_config(opt_config), "\n\tscheduler: ", format_config(scheduler_config))
+        print("Testing configuration:\n\toptimizer: ", format_config(opt_config), "\n\tscheduler: ", format_config(scheduler_config))
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         assert isinstance(b0_correct, t.Tensor)
@@ -291,7 +324,7 @@ def test_StepLR(StepLR, SGD):
         w0_submitted = model.layers[0].weight
         b0_submitted = model.layers[0].bias
 
-        print("\nTesting configuration:\n\toptimizer: ", format_config(opt_config), "\n\tscheduler: ", format_config(scheduler_config))
+        print("Testing configuration:\n\toptimizer: ", format_config(opt_config), "\n\tscheduler: ", format_config(scheduler_config))
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         assert isinstance(b0_correct, t.Tensor)
@@ -330,7 +363,7 @@ def test_MultiStepLR(MultiStepLR, SGD):
         w0_submitted = model.layers[0].weight
         b0_submitted = model.layers[0].bias
 
-        print("\nTesting configuration:\n\toptimizer: ", format_config(opt_config), "\n\tscheduler: ", format_config(scheduler_config))
+        print("Testing configuration:\n\toptimizer: ", format_config(opt_config), "\n\tscheduler: ", format_config(scheduler_config))
         assert isinstance(w0_correct, t.Tensor)
         assert isinstance(w0_submitted, t.Tensor)
         assert isinstance(b0_correct, t.Tensor)

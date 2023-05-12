@@ -10,20 +10,22 @@ from torchvision import datasets
 from torch.utils.data import DataLoader, Subset
 from typing import Callable, Iterable, Tuple, Optional
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
+from IPython.display import display, HTML
 
 # Make sure exercises are in the path
 CHAPTER = r"chapter0_fundamentals"
 EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
 if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part5_optimization")
+os.chdir(EXERCISES_DIR / "part4_optimization")
 
 from plotly_utils import bar, imshow
-from part4_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
-from part5_optimization.utils import plot_fn, plot_fn_with_points
-import part5_optimization.tests as tests
+from part3_resnets.solutions import  IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
+from part4_optimization.utils import plot_fn, plot_fn_with_points
+import part4_optimization.tests as tests
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
@@ -154,7 +156,7 @@ class RMSprop:
 		'''Implements RMSprop.
 
 		Like the PyTorch version, but assumes centered=False
-			https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html#torch.optim.RMSprop
+			https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
 
 		'''
 		self.params = list(params)
@@ -210,7 +212,7 @@ class Adam:
 		'''Implements Adam.
 
 		Like the PyTorch version, but assumes amsgrad=False and maximize=False
-			https://pytorch.org/docs/stable/generated/torch.optim.Adam.html#torch.optim.Adam
+			https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
 		'''
 		self.params = list(params)
 		self.lr = lr
@@ -253,6 +255,62 @@ if MAIN:
 
 # %%
 
+class AdamW:
+	def __init__(
+		self,
+		params: Iterable[t.nn.parameter.Parameter],
+		lr: float = 0.001,
+		betas: Tuple[float, float] = (0.9, 0.999),
+		eps: float = 1e-08,
+		weight_decay: float = 0.0,
+	):
+		'''Implements Adam.
+
+		Like the PyTorch version, but assumes amsgrad=False and maximize=False
+			https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+		'''
+		self.params = list(params)
+		self.lr = lr
+		self.beta1, self.beta2 = betas
+		self.eps = eps
+		self.lmda = weight_decay
+		self.t = 1
+
+		self.gs = [t.zeros_like(p) for p in self.params]
+		self.ms = [t.zeros_like(p) for p in self.params]
+		self.vs = [t.zeros_like(p) for p in self.params]
+
+	def zero_grad(self) -> None:
+		for p in self.params:
+			p.grad = None
+
+	@t.inference_mode()
+	def step(self) -> None:
+		for i, (p, g, m, v) in enumerate(zip(self.params, self.gs, self.ms, self.vs)):
+			new_g = p.grad
+			if self.lmda != 0:
+				# new_g = new_g + self.lmda * p
+				p -= p * self.lmda * self.lr
+			self.gs[i] = new_g
+			new_m = self.beta1 * m + (1 - self.beta1) * new_g
+			new_v = self.beta2 * v + (1 - self.beta2) * new_g.pow(2)
+			self.ms[i] = new_m
+			self.vs[i] = new_v
+			m_hat = new_m / (1 - self.beta1 ** self.t)
+			v_hat = new_v / (1 - self.beta2 ** self.t)
+			p -= self.lr * m_hat / (v_hat.sqrt() + self.eps)
+		self.t += 1
+
+	def __repr__(self) -> str:
+		return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+	tests.test_adamw(AdamW)
+
+# %%
+
 def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
 	'''Optimize the a given function starting from the specified point.
 
@@ -282,7 +340,7 @@ if MAIN:
 	optimizer_list = [
 		(SGD, {"lr": 0.03, "momentum": 0.99}),
 		(RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
-		(Adam, {"lr": 0.2, "betas": (0.99, 0.99)}),
+		(Adam, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
 	]
 	
 	for optimizer_class, params in optimizer_list:
@@ -441,7 +499,7 @@ class ResNetFinetuningArgs():
 			self.trainset, self.testset = get_cifar(self.subset)
 		self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
 		self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
-		self.logger = pl.loggers.CSVLogger(save_dir=self.log_dir, name=self.log_name)
+		self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 # %%
 
@@ -488,13 +546,6 @@ class LitResNet(pl.LightningModule):
 
 # %%
 
-import torch as t
-
-if MAIN:
-	t.arange(5).topk(3).values
-
-# %%
-
 
 if MAIN:
 	args = ResNetFinetuningArgs(trainset=cifar_trainset_small, testset=cifar_testset_small)
@@ -506,8 +557,6 @@ if MAIN:
 		logger=args.logger,
 		log_every_n_steps=args.log_every_n_steps,
 	)
-	
-	trainer.validate(model=model, dataloaders=args.testloader)
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
 
 # %%
@@ -530,17 +579,7 @@ def test_resnet_on_random_input(n_inputs: int = 3):
 	probs = logits.softmax(-1)
 	if probs.ndim == 1: probs = probs.unsqueeze(0)
 	for img, label, prob in zip(imgs, classes, probs):
-		bar(
-			prob,
-			x=cifar_trainset.classes,
-			template="ggplot2",
-			width=600,
-			height=450,
-			title=f"Classification probabilities (true class = {label})", 
-			labels={"x": "Classification", "y": "Probability"}, 
-			text_auto='.2f',
-			showlegend=False,
-		)
+		display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
 		imshow(
 			img, 
 			width=200, 
@@ -548,6 +587,16 @@ def test_resnet_on_random_input(n_inputs: int = 3):
 			margin=0,
 			xaxis_visible=False,
 			yaxis_visible=False
+		)
+		bar(
+			prob,
+			x=cifar_trainset.classes,
+			template="ggplot2",
+			width=600,
+			height=400,
+			labels={"x": "Classification", "y": "Probability"}, 
+			text_auto='.2f',
+			showlegend=False,
 		)
 
 
@@ -568,7 +617,7 @@ class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
 	def __post_init__(self):
 		super().__post_init__()
 		if self.use_wandb:
-			self.logger = pl.loggers.WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
+			self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
 
 # %%
 
@@ -583,7 +632,6 @@ if MAIN:
 		logger=args.logger,
 		log_every_n_steps=args.log_every_n_steps
 	)
-	trainer.validate(model=model, dataloaders=args.testloader)
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
 	wandb.finish()
 
@@ -624,7 +672,6 @@ def train():
 		logger=args.logger,
 		log_every_n_steps=args.log_every_n_steps
 	)
-	trainer.validate(model=model, dataloaders=args.testloader)
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
 	wandb.finish()
 
@@ -634,8 +681,8 @@ def train():
 
 
 if MAIN:
-	sweep_id = wandb.sweep(sweep=sweep_config, project='day5-resnet')
-	wandb.agent(sweep_id=sweep_id, function=train, count=2)
+	sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet')
+	wandb.agent(sweep_id=sweep_id, function=train, count=3)
 
 # %% 3️⃣ BONUS
 

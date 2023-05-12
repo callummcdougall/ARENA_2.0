@@ -2489,6 +2489,17 @@ if MAIN:
 
 ```
 
+To give a brief overview of what each of the most important lines here are doing (again we'll discuss this in a lot more detail tomorrow):
+
+* `logits = model(imgs)` gets the model's output on the batch of images
+* `loss = F.cross_entropy(logits, labels)` calculates the model's loss on the batch, by comparing its predictions to the true values. A loss of zero would correspond to complete confidence in the correct labels.
+* `loss.backward()` calculates the gradients of the loss with respect to the model's parameters (i.e. the weights and biases) using the chain rule, and stores these gradients in the `grad` attribute of each parameter.
+    * In other words, if `L` is the loss, and `w` is parameter (e.g. weights of a linear layer), then `w.grad[i, j]` equals the partial derivative $\frac{\partial L}{\partial w_{i, j}}$.
+* `optimizer.step()` updates the parameters, according to the value stored in their `grad` attribute.
+    * If this was simple gradient descent, the algorithm would be `w <- w - lr * w.grad`, where `lr` is the learning rate. We're actually using the `Adam` optimizer here so it's a bit more complicated than that (more on this in the optimizer exercises on Friday).
+* `optimizer.zero_grad()` resets the `grad` attribute of each parameter to zero, so that we can calculate the gradients for the next batch.
+
+
 Let's see how our model's loss came down over time:
 
 
