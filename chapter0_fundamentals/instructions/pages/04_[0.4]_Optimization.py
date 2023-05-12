@@ -1512,7 +1512,7 @@ if MAIN:
     trained_model = LitResNet.load_from_checkpoint(trainer.checkpoint_callback.best_model_path, args=trainer.model.args)
     
     # Check models are identical
-    assert all([(p1 == p2).all() for p1, p2 in zip(model.convnet.parameters(), trained_model.convnet.parameters())])
+    assert all([(p1 == p2).all() for p1, p2 in zip(model.resnet.parameters(), trained_model.resnet.parameters())])
 
 ```
 
