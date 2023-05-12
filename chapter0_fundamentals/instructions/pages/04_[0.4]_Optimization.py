@@ -136,7 +136,7 @@ def section_1():
         <li><a class='contents-el' href='#exercise-implement-sgd'><b>Exercise</b> - implement SGD</a></li>
         <li><a class='contents-el' href='#exercise-implement-rmsprop'><b>Exercise</b> - implement RMSprop</a></li>
         <li><a class='contents-el' href='#exercise-implement-adam'><b>Exercise</b> - implement Adam</a></li>
-        <li><a class='contents-el' href='#exercise-implement-adamw-optional'><b>Exercise</b> - implement AdamW (optional)</a></li>
+        <li><a class='contents-el' href='#exercise-implement-adamw'><b>Exercise</b> - implement AdamW</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#plotting-multiple-optimisers'>Plotting multiple optimisers</a></li>
     <li><ul class="contents">
@@ -751,7 +751,7 @@ class Adam:
 </details>
 
 
-### Exercise - implement AdamW (optional)
+### Exercise - implement AdamW
 
 Finally, you'll adapt your Adam implementation to implement AdamW. This is a variant of Adam which is designed to work better with decoupled weight decay. You can read more about it [here](https://arxiv.org/abs/1711.05101). If you have time, we strongly recommend reading this paper - it is fairly accessible and forces you to engage with what Adam is actually doing.
 
@@ -762,7 +762,7 @@ Finally, you'll adapt your Adam implementation to implement AdamW. This is a var
 
 The answer lies in how the weight decay parameter $\lambda$ is used. In Adam, weight decay is applied to the gradients (before first and second moments are calculated), whereas in AdamW weight decay is applied to the weights themselves (moving them back towards zero).
 
-The way AdamW implements weight decay is now generally seen as the "correct" way to do it (at least, it's more correct to use the name "weight decay" to describe the `weight_decay` hyperparameter in AdamW than it is for the `weight_decay` hyperparameter in Adam).
+The way AdamW implements weight decay is now generally seen as the "correct" way to do it (at least, it's more correct to use the name "weight decay" to describe the `weight_decay` hyperparameter in AdamW than to describe the hyperparameter in Adam).
 </details>
 
 
