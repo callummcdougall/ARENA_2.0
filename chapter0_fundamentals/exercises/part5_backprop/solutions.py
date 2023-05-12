@@ -1298,7 +1298,3 @@ if MAIN:
 	)
 
 # %% 5️⃣ BONUS
-
-s = "John and Mary went to the shops, John gave a drink to"
-
-print(s.split(" "))
