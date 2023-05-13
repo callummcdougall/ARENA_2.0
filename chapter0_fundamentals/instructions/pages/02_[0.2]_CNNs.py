@@ -31,6 +31,8 @@ def section_0():
 
 Colab: [**exercises**](https://colab.research.google.com/drive/1HFsebBH7SJ7wqVCmTAt097FkDbCC6AQf) | [**solutions**](https://colab.research.google.com/drive/1ttKR6WOCKDBXmbwvKd-gpI2AUXp1OzBa)
 
+Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
+
 
 # [0.2] - `as_strided`, Convolutions and CNNs
 
@@ -517,7 +519,7 @@ Although there are many different kinds of operations you can perform, they are 
 1. Repeating letters in different inputs means those values will be multiplied, and those products will be in the output. 
     * For example, `M = einops.einsum(A, B, "i j, i j -> i j")` just corresponds to the elementwise product `M = A * B` (because $M_{ij} = A_{ij} B_{ij}$).
 2. Omitting a letter means that the axis will be summed over.
-    * For examples, if `x` is a 2D array with shape `(I, J)`, then `einops.einsum(x, "i j -> i")` will be a 1D array of length `I` containing the row sums of `x` (we're summing along the `j`-index, i.e. across rows).
+    * For example, if `x` is a 2D array with shape `(I, J)`, then `einops.einsum(x, "i j -> i")` will be a 1D array of length `I` containing the row sums of `x` (we're summing along the `j`-index, i.e. across rows).
 3. We can return the unsummed axes in any order.
     * For example, `einops.einsum(x, "i j k -> k j i")` does the same thing as `einops.rearrange(x, "i j k -> k j i")`.
 

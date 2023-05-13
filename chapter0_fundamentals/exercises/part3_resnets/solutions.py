@@ -19,8 +19,9 @@ from pathlib import Path
 import torchinfo
 import json
 import pandas as pd
-import pytorch_lightning as pl
 from jaxtyping import Float, Int
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -146,7 +147,11 @@ if MAIN:
 			optimizer.step()
 			optimizer.zero_grad()
 			loss_list.append(loss.item())   # .item() converts single-elem tensor to scalar
-	
+
+# %%
+
+
+if MAIN:
 	line(
 		loss_list, 
 		yaxis_range=[0, max(loss_list) + 0.1],
@@ -913,7 +918,11 @@ if MAIN:
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
 	
 	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	
+
+# %%
+
+
+if MAIN:
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
 
 # %%

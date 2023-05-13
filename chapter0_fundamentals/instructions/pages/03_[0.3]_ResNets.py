@@ -30,6 +30,8 @@ def section_0():
 
 Colab: [**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
 
+Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
+
 
 # [0.3] - ResNets & Model Training
 
@@ -100,8 +102,9 @@ from pathlib import Path
 import torchinfo
 import json
 import pandas as pd
-import pytorch_lightning as pl
 from jaxtyping import Float, Int
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -455,7 +458,12 @@ if MAIN:
             optimizer.step()
             optimizer.zero_grad()
             loss_list.append(loss.item())   # .item() converts single-elem tensor to scalar
-    
+
+```
+
+```python
+
+if MAIN:
     line(
         loss_list, 
         yaxis_range=[0, max(loss_list) + 0.1],
@@ -2089,7 +2097,12 @@ if MAIN:
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
     
     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-    
+
+```
+
+```python
+
+if MAIN:
     plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
 
 ```
