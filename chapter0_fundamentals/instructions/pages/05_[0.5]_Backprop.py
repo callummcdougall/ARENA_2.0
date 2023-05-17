@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter0_fundamentals"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -14,11 +22,11 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#110125-introduction'>1️⃣ Introduction</a></li>
         <li><a class='contents-el' href='#1010125-autograd'>2️⃣ Autograd</a></li>
-        <li><a class='contents-el' href='#12510125-more-forward-&-backward-functions'>3️⃣ More forward & backward functions</a></li>
+        <li><a class='contents-el' href='#12510125-more-forward-backward-functions'>3️⃣ More forward & backward functions</a></li>
         <li><a class='contents-el' href='#1010125-putting-everything-together'>4️⃣ Putting everything together</a></li>
         <li><a class='contents-el' href='#1310125-bonus'>5️⃣ Bonus</a></li>
     </ul></li>
@@ -162,7 +170,7 @@ def section_1():
     <li class='margtop'><a class='contents-el' href='#backward-functions-of-two-tensors'>Backward functions of two tensors</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#broadcasting-rules'>Broadcasting Rules</a></li>
-        <li><a class='contents-el' href='#why-do-we-need-broadcasting-for-backprop?'>Why do we need broadcasting for backprop?</a></li>
+        <li><a class='contents-el' href='#why-do-we-need-broadcasting-for-backprop'>Why do we need broadcasting for backprop?</a></li>
         <li><a class='contents-el' href='#exercise-implement-unbroadcast'><b>Exercise</b> - implement <code>unbroadcast</code></a></li>
         <li><a class='contents-el' href='#backward-function-for-elementwise-multiply'>Backward Function for Elementwise Multiply</a></li>
         <li><a class='contents-el' href='#exercise-implement-both-multiply-back-functions'><b>Exercise</b> - implement both <code>multiply_back</code> functions</a></li>
@@ -319,6 +327,13 @@ The most obvious answer is the exponential function, `out = e ^ x`. Here, the gr
 
 
 ### Exercise - implement `log_back`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
 
 
 You should fill in this function below. Don't worry about division by zero or other edge cases - the goal here is just to see how the pieces of the system fit together.
@@ -478,6 +493,15 @@ We used the term "unbroadcast" because the way that our tensor's shape changes w
 
 ### Exercise - implement `unbroadcast`
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+
+This can be finnicky to implement, so you should be willing to read the solution and move on if you get stuck.
+```
+
 Below, you should implement this function. `broadcasted` is the array you want to sum over, and `original` is the array with the shape you want to return. Your function should:
 
 * Compare the shapes of `broadcasted` and `original`, and deduce (using broadcasting rules) how `original` was broadcasted to get `broadcasted`.
@@ -556,6 +580,13 @@ Functions that are differentiable with respect to more than one input tensor are
 
 ### Exercise - implement both `multiply_back` functions
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on these exercises.
+```
+
 
 Below, you should implement both `multiply_back0` and `multiply_back1`. 
 
@@ -567,10 +598,14 @@ The first part of each function has been provided for you (this makes sure that 
 ```python
 def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
     '''Backwards function for x * y wrt argument 0 aka x.'''
+    if not isinstance(y, Arr):
+        y = np.array(y)
     pass
 
 def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr:
     '''Backwards function for x * y wrt argument 1 aka y.'''
+    if not isinstance(x, Arr):
+        x = np.array(x)
     pass
 
 
@@ -612,16 +647,16 @@ def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr
 ```python
 def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
     '''Backwards function for x * y wrt argument 0 aka x.'''
-    # SOLUTION
     if not isinstance(y, Arr):
         y = np.array(y)
+    # SOLUTION
     return unbroadcast(y * grad_out, x)
 
 def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr:
     '''Backwards function for x * y wrt argument 1 aka y.'''
-    # SOLUTION
     if not isinstance(x, Arr):
         x = np.array(x)
+    # SOLUTION
     return unbroadcast(x * grad_out, y)
 ```
 </details>
@@ -667,6 +702,15 @@ Now we'll use our backward functions to do backpropagation manually, for the fol
 
 
 ### Exercise - implement `forward_and_back`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 15-20 minutes on these exercises.
+
+This function is very useful for getting a hands-on sense of the backpropagation algorithm.
+```
 
 Below, you should implement the `forward_and_back` function. This is an opportunity for you to practice using the backward functions you've written so far, and should hopefully give you a better sense of how the full backprop function will eventually work.
 
@@ -837,7 +881,14 @@ The `Recipe` takes care of tracking the forward functions in our computational g
 
 ### Exercise - implement `BackwardFuncLookup`
 
-> *These exercises should be very short, once you understand what is being asked.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on these exercises.
+
+These exercises should be very short, once you understand what is being asked.
+```
 
 
 We will define a class `BackwardFuncLookup` in order to find the backward function for a given forward function. Details of the implementation are left up to you.
@@ -846,20 +897,19 @@ The implementation today can be done very simply. We won't support backprop wrt 
 
 We do need to support functions with multiple positional arguments like multiplication so we'll also provide the positional argument index when setting and getting back_fns.
 
-If you're confused as to what this question is asking you to implement, you can look at the code below it (which shows how the class should be used to store and access backward functions, and also asserts that it is working correctly).
+If you're confused as to what this question is asking you to implement, you can look at the code below the class definition (which shows how a class instance can should be used to store and access backward functions).
 
 
 ```python
 class BackwardFuncLookup:
     def __init__(self) -> None:
-        self.back_funcs: defaultdict[Callable, dict[int, Callable]] = defaultdict(dict)
+        pass
 
     def add_back_func(self, forward_fn: Callable, arg_position: int, back_fn: Callable) -> None:
-        self.back_funcs[forward_fn][arg_position] = back_fn
+        pass
 
     def get_back_func(self, forward_fn: Callable, arg_position: int) -> Callable:
-        return self.back_funcs[forward_fn][arg_position]
-
+        pass
 
 
 if MAIN:
@@ -1093,6 +1143,13 @@ Let's start with a simple case: our `log` function. `log_forward` is a wrapper, 
 
 ### Exercise - implement `log_forward`
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
+
 Our `log` function must do the following:
 
 - Call `np.log` on the input *array* (i.e. the array attribute of the tensor).
@@ -1136,6 +1193,19 @@ Then, if `requires_grad` is true, you should also create a recipe object and sto
 
 
 ```python
+class BackwardFuncLookup:
+    def __init__(self) -> None:
+        # SOLUTION
+        self.back_funcs: defaultdict[Callable, dict[int, Callable]] = defaultdict(dict)
+
+    def add_back_func(self, forward_fn: Callable, arg_position: int, back_fn: Callable) -> None:
+        # SOLUTION
+        self.back_funcs[forward_fn][arg_position] = back_fn
+
+    def get_back_func(self, forward_fn: Callable, arg_position: int) -> Callable:
+        # SOLUTION
+        return self.back_funcs[forward_fn][arg_position]
+
 def log_forward(x: Tensor) -> Tensor:
     '''Performs np.log on a Tensor object.'''
     # SOLUTION
@@ -1165,6 +1235,13 @@ Now let's do the same for multiply, to see how to handle functions with multiple
 
 
 ### Exercise - implement `multiply_forward`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 There are a few differences between this and log:
 
@@ -1256,7 +1333,14 @@ Implement the higher order function `wrap_forward_fn` that takes a `Arr -> Arr` 
 
 ### Exercise - implement `wrap_forward_fn`
 
-*This exercise is conceptually important, but might be a bit difficult if it isn't clear what the question is asking for. You shouldn't spend more than ~20 minutes here.*
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+This exercise is conceptually important, but might be a bit difficult if it isn't clear what the question is asking for.
+```
 
 
 ```python
@@ -1410,7 +1494,14 @@ As part of backprop, we need to sort the nodes of our graph so we can traverse t
 
 ### Exercise - implement `topological_sort`
 
-*Note, it's completely fine to skip this problem if you're not very interested in it. You can just look at the solution (which is an implementation of depth first search). This is more of a fun LeetCode-style puzzle, and writing a solution for this isn't crucial for the overall experience of these exercises.*
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+Note, it's completely fine to skip this problem if you're not very interested in it. This is more of a fun LeetCode-style puzzle, and writing a solution for this isn't crucial for the overall experience of these exercises.
+```
 
 
 Write a general function `topological_sort` that return a list of node's children in topological order (beginning with the furthest descendants, ending with the starting node) using [depth-first search](https://en.wikipedia.org/wiki/Topological_sorting). 
@@ -1681,7 +1772,14 @@ In the computational graph in the next section, the only leaves are `a`, `b` and
 
 ### Exercise - implement `backprop`
 
-*This exercise is the most conceptually important today. You should be willing to spend around 30 minutes on it. We've provided several dropdowns to help you along.*
+```c
+Difficulty: 🟠🟠🟠🟠🟠
+Importance: 🟠🟠🟠🟠🟠
+
+You should spend up to 30-40 minutes on this exercise.
+
+This exercise is the most conceptually important today. You should be willing to spend around 30 minutes on it. We've provided several dropdowns to help you.
+```
 
 
 Now, we get to the actual backprop function! Some code is provided below, which you should complete.
@@ -1875,19 +1973,23 @@ def section_3():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#non-differentiable-functions'>Non-Differentiable Functions</a></li>
-    <li class='margtop'><a class='contents-el' href='#negative'><code>negative</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#exp'><code>exp</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#reshape'><code>reshape</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#permute'><code>permute</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#expand'><code>expand</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#sum'><code>sum</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#indexing'>Indexing</a></li>
-    <li class='margtop'><a class='contents-el' href='#elementwise-add,-subtract,-divide'>elementwise add, subtract, divide</a></li>
+    <li class='margtop'><a class='contents-el' href='#single-tensor-differentiable-functions'>Single-Tensor Differentiable Functions</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-negative'><b>Exercise</b> - <code>negative</code></a></li>
+        <li><a class='contents-el' href='#exercise-exp'><b>Exercise</b> - <code>exp</code></a></li>
+        <li><a class='contents-el' href='#exercise-reshape'><b>Exercise</b> - <code>reshape</code></a></li>
+        <li><a class='contents-el' href='#exercise-permute'><b>Exercise</b> - <code>permute</code></a></li>
+        <li><a class='contents-el' href='#exercise-expand'><b>Exercise</b> - <code>expand</code></a></li>
+        <li><a class='contents-el' href='#exercise-sum'><b>Exercise</b> - <code>sum</code></a></li>
+        <li><a class='contents-el' href='#exercise-indexing'><b>Exercise</b> - Indexing</a></li>
+        <li><a class='contents-el' href='#elementwise-add-subtract-divide'>elementwise add, subtract, divide</a></li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#in-place-operations'>In-Place Operations</a></li>
-    <li class='margtop'><a class='contents-el' href='#mixed-scalar-tensor-operations'>Mixed scalar-tensor operations</a></li>
-    <li class='margtop'><a class='contents-el' href='#max'><code>max</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#functional-relu'>Functional <code>ReLU</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#10d-matmul'>2D <code>matmul</code></a></li>
+    <li class='margtop'><a class='contents-el' href='#mixed-scalar-tensor-operations'>Mixed Scalar-Tensor Operations</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-max'><b>Exercise</b> - <code>max</code></a></li>
+        <li><a class='contents-el' href='#exercise-functional-relu'><b>Exercise</b> - functional <code>ReLU</code></a></li>
+        <li><a class='contents-el' href='#exercise-10d-matmul'><b>Exercise</b> - 2D <code>matmul</code></a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -1908,7 +2010,7 @@ Congrats on implementing backprop! The next thing we'll do is write implement a 
 These should be just like your `log_back` and `multiply_back0`, `multiplyback1` examples earlier.
 
 
-*Note - some of these exercises can get a bit repetitive. About 60% of the value of these exercises was in the first 2 sections out of 5, and of the remaining 40%, not much of it is in this section! So you're welcome to skim through these exercises if you don't find them interesting.*
+***Note - some of these exercises can get a bit repetitive. About 60% of the value of these exercises was in the first 2 sections out of 5, and of the remaining 40%, not much of it is in this section! So you're welcome to skim through these exercises if you don't find them interesting.***
 
 
 ## Non-Differentiable Functions
@@ -1936,7 +2038,17 @@ if MAIN:
 
 ```
 
-## `negative`
+## Single-Tensor Differentiable Functions
+
+
+### Exercise - `negative`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
 
 `torch.negative` just performs `-x` elementwise. Make your own version `negative` using `wrap_forward_fn`.
 
@@ -1968,7 +2080,14 @@ def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
 </details>
 
 
-## `exp`
+### Exercise - `exp`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
 
 Make your own version of `torch.exp`. The backward function should express the result in terms of the `out` parameter - this more efficient than expressing it in terms of `x`.
 
@@ -1998,7 +2117,14 @@ def exp_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
 </details>
 
 
-## `reshape`
+### Exercise - `reshape`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
 
 `reshape` is a bit more complicated than the many functions we've dealt with so far: there is an additional positional argument `new_shape`. Since it's not a `Tensor`, we don't need to think about differentiating with respect to it. Remember, `new_shape` is the argument that gets passed into the **forward function**, and we're trying to reverse this operation and return to the shape of the input.
 
@@ -2032,7 +2158,14 @@ def reshape_back(grad_out: Arr, out: Arr, x: Arr, new_shape: tuple) -> Arr:
 </details>
 
 
-## `permute`
+### Exercise - `permute`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 In NumPy, the equivalent of `torch.permute` is called `np.transpose`, so we will wrap that.
 
@@ -2119,7 +2252,14 @@ def invert_transposition(axes: tuple) -> tuple:
 </details>
 
 
-## `expand`
+### Exercise - `expand`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 Implement your version of `torch.expand`. 
 
@@ -2213,7 +2353,14 @@ def _expand(x: Arr, new_shape) -> Arr:
 </details>
 
 
-## `sum`
+### Exercise - `sum`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 The output can also be smaller than the input, such as when calling `torch.sum`. Implement your own `torch.sum` and `sum_back`.
 
@@ -2267,7 +2414,14 @@ def sum_back(grad_out: Arr, out: Arr, x: Arr, dim=None, keepdim=False):
 </details>
 
 
-## Indexing
+### Exercise - Indexing
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 In its full generality, indexing a `torch.Tensor` is really complicated and there are quite a few cases to handle separately.
 
@@ -2361,7 +2515,14 @@ def getitem_back(grad_out: Arr, out: Arr, x: Arr, index: Index):
 </details>
 
 
-## elementwise add, subtract, divide
+### elementwise add, subtract, divide
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 These are exactly analogous to the multiply case. Note that Python and NumPy have the notion of "floor division", which is a truncating integer division as in `7 // 3 = 2`. You can ignore floor division: - we only need the usual floating point division which is called "true division". 
 
@@ -2384,7 +2545,13 @@ if MAIN:
     subtract = wrap_forward_fn(np.subtract)
     true_divide = wrap_forward_fn(np.true_divide)
     
-    # Your code here - populate the BACK_FUNCS object
+    # Your code here - add to the BACK_FUNCS object
+
+```
+
+```python
+
+if MAIN:
     tests.test_add_broadcasted(Tensor)
     tests.test_subtract_broadcasted(Tensor)
     tests.test_truedivide_broadcasted(Tensor)
@@ -2458,7 +2625,7 @@ if MAIN:
 
 ```
 
-## Mixed scalar-tensor operations
+## Mixed Scalar-Tensor Operations
 
 You may have been wondering why our `Tensor` class has to define both `__mul__` and `__rmul__` magic methods.
 
@@ -2480,7 +2647,14 @@ if MAIN:
 
 ```
 
-## `max`
+### Exercise - `max`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 Since this is an elementwise function, we can think about the scalar case. For scalar $x$, $y$, the derivative for $\max(x, y)$ wrt $x$ is 1 when $x > y$ and 0 when $x < y$. What should happen when $x = y$?
 
@@ -2543,7 +2717,14 @@ def maximum_back1(grad_out: Arr, out: Arr, x: Arr, y: Arr):
 </details>
 
 
-## Functional `ReLU`
+### Exercise - functional `ReLU`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 A simple and correct ReLU function can be defined in terms of your maximum function. Note the PyTorch version also supports in-place operation, which we are punting on for now.
 
@@ -2579,7 +2760,14 @@ def relu(x: Tensor) -> Tensor:
 </details>
 
 
-## 2D `matmul`
+### Exercise - 2D `matmul`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+```
 
 Implement your version of `torch.matmul`, restricting it to the simpler case where both inputs are 2D.
 
@@ -2663,8 +2851,8 @@ def section_4():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#build-your-own-nn-parameter'>Build Your Own <code>nn.Parameter</code></a></li>
-    <li class='margtop'><a class='contents-el' href='#build-your-own-nn-module'>Build Your Own <code>nn.Module</code></a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise-build-your-own-nn-parameter'><b>Exercise</b> - build your own <code>nn.Parameter</code></a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise-build-your-own-nn-module'><b>Exercise</b> - build your own <code>nn.Module</code></a></li>
     <li class='margtop'><a class='contents-el' href='#build-your-own-linear-layer'>Build Your Own Linear Layer</a></li>
     <li class='margtop'><a class='contents-el' href='#build-your-own-cross-entropy-loss'>Build Your Own Cross-Entropy Loss</a></li>
     <li class='margtop'><a class='contents-el' href='#build-your-own-nograd-context-manager'>Build your own <code>NoGrad</code> context manager</a></li>
@@ -2683,7 +2871,14 @@ def section_4():
 > * Complete the process of building up a neural network from scratch and training it via gradient descent.
 
 
-## Build Your Own `nn.Parameter`
+## Exercise - build your own `nn.Parameter`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 We've now written enough backwards passes that we can go up a layer and write our own `nn.Parameter` and `nn.Module`.
 We don't need much for `Parameter`. It is itself a `Tensor`, shares storage with the provided `Tensor` and requires_grad is `True` by default - that's it!
@@ -2727,7 +2922,14 @@ class Parameter(Tensor):
 </details>
 
 
-## Build Your Own `nn.Module`
+## Exercise - build your own `nn.Module`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 25-30 minutes on this exercise.
+```
 
 `nn.Module` is like `torch.Tensor` in that it has a lot of functionality, most of which we don't care about today. We will just implement enough to get our network training. 
 
@@ -2903,6 +3105,13 @@ class Module:
 
 ## Build Your Own Linear Layer
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-25 minutes on this exercise.
+```
+
 You may have a `Linear` written already that you can adapt to use our own `Parameter`, `Module`, and `Tensor`. If your `Linear` used `einsum`, use a `matmul` instead. You can implement a backward function for `einsum` in the bonus section.
 
 
@@ -2918,6 +3127,7 @@ class Linear(Module):
         The fields should be named `weight` and `bias` for compatibility with PyTorch.
         If `bias` is False, set `self.bias` to None.
         '''
+        super().__init__()
         pass
 
     def forward(self, x: Tensor) -> Tensor:
@@ -2965,10 +3175,10 @@ class Linear(Module):
         The fields should be named `weight` and `bias` for compatibility with PyTorch.
         If `bias` is False, set `self.bias` to None.
         '''
+        super().__init__()
         # SOLUTION
         self.in_features = in_features
         self.out_features = out_features
-        super().__init__()
         
         # sf needs to be a float
         sf = in_features ** -0.5
@@ -3034,6 +3244,13 @@ class MLP(Module):
 
 ## Build Your Own Cross-Entropy Loss
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 Make use of your integer array indexing to implement `cross_entropy`. See the documentation page [here](https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html).
 
 Note - if you have a tensor `X` of shape `(a, b)`, and you want to take the `Y[i]`-th element of each row (where `Y` is a tensor of length `a`), the easiest way to do this is with:
@@ -3090,6 +3307,13 @@ def cross_entropy(logits: Tensor, true_labels: Tensor) -> Tensor:
 
 
 ## Build your own `NoGrad` context manager
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 The last thing our backpropagation system needs is the ability to turn it off completely like `torch.no_grad`. 
 

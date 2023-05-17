@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter1_transformers"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -3878,12 +3886,7 @@ print("Tests passed!")
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),
-    (section_1, '1️⃣ Understanding Inputs & Outputs of a Transformer'),
-    (section_2, '2️⃣ Clean Transformer Implementation'),
-    (section_3, '3️⃣ Training a Transformer'),
-    (section_4, '4️⃣ Sampling from a Transformer'),
-
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Understanding Inputs & Outputs of a Transformer'),     (section_2, '2️⃣ Clean Transformer Implementation'),     (section_3, '3️⃣ Training a Transformer'),     (section_4, '4️⃣ Sampling from a Transformer'), 
 ]
 
 func_list = [func for func, page in func_page_list]

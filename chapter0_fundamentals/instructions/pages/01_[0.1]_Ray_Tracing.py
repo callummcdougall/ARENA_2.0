@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter0_fundamentals"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -14,6 +22,7 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
+    <li class='margtop'><a class='contents-el' href='#getting-started'>Getting started</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
     <li class='margtop'><a class='contents-el' href='#1d-image-rendering'>1D Image Rendering</a></li>
     <li><ul class="contents">
@@ -21,7 +30,7 @@ def section_0():
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#ray-object-intersection'>Ray-Object Intersection</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise-which-segments-intersect-with-the-rays?'><b>Exercise</b> - which segments intersect with the rays?</a></li>
+        <li><a class='contents-el' href='#exercise-which-segments-intersect-with-the-rays'><b>Exercise</b> - which segments intersect with the rays?</a></li>
         <li><a class='contents-el' href='#exercise-implement-intersect-ray-1d'><b>Exercise</b> - implement <code>intersect_ray_1d</code></a></li>
         <li><a class='contents-el' href='#aside-typechecking'>Aside - typechecking</a></li>
     </ul></li>
@@ -61,7 +70,7 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#bonus-testing-with-pytest'>Bonus - testing with <code>pytest</code></a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#parametrization'>Parametrization</a></li>
-        <li><a class='contents-el' href='#how-to-run-these-tests?'>How to run these tests?</a></li>
+        <li><a class='contents-el' href='#how-to-run-these-tests'>How to run these tests?</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#bonus-more-raytracing'>Bonus - more raytracing</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -92,6 +101,33 @@ We'll also be touching on some general topics which will be important going forw
 * Debugging, with VSCode's built-in run & debug features
 
 
+## Getting started
+
+As a reminder, the GitHub repo which hosts these pages (and the exercises) looks something like this:
+
+```
+.
+├── chapter0_fundamentals
+│   ├── exercises
+│   │   ├── part1_ray_tracing
+│   │   │   ├── solutions.py
+│   │   │   ├── tests.py
+│   │   │   └── answers.py*
+│   │   ├── part2_cnns
+│   │   ⋮    ⋮
+│   └── instructions
+│       └── Home.py
+├── chapter1_transformers
+├── chapter2_rl
+├── chapter3_training_at_scale
+└── requirements.txt
+```
+
+To run these Streamlit pages locally rather than from the public url, you can navigate to the `chapter0_fundamentals/instructions` directory in your terminal, then run `streamlit run Home.py`.
+
+To complete the actual exercises, you should create the file `answers.py` inside the `chapter0_fundamentals/exercises/part1_ray_tracing` directory, and copy code from this Streamlit page to that Python file. You can run your code like cells in a notebook, by using the characters `# %%` to separate cells.
+
+
 ## Setup
 
 Run these cells below (don't worry about reading through them).
@@ -101,12 +137,15 @@ Run these cells below (don't worry about reading through them).
 import os
 import sys
 import torch as t
+from torch import Tensor
 import einops
 from ipywidgets import interact
 import plotly.express as px
 from ipywidgets import interact
 from pathlib import Path
 from IPython.display import display
+from jaxtyping import Float, Int, Bool, Shaped, jaxtyped
+import typeguard
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -186,6 +225,13 @@ To start, we'll let the z dimension in our `(x, y, z)` space be zero and work in
 
 
 #### Exercise - implement `make_rays_1d`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 
 Implement the following `make_rays_1d` function so it generates some rays coming out of the origin, which we'll take to be `(0, 0, 0)`.
@@ -301,6 +347,13 @@ Once we've found values of $u$ and $v$ which satisfy this equation, if any (the 
 
 
 ### Exercise - which segments intersect with the rays?
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
  
 For each of the following segments, which camera rays from earlier intersect? You can do this by inspection or using `render_lines_with_pyplot`.
 
@@ -330,6 +383,15 @@ render_lines_with_plotly(rays1d, segments)
 
 
 ### Exercise - implement `intersect_ray_1d`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+It involves some of today's core concepts: tensor manipulation, linear operations, etc.
+```
 
 Using [`torch.lingalg.solve`](https://pytorch.org/docs/stable/generated/torch.linalg.solve.html) and [`torch.stack`](https://pytorch.org/docs/stable/generated/torch.stack.html), implement the `intersect_ray_1d` function to solve the above matrix equation.
 
@@ -456,13 +518,11 @@ from torch import Tensor
 def my_concat(x: Float[Tensor, "a1 b"], y: Float[Tensor, "a2 b"]) -> Float[Tensor, "a1+a2 b"]:
     return t.concat([x, y], dim=0)
 
-
-if MAIN:
-    x = t.ones(3, 2)
-    y = t.randn(4, 2)
-    z = my_concat(x, y)
-
+x = t.ones(3, 2)
+y = t.randn(4, 2)
+z = my_concat(x, y)
 ```
+
 
 This cell will run without error, because the tensor `t.concat([x, y], dim=0)` has shape `(3+4, 2) = (7, 2)`, which agrees with the symbolic representation of `(a1 b), (a2 b) -> (a1+a2, b)` in the type signature. But this code will fail if the type signatures are violated in any way, for instance:
 
@@ -601,6 +661,17 @@ On the other hand, if `B` had shape `(2,)` then broadcasting would fail, because
 
 
 ### Exercise - implement `intersect_rays_1d`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 25-30 minutes on this exercise.
+
+It will be one of the most difficult today; certainly it has the biggest step in difficulty.
+```
+
+With all these tips in mind, now you should implement `intersect_rays_1d`, the batched version of `intersect_ray_1d` (which returns True for each ray, if it intersects *any* segment).
 
 
 ```python
@@ -757,6 +828,13 @@ Now we're going to make use of the z dimension and have rays emitted from the or
 
 
 ### Exercise - implement `make_rays_2d`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 Implement `make_rays_2d` analogously to `make_rays_1d`. The result should look like a pyramid with the tip at the origin.
 
@@ -917,6 +995,13 @@ We can therefore find the coordinates `s`, `u`, `v` of the intersection point by
 
 ### Exercise - implement `triangle_line_intersects`
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
+
 Using `torch.linalg.solve` and `torch.stack`, implement `triangle_line_intersects(A, B, C, O, D)`.
 
 A few tips:
@@ -1028,6 +1113,17 @@ Here, `y` was created through basic indexing, so `y` is a view and `y._base` ref
 
 
 ### Exercise - implement `raytrace_triangle`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 15-20 minutes on this exercise.
+
+This is about as hard as `intersect_rays_1d`, although hopefully you should find it more familiar.
+```
+
+Below, you should implement `raytrace_triangle`, a funtion which checks whether each ray in `ray` intersects a single given triangle.
 
 
 ```python
@@ -1227,6 +1323,15 @@ For each ray (pixel) we will return a float representing the minimum distance to
 
 ### Exercise - implement `raytrace_mesh`
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+This is the main function we've been building towards, and marks the end of the core exercises. If should involve a lot of repurposed code from the last excercise.
+```
+
 Implement `raytrace_mesh` and as before, reshape and visualize the output. Your Pikachu is centered on (0, 0, 0), so you'll want to slide the ray origin back to at least `x=-2` to see it properly.
 
 Reminder - `t.linalg.solve` (and most batched operations) can accept multiple dimensions as being batch dims. Previously, you've just used `NR` (the number of rays) as the batch dimension, but you can also use `(NR, NT)` (the number of rays and triangles) as your batch dimensions, so you can solve for all rays and triangles at once.
@@ -1314,10 +1419,24 @@ def raytrace_mesh(
 </details>
 
 
+---
+
+
+Congratulations, you've now got to the end of the exercises! Click the button below to see the entire reason we decided to host these exercises in Streamlit rather than in markdown files.
+
+
+""", unsafe_allow_html=True)
+    button = st.button("Click me to celebrate!")
+    if button:
+        st.balloons()
+    st.markdown(r"""
+
+
+---
+
+
 ## Bonus - testing with `pytest`
 
-
-Congratulations, you've now got to the end of the exercises! 
 
 To wrap up today, we're going to have a further discussion of **testing**. So far, our test functions have been pretty simple - we imported a test from the `part1_ray_tracing/tests.py` file, and ran it to compare our answers to the answers in `part1_ray_tracing/solutions.py`. This works perfectly fine, but there are other Python libraries which can make testing easier and more powerful. In particular, two such libraries are `unittest` and `pytest`. Both these libraries provide extensive features for modularizing and running test functions, and have nice integrations with VSCode. `unittest` is very powerful, but also has a steep learning curve and isn't worth the trouble of learning during a 6 week course. However, `pytest` is very useful and easy to learn, so we'll spend some time here discussing it.
 

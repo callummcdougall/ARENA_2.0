@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter1_transformers"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -21,7 +29,7 @@ def section_0():
         <li><a class='contents-el' href='#12510125-total-elevation-circuit'>3️⃣ Total elevation circuit</a></li>
         <li><a class='contents-el' href='#1010125-bonus-exercises'>4️⃣ Bonus exercises</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#setup-don't-read,-just-run'>Setup (don't read, just run)</a></li>
+    <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -108,7 +116,7 @@ Lastly, there are a few optional bonus exercises which build on the previous con
 > * Take deeper dives into specific anomalous features of the model.
 
 
-## Setup (don't read, just run)
+## Setup
 
 
 ```python
@@ -1198,10 +1206,9 @@ We've given you a `hists_per_comp` function which will plot these histograms for
 
 
 ```python
+# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
 
 if MAIN:
-    # YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
-    # remember to subtract the mean per component on balanced samples
     tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
     
     plotly_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
@@ -1550,10 +1557,9 @@ Now that you've got the `pre_20_dir`, you can calculate magnitudes for each of t
 
 
 ```python
+# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
 
 if MAIN:
-    # YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
-    # Remember to subtract the mean for each component for balanced inputs
     plotly_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
 
 ```
@@ -2084,9 +2090,9 @@ def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -
     return model.W_E[idx]
 
 
+# YOUR CODE HERE - define v_L and v_R, as described above.
 
 if MAIN:
-    # YOUR CODE HERE - define v_L and v_R, as described above.
     print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
 
 ```
@@ -2328,16 +2334,17 @@ example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
 
 
 ```python
+# FLAT SOLUTION NOINDENT
 # YOUR CODE HERE - update the examples list below, to find adversarial examples!
 def tallest_balanced_bracket(length: int) -> str:
     return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
 
-example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
-examples.append(example)
-# FLAT SOLUTION END
-
 
 if MAIN:
+    example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
+    examples.append(example)
+    # FLAT SOLUTION END
+    
     examples = ["()", "(())", "))"]
     m = max(len(ex) for ex in examples)
     toks = tokenizer.tokenize(examples)
@@ -2386,12 +2393,7 @@ You can also get more ideas from Neel Nanda's [200 Concrete Open Problems in MI:
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),
-    (section_1, '1️⃣ Bracket classifier'),
-    (section_2, '2️⃣ Moving backwards'),
-    (section_3, '3️⃣ Understanding the total elevation circuit'),
-    (section_4, '4️⃣ Bonus exercises'),
-
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Bracket classifier'),     (section_2, '2️⃣ Moving backwards'),     (section_3, '3️⃣ Understanding the total elevation circuit'),     (section_4, '4️⃣ Bonus exercises'), 
 ]
 
 func_list = [func for func, page in func_page_list]

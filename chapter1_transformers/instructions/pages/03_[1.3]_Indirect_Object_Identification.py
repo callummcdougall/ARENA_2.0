@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter1_transformers"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -93,6 +101,8 @@ The notebook is loosely divided into different sections, each one with their own
 
 ```python
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import sys
+from pathlib import Path
 import torch as t
 from torch import Tensor
 import numpy as np
@@ -117,10 +127,11 @@ from transformer_lens.components import Embed, Unembed, LayerNorm, MLP
 t.set_grad_enabled(False)
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter1_transformers"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part3_indirect_object_identification"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+os.chdir(section_dir)
 
 from plotly_utils import imshow, line, scatter, bar
 import part3_indirect_object_identification.tests as tests
@@ -420,7 +431,11 @@ This function should take in your model's logit output (shape `(batch, seq, d_vo
 
 
 ```python
-def logits_to_ave_logit_diff(logits: Float[Tensor, "batch seq d_vocab"], answer_tokens: Float[Tensor, "batch 2"], per_prompt=False):
+def logits_to_ave_logit_diff(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+    per_prompt: bool = False
+):
     '''
     Returns logit difference between the correct and incorrect answer.
 
@@ -439,7 +454,11 @@ if MAIN:
 
 
 ```python
-def logits_to_ave_logit_diff(logits: Float[Tensor, "batch seq d_vocab"], answer_tokens: Float[Tensor, "batch 2"], per_prompt=False):
+def logits_to_ave_logit_diff(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+    per_prompt: bool = False
+):
     '''
     Returns logit difference between the correct and incorrect answer.
 
@@ -1154,20 +1173,20 @@ Note - to be compatible with the functions in `transformer_lens.patching`, we sh
 
 
 ```python
-def ioi_metric(
-    logits: Float[Tensor, "batch seq d_vocab"], 
-    answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
-    corrupted_logit_diff: float = corrupted_logit_diff,
-    clean_logit_diff: float = clean_logit_diff,
-) -> Float[Tensor, ""]:
-    '''
-    Linear function of logit diff, calibrated so that it equals 0 when performance is 
-    same as on corrupted input, and 1 when performance is same as on clean input.
-    '''
-    pass
-
 
 if MAIN:
+    def ioi_metric(
+        logits: Float[Tensor, "batch seq d_vocab"], 
+        answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+        corrupted_logit_diff: float = corrupted_logit_diff,
+        clean_logit_diff: float = clean_logit_diff,
+    ) -> Float[Tensor, ""]:
+        '''
+        Linear function of logit diff, calibrated so that it equals 0 when performance is 
+        same as on corrupted input, and 1 when performance is same as on clean input.
+        '''
+    pass
+
     t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
     t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
     t.testing.assert_close(ioi_metric((clean_logits + corrupted_logits) / 2).item(), 0.5)
@@ -1199,19 +1218,16 @@ def residual_stack_to_logit_diff(
 
 # Test function by checking that it gives the same result as the original logit difference
 
-def ioi_metric(
-    logits: Float[Tensor, "batch seq d_vocab"], 
-    answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
-    corrupted_logit_diff: float = corrupted_logit_diff,
-    clean_logit_diff: float = clean_logit_diff,
-) -> Float[Tensor, ""]:
+def topk_of_Nd_tensor(tensor: Float[Tensor, "rows cols"], k: int):
     '''
-    Linear function of logit diff, calibrated so that it equals 0 when performance is 
-    same as on corrupted input, and 1 when performance is same as on clean input.
+    Helper function: does same as tensor.topk(k).indices, but works over 2D tensors.
+    Returns a list of indices, i.e. shape (k, tensor.ndim).
     '''
+    i = t.topk(tensor.flatten(), k).indices
+    return np.array(np.unravel_index(utils.to_numpy(i), tensor.shape)).T.tolist()
+
+
     # SOLUTION
-    patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
-    return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
 ```
 </details>
 
@@ -1568,7 +1584,12 @@ if MAIN:
         clean_cache, 
         ioi_metric
     )
-    
+
+```
+
+```python
+
+if MAIN:
     imshow(
         act_patch_attn_head_out_all_pos, 
         labels={"y": "Layer", "x": "Head"}, 
@@ -1641,7 +1662,13 @@ if MAIN:
     act_patch_attn_head_out_all_pos_own = get_act_patch_attn_head_out_all_pos(model, corrupted_tokens, clean_cache, ioi_metric)
     
     t.testing.assert_close(act_patch_attn_head_out_all_pos, act_patch_attn_head_out_all_pos_own)
-    
+
+```
+
+```python
+
+
+if MAIN:
     imshow(
         act_patch_attn_head_out_all_pos_own,
         title="Logit Difference From Patched Attn Head Output", 
@@ -2159,24 +2186,24 @@ We'll call these functions something slightly different, so as not to pollute na
 
 
 ```python
-def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
-    '''
-    Returns logit difference between the correct and incorrect answer.
-
-    If per_prompt=True, return the array of differences rather than the average.
-    '''
-    
-    # Only the final logits are relevant for the answer
-    # Get the logits corresponding to the indirect object / subject tokens respectively
-    io_logits: Float[Tensor, "batch d_vocab"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
-    s_logits: Float[Tensor, "batch 2"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
-    # Find logit difference
-    answer_logit_diff = io_logits - s_logits
-    return answer_logit_diff if per_prompt else answer_logit_diff.mean()
-
-
 
 if MAIN:
+    def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
+        '''
+        Returns logit difference between the correct and incorrect answer.
+    
+        If per_prompt=True, return the array of differences rather than the average.
+        '''
+        
+        # Only the final logits are relevant for the answer
+        # Get the logits corresponding to the indirect object / subject tokens respectively
+        io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+        s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+        # Find logit difference
+        answer_logit_diff = io_logits - s_logits
+        return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+    
+    
     model.reset_hooks(including_permanent=True)
     
     ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
@@ -2220,22 +2247,22 @@ Again, we'll call this function something slightly different.
 
 
 ```python
-def ioi_metric_2(
-    logits: Float[Tensor, "batch seq d_vocab"],
-    clean_logit_diff: float = ioi_average_logit_diff,
-    corrupted_logit_diff: float = abc_average_logit_diff,
-    ioi_dataset: IOIDataset = ioi_dataset,
-) -> float:
-    '''
-    We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
-    and -1 when performance has been destroyed (i.e. is same as ABC dataset).
-    '''
-    patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
-    return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
-
-
 
 if MAIN:
+    def ioi_metric_2(
+        logits: Float[Tensor, "batch seq d_vocab"],
+        clean_logit_diff: float = ioi_average_logit_diff,
+        corrupted_logit_diff: float = abc_average_logit_diff,
+        ioi_dataset: IOIDataset = ioi_dataset,
+    ) -> float:
+        '''
+        We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+        and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+        '''
+        patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+        return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+    
+    
     print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
     print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
 
@@ -2458,20 +2485,14 @@ if MAIN:
 
 
 ```python
-def ioi_metric_2(
-    logits: Float[Tensor, "batch seq d_vocab"],
-    clean_logit_diff: float = ioi_average_logit_diff,
-    corrupted_logit_diff: float = abc_average_logit_diff,
-    ioi_dataset: IOIDataset = ioi_dataset,
-) -> float:
-    '''
-    We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
-    and -1 when performance has been destroyed (i.e. is same as ABC dataset).
-    '''
-    patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
-    return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
-
-
+def make_table(cols, colnames, title="", n_rows=5, decimals=4):
+    '''Makes and displays a table, from cols rather than rows (using rich print)'''
+    table = Table(*colnames, title=title)
+    rows = list(zip(*cols))
+    f = lambda x: x if isinstance(x, str) else f"{x:.{decimals}f}"
+    for row in rows[:n_rows]:
+        table.add_row(*list(map(f, row)))
+    rprint(table)
 # SOLUTION
 
 def get_path_patch_head_to_final_resid_post(
@@ -2868,6 +2889,7 @@ In section 3, since your receiver nodes are in the middle of the model rather th
 
 
 ```python
+# FLAT SOLUTION NOINDENT
 # 
 def patch_head_input(
     orig_activation: Float[Tensor, "batch pos head_idx d_head"],
@@ -2981,6 +3003,7 @@ We've provided a template for this function. Note use of `typing.Literal`, which
 if MAIN:
     model.reset_hooks()
     
+    # FLAT SOLUTION NOINDENT
     # 
 def generate_repeated_tokens(
     model: HookedTransformer, 
@@ -3041,6 +3064,104 @@ if MAIN:
 
 
 ```python
+def get_path_patch_head_to_heads(
+    receiver_heads: List[Tuple[int, int]],
+    receiver_input: str,
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = None,
+    orig_cache: Optional[ActivationCache] = None,
+) -> Float[Tensor, "layer head"]:
+    '''
+    Performs path patching (see algorithm in appendix B of IOI paper), with:
+
+        sender head = (each head, looped through, one at a time)
+        receiver node = input to a later head (or set of heads)
+
+    The receiver node is specified by receiver_heads and receiver_input.
+    Example (for S-inhibition path patching the queries):
+        receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+        receiver_input = "v"
+
+    Returns:
+        tensor of metric values for every possible sender head
+    '''
+    # SOLUTION
+    model.reset_hooks()
+
+    assert receiver_input in ("k", "q", "v")
+    receiver_layers = set(next(zip(*receiver_heads)))
+    receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
+    receiver_hook_names_filter = lambda name: name in receiver_hook_names
+
+    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
+    
+    # ========== Step 1 ==========
+    # Gather activations on x_orig and x_new
+
+    # Note the use of names_filter for the run_with_cache function. Using it means we 
+    # only cache the things we need (in this case, just attn head outputs).
+    z_name_filter = lambda name: name.endswith("z")
+    if new_cache is None:
+        _, new_cache = model.run_with_cache(
+            new_dataset.toks, 
+            names_filter=z_name_filter, 
+            return_type=None
+        )
+    if orig_cache is None:
+        _, orig_cache = model.run_with_cache(
+            orig_dataset.toks, 
+            names_filter=z_name_filter, 
+            return_type=None
+        )
+
+    # Note, the sender layer will always be before the final receiver layer, otherwise there will
+    # be no causal effect from sender -> receiver. So we only need to loop this far.
+    for (sender_layer, sender_head) in tqdm(list(itertools.product(
+        range(max(receiver_layers)),
+        range(model.cfg.n_heads)
+    ))):
+
+        # ========== Step 2 ==========
+        # Run on x_orig, with sender head patched from x_new, every other head frozen
+
+        hook_fn = partial(
+            patch_or_freeze_head_vectors,
+            new_cache=new_cache, 
+            orig_cache=orig_cache,
+            head_to_patch=(sender_layer, sender_head),
+        )
+        model.add_hook(z_name_filter, hook_fn, level=1)
+        
+        _, patched_cache = model.run_with_cache(
+            orig_dataset.toks, 
+            names_filter=receiver_hook_names_filter,  
+            return_type=None
+        )
+        # model.reset_hooks(including_permanent=True)
+        assert set(patched_cache.keys()) == set(receiver_hook_names)
+
+        # ========== Step 3 ==========
+        # Run on x_orig, patching in the receiver node(s) from the previously cached value
+        
+        hook_fn = partial(
+            patch_head_input, 
+            patched_cache=patched_cache, 
+            head_list=receiver_heads,
+        )
+        patched_logits = model.run_with_hooks(
+            orig_dataset.toks,
+            fwd_hooks = [(receiver_hook_names_filter, hook_fn)], 
+            return_type="logits"
+        )
+
+        # Save the results
+        results[sender_layer, sender_head] = patching_metric(patched_logits)
+
+    return results
+
 def get_attn_scores(
     model: HookedTransformer, 
     seq_len: int, 
@@ -3081,18 +3202,6 @@ def get_attn_scores(
             results[layer, head] = avg_attn_on_duplicates
 
     return results
-```
-```python
-    model: HookedTransformer, 
-    seq_len: int, 
-    batch: int = 1
-    '''
-    Generates a sequence of repeated random tokens (no start token).
-    '''
-    rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
-    rep_tokens = t.cat([rep_tokens_half, rep_tokens_half], dim=-1).to(device)
-    return rep_tokens
-
 ```
 </details>
 
@@ -3157,18 +3266,6 @@ Can you think of a way to solve this problem? After you've considered this, you 
 
 We ablate with the mean of the ABC dataset rather than the IOI dataset. This removes the problem of averages still containing relevant information from solving the IOI task.
 
-```python
-    model: HookedTransformer, 
-    seq_len: int, 
-    batch: int = 1
-    '''
-    Generates a sequence of repeated random tokens (no start token).
-    '''
-    rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
-    rep_tokens = t.cat([rep_tokens_half, rep_tokens_half], dim=-1).to(device)
-    return rep_tokens
-
-```
 </details>
 
 One other complication - the sentences have different templates, and the positions of tokens like `S` and `IO` are not consistent across these templates (we avoided this problem in previous exercises by choosing a very small set of sentences, where all the important tokens had the same indices). An example of two templates with different positions:
@@ -3250,6 +3347,7 @@ where `hook_name` can be a string or a filter function mapping strings to boolea
 
 
 ```python
+# FLAT SOLUTION NOINDENT
 # 
 def get_heads_and_posns_to_keep(
     means_dataset: IOIDataset,
@@ -3683,6 +3781,7 @@ def plot_minimal_set_results(minimality_scores: Dict[Tuple[int, int], float]):
 ```
 
 ```python
+# FLAT SOLUTION NOINDENT
 # YOUR CODE HERE - define the `minimality_scores` dictionary, to be used in the plot function given above
 def get_score(
     model: HookedTransformer, 
@@ -3752,8 +3851,10 @@ def get_all_minimality_scores(
     return minimality_scores
 
 
-minimality_scores = get_all_minimality_scores(model)
-# FLAT SOLUTION END
+
+if MAIN:
+    minimality_scores = get_all_minimality_scores(model)
+    # FLAT SOLUTION END
 
 ```
 
@@ -4036,7 +4137,7 @@ if MAIN:
     model.reset_hooks(including_permanent=True)
     
     ioi_logits, ioi_cache = model.run_with_cache(ioi_dataset.toks)
-    original_average_logit_diff = logits_to_ave_logit_diff(ioi_logits)
+    original_average_logit_diff = logits_to_ave_logit_diff_2(ioi_logits)
 
 ```
 
@@ -4085,7 +4186,7 @@ if MAIN:
         f"                            Original logit diff: {original_average_logit_diff:.4f}",
         f"Direct Logit Attribution of top name mover head: {per_head_logit_diffs[top_layer, top_head]:.4f}",
         f"   Naive prediction of post ablation logit diff: {original_average_logit_diff - per_head_logit_diffs[top_layer, top_head]:.4f}",
-        f"      Logit diff after ablating L{top_layer}H{top_head}: {logits_to_ave_logit_diff(ablated_logits):.4f}",
+        f"      Logit diff after ablating L{top_layer}H{top_head}: {logits_to_ave_logit_diff_2(ablated_logits):.4f}",
     ]))
 
 ```
@@ -4261,7 +4362,7 @@ if MAIN:
     
         # Get logit diff for patched results
         # Note, we still use IOI dataset for our "correct answers" reference point
-        results[row, col] = logits_to_ave_logit_diff(patched_logits, ioi_dataset)
+        results[row, col] = logits_to_ave_logit_diff_2(patched_logits, ioi_dataset)
 
 ```
 
@@ -4351,7 +4452,7 @@ if MAIN:
     
             # Get logit diff for patched results
             # Note, we still use IOI dataset for our "correct answers" reference point
-            results[i, row, col] = logits_to_ave_logit_diff(patched_logits, ioi_dataset)
+            results[i, row, col] = logits_to_ave_logit_diff_2(patched_logits, ioi_dataset)
 
 ```
 
@@ -4466,13 +4567,7 @@ Here is a collection of links for further reading, which haven't already been me
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),
-    (section_1, '1️⃣ Model & Task Setup'),
-    (section_2, '2️⃣ Logit Attribution'),
-    (section_3, '3️⃣ Activation Patching'),
-    (section_4, '4️⃣ Path Patching'),
-    (section_5, '5️⃣ Bonus / exploring anomalies'),
-
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ Model & Task Setup'),     (section_2, '2️⃣ Logit Attribution'),     (section_3, '3️⃣ Activation Patching'),     (section_4, '4️⃣ Path Patching'),     (section_5, '5️⃣ Bonus / exploring anomalies'), 
 ]
 
 func_list = [func for func, page in func_page_list]

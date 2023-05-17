@@ -33,7 +33,7 @@ os.chdir(section_dir)
 from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
 from part3_resnets.utils import print_param_count
 import part3_resnets.tests as tests
-from plotly_utils import line
+from plotly_utils import line, plot_train_loss_and_test_accuracy_from_metrics
 
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
@@ -352,34 +352,13 @@ if MAIN:
 		log_every_n_steps=args.log_every_n_steps
 	)
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
-	
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 
 # %%
 
-def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title: str) -> None:
-	# Separate train and test metrics from the dataframe containing all metrics
-	assert "accuracy" in metrics.columns, "Did you log the accuracy metric?"
-	train_metrics = metrics[~metrics["train_loss"].isna()]
-	test_metrics = metrics[~metrics["accuracy"].isna()]
-
-	# Plot results
-	line(
-		y=[train_metrics["train_loss"].values, test_metrics["accuracy"].values],
-		x=[train_metrics["step"].values, test_metrics["step"].values],
-		names=["Training", "Testing"],
-		labels={"x": "Num samples seen", "y1": "Cross entropy loss", "y2": "Test accuracy"},
-		use_secondary_yaxis=True,
-		title=title,
-		width=800,
-		height=500,
-		template="simple_white", # yet another nice aesthetic for your plots (-:
-		yaxis_range=[0, 0.1+train_metrics["train_loss"].max()]
-	)
-
-
 
 if MAIN:
+	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+	
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
 
 # %% 2️⃣ ASSEMBLING RESNET
@@ -918,11 +897,7 @@ if MAIN:
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
 	
 	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-
-# %%
-
-
-if MAIN:
+	
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
 
 # %%

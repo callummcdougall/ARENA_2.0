@@ -849,7 +849,7 @@ if MAIN:
 	true_divide = wrap_forward_fn(np.true_divide)
 	
 	# FLAT SOLUTION
-	# Your code here - populate the BACK_FUNCS object
+	# Your code here - add to the BACK_FUNCS object
 	BACK_FUNCS.add_back_func(np.add, 0, lambda grad_out, out, x, y: unbroadcast(grad_out, x))
 	BACK_FUNCS.add_back_func(np.add, 1, lambda grad_out, out, x, y: unbroadcast(grad_out, y))
 	BACK_FUNCS.add_back_func(np.subtract, 0, lambda grad_out, out, x, y: unbroadcast(grad_out, x))
@@ -857,7 +857,11 @@ if MAIN:
 	BACK_FUNCS.add_back_func(np.true_divide, 0, lambda grad_out, out, x, y: unbroadcast(grad_out/y, x))
 	BACK_FUNCS.add_back_func(np.true_divide, 1, lambda grad_out, out, x, y: unbroadcast(grad_out*(-x/y**2), y))
 	# FLAT SOLUTION END
-	
+
+# %%
+
+
+if MAIN:
 	tests.test_add_broadcasted(Tensor)
 	tests.test_subtract_broadcasted(Tensor)
 	tests.test_truedivide_broadcasted(Tensor)
@@ -1098,9 +1102,9 @@ class Linear(Module):
 		The fields should be named `weight` and `bias` for compatibility with PyTorch.
 		If `bias` is False, set `self.bias` to None.
 		'''
+		super().__init__()
 		self.in_features = in_features
 		self.out_features = out_features
-		super().__init__()
 		
 		# sf needs to be a float
 		sf = in_features ** -0.5

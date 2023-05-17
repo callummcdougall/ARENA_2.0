@@ -1,11 +1,8 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter1_transformers"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import sys
+from pathlib import Path
 import torch as t
 from torch import Tensor
 import numpy as np
@@ -30,10 +27,11 @@ from transformer_lens.components import Embed, Unembed, LayerNorm, MLP
 t.set_grad_enabled(False)
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter1_transformers"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part3_indirect_object_identification"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+os.chdir(section_dir)
 
 from plotly_utils import imshow, line, scatter, bar
 import part3_indirect_object_identification.tests as tests
@@ -121,20 +119,25 @@ if MAIN:
 
 # %%
 
-def logits_to_ave_logit_diff(logits: Float[Tensor, "batch seq d_vocab"], answer_tokens: Float[Tensor, "batch 2"], per_prompt=False):
-	'''
-	Returns logit difference between the correct and incorrect answer.
+if MAIN:
+	def logits_to_ave_logit_diff(
+		logits: Float[Tensor, "batch seq d_vocab"],
+		answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+		per_prompt: bool = False
+	):
+		'''
+		Returns logit difference between the correct and incorrect answer.
 
-	If per_prompt=True, return the array of differences rather than the average.
-	'''
-	# Only the final logits are relevant for the answer
-	final_logits: Float[Tensor, "batch d_vocab"] = logits[:, -1, :]
-	# Get the logits corresponding to the indirect object / subject tokens respectively
-	answer_logits: Float[Tensor, "batch 2"] = final_logits.gather(dim=-1, index=answer_tokens)
-	# Find logit difference
-	correct_logits, incorrect_logits = answer_logits.unbind(dim=-1)
-	answer_logit_diff = correct_logits - incorrect_logits
-	return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+		If per_prompt=True, return the array of differences rather than the average.
+		'''
+		# Only the final logits are relevant for the answer
+		final_logits: Float[Tensor, "batch d_vocab"] = logits[:, -1, :]
+		# Get the logits corresponding to the indirect object / subject tokens respectively
+		answer_logits: Float[Tensor, "batch 2"] = final_logits.gather(dim=-1, index=answer_tokens)
+		# Find logit difference
+		correct_logits, incorrect_logits = answer_logits.unbind(dim=-1)
+		answer_logit_diff = correct_logits - incorrect_logits
+		return answer_logit_diff if per_prompt else answer_logit_diff.mean()
 
 
 
@@ -203,21 +206,22 @@ if MAIN:
 
 # %%
 
-def residual_stack_to_logit_diff(
-	residual_stack: Float[Tensor, "... batch d_model"], 
-	cache: ActivationCache,
-	logit_diff_directions: Float[Tensor, "batch d_model"] = logit_diff_directions,
-) -> Float[Tensor, "..."]:
-	'''
-	Gets the avg logit difference between the correct and incorrect answer for a given 
-	stack of components in the residual stream.
-	'''
-	batch_size = residual_stack.size(-2)
-	scaled_residual_stack = cache.apply_ln_to_stack(residual_stack, layer=-1, pos_slice=-1)
-	return einops.einsum(
-		scaled_residual_stack, logit_diff_directions,
-		"... batch d_model, batch d_model -> ..."
-	) / batch_size
+if MAIN:
+	def residual_stack_to_logit_diff(
+		residual_stack: Float[Tensor, "... batch d_model"], 
+		cache: ActivationCache,
+		logit_diff_directions: Float[Tensor, "batch d_model"] = logit_diff_directions,
+	) -> Float[Tensor, "..."]:
+		'''
+		Gets the avg logit difference between the correct and incorrect answer for a given 
+		stack of components in the residual stream.
+		'''
+		batch_size = residual_stack.size(-2)
+		scaled_residual_stack = cache.apply_ln_to_stack(residual_stack, layer=-1, pos_slice=-1)
+		return einops.einsum(
+			scaled_residual_stack, logit_diff_directions,
+			"... batch d_model, batch d_model -> ..."
+		) / batch_size
 
 
 # Test function by checking that it gives the same result as the original logit difference
@@ -347,22 +351,22 @@ if MAIN:
 
 # %%
 
-def ioi_metric(
-	logits: Float[Tensor, "batch seq d_vocab"], 
-	answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
-	corrupted_logit_diff: float = corrupted_logit_diff,
-	clean_logit_diff: float = clean_logit_diff,
-) -> Float[Tensor, ""]:
-	'''
-	Linear function of logit diff, calibrated so that it equals 0 when performance is 
-	same as on corrupted input, and 1 when performance is same as on clean input.
-	'''
-	patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
-	return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
-
-
 
 if MAIN:
+	def ioi_metric(
+		logits: Float[Tensor, "batch seq d_vocab"], 
+		answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+		corrupted_logit_diff: float = corrupted_logit_diff,
+		clean_logit_diff: float = clean_logit_diff,
+	) -> Float[Tensor, ""]:
+		'''
+		Linear function of logit diff, calibrated so that it equals 0 when performance is 
+		same as on corrupted input, and 1 when performance is same as on clean input.
+		'''
+		patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
+		return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
+	
+	
 	t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
 	t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
 	t.testing.assert_close(ioi_metric((clean_logits + corrupted_logits) / 2).item(), 0.5)
@@ -530,7 +534,11 @@ if MAIN:
 		clean_cache, 
 		ioi_metric
 	)
-	
+
+# %%
+
+
+if MAIN:
 	imshow(
 		act_patch_attn_head_out_all_pos, 
 		labels={"y": "Layer", "x": "Head"}, 
@@ -588,7 +596,12 @@ if MAIN:
 	act_patch_attn_head_out_all_pos_own = get_act_patch_attn_head_out_all_pos(model, corrupted_tokens, clean_cache, ioi_metric)
 	
 	t.testing.assert_close(act_patch_attn_head_out_all_pos, act_patch_attn_head_out_all_pos_own)
-	
+
+# %%
+
+
+
+if MAIN:
 	imshow(
 		act_patch_attn_head_out_all_pos_own,
 		title="Logit Difference From Patched Attn Head Output", 
@@ -745,24 +758,24 @@ if MAIN:
 
 # %%
 
-def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
-	'''
-	Returns logit difference between the correct and incorrect answer.
-
-	If per_prompt=True, return the array of differences rather than the average.
-	'''
-	
-	# Only the final logits are relevant for the answer
-	# Get the logits corresponding to the indirect object / subject tokens respectively
-	io_logits: Float[Tensor, "batch d_vocab"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
-	s_logits: Float[Tensor, "batch 2"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
-	# Find logit difference
-	answer_logit_diff = io_logits - s_logits
-	return answer_logit_diff if per_prompt else answer_logit_diff.mean()
-
-
 
 if MAIN:
+	def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
+		'''
+		Returns logit difference between the correct and incorrect answer.
+	
+		If per_prompt=True, return the array of differences rather than the average.
+		'''
+		
+		# Only the final logits are relevant for the answer
+		# Get the logits corresponding to the indirect object / subject tokens respectively
+		io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+		s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+		# Find logit difference
+		answer_logit_diff = io_logits - s_logits
+		return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+	
+	
 	model.reset_hooks(including_permanent=True)
 	
 	ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
@@ -794,22 +807,22 @@ if MAIN:
 
 # %%
 
-def ioi_metric_2(
-	logits: Float[Tensor, "batch seq d_vocab"],
-	clean_logit_diff: float = ioi_average_logit_diff,
-	corrupted_logit_diff: float = abc_average_logit_diff,
-	ioi_dataset: IOIDataset = ioi_dataset,
-) -> float:
-	'''
-	We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
-	and -1 when performance has been destroyed (i.e. is same as ABC dataset).
-	'''
-	patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
-	return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
-
-
 
 if MAIN:
+	def ioi_metric_2(
+		logits: Float[Tensor, "batch seq d_vocab"],
+		clean_logit_diff: float = ioi_average_logit_diff,
+		corrupted_logit_diff: float = abc_average_logit_diff,
+		ioi_dataset: IOIDataset = ioi_dataset,
+	) -> float:
+		'''
+		We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+		and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+		'''
+		patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+		return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+	
+	
 	print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
 	print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
 
@@ -837,81 +850,82 @@ def patch_or_freeze_head_vectors(
 	return orig_head_vector
 
 
-def get_path_patch_head_to_final_resid_post(
-	model: HookedTransformer,
-	patching_metric: Callable,
-	new_dataset: IOIDataset = abc_dataset,
-	orig_dataset: IOIDataset = ioi_dataset,
-	new_cache: Optional[ActivationCache] = abc_cache,
-	orig_cache: Optional[ActivationCache] = ioi_cache,
-) -> Float[Tensor, "layer head"]:
-	'''
-	Performs path patching (see algorithm in appendix B of IOI paper), with:
+if MAIN:
+	def get_path_patch_head_to_final_resid_post(
+		model: HookedTransformer,
+		patching_metric: Callable,
+		new_dataset: IOIDataset = abc_dataset,
+		orig_dataset: IOIDataset = ioi_dataset,
+		new_cache: Optional[ActivationCache] = abc_cache,
+		orig_cache: Optional[ActivationCache] = ioi_cache,
+	) -> Float[Tensor, "layer head"]:
+		'''
+		Performs path patching (see algorithm in appendix B of IOI paper), with:
 
-		sender head = (each head, looped through, one at a time)
-		receiver node = final value of residual stream
+			sender head = (each head, looped through, one at a time)
+			receiver node = final value of residual stream
 
-	Returns:
-		tensor of metric values for every possible sender head
-	'''
-	model.reset_hooks()
-	results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+		Returns:
+			tensor of metric values for every possible sender head
+		'''
+		model.reset_hooks()
+		results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
 
-	resid_post_hook_name = utils.get_act_name("resid_post", model.cfg.n_layers - 1)
-	resid_post_name_filter = lambda name: name == resid_post_hook_name
-
-
-	# ========== Step 1 ==========
-	# Gather activations on x_orig and x_new
-
-	# Note the use of names_filter for the run_with_cache function. Using it means we 
-	# only cache the things we need (in this case, just attn head outputs).
-	z_name_filter = lambda name: name.endswith("z")
-	if new_cache is None:
-		_, new_cache = model.run_with_cache(
-			new_dataset.toks, 
-			names_filter=z_name_filter, 
-			return_type=None
-		)
-	if orig_cache is None:
-		_, orig_cache = model.run_with_cache(
-			orig_dataset.toks, 
-			names_filter=z_name_filter, 
-			return_type=None
-		)
+		resid_post_hook_name = utils.get_act_name("resid_post", model.cfg.n_layers - 1)
+		resid_post_name_filter = lambda name: name == resid_post_hook_name
 
 
-	# Looping over every possible sender head (the receiver is always the final resid_post)
-	# Note use of itertools (gives us a smoother progress bar)
-	for (sender_layer, sender_head) in tqdm(list(itertools.product(range(model.cfg.n_layers), range(model.cfg.n_heads)))):
+		# ========== Step 1 ==========
+		# Gather activations on x_orig and x_new
 
-		# ========== Step 2 ==========
-		# Run on x_orig, with sender head patched from x_new, every other head frozen
+		# Note the use of names_filter for the run_with_cache function. Using it means we 
+		# only cache the things we need (in this case, just attn head outputs).
+		z_name_filter = lambda name: name.endswith("z")
+		if new_cache is None:
+			_, new_cache = model.run_with_cache(
+				new_dataset.toks, 
+				names_filter=z_name_filter, 
+				return_type=None
+			)
+		if orig_cache is None:
+			_, orig_cache = model.run_with_cache(
+				orig_dataset.toks, 
+				names_filter=z_name_filter, 
+				return_type=None
+			)
+
+
+		# Looping over every possible sender head (the receiver is always the final resid_post)
+		# Note use of itertools (gives us a smoother progress bar)
+		for (sender_layer, sender_head) in tqdm(list(itertools.product(range(model.cfg.n_layers), range(model.cfg.n_heads)))):
+
+			# ========== Step 2 ==========
+			# Run on x_orig, with sender head patched from x_new, every other head frozen
+			
+			hook_fn = partial(
+				patch_or_freeze_head_vectors,
+				new_cache=new_cache, 
+				orig_cache=orig_cache,
+				head_to_patch=(sender_layer, sender_head),
+			)
+			model.add_hook(z_name_filter, hook_fn)
 		
-		hook_fn = partial(
-			patch_or_freeze_head_vectors,
-			new_cache=new_cache, 
-			orig_cache=orig_cache,
-			head_to_patch=(sender_layer, sender_head),
-		)
-		model.add_hook(z_name_filter, hook_fn)
-	
-		_, patched_cache = model.run_with_cache(
-			orig_dataset.toks, 
-			names_filter=resid_post_name_filter, 
-			return_type=None
-		)
-		assert set(patched_cache.keys()) == {resid_post_hook_name}
+			_, patched_cache = model.run_with_cache(
+				orig_dataset.toks, 
+				names_filter=resid_post_name_filter, 
+				return_type=None
+			)
+			assert set(patched_cache.keys()) == {resid_post_hook_name}
 
-		# ========== Step 3 ==========
-		# Unembed the final residual stream value, to get our patched logits
+			# ========== Step 3 ==========
+			# Unembed the final residual stream value, to get our patched logits
 
-		patched_logits = model.unembed(model.ln_final(patched_cache[resid_post_hook_name]))
+			patched_logits = model.unembed(model.ln_final(patched_cache[resid_post_hook_name]))
 
-		# Save the results
-		results[sender_layer, sender_head] = patching_metric(patched_logits)
+			# Save the results
+			results[sender_layer, sender_head] = patching_metric(patched_logits)
 
-	return results
+		return results
 
 
 
@@ -949,50 +963,51 @@ def scatter_embedding_vs_attn(
 
 # %%
 
-def calculate_and_show_scatter_embedding_vs_attn(
-	layer: int,
-	head: int,
-	cache: ActivationCache = ioi_cache,
-	dataset: IOIDataset = ioi_dataset,
-) -> None:
-	'''
-	Creates and plots a figure equivalent to 3(c) in the paper.
+if MAIN:
+	def calculate_and_show_scatter_embedding_vs_attn(
+		layer: int,
+		head: int,
+		cache: ActivationCache = ioi_cache,
+		dataset: IOIDataset = ioi_dataset,
+	) -> None:
+		'''
+		Creates and plots a figure equivalent to 3(c) in the paper.
 
-	This should involve computing the four 1D tensors:
-		attn_from_end_to_io
-		attn_from_end_to_s
-		projection_in_io_dir
-		projection_in_s_dir
-	and then calling the scatter_embedding_vs_attn function.
-	'''
-	# Get the value written to the residual stream at the end token by this head
-	z: Float[Tensor, "batch seq d_head"] = cache[utils.get_act_name("z", layer)][:, :, head]
-	N = z.size(0)
-	output: Float[Tensor, "batch seq d_model"] = z @ model.W_O[layer, head]
-	output_on_end_token: Float[Tensor, "batch d_model"] = output[t.arange(N), dataset.word_idx["end"]]
+		This should involve computing the four 1D tensors:
+			attn_from_end_to_io
+			attn_from_end_to_s
+			projection_in_io_dir
+			projection_in_s_dir
+		and then calling the scatter_embedding_vs_attn function.
+		'''
+		# Get the value written to the residual stream at the end token by this head
+		z: Float[Tensor, "batch seq d_head"] = cache[utils.get_act_name("z", layer)][:, :, head]
+		N = z.size(0)
+		output: Float[Tensor, "batch seq d_model"] = z @ model.W_O[layer, head]
+		output_on_end_token: Float[Tensor, "batch d_model"] = output[t.arange(N), dataset.word_idx["end"]]
 
-	# Get the directions we'll be projecting onto
-	io_unembedding: Float[Tensor, "batch d_model"] = model.W_U.T[dataset.io_tokenIDs]
-	s_unembedding: Float[Tensor, "batch d_model"] = model.W_U.T[dataset.s_tokenIDs]
+		# Get the directions we'll be projecting onto
+		io_unembedding: Float[Tensor, "batch d_model"] = model.W_U.T[dataset.io_tokenIDs]
+		s_unembedding: Float[Tensor, "batch d_model"] = model.W_U.T[dataset.s_tokenIDs]
 
-	# Get the value of projections, by multiplying and summing over the d_model dimension
-	projection_in_io_dir: Float[Tensor, "batch"] = (output_on_end_token * io_unembedding).sum(-1)
-	projection_in_s_dir: Float[Tensor, "batch"] = (output_on_end_token * s_unembedding).sum(-1)
+		# Get the value of projections, by multiplying and summing over the d_model dimension
+		projection_in_io_dir: Float[Tensor, "batch"] = (output_on_end_token * io_unembedding).sum(-1)
+		projection_in_s_dir: Float[Tensor, "batch"] = (output_on_end_token * s_unembedding).sum(-1)
 
-	# Get attention probs, and index to get the probabilities from END -> IO / S
-	attn_probs: Float[Tensor, "batch q k"] = cache[utils.get_act_name("pattern", layer)][:, head]
-	attn_from_end_to_io = attn_probs[t.arange(N), dataset.word_idx["end"], dataset.word_idx["IO"]]
-	attn_from_end_to_s = attn_probs[t.arange(N), dataset.word_idx["end"], dataset.word_idx["S1"]]
+		# Get attention probs, and index to get the probabilities from END -> IO / S
+		attn_probs: Float[Tensor, "batch q k"] = cache[utils.get_act_name("pattern", layer)][:, head]
+		attn_from_end_to_io = attn_probs[t.arange(N), dataset.word_idx["end"], dataset.word_idx["IO"]]
+		attn_from_end_to_s = attn_probs[t.arange(N), dataset.word_idx["end"], dataset.word_idx["S1"]]
 
-	# Show scatter plot
-	scatter_embedding_vs_attn(
-		attn_from_end_to_io, 
-		attn_from_end_to_s, 
-		projection_in_io_dir, 
-		projection_in_s_dir, 
-		layer, 
-		head
-	)
+		# Show scatter plot
+		scatter_embedding_vs_attn(
+			attn_from_end_to_io, 
+			attn_from_end_to_s, 
+			projection_in_io_dir, 
+			projection_in_s_dir, 
+			layer, 
+			head
+		)
 
 
 
@@ -1109,102 +1124,103 @@ def patch_head_input(
 # FLAT SOLUTION END
 
 
-def get_path_patch_head_to_heads(
-	receiver_heads: List[Tuple[int, int]],
-	receiver_input: str,
-	model: HookedTransformer,
-	patching_metric: Callable,
-	new_dataset: IOIDataset = abc_dataset,
-	orig_dataset: IOIDataset = ioi_dataset,
-	new_cache: Optional[ActivationCache] = None,
-	orig_cache: Optional[ActivationCache] = None,
-) -> Float[Tensor, "layer head"]:
-	'''
-	Performs path patching (see algorithm in appendix B of IOI paper), with:
+if MAIN:
+	def get_path_patch_head_to_heads(
+		receiver_heads: List[Tuple[int, int]],
+		receiver_input: str,
+		model: HookedTransformer,
+		patching_metric: Callable,
+		new_dataset: IOIDataset = abc_dataset,
+		orig_dataset: IOIDataset = ioi_dataset,
+		new_cache: Optional[ActivationCache] = None,
+		orig_cache: Optional[ActivationCache] = None,
+	) -> Float[Tensor, "layer head"]:
+		'''
+		Performs path patching (see algorithm in appendix B of IOI paper), with:
 
-		sender head = (each head, looped through, one at a time)
-		receiver node = input to a later head (or set of heads)
+			sender head = (each head, looped through, one at a time)
+			receiver node = input to a later head (or set of heads)
 
-	The receiver node is specified by receiver_heads and receiver_input.
-	Example (for S-inhibition path patching the queries):
-		receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
-		receiver_input = "v"
+		The receiver node is specified by receiver_heads and receiver_input.
+		Example (for S-inhibition path patching the queries):
+			receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+			receiver_input = "v"
 
-	Returns:
-		tensor of metric values for every possible sender head
-	'''
-	model.reset_hooks()
+		Returns:
+			tensor of metric values for every possible sender head
+		'''
+		model.reset_hooks()
 
-	assert receiver_input in ("k", "q", "v")
-	receiver_layers = set(next(zip(*receiver_heads)))
-	receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
-	receiver_hook_names_filter = lambda name: name in receiver_hook_names
+		assert receiver_input in ("k", "q", "v")
+		receiver_layers = set(next(zip(*receiver_heads)))
+		receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
+		receiver_hook_names_filter = lambda name: name in receiver_hook_names
 
-	results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
-	
-	# ========== Step 1 ==========
-	# Gather activations on x_orig and x_new
-
-	# Note the use of names_filter for the run_with_cache function. Using it means we 
-	# only cache the things we need (in this case, just attn head outputs).
-	z_name_filter = lambda name: name.endswith("z")
-	if new_cache is None:
-		_, new_cache = model.run_with_cache(
-			new_dataset.toks, 
-			names_filter=z_name_filter, 
-			return_type=None
-		)
-	if orig_cache is None:
-		_, orig_cache = model.run_with_cache(
-			orig_dataset.toks, 
-			names_filter=z_name_filter, 
-			return_type=None
-		)
-
-	# Note, the sender layer will always be before the final receiver layer, otherwise there will
-	# be no causal effect from sender -> receiver. So we only need to loop this far.
-	for (sender_layer, sender_head) in tqdm(list(itertools.product(
-		range(max(receiver_layers)),
-		range(model.cfg.n_heads)
-	))):
-
-		# ========== Step 2 ==========
-		# Run on x_orig, with sender head patched from x_new, every other head frozen
-
-		hook_fn = partial(
-			patch_or_freeze_head_vectors,
-			new_cache=new_cache, 
-			orig_cache=orig_cache,
-			head_to_patch=(sender_layer, sender_head),
-		)
-		model.add_hook(z_name_filter, hook_fn, level=1)
+		results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
 		
-		_, patched_cache = model.run_with_cache(
-			orig_dataset.toks, 
-			names_filter=receiver_hook_names_filter,  
-			return_type=None
-		)
-		# model.reset_hooks(including_permanent=True)
-		assert set(patched_cache.keys()) == set(receiver_hook_names)
+		# ========== Step 1 ==========
+		# Gather activations on x_orig and x_new
 
-		# ========== Step 3 ==========
-		# Run on x_orig, patching in the receiver node(s) from the previously cached value
-		
-		hook_fn = partial(
-			patch_head_input, 
-			patched_cache=patched_cache, 
-			head_list=receiver_heads,
-		)
-		patched_logits = model.run_with_hooks(
-			orig_dataset.toks,
-			fwd_hooks = [(receiver_hook_names_filter, hook_fn)], 
-			return_type="logits"
-		)
+		# Note the use of names_filter for the run_with_cache function. Using it means we 
+		# only cache the things we need (in this case, just attn head outputs).
+		z_name_filter = lambda name: name.endswith("z")
+		if new_cache is None:
+			_, new_cache = model.run_with_cache(
+				new_dataset.toks, 
+				names_filter=z_name_filter, 
+				return_type=None
+			)
+		if orig_cache is None:
+			_, orig_cache = model.run_with_cache(
+				orig_dataset.toks, 
+				names_filter=z_name_filter, 
+				return_type=None
+			)
 
-		# Save the results
-		results[sender_layer, sender_head] = patching_metric(patched_logits)
+		# Note, the sender layer will always be before the final receiver layer, otherwise there will
+		# be no causal effect from sender -> receiver. So we only need to loop this far.
+		for (sender_layer, sender_head) in tqdm(list(itertools.product(
+			range(max(receiver_layers)),
+			range(model.cfg.n_heads)
+		))):
 
-	return results
+			# ========== Step 2 ==========
+			# Run on x_orig, with sender head patched from x_new, every other head frozen
+
+			hook_fn = partial(
+				patch_or_freeze_head_vectors,
+				new_cache=new_cache, 
+				orig_cache=orig_cache,
+				head_to_patch=(sender_layer, sender_head),
+			)
+			model.add_hook(z_name_filter, hook_fn, level=1)
+			
+			_, patched_cache = model.run_with_cache(
+				orig_dataset.toks, 
+				names_filter=receiver_hook_names_filter,  
+				return_type=None
+			)
+			# model.reset_hooks(including_permanent=True)
+			assert set(patched_cache.keys()) == set(receiver_hook_names)
+
+			# ========== Step 3 ==========
+			# Run on x_orig, patching in the receiver node(s) from the previously cached value
+			
+			hook_fn = partial(
+				patch_head_input, 
+				patched_cache=patched_cache, 
+				head_list=receiver_heads,
+			)
+			patched_logits = model.run_with_hooks(
+				orig_dataset.toks,
+				fwd_hooks = [(receiver_hook_names_filter, hook_fn)], 
+				return_type="logits"
+			)
+
+			# Save the results
+			results[sender_layer, sender_head] = patching_metric(patched_logits)
+
+		return results
 
 # %%
 
@@ -1318,26 +1334,25 @@ if MAIN:
 # %%
 
 
-if MAIN:
-	CIRCUIT = {
-		"name mover": [(9, 9), (10, 0), (9, 6)],
-		"backup name mover": [(10, 10), (10, 6), (10, 2), (10, 1), (11, 2), (9, 7), (9, 0), (11, 9)],
-		"negative name mover": [(10, 7), (11, 10)],
-		"s2 inhibition": [(7, 3), (7, 9), (8, 6), (8, 10)],
-		"induction": [(5, 5), (5, 8), (5, 9), (6, 9)],
-		"duplicate token": [(0, 1), (0, 10), (3, 0)],
-		"previous token": [(2, 2), (4, 11)],
-	}
-	
-	SEQ_POS_TO_KEEP = {
-		"name mover": "end",
-		"backup name mover": "end",
-		"negative name mover": "end",
-		"s2 inhibition": "end",
-		"induction": "S2",
-		"duplicate token": "S2",
-		"previous token": "S1+1",
-	}
+CIRCUIT = {
+	"name mover": [(9, 9), (10, 0), (9, 6)],
+	"backup name mover": [(10, 10), (10, 6), (10, 2), (10, 1), (11, 2), (9, 7), (9, 0), (11, 9)],
+	"negative name mover": [(10, 7), (11, 10)],
+	"s2 inhibition": [(7, 3), (7, 9), (8, 6), (8, 10)],
+	"induction": [(5, 5), (5, 8), (5, 9), (6, 9)],
+	"duplicate token": [(0, 1), (0, 10), (3, 0)],
+	"previous token": [(2, 2), (4, 11)],
+}
+
+SEQ_POS_TO_KEEP = {
+	"name mover": "end",
+	"backup name mover": "end",
+	"negative name mover": "end",
+	"s2 inhibition": "end",
+	"induction": "S2",
+	"duplicate token": "S2",
+	"previous token": "S1+1",
+}
 
 # %%
 
@@ -1601,36 +1616,39 @@ def get_minimality_score(
 	return abs(C_excl_K_score - C_excl_Kv_score)
 
 
-def get_all_minimality_scores(
-	model: HookedTransformer,
-	ioi_dataset: IOIDataset = ioi_dataset,
-	abc_dataset: IOIDataset = abc_dataset,
-	k_for_each_component: Dict = K_FOR_EACH_COMPONENT
-) -> Dict[Tuple[int, int], float]:
-	'''
-	Returns dict of minimality scores for every head in the model (as 
-	a fraction of F(M), the logit diff of the full model).
+if MAIN:
+	def get_all_minimality_scores(
+		model: HookedTransformer,
+		ioi_dataset: IOIDataset = ioi_dataset,
+		abc_dataset: IOIDataset = abc_dataset,
+		k_for_each_component: Dict = K_FOR_EACH_COMPONENT
+	) -> Dict[Tuple[int, int], float]:
+		'''
+		Returns dict of minimality scores for every head in the model (as 
+		a fraction of F(M), the logit diff of the full model).
 
-	Warning - this resets all hooks at the end (including permanent).
-	'''
-	# Get full circuit score F(M), to divide minimality scores by
-	model.reset_hooks(including_permanent=True)
-	logits = model(ioi_dataset.toks)
-	full_circuit_score = logits_to_ave_logit_diff_2(logits, ioi_dataset).item()
+		Warning - this resets all hooks at the end (including permanent).
+		'''
+		# Get full circuit score F(M), to divide minimality scores by
+		model.reset_hooks(including_permanent=True)
+		logits = model(ioi_dataset.toks)
+		full_circuit_score = logits_to_ave_logit_diff_2(logits, ioi_dataset).item()
 
-	# Get all minimality scores, using the `get_minimality_score` function
-	minimality_scores = {}
-	for v, K in tqdm(k_for_each_component.items()):
-		score = get_minimality_score(model, ioi_dataset, abc_dataset, v, K)
-		minimality_scores[v] = score / full_circuit_score
+		# Get all minimality scores, using the `get_minimality_score` function
+		minimality_scores = {}
+		for v, K in tqdm(k_for_each_component.items()):
+			score = get_minimality_score(model, ioi_dataset, abc_dataset, v, K)
+			minimality_scores[v] = score / full_circuit_score
 
-	model.reset_hooks(including_permanent=True)
+		model.reset_hooks(including_permanent=True)
 
-	return minimality_scores
+		return minimality_scores
 
 
-minimality_scores = get_all_minimality_scores(model)
-# FLAT SOLUTION END
+
+if MAIN:
+	minimality_scores = get_all_minimality_scores(model)
+	# FLAT SOLUTION END
 
 # %%
 
@@ -1704,7 +1722,7 @@ if MAIN:
 	model.reset_hooks(including_permanent=True)
 	
 	ioi_logits, ioi_cache = model.run_with_cache(ioi_dataset.toks)
-	original_average_logit_diff = logits_to_ave_logit_diff(ioi_logits)
+	original_average_logit_diff = logits_to_ave_logit_diff_2(ioi_logits)
 
 # %%
 
@@ -1751,7 +1769,7 @@ if MAIN:
 		f"                            Original logit diff: {original_average_logit_diff:.4f}",
 		f"Direct Logit Attribution of top name mover head: {per_head_logit_diffs[top_layer, top_head]:.4f}",
 		f"   Naive prediction of post ablation logit diff: {original_average_logit_diff - per_head_logit_diffs[top_layer, top_head]:.4f}",
-		f"      Logit diff after ablating L{top_layer}H{top_head}: {logits_to_ave_logit_diff(ablated_logits):.4f}",
+		f"      Logit diff after ablating L{top_layer}H{top_head}: {logits_to_ave_logit_diff_2(ablated_logits):.4f}",
 	]))
 
 # %%
@@ -1870,7 +1888,7 @@ if MAIN:
 	
 		# Get logit diff for patched results
 		# Note, we still use IOI dataset for our "correct answers" reference point
-		results[row, col] = logits_to_ave_logit_diff(patched_logits, ioi_dataset)
+		results[row, col] = logits_to_ave_logit_diff_2(patched_logits, ioi_dataset)
 
 # %%
 
@@ -1926,7 +1944,7 @@ if MAIN:
 	
 			# Get logit diff for patched results
 			# Note, we still use IOI dataset for our "correct answers" reference point
-			results[i, row, col] = logits_to_ave_logit_diff(patched_logits, ioi_dataset)
+			results[i, row, col] = logits_to_ave_logit_diff_2(patched_logits, ioi_dataset)
 
 # %%
 

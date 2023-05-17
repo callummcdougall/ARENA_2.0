@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter0_fundamentals"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -14,7 +22,7 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#110125-optimizers'>1️⃣ Optimizers</a></li>
         <li><a class='contents-el' href='#1010125-weights-and-biases'>2️⃣ Weights and Biases</a></li>
@@ -272,13 +280,27 @@ To test our algorithms, we can implement a simple function to train two paramete
 
 ### Exercise - implement `opt_fn_with_sgd`
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
+
 Implement the `opt_fn_with_sgd` function using `torch.optim.SGD`. Starting from `(2.5, 2.5)`, run your function and add the resulting trajectory of `(x, y)` pairs to your contour plot. Did it find the minimum? Play with the learning rate and momentum a bit and see how close you can get within 100 iterations.
 
-Gotcha - `torch.optim.SGD` (and other optimizers you'll use) expect iterables of parameters, rather than a single parameter. So rather than passing in the tensor `xy` as the `params` argumen, you need to pass in a length-1 list containing `xy`.
+Note, here you'll be using vanilla PyTorch to write your training code rather than PyTorch Lightning. So you'll need to repeat the following loop:
 
-Second gotcha - remember to call `detach()` on your `xy` tensor at each step before you add it to your list of points. This is necessary to remove `xy` it from the computational graph.
+* Calculate your output (equivalent to altitude in your loss landscape, at coordinates `(x, y)`)
+* Call `.backward()` on your output, to propagate gradients (more on this tomorrow!)
+* Call `.step()` on your optimizer, to update your parameters
+* Call `.zero_grad()` on your optimizer, to zero out the gradients from the previous step, ready to restart the loop
 
-> An important note here - we're not optimising the parameters of a neural network; we're optimising parameters `(x, y)` which represent coordinates at which we evaluate a function. The perspective to have here is that of a "loss landscape", where moving in the x or y direction can increase or decrease your altitude, and we're trying to chart a path through this landscape which reaches a global minimum.
+A few gotchas:
+
+* `torch.optim.SGD` (and other optimizers you'll use) expect iterables of parameters, rather than a single parameter. So rather than passing in the tensor `xy` as the `params` argumen, you need to pass in a length-1 list containing `xy`.
+* Remember to call `detach()` on your `xy` tensor at each step before you add it to your list of points. This is necessary to remove `xy` it from the computational graph.
+* An important note here - we're not optimising the parameters of a neural network; we're optimising parameters `(x, y)` which represent coordinates at which we evaluate a function.
 
 
 ```python
@@ -399,7 +421,6 @@ Note, this observation specifically refers to the parameters. When you're updati
 
 ### More Tips
 
-- The provided `params` might be a generator, in which case you can only iterate over it once before the generator is exhausted. **You should copy it into a `list` to be able to iterate over it repeatedly.**
 - Your step function shouldn't modify the gradients. Use the `with torch.inference_mode():` context for this. Fun fact: you can instead use `@torch.inference_mode()` (note the preceding `@`) as a method decorator to do the same thing.
 - If you create any new tensors, they should be on the same device as the corresponding parameter. Use `torch.zeros_like()` or similar for this.
 - Be careful not to mix up `Parameter` and `Tensor` types in this step.
@@ -411,6 +432,15 @@ You should also fill in the default PyTorch keyword arguments, where appropriate
 
 
 ### Exercise - implement SGD
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+This is the first of several exercises like it. The first will probably take the longest.
+```
 
 First, you should implement stochastic gradient descent. It should be like the [PyTorch version](https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD), but assume `nesterov=False`, `maximize=False`, and `dampening=0`. These simplifications mean that there are many variables in the pseudocode at that link which you can ignore.
 
@@ -430,6 +460,7 @@ class SGD:
             https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
 
         '''
+        self.params = list(params) # turn params into a list (because it might be a generator)
         pass
 
     def zero_grad(self) -> None:
@@ -511,8 +542,8 @@ class SGD:
             https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
 
         '''
+        self.params = list(params) # turn params into a list (because it might be a generator)
         # SOLUTION
-        self.params = list(params)
         self.lr = lr
         self.mu = momentum
         self.lmda = weight_decay
@@ -548,6 +579,13 @@ class SGD:
 
 
 ### Exercise - implement RMSprop
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 Once you've implemented SGD, you should do RMSprop in a similar way. Although the pseudocode is more complicated and there are more variables you'll have to track, there is no big conceptual difference between the task for RMSprop and SGD.
 
@@ -655,6 +693,13 @@ class RMSprop:
 
 ### Exercise - implement Adam
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
+
 Next, you'll do the same for Adam. This is a very popular optimizer in deep learning, which empirically often outperforms most others. It combines the heuristics of both momentum (via the $\beta_1$ parameter), and RMSprop's handling of noisy data by dividing by the $l_2$ norm of gradients (via the $\beta_2$ parameter).
 
 [Here](https://pytorch.org/docs/stable/generated/torch.optim.Adam.html) is a link to the PyTorch version.
@@ -755,6 +800,13 @@ class Adam:
 
 ### Exercise - implement AdamW
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 Finally, you'll adapt your Adam implementation to implement AdamW. This is a variant of Adam which is designed to work better with decoupled weight decay. You can read more about it [here](https://arxiv.org/abs/1711.05101). If you have time, we strongly recommend reading this paper - it is fairly accessible and forces you to engage with what Adam is actually doing.
 
 [Here](https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html) is a link to the PyTorch version.
@@ -808,6 +860,13 @@ Finally, we've provided some code which should allow you to plot more than one o
 
 
 ### Exercise - implement `opt_fn`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 First, you should fill in this function. It will be pretty much exactly the same as your `opt_fn_with_sgd` from earlier, the only difference is that this function works when passed an arbitrary optimizer (you should only have to change one line of code from your previous function). The `optimizer_hyperparams` argument is a dictionary which will contain keywords like `lr` and `momentum`.
 
@@ -1016,6 +1075,15 @@ More generally, if you're trying to replicate a paper, it's important to be able
 
 ### Exercise - rewrite SGD to use parameter groups
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+
+It's important to conceptually understand parameter groups; the finnicky details of this exercise are less important.
+```
+
 You should rewrite the `SGD` optimizer from the earlier exercises, to use `param_groups`. A few things to keep in mind during this exercise:
 
 * The learning rate must either be specified as a keyword argument, or it must be specified in every group. If it isn't specified as a keyword argument or there's at least one group in which it's not specified, you should raise an error.
@@ -1049,6 +1117,82 @@ if MAIN:
 
 ```
 
+<details>
+<summary>Solution</summary>
+
+
+```python
+class SGD:
+
+    def __init__(self, params, **kwargs):
+        '''Implements SGD with momentum.
+
+        Accepts parameters in groups, or an iterable.
+
+        Like the PyTorch version, but assume nesterov=False, maximize=False, and dampening=0
+            https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
+        '''
+        # SOLUTION
+
+        if not isinstance(params, (list, tuple)):
+            params = [{"params": params}]
+
+        # assuming params is a list of dictionaries, we make self.params also a list of dictionaries (with other kwargs filled in)
+        default_param_values = dict(momentum=0.0, weight_decay=0.0)
+
+        # creating a list of param groups, which we'll iterate over during the step function
+        self.param_groups = []
+        # creating a list of params, which we'll use to check whether a param has been added twice
+        params_to_check_for_duplicates = set()
+
+        for param_group in params:
+            # update param_group with kwargs passed in init; if this fails then update with the default values
+            param_group = {**default_param_values, **kwargs, **param_group}
+            # check that "lr" is defined (it should be either in kwargs, or in all of the param groups)
+            assert "lr" in param_group, "Error: one of the parameter groups didn't specify a value for required parameter `lr`."
+            # set the "params" and "gs" in param groups (note that we're storing 'gs' within each param group, rather than as self.gs)
+            param_group["params"] = list(param_group["params"])
+            param_group["gs"] = [t.zeros_like(p) for p in param_group["params"]]
+            self.param_groups.append(param_group)
+            # check that no params have been double counted
+            for param in param_group["params"]:
+                assert param not in params_to_check_for_duplicates, "Error: some parameters appear in more than one parameter group"
+                params_to_check_for_duplicates.add(param)
+
+        self.t = 1
+
+    def zero_grad(self) -> None:
+        # SOLUTION
+        for param_group in self.param_groups:
+            for p in param_group["params"]:
+                p.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        # SOLUTION
+        # loop through each param group
+        for i, param_group in enumerate(self.param_groups):
+            # get the parameters from the param_group
+            lmda = param_group["weight_decay"]
+            mu = param_group["momentum"]
+            gamma = param_group["lr"]
+            # loop through each parameter within each group
+            for j, (p, g) in enumerate(zip(param_group["params"], param_group["gs"])):
+                # Implement the algorithm in the pseudocode to get new values of params and g
+                new_g = p.grad
+                if lmda != 0:
+                    new_g = new_g + (lmda * p)
+                if mu > 0 and self.t > 1:
+                    new_g = (mu * g) + new_g
+                # Update params (remember, this must be inplace)
+                param_group["params"][j] -= gamma * new_g
+                # Update g
+                self.param_groups[i]["gs"][j] = new_g
+        self.t += 1
+```
+</details>
+
+
 
 
 """, unsafe_allow_html=True)
@@ -1062,13 +1206,17 @@ def section_2():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#cifar10'>CIFAR10</a></li>
-    <li class='margtop'><a class='contents-el' href='#train-function-simple'>Train function - simple</a></li>
-    <li class='margtop'><a class='contents-el' href='#what-is-weights-and-biases?'>What is Weights and Biases?</a></li>
+    <li class='margtop'><a class='contents-el' href='#train-function-simple-from-yesterday'>Train function - simple (from yesterday)</a></li>
+    <li class='margtop'><a class='contents-el' href='#what-is-weights-and-biases'>What is Weights and Biases?</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#run-&-project-pages'>Run & project pages</a></li>
+        <li><a class='contents-el' href='#run-project-pages'>Run & project pages</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#hyperparameter-search'>Hyperparameter search</a></li>
     <li class='margtop'><a class='contents-el' href='#running-hyperparameter-sweeps-with-wandb'>Running hyperparameter sweeps with <code>wandb</code></a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-define-a-sweep-config-step-1'><b>Exercise</b> - define a sweep config (step 1)</a></li>
+        <li><a class='contents-el' href='#exercise-define-a-training-function-step-10'><b>Exercise</b> - define a training function (step 2)</a></li>
+        <li><a class='contents-el' href='#run-your-sweep-step-125'>Run your sweep (step 3)</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -1082,11 +1230,11 @@ def section_2():
 > * Adapt your code from yesterday to log training runs to Weights & Biases, and use this service to run hyperparameter sweeps
 
 
-Today, we'll look at methods for choosing hyperparameters effectively. You'll learn how to use **Weights and Biases**, a useful tool for hyperparameter search, which should allow you to tune your own transformer model by the end of today's exercises.
+Next, we'll look at methods for choosing hyperparameters effectively. You'll learn how to use **Weights and Biases**, a useful tool for hyperparameter search.
 
 The exercises themselves will be based on your ResNet implementations from yesterday, although the principles should carry over to other models you'll build in this course (such as transformers next week).
 
-Note, this page only contains one exercise, and it's relatively short. You're encouraged to spend some time playing around with Weights and Biases, but you should also spend some more time finetuning your ResNet from yesterday (you might want to finetune ResNet during the morning, and look at today's material in the afternoon - you can discuss this with your partner). You should also spend some time reviewing the last three days of material, to make sure there are no large gaps in your understanding.
+Note, this page only contains a few exercises, and they're relatively short. You're encouraged to spend some time playing around with Weights and Biases, but you should also spend some more time finetuning your ResNet from yesterday (you might want to finetune ResNet during the morning, and look at today's material in the afternoon - you can discuss this with your partner). You should also spend some time reviewing the last three days of material, to make sure there are no large gaps in your understanding.
 
 
 ## CIFAR10
@@ -1123,7 +1271,7 @@ if MAIN:
 We have also provided a basic training & testing loop, almost identical to the one you used yesterday. This one doesn't use `wandb` at all, although it does plot the train loss and test accuracy when the function finishes running. You should run this function to verify your model is working, and that the loss is going down. Also, make sure you understand what each part of this function is doing.
 
 
-## Train function - simple
+## Train function - simple (from yesterday)
 
 
 First, let's define a new dataclass to hold our training arguments. This is basically the same as yesterday's, except for a different file save name. Also note that we've added optional arguments for the `trainset` and `testset`, which are useful if we want to avoid having to run the `get_cifar` function unnecessarily.
@@ -1222,12 +1370,7 @@ if MAIN:
         log_every_n_steps=args.log_every_n_steps,
     )
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
-
-```
-
-```python
-
-if MAIN:
+    
     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
     
     plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
@@ -1251,21 +1394,16 @@ def test_resnet_on_random_input(n_inputs: int = 3):
         display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
         imshow(
             img, 
-            width=200, 
-            height=200,
-            margin=0,
-            xaxis_visible=False,
-            yaxis_visible=False
+            width=200, height=200, margin=0,
+            xaxis_visible=False, yaxis_visible=False
         )
         bar(
             prob,
             x=cifar_trainset.classes,
             template="ggplot2",
-            width=600,
-            height=400,
+            width=600, height=400,
             labels={"x": "Classification", "y": "Probability"}, 
-            text_auto='.2f',
-            showlegend=False,
+            text_auto='.2f', showlegend=False,
         )
 
 
@@ -1382,31 +1520,92 @@ This link will bring you to a page comparing each of your sweeps. You'll be able
 * A [parallel coordinates plot](https://docs.wandb.ai/ref/app/features/panels/parallel-coordinates), which summarises the relationship between the hyperparameters in your config and the model metric you're optimising.
 
 
-```python
-# (1) Define a sweep dict
+### Exercise - define a sweep config (step 1)
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+
+Learning how to use wandb for sweeps is very useful, so make sure you understand all parts of this code, not just the exercises.
+```
+
+You should define a dictionary `sweep_config`, which sets out the following rules for hyperparameter sweeps:
+
+* Hyperparameters are chosen **randomly**, according to the distributions given in the dictionary
+* Your goal is to **maximize** the **accuracy** metric (note that this is one of the metrics we logged in the Lightning training class above)
+* The hyperparameters you vary are:
+    * `learning_rate` - a log-uniform distribution between 1e-4 and 1e-1
+    * `batch_size` - randomly chosen from (32, 64, 128, 256)
+    * `max_epochs` - randomly chosen from (1, 2, 3)
+
+*(A note on the log-uniform distribution - this means a random value `X` will be chosen between `min` and `max` s.t. `log(X)` is uniformly distributed between `log(min)` and `log(max)`. Can you see why a log uniform distribution for the learning rate makes more sense than a uniform distribution?)*
+
+You can read the syntax for sweep config dictionaries [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration).
+
+
+```python
+# YOUR CODE HERE - fill `sweep_config`
 
 if MAIN:
-    sweep_config = dict(
-        method = 'random',
-        metric = dict(name = 'accuracy', goal = 'maximize'),
-        parameters = dict(
-            batch_size = dict(values = [32, 64, 128, 256]),
-            max_epochs = dict(min = 1, max = 4),
-            learning_rate = dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values'),
-        )
-    )
+    sweep_config = dict()
+    
+    tests.test_sweep_config(sweep_config)
 
 ```
+
+<details>
+<summary>Solution </summary>
+
+```python
+sweep_config = dict(
+    method = 'random',
+    metric = dict(name = 'accuracy', goal = 'maximize'),
+    parameters = dict(
+        batch_size = dict(values = [32, 64, 128, 256]),
+        max_epochs = dict(min = 1, max = 4),
+        learning_rate = dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values'),
+    )
+)
+```
+
+We could equivalently have `max_epochs = dict(values = [1, 2, 3])`.
+</details>
+
+
+### Exercise - define a training function (step 2)
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+
+Learning how to use wandb for sweeps is very useful, so make sure you understand all parts of this code, not just the exercises.
+```
+
+You should fill in the `train()` function below. This should look exactly like the training code we used above (i.e. defining `args` and `model`, calling `pl.Trainer`, finishing with `wandb.finish()`), the only difference is that some of your args will be set from `wandb.config`. You can do this via e.g. `args.hyperparam = wand.config[hyperparam]`.
+
 
 ```python
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
 
 def train():
+    pass
 
+
+```
+
+<details>
+<summary>Solution</summary>
+
+
+```python
+def train():
+    # SOLUTION
+    # Define hyperparameters, override some with values from wandb.config
     args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
-
-    # Set hyperparmeters from wandb.config
     args.batch_size=wandb.config["batch_size"]
     args.max_epochs=wandb.config["max_epochs"]
     args.learning_rate=wandb.config["learning_rate"]
@@ -1421,35 +1620,22 @@ def train():
     )
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
     wandb.finish()
-
 ```
+</details>
+
+
+### Run your sweep (step 3)
+
+Finally, you can use the code below to run your sweep! This will probably take a while, because you're doing three separate full training and validation runs.
+
 
 ```python
-# (3) Run the sweep
-
 
 if MAIN:
-    sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet')
+    sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
     wandb.agent(sweep_id=sweep_id, function=train, count=3)
 
 ```
-
-Now, let's explain the sytax of the `sweep_config` dict. The important keys are:
-
-* `method`, which determines how the hyperparameters are searched for.
-    * `random` just means random search, as described above.
-    * Other options are `grid` (also described above) and `bayes` (which is a smart way of searching for parameters that adjusts in the direction of expected metric improvement based on a Gaussian model).
-* `name`, an optional key which is the name of your sweep in Weights and Biases.
-* `metric`, which is a dictionary of two keys: `name` (what we want to optimise) and `goal` (the direction we want to optimise it in). 
-    * Note that `name` must be something which is logged by our model in the training loop (in this case, `'accuracy'`).
-* `parameters`, which is a dictionary with items of the form `hyperparameter_name: search_method`. This determines which hyperparameters are searched over, and how the search is conducted.
-    * There are several ways to specify hyperparameter search in each `search_method`. You can read more [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration).
-    * The simplest search methods are `values` (choose uniformly from a list of values).
-        * This can also be combined with `probabilities`, which should be a list specifying the probability of selecting each element from `values`.
-    * You can also specify `min` and `max`, which causes wandb to choose uniformly, either from a discrete or continuous uniform distribution depending on whether the values for `min` and `max` are integers or floats.
-    * You can also pass the argument `distribution`, which gives you more control over how the random values are selected. For instance, `log_uniform_values` returns a value `X` between `min` and `max` s.t. `log(X)` is uniformly distributed between `log(min)` and `log(max)`.
-        * (Question - can you see why a log uniform distribution for `lr` makes more sense than a uniform distribution?)
-
 
 <details>
 <summary>Note on using YAML files (optional)</summary>
@@ -1471,6 +1657,9 @@ metric:
     name: test_accuracy
     goal: maximize
 ```
+
+For more, see [this link](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration).
+
 </details>
 
 

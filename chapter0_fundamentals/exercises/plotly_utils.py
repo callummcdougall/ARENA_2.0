@@ -6,6 +6,7 @@ from plotly.subplots import make_subplots
 import numpy as np
 import re
 from transformer_lens import utils
+import pandas as pd
 
 update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap"}
 
@@ -110,3 +111,20 @@ def hist(tensor, renderer=None, **kwargs):
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     px.histogram(x=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+
+def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title: str) -> None:
+    # Separate train and test metrics from the dataframe containing all metrics
+    assert "accuracy" in metrics.columns, "Did you log the accuracy metric?"
+    train_metrics = metrics[~metrics["train_loss"].isna()]
+    test_metrics = metrics[~metrics["accuracy"].isna()]
+
+    # Plot results
+    line(
+        y=[train_metrics["train_loss"].values, test_metrics["accuracy"].values],
+        x=[train_metrics["step"].values, test_metrics["step"].values],
+        names=["Training", "Testing"],
+        labels={"x": "Num samples seen", "y1": "Cross entropy loss", "y2": "Test accuracy"},
+        use_secondary_yaxis=True, title=title, width=800, height=500,
+        template="simple_white", # yet another nice aesthetic for your plots (-:
+        yaxis_range=[0, 0.1+train_metrics["train_loss"].max()]
+    )

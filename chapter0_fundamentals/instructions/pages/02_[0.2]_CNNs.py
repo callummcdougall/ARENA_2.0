@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter0_fundamentals"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -162,7 +170,7 @@ def section_1():
 
 * Read about the benefits of the `einops` library [here](https://www.blopig.com/blog/2022/05/einops-powerful-library-for-tensor-operations-in-deep-learning/).
 * If you haven't already, then review the [Einops basics tutorial](https://einops.rocks/1-einops-basics/) (up to the "fancy examples" section).
-* Read [einsum is all you need](https://rockt.github.io/2018/04/30/einsum) for a brief overview of the `einsum` function and how it works. (You don't need to read past section 2.10.)
+* Read [einsum is all you need](https://rockt.github.io/2018/04/30/einsum) (or [watch it](https://www.youtube.com/watch?v=pkVwUVEHmfI)) for a brief overview of the `einsum` function and how it works. (You don't need to read past section 2.10.)
 
 
 ## Einops
@@ -194,6 +202,15 @@ A series of images follow below, which have been created using `einops` function
 
 
 ### Einops exercises
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~45 minutes on these exercises collectively.
+
+If you think you get the general idea, then you can skip to the next section.
+```
 
 
 #### Exercise 1
@@ -528,6 +545,15 @@ Although there are many different kinds of operations you can perform, they are 
 
 ### Einsum exercises
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 15-20 minutes on these exercises collectively.
+
+If you think you get the general idea, then you can skip to the next section.
+```
+
 In the following exercises, you'll write simple functions using `einsum` which replicate the functionality of standard NumPy functions: trace, matrix multiplication, inner and outer products. We've also included some test functions which you should run.
 
 Note - this version of einsum will require that you include `->`, even if you're summing to a scalar (i.e. the right hand side of your string expression is empty).
@@ -693,16 +719,20 @@ We can call the `stride` method to get the strides of this particular array. Run
 
 ### Exercise - fill in the correct size and stride
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to ~30 minutes on these exercises collectively.
+
+as_strided exercises can be notoriously confusing and fiddly, so you should be willing to look at the solution if you're stuck. They are not the most important part of the material today.
+```
+
 In the exercises below, we will work with the `test_input` tensor above. You should fill in the `size` and `stride` arguments so that calling `test_input.as_strided` with these arguments produces the desired output. When you run the cell, the `for` loop at the end will iterate through the test cases and print out whether the test passed or failed.
 
 We've already filled in the first one as an example. The output is a 1D tensor of length 4 (hence we want `size=(4,)`), and the values are the first row of `input_tensor` (hence we want to move one element along the `input_tensor` at each step, i.e. `stride=1`).
 
 By the end of these examples, hopefully you'll have a clear idea of what's going on. If you're still confused by some of these, then the dropdown below the codeblock contains some annotations to explain the answers.
-
-
-> *Note - people have often mentioned that `as_strided` are quite annoying and confusing exercises. If these are taking a long time or you're finding them frustrating, you should definitely be willing to look at the answers! The intermediate stride exercises below this block are more conceptually important, but they're still not the most crucial part of today's material.*
-> 
-> *You probably shouldn't spend more than ~20-25 minutes on this set of exercises.*
 
 
 ```python
@@ -717,24 +747,21 @@ if MAIN:
         TestCase(
             output=t.tensor([0, 1, 2, 3]), 
             size=(4,),
-            stride=(1,)
+            stride=(1,),
         ),
-        # Explanation: the output is a 1D vector of length 4 (hence size=(4,))
-        # and each time you move one element along in this output vector, you also want to move
-        # one element along the `test_input_a` tensor
     
         TestCase(
             output=t.tensor([0, 1, 2, 3, 4]),
-            size=(5,),
-            stride=(1,)
+            size=None,
+            stride=None,
         ),
         # Explanation: the tensor is held in a contiguous memory block. When you get to the end
         # of one row, a single stride jumps to the start of the next row
     
         TestCase(
             output=t.tensor([0, 5, 10, 15]),
-            size=(4,),
-            stride=(5,)
+            size=None,
+            stride=None,
         ),
         # Explanation: this is same as previous case, only now you're moving in colspace (i.e. skipping
         # 5 elements) each time you move one element across the output tensor.
@@ -745,8 +772,8 @@ if MAIN:
                 [0, 1, 2], 
                 [5, 6, 7]
             ]), 
-            size=(2, 3),
-            stride=(5, 1)
+            size=None,
+            stride=None,
         ),
         # Explanation: consider the output tensor. As you move one element along a row, you want to jump
         # one element in the `test_input_a` (since you're just going to the next row). As you move
@@ -757,8 +784,8 @@ if MAIN:
                 [0, 1, 2], 
                 [10, 11, 12]
             ]), 
-            size=(2, 3),
-            stride=(10, 1)
+            size=None,
+            stride=None,
         ),
     
         TestCase(
@@ -766,14 +793,14 @@ if MAIN:
                 [0, 0, 0], 
                 [11, 11, 11]
             ]), 
-            size=(2, 3),
-            stride=(11, 0)
+            size=None,
+            stride=None,
         ),
     
         TestCase(
             output=t.tensor([0, 6, 12, 18]), 
-            size=(4,),
-            stride=(6,)
+            size=None,
+            stride=None,
         ),
     
         TestCase(
@@ -781,8 +808,8 @@ if MAIN:
                 [[0, 1, 2]], 
                 [[9, 10, 11]]
             ]), 
-            size=(2, 1, 3),
-            stride=(9, 0, 1)
+            size=None,
+            stride=None,
         ),
         # Note here that the middle element of `stride` doesn't actually matter, since you never
         # jump in this dimension. You could change it and the test result would still be the same
@@ -891,6 +918,15 @@ Now that you're comfortable with the basics, we'll dive a little deeper with `as
 
 ### Exercise - trace
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+
+Use the hint if you're stuck.
+```
+
 
 ```python
 def as_strided_trace(mat: Float[Tensor, "i j"]) -> Float[Tensor, ""]:
@@ -927,12 +963,23 @@ def as_strided_trace(mat: Float[Tensor, "i j"]) -> Float[Tensor, ""]:
     assert len(stride) == 2, f"matrix should have size 2"
     assert mat.size(0) == mat.size(1), "matrix should be square"
 
-    return mat.as_strided((mat.size(0),), (sum(stride),)).sum()
+    diag = mat.as_strided((mat.size(0),), (stride[0] + stride[1],))
+
+    return diag.sum()
 ```
 </details>
 
 
 ### Exercise - matrix-vector multiplication
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+
+The hints should be especially useful here if you're stuck. There are two hints available to you.
+```
 
 
 ```python
@@ -1003,6 +1050,15 @@ def as_strided_mv(mat: Float[Tensor, "i j"], vec: Float[Tensor, "j"]) -> Float[T
 
 ### Exercise - matrix-matrix multiplication
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+
+The hints should be especially useful here if you're stuck. There are two hints available to you.
+```
+
 
 ```python
 def as_strided_mm(matA: Float[Tensor, "i j"], matB: Float[Tensor, "j k"]) -> Float[Tensor, "i k"]:
@@ -1035,7 +1091,7 @@ We need to create expanded versions of both `matA` and `matB` in order to take t
 <details>
 <summary>Hint 2</summary>
 
-We want `matA_expanded[i, j, k] = matA[i, j]`, so our stride for `matA should be `(matA.stride(0), matA.stride(1), 0)`.
+We want `matA_expanded[i, j, k] = matA[i, j]`, so our stride for `matA` should be `(matA.stride(0), matA.stride(1), 0)`.
         
 A similar idea applies for `matB`.
 </details>
@@ -1093,7 +1149,7 @@ def section_3():
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-minimal-1d-convolutions'><b>Exercise</b> - implement minimal 1D convolutions</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#conv10d-minimal'>conv2d minimal</a></li>
+    <li class='margtop'><a class='contents-el' href='#conv2d-minimal'>conv2d minimal</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-10d-minimal-convolutions'><b>Exercise</b> - implement 2D minimal convolutions</a></li>
     </ul></li>
@@ -1149,6 +1205,11 @@ It will be the same shape, i.e. `28x28`. In the post linked above, this is descr
 </details>
 
 
+<br>
+
+***Note - the exercises in this section can be quite challenging, and aren't as deeply necessary for the rest of this course as the other three sections today. You should have a correspondingly lower bar for looking at hints and solutions.***
+
+
 ## conv1d minimal
 
 Here, we will implement the PyTorch `conv1d` function, which can be found [here](https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html). We will start with a simple implementation where `stride=1` and `padding=0`, with the other arguments set to their default values.
@@ -1168,17 +1229,26 @@ A typical convolution operation is illustrated in the sketch below. Some notes o
 * The sketch assumes a batch size of 1. To generalise to a larger batch number, we can just imagine this operation being repeated identically on every input.
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/conv1d_illustration.png" width=1000>
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv1d-general.png" width=1050>
 
 
 ### Exercise - implement minimal 1D convolutions
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+
+Use the diagram in the dropdown below, if you're stuck.
+```
 
 Below, you should implement `conv1d_minimal`. This is a function which works just like `conv1d`, but takes the default stride and padding values (these will be added back in later). You are allowed to use `as_strided` and `einsum`.
 
 Because this is a difficult exercise, we've given you a "simplified" function to implement first. This gets rid of the batch dimension, and input & output channel dimensions, so you only have to think about `x` and `weights` being one-dimensional tensors:
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/conv1d_illustration_simplest_2.png" width="950">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv1d-A.png" width=620>
 
 
 ```python
@@ -1206,7 +1276,7 @@ if MAIN:
 
 This diagram illustrates the striding operation you'll need to perform on `x`. Once you do this, it's just a matter of using the right `einsum` operation to get the output.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/conv1d_illustration_simplest_b.png" width="1000">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv1d-explained.png" width=800>
 </details>
 
 <details>
@@ -1249,6 +1319,16 @@ def conv1d_minimal_simple(x: Float[Tensor, "w"], weights: Float[Tensor, "kw"]) -
 Once you've implemented this function, you should now adapt it to make a "full version", which includes batch, in_channel and out_channel dimensions. If you're stuck, the dropdowns provide hints for how each of these dimensions should be handled.
 
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+Use the diagram in the dropdown below, if you're stuck.
+```
+
+
 ```python
 def conv1d_minimal(x: Float[Tensor, "b ic w"], weights: Float[Tensor, "oc ic kw"]) -> Float[Tensor, "b oc ow"]:
     '''
@@ -1277,9 +1357,9 @@ The principle is the same as before. In your function, you should:
 
 The way each of the new dimensions `batch`, `out_channels` and `in_channels` are handled is as follows:
 
-* `batch` - this is an extra dimension for `x`, it is *not* summed over.
-* `out_channels` - this is an extra dimension for `weights`, it is *not* summed over.
-* `in_channels` - this is an extra dimension for `weights` *and* for `x`, it *is* summed over.
+* `batch` - this is an extra dimension for `x`, it is *not* summed over when creating `output`.
+* `out_channels` - this is an extra dimension for `weights`, it is *not* summed over when creating `output`.
+* `in_channels` - this is an extra dimension for `weights` *and* for `x`, it *is* summed over when creating `output`.
 </details>
 
 <details>
@@ -1323,13 +1403,22 @@ def conv1d_minimal(x: Float[Tensor, "b ic w"], weights: Float[Tensor, "oc ic kw"
 2D convolutions are conceptually similar to 1D. The only difference is in how you move the kernel across the tensor as you take your convolution. In this case, you will be moving the tensor across two dimensions:
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/conv2d_illustration.png" width=450>
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv2d-B.png" width=850>
 
 
 For this reason, 1D convolutions tend to be used for signals (e.g. audio), 2D convolutions are used for images, and 3D convolutions are used for 3D scans (e.g. in medical applications). 
 
 
 ### Exercise - implement 2D minimal convolutions
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+Use the diagram in the dropdown below, if you're stuck.
+```
 
 You should implement `conv2d` in a similar way to `conv1d`. Again, this is expected to be difficult and there are several hints you can go through.
 
@@ -1353,9 +1442,11 @@ if MAIN:
 ```
 
 <details>
-<summary>Hint</summary>
+<summary>Hint & diagram</summary>
 
 You should be doing the same thing that you did for the 1D version. The only difference is that you're introducing 2 new dimensions to your strided version of x, rather than 1 (their sizes should be `output_height` and `output_width`, and their strides should be the same as the original `height` and `width` strides of `x` respectively).
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv2d-explained.png" width=1000>
 </details>
 
 <details>
@@ -1399,13 +1490,18 @@ def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic k
 
 ### Exercise - implement padding
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise, and the next.
+```
+
 For a full version of `conv`, and for `maxpool` (which will follow shortly), you'll need to implement `pad` helper functions. PyTorch has some very generic padding functions, but to keep things simple and build up gradually, we'll write 1D and 2D functions individually.
 
-Tip: use the `new_full` method of the input tensor. This is a clean way to ensure that the output tensor is on the same device as the input, and has the same dtype.
-
-Tip: you can use three dots to denote slicing over multiple dimensions. For instance, `x[..., 0]` will take the `0th` slice of `x` along its last dimension. This is equivalent to `x[:, 0]` for 2D, `x[:, :, 0]` for 3D, etc.
-
-
+Tips: 
+* Use the `new_full` method of the input tensor. This is a clean way to ensure that the output tensor is on the same device as the input, and has the same dtype.
+* You can use three dots to denote slicing over multiple dimensions. For instance, `x[..., 0]` will take the `0th` slice of `x` along its last dimension. This is equivalent to `x[:, 0]` for 2D, `x[:, :, 0]` for 3D, etc.
 
 
 ```python
@@ -1515,6 +1611,13 @@ Docs for pytorch's `conv1d` can be found [here](https://pytorch.org/docs/stable/
 
 ### Exercise - implement 1D convolutions
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+```
+
 
 ```python
 def conv1d(
@@ -1550,7 +1653,7 @@ As the first line of your function, replace `x` with the padded version of `x`. 
 
 The following diagram shows how you should create the strided version of `x` differently, if you have a stride of 2 rather than the default stride of 1.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/conv1d_illustration_simplest_last.png" width="600">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv1d-strides.png" width="850">
 
 Remember, you'll need a new formula for `output_width` (see formula in the  [documentation](https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html) for help with this, or see if you can derive it without help).
 </details>
@@ -1600,6 +1703,13 @@ def conv1d(
 
 ### Exercise - implement 2D convolutions
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 20-25 minutes on this exercise.
+```
+
 A recurring pattern in these 2d functions is allowing the user to specify either an int or a pair of ints for an argument: examples are stride and padding. We've provided some type aliases and a helper function to simplify working with these.
 
 
@@ -1629,7 +1739,7 @@ if MAIN:
 
 ```
 
-Finally, you can implement a full version of `conv2d`. If you've done the full version of `conv1d`, and you've done `conv2d_minimal`, then this shouldn't be too much trouble.
+Finally, you can implement a full version of `conv2d`. If you've done the full version of `conv1d`, and you've done `conv2d_minimal`, then you should be able to pull code from here to help you.
 
 
 ```python
@@ -1823,9 +1933,9 @@ def section_4():
         <li><a class='contents-el' href='#the-nn-parameter-class'>The <code>nn.Parameter</code> class</a></li>
         <li><a class='contents-el' href='#printing-information-with-extra-repr'>Printing information with <code>extra_repr</code></a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#maxpool10d'>MaxPool2d</a></li>
+    <li class='margtop'><a class='contents-el' href='#maxpool2d'>MaxPool2d</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise-implement-maxpool10d'><b>Exercise</b> - implement <code>MaxPool2d</code></a></li>
+        <li><a class='contents-el' href='#exercise-implement-maxpool2d'><b>Exercise</b> - implement <code>MaxPool2d</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#relu-and-flatten'>ReLU and Flatten</a></li>
     <li><ul class="contents">
@@ -1835,9 +1945,9 @@ def section_4():
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-linear'><b>Exercise</b> - implement <code>Linear</code></a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#conv10d'>Conv2d</a></li>
+    <li class='margtop'><a class='contents-el' href='#conv2d'>Conv2d</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise-implement-conv10d'><b>Exercise</b> - implement <code>Conv2d</code></a></li>
+        <li><a class='contents-el' href='#exercise-implement-conv2d'><b>Exercise</b> - implement <code>Conv2d</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#training-loop-taster-for-tomorrow'>Training loop (taster for tomorrow)</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -1920,17 +2030,21 @@ The first module you should implement is `MaxPool2d`. This will relatively simpl
 
 ### Exercise - implement `MaxPool2d`
 
-You should fill in the three methods of the `MaxPool2d` class below.
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
 
+You should spend up to ~10 minutes on this exercise.
+```
+
+You should fill in the three methods of the `MaxPool2d` class below.
 
 
 ```python
 class MaxPool2d(nn.Module):
     def __init__(self, kernel_size: IntOrPair, stride: Optional[IntOrPair] = None, padding: IntOrPair = 1):
         super().__init__()
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
+        pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
         '''Call the functional version of maxpool2d.'''
@@ -1968,11 +2082,7 @@ so that when you print the module, it will look like this:
 MaxPool2d(kernel_size=3, stride=2, padding=1)
 ```
 </details>
-<details>
-<summary>Help - I get the error 'MaxPool2d' object has no attribute '_backward_hooks'</summary>
 
-Remember to call `super().__init__()` in all your `Module` subclasses. This is a very easy thing to forget!
-</details>
 <details>
 <summary>Solution</summary>
 
@@ -1981,6 +2091,7 @@ Remember to call `super().__init__()` in all your `Module` subclasses. This is a
 class MaxPool2d(nn.Module):
     def __init__(self, kernel_size: IntOrPair, stride: Optional[IntOrPair] = None, padding: IntOrPair = 1):
         super().__init__()
+        # SOLUTION
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
@@ -2013,6 +2124,13 @@ Flatten is most often used to stack over all non-batched dimensions, which inclu
 
 
 ### Exercise - implement `ReLU` and `Flatten`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+```
 
 Note that ReLU's constructor has no arguments, so it doesn't need an `extra_repr`.
 
@@ -2048,8 +2166,7 @@ Now implement `Flatten`:
 class Flatten(nn.Module):
     def __init__(self, start_dim: int = 1, end_dim: int = -1) -> None:
         super().__init__()
-        self.start_dim = start_dim
-        self.end_dim = end_dim
+        pass
 
     def forward(self, input: t.Tensor) -> t.Tensor:
         '''
@@ -2097,6 +2214,7 @@ The most common reason is failing to correctly handle indices. Make sure that:
 class Flatten(nn.Module):
     def __init__(self, start_dim: int = 1, end_dim: int = -1) -> None:
         super().__init__()
+        # SOLUTION
         self.start_dim = start_dim
         self.end_dim = end_dim
 
@@ -2188,6 +2306,13 @@ However, you don't need to worry about any of this here, just implement Kaiming 
 
 ### Exercise - implement `Linear`
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to ~10 minutes on this exercise.
+```
+
 Remember, you should define the weights (and bias, if appropriate) in the `__init__` block. Also, make sure not to mix up `bias` (which is the boolean parameter to `__init__`) and `self.bias` (which should either be the actual bias tensor, or `None` if `bias` is false).
 
 
@@ -2200,6 +2325,7 @@ class Linear(nn.Module):
         The fields should be named `weight` and `bias` for compatibility with PyTorch.
         If `bias` is False, set `self.bias` to None.
         '''
+        super().__init__()
         pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -2240,9 +2366,8 @@ class Linear(nn.Module):
         The fields should be named `weight` and `bias` for compatibility with PyTorch.
         If `bias` is False, set `self.bias` to None.
         '''
-        # SOLUTION
-
         super().__init__()
+        # SOLUTION
         self.in_features = in_features
         self.out_features = out_features
         self.bias = bias
@@ -2264,7 +2389,6 @@ class Linear(nn.Module):
         Return: shape (*, out_features)
         '''
         # SOLUTION
-
         x = einops.einsum(x, self.weight, "... in_feats, out_feats in_feats -> ... out_feats")
         if self.bias is not None:
             x += self.bias
@@ -2296,6 +2420,7 @@ class Conv2d(nn.Module):
 
         Name your weight field `self.weight` for compatibility with the PyTorch version.
         '''
+        super().__init__()
         pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -2332,9 +2457,8 @@ class Conv2d(nn.Module):
 
         Name your weight field `self.weight` for compatibility with the PyTorch version.
         '''
-        # SOLUTION
-
         super().__init__()
+        # SOLUTION
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -2362,17 +2486,15 @@ class Conv2d(nn.Module):
 ## Training loop (taster for tomorrow)
 
 
-
 Congratulations for getting to the end of day 2! That was a lot of material we covered!
 
-As a taster for next session's material, below we've provided you with a training loop for a simple convolutional neural network which classifies MNIST images.
+As a taster for next session's material, below we've provided you with a training loop for a simple convolutional neural network which classifies MNIST images. You can read over this if you have spare time (but don't worry about fully understanding it, we'll have plenty of time for that tomorrow).
 
 
 ```python
 class SimpleCNN(nn.Module):
     def __init__(self):
         super().__init__()
-
         self.conv = Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1)
         self.maxpool = MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.relu = ReLU()

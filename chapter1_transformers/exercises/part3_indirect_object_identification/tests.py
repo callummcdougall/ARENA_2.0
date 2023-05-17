@@ -1,3 +1,12 @@
+import sys, os
+from pathlib import Path
+# Make sure exercises are in the path
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part3_indirect_object_identification"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+os.chdir(section_dir)
+
 import torch as t
 import part3_indirect_object_identification.solutions as solutions
 from typing import Tuple, List, Callable

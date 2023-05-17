@@ -107,7 +107,7 @@ class SGD:
 			https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
 
 		'''
-		self.params = list(params)
+		self.params = list(params) # turn params into a list (because it might be a generator)
 		self.lr = lr
 		self.mu = momentum
 		self.lmda = weight_decay
@@ -559,11 +559,7 @@ if MAIN:
 		log_every_n_steps=args.log_every_n_steps,
 	)
 	trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
-
-# %%
-
-
-if MAIN:
+	
 	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 	
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
@@ -583,21 +579,16 @@ def test_resnet_on_random_input(n_inputs: int = 3):
 		display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
 		imshow(
 			img, 
-			width=200, 
-			height=200,
-			margin=0,
-			xaxis_visible=False,
-			yaxis_visible=False
+			width=200, height=200, margin=0,
+			xaxis_visible=False, yaxis_visible=False
 		)
 		bar(
 			prob,
 			x=cifar_trainset.classes,
 			template="ggplot2",
-			width=600,
-			height=400,
+			width=600, height=400,
 			labels={"x": "Classification", "y": "Probability"}, 
-			text_auto='.2f',
-			showlegend=False,
+			text_auto='.2f', showlegend=False,
 		)
 
 
@@ -638,29 +629,20 @@ if MAIN:
 
 # %%
 
-# (1) Define a sweep dict
-
+# YOUR CODE HERE - fill `sweep_config`
 
 if MAIN:
-	sweep_config = dict(
-		method = 'random',
-		metric = dict(name = 'accuracy', goal = 'maximize'),
-		parameters = dict(
-			batch_size = dict(values = [32, 64, 128, 256]),
-			max_epochs = dict(min = 1, max = 4),
-			learning_rate = dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values'),
-		)
-	)
+	sweep_config = dict()
+	
+	tests.test_sweep_config(sweep_config)
 
 # %%
 
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
 
 def train():
-
+	# Define hyperparameters, override some with values from wandb.config
 	args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
-
-	# Set hyperparmeters from wandb.config
 	args.batch_size=wandb.config["batch_size"]
 	args.max_epochs=wandb.config["max_epochs"]
 	args.learning_rate=wandb.config["learning_rate"]
@@ -678,11 +660,9 @@ def train():
 
 # %%
 
-# (3) Run the sweep
-
 
 if MAIN:
-	sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet')
+	sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
 	wandb.agent(sweep_id=sweep_id, function=train, count=3)
 
 # %% 3️⃣ BONUS

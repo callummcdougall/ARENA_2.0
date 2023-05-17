@@ -372,6 +372,16 @@ def test_MultiStepLR(MultiStepLR, SGD):
         t.testing.assert_close(b0_correct, b0_submitted, rtol=0, atol=1e-5)
     print("\nAll tests in `test_MultiStepLR` passed!")
 
+sweep_config_expected = dict(
+    method = 'random',
+    metric = dict(name = 'accuracy', goal = 'maximize'),
+    parameters = dict(
+        batch_size = [dict(values = [32, 64, 128, 256])],
+        max_epochs = [dict(min = 1, max = 4), dict(values = [1, 2, 3])],
+        learning_rate = [dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values')],
+    )
+)
+
 def plot_results(loss_list, accuracy_list):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Scatter(y=loss_list, name="Training loss"))
@@ -395,3 +405,19 @@ def show_cifar_images(trainset, rows=3, cols=5):
     for i, j in enumerate(np.arange(rows*cols).reshape(rows, cols)[::-1].flatten()):
             fig.layout.annotations[i].text = trainset.classes[trainset.targets[j]]
     fig.show()
+
+def test_sweep_config(sweep_config):
+
+    assert sweep_config.get("method", None) == sweep_config_expected["method"], "Incorrect sweep method"
+    assert sweep_config.get("metric", None) == sweep_config_expected["metric"], "Incorrect sweep metric"
+    assert isinstance(sweep_config.get("parameters", None), dict), "Sweep parameters should be a dictionary"
+    sweep_config_parameters_expected = sweep_config_expected["parameters"]
+    sweep_config_parameters = sweep_config["parameters"]
+    for k, v in sweep_config_parameters.items():
+        assert k in sweep_config_parameters_expected, f"Unexpected parameter in sweep config: {k}"
+        assert isinstance(v, dict), f"Values for parameter {k} should be a dictionary"
+        if "values" in v: v["values"] = list(v["values"])
+        assert v in sweep_config_parameters_expected[k], f"Unexpected values for parameter {k}: {v}"
+
+    for k, v in sweep_config_parameters_expected.items():
+        assert k in sweep_config_parameters, f"Missing parameter in sweep config: {k}"

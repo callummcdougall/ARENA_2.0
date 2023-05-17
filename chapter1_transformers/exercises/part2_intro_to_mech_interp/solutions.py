@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter1_transformers"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import plotly.express as px
 import torch as t
 from torch import Tensor
@@ -395,45 +390,43 @@ def visualize_pattern_hook(
 		)
 	)
 
+# FLAT SOLUTION
+# YOUR CODE HERE - find induction heads in gpt2_small
+seq_len = 50
+batch = 10
+rep_tokens_10 = generate_repeated_tokens(gpt2_small, seq_len, batch)
 
-if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - find induction heads in gpt2_small
-	seq_len = 50
-	batch = 10
-	rep_tokens_10 = generate_repeated_tokens(gpt2_small, seq_len, batch)
-	
-	induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads), device=gpt2_small.cfg.device)
-	
+induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads), device=gpt2_small.cfg.device)
+
+gpt2_small.run_with_hooks(
+	rep_tokens_10, 
+	return_type=None, # For efficiency, we don't need to calculate the logits
+	fwd_hooks=[(
+		pattern_hook_names_filter,
+		induction_score_hook
+	)]
+)
+
+imshow(
+	induction_score_store, 
+	labels={"x": "Head", "y": "Layer"},
+	title="Induction Score by Head", 
+	text_auto=".1f",
+	width=800
+)
+
+# Observation: heads 5.1, 5.5, 6.9, 7.2, 7.10 are all strongly induction-y.
+# Confirm observation by visualizing attn patterns for layers 5 through 7:
+
+for induction_head_layer in [5, 6, 7]:
 	gpt2_small.run_with_hooks(
-		rep_tokens_10, 
+		rep_tokens, 
 		return_type=None, # For efficiency, we don't need to calculate the logits
-		fwd_hooks=[(
-			pattern_hook_names_filter,
-			induction_score_hook
-		)]
+		fwd_hooks=[
+			(utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
+		]
 	)
-	
-	imshow(
-		induction_score_store, 
-		labels={"x": "Head", "y": "Layer"},
-		title="Induction Score by Head", 
-		text_auto=".1f",
-		width=800
-	)
-	
-	# Observation: heads 5.1, 5.5, 6.9, 7.2, 7.10 are all strongly induction-y.
-	# Confirm observation by visualizing attn patterns for layers 5 through 7:
-	
-	for induction_head_layer in [5, 6, 7]:
-		gpt2_small.run_with_hooks(
-			rep_tokens, 
-			return_type=None, # For efficiency, we don't need to calculate the logits
-			fwd_hooks=[
-				(utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
-			]
-		)
-	# FLAT SOLUTION END
+# FLAT SOLUTION END
 
 # %%
 
@@ -644,14 +637,14 @@ if MAIN:
 
 # %%
 
+# FLAT SOLUTION
+# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
+indices = t.randint(0, model.cfg.d_vocab, (200,))
+full_OV_circuit_sample = full_OV_circuit[indices, indices].AB
+# FLAT SOLUTION END
+
 
 if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
-	indices = t.randint(0, model.cfg.d_vocab, (200,))
-	full_OV_circuit_sample = full_OV_circuit[indices, indices].AB
-	# FLAT SOLUTION END
-	
 	imshow(
 		full_OV_circuit_sample,
 		labels={"x": "Input token", "y": "Logits on output token"},
@@ -696,20 +689,20 @@ def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
 	return masked_attn_scores
 
 
+# FLAT SOLUTION
+# YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
+layer = 0
+head_index = 7
+
+W_pos = model.W_pos
+W_QK = model.W_Q[layer, head_index] @ model.W_K[layer, head_index].T
+pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
+masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
+pos_by_pos_pattern = t.softmax(masked_scaled, dim=-1)
+# FLAT SOLUTION END
+
 
 if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
-	layer = 0
-	head_index = 7
-	
-	W_pos = model.W_pos
-	W_QK = model.W_Q[layer, head_index] @ model.W_K[layer, head_index].T
-	pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
-	masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
-	pos_by_pos_pattern = t.softmax(masked_scaled, dim=-1)
-	# FLAT SOLUTION END
-	
 	tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
 
 # %%

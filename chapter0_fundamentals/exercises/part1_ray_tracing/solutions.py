@@ -3,12 +3,15 @@
 import os
 import sys
 import torch as t
+from torch import Tensor
 import einops
 from ipywidgets import interact
 import plotly.express as px
 from ipywidgets import interact
 from pathlib import Path
 from IPython.display import display
+from jaxtyping import Float, Int, Bool, Shaped, jaxtyped
+import typeguard
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -116,22 +119,6 @@ def intersect_ray_1d(ray: t.Tensor, segment: t.Tensor) -> bool:
 if MAIN:
 	tests.test_intersect_ray_1d(intersect_ray_1d)
 	tests.test_intersect_ray_1d_special_case(intersect_ray_1d)
-
-# %%
-
-from jaxtyping import Float, Int, Bool, Shaped, jaxtyped
-import typeguard
-from torch import Tensor
-
-
-if MAIN:
-	@jaxtyped
-	@typeguard.typechecked
-	def my_concat(x: Float[Tensor, "a1 b"], y: Float[Tensor, "a2 b"]) -> Float[Tensor, "a1+a2 b"]:
-		return t.concat([x, y], dim=0)
-	x = t.ones(3, 2)
-	y = t.randn(4, 2)
-	z = my_concat(x, y)
 
 # %%
 

@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter1_transformers"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import einops
 from dataclasses import dataclass

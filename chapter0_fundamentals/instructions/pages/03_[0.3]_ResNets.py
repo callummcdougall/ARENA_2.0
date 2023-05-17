@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter0_fundamentals"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -14,9 +22,9 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#110125-building-&-training-a-cnn'>1️⃣ Building & training a CNN</a></li>
+        <li><a class='contents-el' href='#110125-building-training-a-cnn'>1️⃣ Building & training a CNN</a></li>
         <li><a class='contents-el' href='#1010125-assembling-resnet'>2️⃣ Assembling ResNet</a></li>
         <li><a class='contents-el' href='#12510125-resnet-feature-extraction'>3️⃣ ResNet feature extraction</a></li>
     </ul></li>
@@ -116,7 +124,7 @@ os.chdir(section_dir)
 from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
 from part3_resnets.utils import print_param_count
 import part3_resnets.tests as tests
-from plotly_utils import line
+from plotly_utils import line, plot_train_loss_and_test_accuracy_from_metrics
 
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
@@ -140,7 +148,7 @@ def section_1():
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-creating-convnet'><b>Exercise</b> - creating <code>ConvNet</code></a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#transforms'>Transforms</a></li>
+    <li class='margtop'><a class='contents-el' href='#transforms-datasets-dataloaders'>Transforms, Datasets & DataLoaders</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#aside-tqdm'>Aside - <code>tqdm</code></a></li>
         <li><a class='contents-el' href='#aside-device'>Aside - <code>device</code></a></li>
@@ -197,6 +205,13 @@ which is something we'll be using a lot in future exercises, as we deal with mor
 
 ### Exercise - creating `ConvNet`
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to ~15 minutes on this exercise.
+```
+
 Although you're creating a neural network rather than a single layer, this is structurally very similar to the exercises at the end of yesterday when you created `nn.Module` objects to wrap around functions. This time, you're creating an `nn.Module` object to contain the modules of the network. 
 
 Below `__init__`, you should define all of your modules. It's conventional to number them, e.g. `self.conv1 = Conv2d(...)` and `self.linear1 = Linear(...)` (or another common convention is `fc`, for "fully connected"). Below `forward`, you should return the value of sequentially applying all these layers to the input.
@@ -205,6 +220,7 @@ Below `__init__`, you should define all of your modules. It's conventional to nu
 ```python
 class ConvNet(nn.Module):
     def __init__(self):
+        super().__init__()
         pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -245,8 +261,8 @@ After this, it's just a matter of repeating these steps for all the other layers
 ```python
 class ConvNet(nn.Module):
     def __init__(self):
-        # SOLUTION
         super().__init__()
+        # SOLUTION
         
         self.conv1 = Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1)
         self.relu1 = ReLU()
@@ -286,7 +302,7 @@ if MAIN:
 
 ```
 
-## Transforms
+## Transforms, Datasets & DataLoaders
 
 Before we use this model to make any predictions, we first need to think about our input data. Below is a block of code to fetch and process MNIST data. We will go through it line by line.
 
@@ -738,8 +754,19 @@ if MAIN:
 
 Note that PyTorch has its own functions for saving and loading models (`torch.save` and `torch.load`), these are called under the hood by Lightning.
 
+> Tip - you can set a random seed in a robust way (useful for reproducibility) with PyTorch Lightning, via `pl.seed_everything(seed: int)`. This will set the seed for the random number generators used by PyTorch, NumPy and Python's built-in random module. 
+
 
 ### Exercise - add a validation loop
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠🟠
+
+You should spend up to ~20 minutes on this exercise.
+
+It is very important that you understand PyTorch Lightning training loops and how they work, because we'll be doing a lot of model training with this library.
+```
 
 Edit the `LitConvNet` class above to include a testing loop. Run a testing loop, and plot the test accuracy.
 
@@ -850,35 +877,17 @@ if MAIN:
         log_every_n_steps=args.log_every_n_steps
     )
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
-    
-    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 
 ```
 
+Now let's read and plot our results:
+
+
 ```python
-def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title: str) -> None:
-    # Separate train and test metrics from the dataframe containing all metrics
-    assert "accuracy" in metrics.columns, "Did you log the accuracy metric?"
-    train_metrics = metrics[~metrics["train_loss"].isna()]
-    test_metrics = metrics[~metrics["accuracy"].isna()]
-
-    # Plot results
-    line(
-        y=[train_metrics["train_loss"].values, test_metrics["accuracy"].values],
-        x=[train_metrics["step"].values, test_metrics["step"].values],
-        names=["Training", "Testing"],
-        labels={"x": "Num samples seen", "y1": "Cross entropy loss", "y2": "Test accuracy"},
-        use_secondary_yaxis=True,
-        title=title,
-        width=800,
-        height=500,
-        template="simple_white", # yet another nice aesthetic for your plots (-:
-        yaxis_range=[0, 0.1+train_metrics["train_loss"].max()]
-    )
-
-
 
 if MAIN:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    
     plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
 
 ```
@@ -969,23 +978,25 @@ def section_2():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#reading'>Reading</a></li>
-    <li class='margtop'><a class='contents-el' href='#some-final-modules'>Some final modules</a></li>
+    <li class='margtop'><a class='contents-el' href='#sequential'>Sequential</a></li>
+    <li class='margtop'><a class='contents-el' href='#batchnorm2d'>BatchNorm2d</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#sequential'>Sequential</a></li>
-        <li><a class='contents-el' href='#batchnorm10d'>BatchNorm2d</a></li>
         <li><a class='contents-el' href='#train-and-eval-modes'>Train and Eval Modes</a></li>
-        <li><a class='contents-el' href='#exercise-implement-batchnorm10d'><b>Exercise</b> - implement <code>BatchNorm2d</code></a></li>
-        <li><a class='contents-el' href='#averagepool'>AveragePool</a></li>
+        <li><a class='contents-el' href='#exercise-implement-batchnorm2d'><b>Exercise</b> - implement <code>BatchNorm2d</code></a></li>
+    </ul></li>
+    <li class='margtop'><a class='contents-el' href='#averagepool'>AveragePool</a></li>
+    <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-averagepool'><b>Exercise</b> - implement <code>AveragePool</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#building-resnet'>Building ResNet</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#residual-block'>Residual Block</a></li>
-        <li><a class='contents-el' href='#blockgroup'>BlockGroup</a></li>
-        <li><a class='contents-el' href='#resnet12510'>ResNet34</a></li>
+        <li><a class='contents-el' href='#exercise-implement-residualblock'><b>Exercise</b> - implement <code>ResidualBlock</code></a></li>
+        <li><a class='contents-el' href='#exercise-implement-blockgroup'><b>Exercise</b> - implement <code>BlockGroup</code></a></li>
+        <li><a class='contents-el' href='#exercise-implement-resnet12510'><b>Exercise</b> - implement <code>ResNet34</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#running-your-model'>Running Your Model</a></li>
     <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-prepare-the-data'><b>Exercise</b> - prepare the data</a></li>
         <li><a class='contents-el' href='#aside-hooks'>Aside - hooks</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -1041,13 +1052,10 @@ Crucially, both the addition and concatenation methods have the property of pres
 
 In this section, we'll do a more advanced version of the exercise in part 1. Rather than building a relatively simple network in which computation can be easily represented by a sequence of simple layers, we're going to build a more complex architecture which requires us to define nested blocks.
 
-
-## Some final modules
-
 We'll start by defining a few more `nn.Module` objects, which we hadn't needed before.
 
 
-### Sequential
+## Sequential
 
 Firstly, now that we're working with large and complex architectures, we should create a version of `nn.Sequential`. Recall that we briefly came across `nn.Sequential` at the end of the first day, when building our (extremely simple) neural network. As the name suggests, when an `nn.Sequential` is fed an input, it sequentially applies each of its submodules to the input, with the output from one module feeding into the next one.
 
@@ -1117,7 +1125,7 @@ class Sequential(nn.Module):
 
 ```
 
-### BatchNorm2d
+## BatchNorm2d
 
 Now, we'll implement our `BatchNorm2d`, the layer described in the documents you hopefully read above.
 
@@ -1143,6 +1151,15 @@ In eval mode, you should use the running mean and variance that you stored befor
 
 ### Exercise - implement `BatchNorm2d`
 
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-25 minutes on this exercise.
+
+This is probably the most challenging module you'll have implemented so far. Getting all the dimensions and operations right can be tricky.
+```
+
 Implement `BatchNorm2d` according to the [PyTorch docs](https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html). Call your learnable parameters `weight` and `bias` for consistency with PyTorch.
 
 
@@ -1158,6 +1175,7 @@ class BatchNorm2d(nn.Module):
 
         Name the learnable affine parameters `weight` and `bias` in that order.
         '''
+        super().__init__()
         pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -1183,7 +1201,7 @@ if MAIN:
 
 ```
 
-### AveragePool
+## AveragePool
 
 Let's end our collection of `nn.Module`s with an easy one 🙂
 
@@ -1193,6 +1211,13 @@ Luckily, the simplest possible solution works decently: take the mean over the s
 
 
 ### Exercise - implement `AveragePool`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
 
 This should be a pretty straightforward implementation; it doesn't have any weights or parameters of any kind, so you only need to implement the `forward` method.
 
@@ -1233,8 +1258,8 @@ class BatchNorm2d(nn.Module):
 
         Name the learnable affine parameters `weight` and `bias` in that order.
         '''
-        # SOLUTION
         super().__init__()
+        # SOLUTION
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
@@ -1322,7 +1347,14 @@ Similarly, `BlockGroup` is nested multiple times (four to be precise) in the ful
 
 
 
-### Residual Block
+### Exercise - implement `ResidualBlock`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 Implement `ResidualBlock` by referring to the diagram. 
 
@@ -1368,6 +1400,7 @@ class ResidualBlock(nn.Module):
 
         If first_stride is > 1, this means the optional (conv + bn) should be present on the right branch. Declare it second using another `Sequential`.
         '''
+        super().__init__()
         pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -1399,8 +1432,8 @@ class ResidualBlock(nn.Module):
 
         If first_stride is > 1, this means the optional (conv + bn) should be present on the right branch. Declare it second using another `Sequential`.
         '''
-        # SOLUTION
         super().__init__()
+        # SOLUTION
         
         self.left = Sequential(
             Conv2d(in_feats, out_feats, kernel_size=3, stride=first_stride, padding=1),
@@ -1438,7 +1471,14 @@ class ResidualBlock(nn.Module):
 </details>
 
 
-### BlockGroup
+### Exercise - implement `BlockGroup`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 Implement `BlockGroup` according to the diagram. 
 
@@ -1453,6 +1493,7 @@ You can also read the docstring for a description of the input and output shapes
 class BlockGroup(nn.Module):
     def __init__(self, n_blocks: int, in_feats: int, out_feats: int, first_stride=1):
         '''An n_blocks-long sequence of ResidualBlock where only the first block uses the provided stride.'''
+        super().__init__()
         pass
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -1476,8 +1517,8 @@ class BlockGroup(nn.Module):
 class BlockGroup(nn.Module):
     def __init__(self, n_blocks: int, in_feats: int, out_feats: int, first_stride=1):
         '''An n_blocks-long sequence of ResidualBlock where only the first block uses the provided stride.'''
-        # SOLUTION
         super().__init__()
+        # SOLUTION
         
         blocks = [ResidualBlock(in_feats, out_feats, first_stride)] + [
             ResidualBlock(out_feats, out_feats) for n in range(n_blocks - 1)
@@ -1498,7 +1539,16 @@ class BlockGroup(nn.Module):
 </details>
 
 
-### ResNet34
+### Exercise - implement `ResNet34`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 25-30 minutes on this exercise.
+
+You may have to return to this and previous exercises, if you find a bug later.
+```
 
 Last step! Assemble `ResNet34` using the diagram.
 
@@ -1689,8 +1739,6 @@ if MAIN:
 
 ```
 
-#### Preparing the data
-
 We now need to define a `transform` object like we did for MNIST. We will use the same transforms to convert the PIL image to a tensor, and to normalize it. But we also want to resize the images to `height=224, width=224`, because not all of them start out with this size and we need them to be consistent before passing them through our model.
 
 In the normalization step, we'll use a mean of `[0.485, 0.456, 0.406]`, and a standard deviation of `[0.229, 0.224, 0.225]` (these are the mean and std dev of images from [ImageNet](https://www.image-net.org/)). Note that the means and std devs have three elements, because ImageNet contains RGB rather than monochrome images, and we're normalising over each of the three RGB channels separately.
@@ -1709,7 +1757,14 @@ IMAGENET_TRANSFORM = transforms.Compose([
 
 ```
 
-#### Exercise - prepare the data
+### Exercise - prepare the data
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~5 minutes on this exercise.
+```
 
 
 Now, write a function to prepare the data in `images` to be fed into our model. This should involve preprocessing each image, and stacking them into a single tensor along the batch (0th) dimension.
@@ -1888,15 +1943,6 @@ When you run this code, you should find it raising an error at the `NanModule`.
 > Important - when you're working with PyTorch hooks, make sure you remember to remove them at the end of each exercise! This is a classic source of bugs, and one of the things that make PyTorch hooks so janky. When we study TransformerLens in the next chapter, we'll use a version of hooks that is essentially the same under the hood, but comes with quite a few quality of life improvements!
 
 
-Now that you've seen how to build a training loop using PyTorch lightning, and you've seen how ResNet works and is built, we're going to put these two things together to finetune a ResNet model on a new dataset.
-
-**Finetuning** can mean slightly different things in different context, but broadly speaking it means using the weights of an already trained network as the starting values for training a new network. Because training networks from scratch is very computationally expensive, this is a common practice in ML.
-
-The specific type of finetuning we'll be doing here is called **feature extraction**. This is when we freeze most layers of a model except the last few, and perform gradient descent on those. We call this feature extraction because the earlier layers of the model have already learned to identify important features of the data (and these features are also relevant for the new task), so all that we have to do is train a few final layers in the model to extract these features. 
-
-*Terminology note - sometimes feature extraction and finetuning are defined differently; finetuning can refer to the training of all the weights in a pretrained model (usually with a small or decaying learning rate), while feature extraction refers to the freezing of some layers and training of others. However, we'll just use the broad descriptor of "fine-tuning" for both.*
-
-
 
 
 """, unsafe_allow_html=True)
@@ -1909,9 +1955,10 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#what-is-feature-extraction?'>What is feature extraction?</a></li>
+    <li class='margtop'><a class='contents-el' href='#what-is-feature-extraction'>What is feature extraction?</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise-write-a-training-loop-for-feature-extraction-on-this-set'><b>Exercise</b> - write a training loop for feature extraction on this set</a></li>
+        <li><a class='contents-el' href='#exercise-prepare-resnet-for-feature-extraction'><b>Exercise</b> - prepare ResNet for feature extraction</a></li>
+        <li><a class='contents-el' href='#exercise-write-training-loop-for-feature-extraction'><b>Exercise</b> - write training loop for feature extraction</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -1923,6 +1970,15 @@ def section_3():
 > 
 > * Understand the difference between feature extraction and finetuning
 > * Perform feature extraction on a pre-trained ResNet
+
+
+Now that you've seen how to build a training loop using PyTorch lightning, and you've seen how ResNet works and is built, we're going to put these two things together to finetune a ResNet model on a new dataset.
+
+**Finetuning** can mean slightly different things in different contexts, but broadly speaking it means using the weights of an already trained network as the starting values for training a new network. Because training networks from scratch is very computationally expensive, this is a common practice in ML.
+
+The specific type of finetuning we'll be doing here is called **feature extraction**. This is when we freeze most layers of a model except the last few, and perform gradient descent on those. We call this feature extraction because the earlier layers of the model have already learned to identify important features of the data (and these features are also relevant for the new task), so all that we have to do is train a few final layers in the model to extract these features. 
+
+*Terminology note - sometimes feature extraction and finetuning are defined differently; finetuning can refer to the training of all the weights in a pretrained model (usually with a small or decaying learning rate), while feature extraction refers to the freezing of some layers and training of others. However, we'll just use the broad descriptor of "fine-tuning" for both.*
 
 
 ## What is feature extraction?
@@ -1965,7 +2021,14 @@ if MAIN:
 
 ```
 
-#### Exercise - prepare ResNet for feature extraction
+### Exercise - prepare ResNet for feature extraction
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 
 First, you should complete the function below to do the following:
@@ -2030,7 +2093,14 @@ class ResNetTrainingArgs():
 The dataclass we've defined containing training arguments is basically the same as the one we had for the convnet, the main difference is that we're now using the [CIFAR-10 dataset](https://www.cs.toronto.edu/~kriz/cifar.html). This is the dataset we'll be training our model on. It consists of 60000 32x32 colour images in 10 classes, with 6000 images per class. See the link for more information.
 
 
-### Exercise - write a training loop for feature extraction on this set
+### Exercise - write training loop for feature extraction
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-25 minutes on this exercise.
+```
 
 
 Your task is to write a PyTorch Lightning training loop for your ResNet model. Most of this will be exactly the same as for your CNN, except that you'll be swapping out your `ConvNet` for `ResNet34`. There are two main changes you'll have to make, which are specific to the finetuning problem:
@@ -2055,8 +2125,7 @@ If you train just the final layer, your accuracy should reach around 70-80% by t
 class LitResNet(pl.LightningModule):
     def __init__(self, args: ResNetTrainingArgs):
         super().__init__()
-        self.resnet = get_resnet_for_feature_extraction(args.n_classes)
-        self.args = args
+        pass
 
     def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
         '''
@@ -2097,12 +2166,7 @@ if MAIN:
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
     
     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-
-```
-
-```python
-
-if MAIN:
+    
     plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
 
 ```

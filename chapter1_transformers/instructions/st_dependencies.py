@@ -170,6 +170,7 @@ details {
     padding-right: 15px;
     padding-top:5px;
     padding-bottom:1px;
+    border-radius: 4px;
 }
 summary {
     margin-bottom: 5px;
@@ -179,6 +180,12 @@ summary {
 }
 .css-fg4pbf code {
     background: rgb(247, 248, 250);
+}
+.css-fg4pbf code.language-c, .css-fg4pbf pre:has(code.language-c) {
+    background-color: #ffe3c4 !important;
+}
+.css-ffhzg2 code.language-c, .css-ffhzg2 pre:has(code.language-c) {
+    background-color: #3d2000 !important;
 }
 </style>""", unsafe_allow_html=True)
     

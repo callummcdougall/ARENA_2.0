@@ -1,10 +1,5 @@
 # %%
 
-import os, sys
-CHAPTER = r"chapter1_transformers"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
-
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
 import functools
@@ -396,25 +391,25 @@ if MAIN:
 
 # %%
 
+# FLAT SOLUTION
+# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
+# remember to subtract the mean per component on balanced samples
+# Get output by components, at sequence position 0 (which is used for classification)
+out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[:, :, 0, :]
+# Get the unbalanced direction for tensors being fed into the final layernorm
+pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
+# Get the size of the contributions for each component
+out_by_component_in_unbalanced_dir = einops.einsum(
+	out_by_components_seq0,
+	pre_final_ln_dir,
+	"comp batch d_model, d_model -> comp batch",
+)
+# Subtract the mean
+out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
+# FLAT SOLUTION END
+
 
 if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
-	# remember to subtract the mean per component on balanced samples
-	# Get output by components, at sequence position 0 (which is used for classification)
-	out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[:, :, 0, :]
-	# Get the unbalanced direction for tensors being fed into the final layernorm
-	pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
-	# Get the size of the contributions for each component
-	out_by_component_in_unbalanced_dir = einops.einsum(
-		out_by_components_seq0,
-		pre_final_ln_dir,
-		"comp batch d_model, d_model -> comp batch",
-	)
-	# Subtract the mean
-	out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
-	# FLAT SOLUTION END
-	
 	tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
 	
 	plotly_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
@@ -523,20 +518,20 @@ if MAIN:
 
 # %%
 
+# FLAT SOLUTION
+# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
+# Remember to subtract the mean for each component for balanced inputs
+pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
+out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
+	pre_layer2_outputs_seqpos1,
+	get_pre_20_dir(model, data),
+	"comp batch emb, emb -> comp batch",
+)
+out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
+# FLAT SOLUTION END
+
 
 if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
-	# Remember to subtract the mean for each component for balanced inputs
-	pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
-	out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
-		pre_layer2_outputs_seqpos1,
-		get_pre_20_dir(model, data),
-		"comp batch emb, emb -> comp batch",
-	)
-	out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
-	# FLAT SOLUTION END
-	
 	plotly_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
 
 # %%
@@ -741,19 +736,19 @@ def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -
 	return model.W_E[idx]
 
 
+# FLAT SOLUTION
+# YOUR CODE HERE - define v_L and v_R, as described above.
+W_OV = model.W_V[0, 0] @ model.W_O[0, 0]
+
+layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
+layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).cuda()
+
+v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
+v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
+# FLAT SOLUTION END
+
 
 if MAIN:
-	# FLAT SOLUTION
-	# YOUR CODE HERE - define v_L and v_R, as described above.
-	W_OV = model.W_V[0, 0] @ model.W_O[0, 0]
-	
-	layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
-	layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).cuda()
-	
-	v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
-	v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
-	# FLAT SOLUTION END
-	
 	print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
 
 # %%
@@ -805,12 +800,12 @@ if MAIN:
 def tallest_balanced_bracket(length: int) -> str:
 	return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
 
-example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
-examples.append(example)
-# FLAT SOLUTION END
-
 
 if MAIN:
+	example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
+	examples.append(example)
+	# FLAT SOLUTION END
+	
 	examples = ["()", "(())", "))"]
 	m = max(len(ex) for ex in examples)
 	toks = tokenizer.tokenize(examples)

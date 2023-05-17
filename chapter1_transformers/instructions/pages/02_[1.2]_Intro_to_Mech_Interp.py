@@ -1,6 +1,14 @@
 
+import os, sys
+from pathlib import Path
+chapter = r"chapter1_transformers"
+instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
+
 import streamlit as st
 import st_dependencies
+
 st_dependencies.styling()
 
 import platform
@@ -903,6 +911,52 @@ Because this would require a head which attends a key position based on the *val
 (The attention pattern *does* in fact include effects from other tokens because of softmax - if another key token has a high attention score, softmax inhibits this pair. But this inhibition is symmetric across positions, so can't systematically favour the token *next* to the relevant one.)
 
 Note that a key detail is that the value of adjacent tokens are (approximately) unrelated - if the model wanted to attend based on relative *position* this is easy.
+```python
+def current_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be current-token heads
+    '''
+    # SOLUTION
+    attn_heads = []
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            attention_pattern = cache["pattern", layer][head]
+            # take avg of diagonal elements
+            score = attention_pattern.diagonal().mean()
+            if score > 0.4:
+                attn_heads.append(f"{layer}.{head}")
+    return attn_heads
+
+def prev_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be prev-token heads
+    '''
+    # SOLUTION
+    attn_heads = []
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            attention_pattern = cache["pattern", layer][head]
+            # take avg of sub-diagonal elements
+            score = attention_pattern.diagonal(-1).mean()
+            if score > 0.4:
+                attn_heads.append(f"{layer}.{head}")
+    return attn_heads
+
+def first_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be first-token heads
+    '''
+    # SOLUTION
+    attn_heads = []
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            attention_pattern = cache["pattern", layer][head]
+            # take avg of 0th elements
+            score = attention_pattern[:, 0].mean()
+            if score > 0.4:
+                attn_heads.append(f"{layer}.{head}")
+    return attn_heads
+```
 </details>
 
 
@@ -1439,9 +1493,7 @@ def visualize_pattern_hook(
         )
     )
 
-
-if MAIN:
-    # YOUR CODE HERE - find induction heads in gpt2_small
+# YOUR CODE HERE - find induction heads in gpt2_small
 
 ```
 
@@ -1682,7 +1734,6 @@ if MAIN:
     second_half_tokens = rep_tokens[0, seq_len:]
     
     # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
-    # (each with a single call to the `logit_attribution` function)
     assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
     assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
     
@@ -2428,9 +2479,9 @@ First, to validate that it looks diagonal-ish, let's pick 200 random rows and co
 
 
 ```python
+# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
 
 if MAIN:
-    # YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
     imshow(
         full_OV_circuit_sample,
         labels={"x": "Input token", "y": "Logits on output token"},
@@ -2656,9 +2707,9 @@ def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
     return masked_attn_scores
 
 
+# YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
 
 if MAIN:
-    # YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
     tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
 
 ```
@@ -2667,6 +2718,16 @@ if MAIN:
 <summary>Solution</summary>
 
 
+```python
+def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
+    '''
+    This should take the argmax of each column (ie over dim=0) and return the fraction of the time that's equal to the correct logit
+    '''
+    # SOLUTION
+    AB = full_OV_circuit.AB
+
+    return (t.argmax(AB, dim=1) == t.arange(AB.shape[0]).cuda()).float().mean().item()
+```
 ```python
 layer = 0
 head_index = 7
@@ -3257,6 +3318,20 @@ if MAIN:
 
 
 ```python
+def get_comp_score(
+    W_A: Float[Tensor, "in_A out_A"], 
+    W_B: Float[Tensor, "out_A out_B"]
+) -> float:
+    '''
+    Return the composition score between W_A and W_B.
+    '''
+    # SOLUTION
+    W_A_norm = W_A.pow(2).sum().sqrt()
+    W_B_norm = W_B.pow(2).sum().sqrt()
+    W_AB_norm = (W_A @ W_B).pow(2).sum().sqrt()
+
+    return (W_AB_norm / (W_A_norm * W_B_norm)).item()
+
 def generate_single_random_comp_score() -> float:
     '''
     Write a function which generates a single composition score for random matrices
@@ -3632,12 +3707,7 @@ Here are a few questions for you:
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),
-    (section_1, '1️⃣ TransformerLens: Introduction'),
-    (section_2, '2️⃣ Finding induction heads'),
-    (section_3, '3️⃣ TransformerLens: Hooks'),
-    (section_4, '4️⃣ Reverse-engineering induction circuits'),
-
+    (section_0, '🏠 Home'),     (section_1, '1️⃣ TransformerLens: Introduction'),     (section_2, '2️⃣ Finding induction heads'),     (section_3, '3️⃣ TransformerLens: Hooks'),     (section_4, '4️⃣ Reverse-engineering induction circuits'), 
 ]
 
 func_list = [func for func, page in func_page_list]
