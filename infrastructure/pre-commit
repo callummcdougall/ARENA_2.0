@@ -1,0 +1,10 @@
+#!/bin/sh
+CYAN='\033[1;36m'
+NC='\033[0m' # No Color
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+if [ "$branch" = "main" ]; then
+  echo "${CYAN}Please don't commit to main!${NC}\nYou are currently on the main branch. To create a new branch, run: git checkout -b <new branch name>"
+  exit 1
+fi
