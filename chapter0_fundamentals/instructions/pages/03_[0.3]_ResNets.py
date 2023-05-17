@@ -427,7 +427,7 @@ One last thing to discuss before we move onto training our model: **GPUs**. We'l
 * The `to` method is really useful here - it can move objects between different devices (i.e. CPU and GPU) *as well as* changing a tensor's datatype.
     * Note that `to` is never inplace for tensors (i.e. you have to call `x = x.to(device)`), but when working with models, calling `model = model.to(device)` or `model.to(device)` are both perfectly valid.
 * Errors from having one device on cpu and another on cuda are very common. Some useful practices to avoid this:
-    * Throw in assert statements, to make sure tensors are on the same advice
+    * Throw in assert statements, to make sure tensors are on the same device
     * Remember that when you initialise an array (e.g. with `t.zeros` or `t.arange`), it will be on CPU by default.
     * Tensor methods like [`new_zeros`](https://pytorch.org/docs/stable/generated/torch.Tensor.new_zeros.html) or [`new_full`](https://pytorch.org/docs/stable/generated/torch.Tensor.new_full.html) are useful, because they'll create tensors which match the device and dtype of the base tensor.
 
@@ -513,12 +513,26 @@ The formula for cross entropy loss over a batch of size $N$ is:
 
 $$
 \begin{aligned}
-l &= \frac{1}{N} \sum_{i=1}^{N} l_n \\ 
+l &= \frac{1}{N} \sum_{n=1}^{N} l_n \\ 
 l_n &=-\log p_{n, y_{n}}
 \end{aligned}
 $$
 
 where $p_{n, c}$ is the probability the model assigns to class $c$ for sample $n$, and $y_{n}$ is the true label for this sample.
+
+<details>
+<summary>See this dropdown, if you're still confused about this formula, and how this relates to cross entropy.</summary>
+
+The cross entropy between two probability distributions $p$ and $q$ is defined as:
+
+$$
+\begin{aligned}
+H(q, p) &= -\sum_{n} q(n) \log p(n)
+\end{aligned}
+$$
+
+In our case, $q$ is the true distribution (i.e. the one-hot encoded labels, which equals one for $n = y_n$, zero otherwise), and $p$ is our model's output. With these subsitutions, this formula becomes equivalent to the formula for $l$ given above.
+</details>
 
 The function `torch.functional.cross_entropy` expects the **unnormalized logits** as its first input, rather than probabilities. We get probabilities from logits by applying the softmax function:
 
@@ -534,9 +548,12 @@ Some terminology notes:
 
 * When we say **logits**, we mean the output of the model before applying softmax. We can uniquely define a distribution with a set of logits, just like we can define a distribution with a set of probabilities (and sometimes it's easier to think of a distribution in terms of logits, as we'll see later in the course). 
 
-* When we say **unnormalized**, we mean the denominator term $\sum_{c'} \exp(x_{n, c'})$ isn't necessarily equal to 1. We can add a constant value onto all the logits which makes this term 1 without changing any of the actual probabilities, then we have the relation $p_{n, c} = \exp(x_{n, c})$. Here, we call $x_{n, c}$ the **log probabilities** (or log probs), since $x_{n, c} = \log p_{n, c}$.
+* When we say **unnormalized**, we mean the denominator term $\sum_{c'} \exp(x_{n, c'})$ isn't necessarily equal to 1. We can add a constant value onto all the logits which makes this term 1 without changing any of the actual probabilities, then we have the relation $p_{n, c} = \exp(-l_{n, c})$. Here, we call $-l_{n, c}$ the **log probabilities** (or log probs), since $-l_{n, c} = \log p_{n, c}$.
 
-If you're interested in the intuition behind cross entropy as a loss function, see [this post on KL divergence](https://www.lesswrong.com/posts/no5jDTut5Byjqb4j5/six-and-a-half-intuitions-for-kl-divergence) (note that KL divergence and cross entropy differ by an amount which is independent of our model's predictions, so minimizing cross entropy is equivalent to minimizing KL divergence).
+If you're interested in the intuition behind cross entropy as a loss function, see [this post on KL divergence](https://www.lesswrong.com/posts/no5jDTut5Byjqb4j5/six-and-a-half-intuitions-for-kl-divergence) (note that KL divergence and cross entropy differ by an amount which is independent of our model's predictions, so minimizing cross entropy is equivalent to minimizing KL divergence). Also see these two videos:
+
+* [Intuitively Understanding the Cross Entropy Loss](https://www.youtube.com/watch?v=Pwgpl9mKars&amp;ab_channel=AdianLiusie)
+* [Intuitively Understanding the KL Divergence](https://www.youtube.com/watch?v=SxGYPqCgJWM&amp;ab_channel=AdianLiusie)
 
 
 ## PyTorch Lightning
