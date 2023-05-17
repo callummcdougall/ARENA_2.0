@@ -103,7 +103,7 @@ from dataclasses import dataclass
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from PIL import Image
 from IPython.display import display
 from pathlib import Path
@@ -563,7 +563,7 @@ This training loop is perfectly servicable for the simple task we were trying to
 
 PyTorch Lightning is a library that provides a high-level interface for training PyTorch models. It's designed to remove boilerplate code during a training loop. It's also designed to be compatible with other libraries, such as `wandb` (which we'll look at tomorrow).
 
-Rather than including parts like backpropogation, training step, testing step all within the same loop, it provides a more modular approach. The base module `lightning.pytorch.LightningModule` defines a full system (which includes a model and a protocol for training it). The two most important methods when using this module are:
+Rather than including parts like backpropogation, training step and testing step all within the same loop, it provides a more modular approach. The base module `lightning.pytorch.LightningModule` defines a full system (which includes a model and a protocol for training it). The two most important methods when using this module are:
 
 * `training_step` - defines what happens during a training step (for a single batch)
     * This is the most important method
@@ -1119,7 +1119,7 @@ The `Sequential` implementation below doesn't allow the input to be an OrderedDi
 
 ```python
 class Sequential(nn.Module):
-    _modules: OrderedDict[str, nn.Module]
+    _modules: Dict[str, nn.Module]
 
     def __init__(self, *modules: nn.Module):
         super().__init__()

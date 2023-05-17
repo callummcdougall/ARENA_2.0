@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from PIL import Image
 from IPython.display import display
 from pathlib import Path
@@ -364,7 +364,7 @@ if MAIN:
 # %% 2️⃣ ASSEMBLING RESNET
 
 class Sequential(nn.Module):
-	_modules: OrderedDict[str, nn.Module]
+	_modules: Dict[str, nn.Module]
 
 	def __init__(self, *modules: nn.Module):
 		super().__init__()
