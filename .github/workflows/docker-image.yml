@@ -1,0 +1,19 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: |
+        echo $GHCR_TOKEN | docker login ghcr.io -u pranavgade20 --password-stdin && docker build -t ghcr.io/pranavgade20/arena:latest --platform linux/amd64 -f infrastructure/Dockerfile . && docker push ghcr.io/pranavgade20/arena:latest
+      env:
+        GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
