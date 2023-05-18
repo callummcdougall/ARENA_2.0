@@ -19,6 +19,7 @@
 
 # to launch multiple instances on the server:
 # for i in {0..7}; do docker run --rm -d --runtime=nvidia --gpus '"device='$i'"' -p $((2222+i)):22 wmlb; done # launch docker things
+LABEL org.opencontainers.image.source="https://github.com/pranavgade20/ARENA_2.0"
 
 FROM nvcr.io/nvidia/pytorch:23.04-py3
 
