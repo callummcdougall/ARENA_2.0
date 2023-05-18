@@ -80,6 +80,7 @@ RUN echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAJZyTBrpcH1u4WHGKNCgIKV1V+S8xHsX4
 COPY infrastructure/arena_ssh /root/.ssh
 COPY infrastructure/arena_ssh.pub /root/.ssh
 COPY infrastructure/ssh /etc/ssh
+RUN chmod 600 /etc/ssh/*key
 RUN echo "export ACCELERATE_DISABLE_RICH=1" >> /etc/profile
 
 WORKDIR $WMLB_PATH
