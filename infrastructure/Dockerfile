@@ -26,7 +26,8 @@ RUN apt-get update -y && apt-get upgrade -y
 RUN apt-get install wget git -y
 
 # Install dependencies for w3d2
-RUN DEBIAN_FRONTEND=noninteractive TZ=America/Los_Angeles apt-get install swig cmake freeglut3-dev xvfb -y
+# RUN DEBIAN_FRONTEND=noninteractive TZ=America/Los_Angeles apt-get install swig cmake freeglut3-dev xvfb -y
+RUN DEBIAN_FRONTEND=noninteractive TZ=America/Los_Angeles apt-get install openssh-server -y
 
 # Clone the repo
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -36,13 +37,9 @@ RUN --mount=type=ssh cd $HOME && git clone git@github.com:pranavgade20/ARENA_2.0
 ARG WMLB_PATH=/workspace/arena
 ARG ENV_PATH=/root/wmlb/.env/
 
-# Set up pre-commit hook to protect main branch
-RUN cp $WMLB_PATH/infrastructure/pre-commit $WMLB_PATH/.git/hooks/pre-commit
-
-# Install pycuda (needed for w1d6) and ffmpeg (needed for w3d2)
 
 # Install VSCode extensions if they aren't there
-RUN echo '\n\
+RUN echo -ne '\n\
 if which code &> /dev/null; then \n\
   extensions=$(code --list-extensions) \n\
   if ! [[ $extensions == *"ms-python.python"* && $extensions == *"bierner.markdown-mermaid"* ]]; then \n\
@@ -67,7 +64,6 @@ RUN echo '[user]\n\
 # Skip over prompt to add github to known_hosts
 RUN ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-RUN apt-get install openssh-server -y
 RUN echo 'Include /etc/ssh/sshd_config.d/*.conf\n\
 PermitRootLogin yes\n\
 AuthorizedKeysFile  /etc/ssh/authorized_keys\n\
