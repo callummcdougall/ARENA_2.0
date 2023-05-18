@@ -7,7 +7,7 @@ if [ $# -lt 1 ]; then
 fi
 
 # Default SSH key if not provided, check if file exists
-SSH_KEY=${2:-~/.ssh/wmlb_ssh}
+SSH_KEY=${2:-~/.ssh/id_rsa}
 echo "Using SSH key: $SSH_KEY"
 
 if [ ! -f "$SSH_KEY" ]; then
@@ -19,19 +19,19 @@ fi
 ssh-keyscan -H $1 >> ~/.ssh/known_hosts
 
 # Copy gituhb ssh key to the remote machine
-scp $SSH_KEY ubuntu@$1:/home/ubuntu/.ssh/wmlb_ssh
+scp arena_ssh paperspace@$1:/home/paperspace/.ssh/arena_ssh
 
 # Install nvidia-container-toolkit and nvidia-container-runtime
-ssh ubuntu@$1 'bash -s' < docker-provision-on-instance-part-1.sh 
+ssh paperspace@$1 'bash -s' < docker-provision-on-instance-part-1.sh 
 
 # The above will reboot the instance; wait until it's back up to finish
-ssh -q ubuntu@$1 exit
+ssh -q paperspace@$1 exit
 until [ $? -eq 0 ]
   do
     echo 'Waiting until the instance has restarted...'
     sleep 2
-    ssh -q ubuntu@$1 exit
+    ssh -q paperspace@$1 exit
   done
 
 # Pull the wmlbredwood/wmlb image and start one or two containers
-ssh ubuntu@$1 'bash -s' < docker-provision-on-instance-part-2.sh
+ssh paperspace@$1 'bash -s' < docker-provision-on-instance-part-2.sh

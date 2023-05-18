@@ -31,11 +31,14 @@ RUN DEBIAN_FRONTEND=noninteractive TZ=America/Los_Angeles apt-get install openss
 
 # Clone the repo
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-RUN --mount=type=ssh cd $HOME && git clone git@github.com:pranavgade20/ARENA_2.0.git
+
+COPY infrastructure/arena_ssh /root/.ssh/
+RUN pwd && find ~/.ssh && chmod 0600 ~/.ssh/arena_ssh  # just in case perms were messed up
+COPY infrastructure/arena_ssh.pub /root/.ssh/
+RUN cd $HOME && GIT_SSH_COMMAND='ssh -i /root/.ssh/arena_ssh -o IdentitiesOnly=yes' git clone git@github.com:pranavgade20/ARENA_2.0.git
 
 # Install the repo dependencies
-ARG WMLB_PATH=/workspace/arena
-ARG ENV_PATH=/root/wmlb/.env/
+ARG ENV_PATH=~/ARENA_2.0/.env/
 
 
 # Install VSCode extensions if they aren't there
@@ -77,12 +80,8 @@ AcceptEnv LANG LC_*\n\
 Subsystem       sftp    /usr/lib/openssh/sftp-server' > /etc/ssh/sshd_config
 RUN mkdir /run/sshd
 RUN echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAJZyTBrpcH1u4WHGKNCgIKV1V+S8xHsX4Z+OWd4c0Zq pranavgade20+wmlb@gmail.com' > /etc/ssh/authorized_keys
-COPY infrastructure/arena_ssh /root/.ssh
-COPY infrastructure/arena_ssh.pub /root/.ssh
 COPY infrastructure/ssh /etc/ssh
 RUN chmod 600 /etc/ssh/*key
 RUN echo "export ACCELERATE_DISABLE_RICH=1" >> /etc/profile
-
-WORKDIR $WMLB_PATH
 
 CMD /usr/sbin/sshd -D
