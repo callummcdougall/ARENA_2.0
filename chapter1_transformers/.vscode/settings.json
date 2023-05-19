@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/exercises/part6_othellogpt/othello_world/mechanistic_interpretability",
+        "${workspaceFolder}/exercises",
+    ]
+}
