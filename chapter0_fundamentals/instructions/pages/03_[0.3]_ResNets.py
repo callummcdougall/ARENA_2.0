@@ -1161,7 +1161,14 @@ The reason we have a different name for this is to describe how it is treated by
 
 This is your first implementation that needs to care about the value of `self.training`, which is set to True by default, and can be set to False by `self.eval()` or to True by `self.train()`.
 
-In training mode, you should use the mean and variance of the batch you're on, but you should also update a stored `running_mean` and `running_var` on each call to `forward` using the "momentum" argument as described in the PyTorch docs. Your `running_mean` shuld be intialized as all zeros; your `running_var` should be initialized as all ones.
+In training mode, you should use the mean and variance of the batch you're on, but you should also update a stored `running_mean` and `running_var` on each call to `forward` using the "momentum" argument as described in the PyTorch docs. Your `running_mean` shuld be intialized as all zeros; your `running_var` should be initialized as all ones. Also, you should keep track of `num_batches_tracked`.
+
+<details>
+<summary>Aside on <code>num_batches_tracked</code> (optional, unimportant)</summary>
+
+PyTorch uses this to calculate momentum for calculation of the moving averages in the event that the module is intialized with `momentum=None`, although you don't need to worry about this because you can assume that the momentum parameter will always be a float in our use cases; we're just keeping track of `num_batches_tracked` to be consistent with PyTorch's version of BatchNorm2d, and to make sure that our state dictionaries have the same items.
+
+</details>
 
 In eval mode, you should use the running mean and variance that you stored before (not the mean and variance from the current batch).
 
@@ -1182,9 +1189,9 @@ Implement `BatchNorm2d` according to the [PyTorch docs](https://pytorch.org/docs
 
 ```python
 class BatchNorm2d(nn.Module):
-    running_mean: Float[T, "num_features"]
-    running_var: Float[T, "num_features"]
-    num_batches_tracked: Int[T, ""]
+    running_mean: Float[t.Tensor, "num_features"]
+    running_var: Float[t.Tensor, "num_features"]
+    num_batches_tracked: Int[t.Tensor, ""]
 
     def __init__(self, num_features: int, eps=1e-05, momentum=0.1):
         '''
@@ -1265,9 +1272,9 @@ class AveragePool(nn.Module):
 ```
 ```python
 class BatchNorm2d(nn.Module):
-    running_mean: Float[T, "num_features"]
-    running_var: Float[T, "num_features"]
-    num_batches_tracked: Int[T, ""]
+    running_mean: Float[t.Tensor, "num_features"]
+    running_var: Float[t.Tensor, "num_features"]
+    num_batches_tracked: Int[t.Tensor, ""]
 
     def __init__(self, num_features: int, eps=1e-05, momentum=0.1):
         '''
@@ -1360,7 +1367,7 @@ The right-most block in the diagram, `ResidualBlock`, is nested inside `BlockGro
 Similarly, `BlockGroup` is nested multiple times (four to be precise) in the full `ResNet34` architecture.
 </details>
 
-<img src="https://mermaid.ink/svg/pako:eNqNU8FuozAQ_RXLZ5pCUm2laBUpLmo2UpZUlGgPJgcXTxu0YCNjV6mq_vvaODQlqbSxwAzPb2b8xuN3XEgOeIpfFGt2KItzgexozZMHcmwfjw3wFNoE9OTmuOQGLxUUupQCZWS4shSN0bSbfz6p2RZdXc0seCfFK73d3yJnuIUfN6jYMSGgagPUalVyQOOeTRJKmC52iVR1j6Ww2lA39cCDlBWd7CfoN9s720V9HAQilSz-LpQ0TUu_2I4YBigK0Gg0ClDiyfNXUOwFXKTu_75iWoPo7FUpgCnqP9b9ehaFYYik0VZm6_3XRh8rAYLn4ptqHndxaT3JYil8OX2aOCW2Cm3JDau6aE7Nn2X2C8nGBWAVapg6kFMSDsln2nvv9Sb7LgBZWFnUvtv_axskuljeUB3p-sSfIu965YCTJDptCdcLR6cxHbDHp-w5572XGX_po5ScKzzZoK97lyWm64dsuU7mK1e4aB-h873GJP7MPaCf7-ikqAcDB7gGVbOS2-v67uAc6x3UkOOpNTk8M1Npd1s_LJUZLR_fRIGnWhkIsGk40xCXzJ5KjafPrGrh4x-ZkTKg" width="900">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet_diagram.svg" width="900">
 
 
 
@@ -1972,8 +1979,6 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#what-is-feature-extraction'>What is feature extraction?</a></li>
-    <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-prepare-resnet-for-feature-extraction'><b>Exercise</b> - prepare ResNet for feature extraction</a></li>
         <li><a class='contents-el' href='#exercise-write-training-loop-for-feature-extraction'><b>Exercise</b> - write training loop for feature extraction</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -1995,27 +2000,13 @@ Now that you've seen how to build a training loop using PyTorch lightning, and y
 
 The specific type of finetuning we'll be doing here is called **feature extraction**. This is when we freeze most layers of a model except the last few, and perform gradient descent on those. We call this feature extraction because the earlier layers of the model have already learned to identify important features of the data (and these features are also relevant for the new task), so all that we have to do is train a few final layers in the model to extract these features. 
 
-*Terminology note - sometimes feature extraction and finetuning are defined differently; finetuning can refer to the training of all the weights in a pretrained model (usually with a small or decaying learning rate), while feature extraction refers to the freezing of some layers and training of others. However, we'll just use the broad descriptor of "fine-tuning" for both.*
-
-
-## What is feature extraction?
-
-
-Now that you've seen how to build a training loop using PyTorch lightning, and you've seen how ResNet works and is built, we're going to put these two things together to perform feature extraction on a ResNet model.
-
-**Feature extraction** is when we freeze most layers of a model except the last few, and perform gradient descent on these last few. We call this feature extraction because the earlier layers of the model have already learned to identify important features of the data (and these features are also relevant for the new task), so all that we have to do is train a few final layers in the model to extract these features. 
+*Terminology note - sometimes feature extraction and finetuning are defined differently, with finetuning referring to the training of all the weights in a pretrained model (usually with a small or decaying learning rate), and feature extraction referring to the freezing of some layers and training of others. To avoid confusion here, we'll use the term "feature extraction" rather than "finetuning".*
 
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/feature_extraction.png" width="400">
 
 
-<details>
-<summary>Terminology note - finetuning vs feature extraction</summary>
-
-**Finetuning** is the broad name for the practice of using the weights of an already trained network as the starting values for training a new network. Sometimes feature extraction is defined as a type of finetuning; sometimes finetuning is defined as updating *all* the weights of a pretrained network rather than just the final layer/layers. When we finetune large language models later in the course, this distinction won't matter, because we generally don't do feature extraction for language models in the same way as for vision models.*
-
-</details>
-
+How do we prepare a model for feature extraction? By **freezing layers** of our model.
 
 We'll discuss freezing layers & the backpropagation algorithm in much more detail tomorrow, but for now it's fine to just understand what's going on at a basic level. When we call `loss.backward()` in our training loop (or when this is implicitly called by our PyTorch Lightning trainer), this propagates gradients from our `loss` scalar back to all parameters in our model. If a parameter has its `requires_grad` attribute set to `False`, it means gradients won't be computed for this tensor during backpropagation. Thanks to PyTorch helpfully keeping track of the parameters which require gradients (using a structure called the **computational graph**), if we set `requires_grad = False` for the first few layers of parameters in our model, PyTorch will actually save us time and compute by not calculating gradients for these parameters at all.
 
@@ -2071,6 +2062,43 @@ if MAIN:
 
 ```
 
+<details>
+<summary>Solution</summary>
+
+
+```python
+def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
+    '''
+    Creates a ResNet34 instance, replaces its final linear layer with a classifier
+    for `n_classes` classes, and freezes all weights except the ones in this layer.
+
+    Returns the ResNet model.
+    '''
+    # SOLUTION
+
+    # Create a ResNet34 with the default number of classes
+    my_resnet = ResNet34()
+
+    # Load the pretrained weights
+    pretrained_resnet = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+
+    # Copy the weights over
+    my_resnet = copy_weights(my_resnet, pretrained_resnet)
+
+    # Freeze gradients for all layers (note that when we redefine the last layer, it will be unfrozen)
+    my_resnet.requires_grad_(False)    
+
+    # Redefine last layer
+    my_resnet.out_layers[-1] = Linear(
+        my_resnet.out_features_per_group[-1],
+        n_classes
+    )
+
+    return my_resnet
+```
+</details>
+
+
 We'll now give you some boilerplate code to load in and transform your data (this code should be quite familiar to you from the code in section 1).
 
 
@@ -2120,7 +2148,7 @@ You should spend up to 20-25 minutes on this exercise.
 ```
 
 
-Your task is to write a PyTorch Lightning training loop for your ResNet model. Most of this will be exactly the same as for your CNN, except that you'll be swapping out your `ConvNet` for `ResNet34`. There are two main changes you'll have to make, which are specific to the finetuning problem:
+Your task is to write a PyTorch Lightning training loop for your ResNet model. Most of this will be exactly the same as for your CNN, except that you'll be swapping out your `ConvNet` for `ResNet34`. There are two main changes you'll have to make, which are specific to the feature extraction problem:
 
 * In the `__init__` method, you'll need to define your model using the `get_resnet_for_feature_extraction` function you wrote above.
 * You'll need to define an optimizer to work just on your final linear layer. You can do this by passing a submodule's parameters to the optimizer, rather than the entire model (e.g. `Adam(self.resnet.fc.parameters(), ...)`).

@@ -388,9 +388,9 @@ class Sequential(nn.Module):
 # %%
 
 class BatchNorm2d(nn.Module):
-	running_mean: Float[T, "num_features"]
-	running_var: Float[T, "num_features"]
-	num_batches_tracked: Int[T, ""]
+	running_mean: Float[t.Tensor, "num_features"]
+	running_var: Float[t.Tensor, "num_features"]
+	num_batches_tracked: Int[t.Tensor, ""]
 
 	def __init__(self, num_features: int, eps=1e-05, momentum=0.1):
 		'''

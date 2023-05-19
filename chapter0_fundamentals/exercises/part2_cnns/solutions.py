@@ -722,6 +722,7 @@ class Flatten(nn.Module):
 		end_dim = self.end_dim if self.end_dim >= 0 else len(shape) + self.end_dim
 
 		shape_left = shape[:start_dim]
+		# shape_middle = t.prod(t.tensor(shape[start_dim : end_dim+1])).item()
 		shape_middle = functools.reduce(lambda x, y: x*y, shape[start_dim : end_dim+1])
 		shape_right = shape[end_dim+1:]
 
