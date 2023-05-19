@@ -47,7 +47,7 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#using-gpt-to-understand-code'>Using GPT to understand code</a></li>
     <li class='margtop'><a class='contents-el' href='#10d-rays'>2D Rays</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise-implement-make-rays-10d'><b>Exercise</b> - implement <code>make_rays_2d</code></a></li>
+        <li><a class='contents-el' href='#exercise-implement-make-rays-2d'><b>Exercise</b> - implement <code>make_rays_2d</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#triangle-coordinates'>Triangle Coordinates</a></li>
     <li><ul class="contents">

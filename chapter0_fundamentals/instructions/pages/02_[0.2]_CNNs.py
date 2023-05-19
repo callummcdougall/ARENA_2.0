@@ -22,7 +22,7 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#110125-einops-and-einsum'>1️⃣ Einops and Einsum</a></li>
         <li><a class='contents-el' href='#1010125-array-strides'>2️⃣ Array strides</a></li>
@@ -50,6 +50,8 @@ Please send any problems / bugs on the `#errata` channel in the [Slack group](ht
 
 This section is designed to get you familiar with basic neural networks: how they are structured, the basic operations like linear layers and convolutions which go into making them, and why they work as well as they do. You'll be using libraries like `einops`, and functions like `torch.as_strided` to get a very low-level picture of how these operations work, which will help build up your overall understanding.
 
+Note that `torch.as_strided` isn't something which will come up explicitly in much of the rest of the course (unlike `einops`). The purpose of the stride exercises is more to give you an appreciation for what's going on under the hood, so that we can build layers of abstraction on top of that during the rest of this week (and by extension this course). I see this as analogous to how [many CS courses](https://cs50.harvard.edu/x/2023/) start by teaching you about languages like C and concepts like pointers and memory management before moving on to higher-level langauges like Python which abstract away these details. The hope is that when you get to the later sections of the course, you'll have the tools to understand them better.
+
 
 ## Content & Learning Objectives
 
@@ -57,8 +59,6 @@ This section is designed to get you familiar with basic neural networks: how the
 ### 1️⃣ Einops and Einsum
 
 In part 1, we'll go through some basic `einops` and `einsum` exercises. These are designed to get you comfortable with using Einstein summation convention, and why it's useful in tensors. 
-
-This section should take approximately **1 hour** (maybe less if you're already familiar with summation convention)
 
 > ##### Learning objectives
 > 
@@ -69,8 +69,6 @@ This section should take approximately **1 hour** (maybe less if you're already 
 
 `as_strided` is a low-level array method that forces you to engage with the messy details of linear operations like matrix multiplictions and convolutions. Although you probably won't need to use them on a regular basis, they will form an essential part of your toolbox as you build up a neural network from scratch.
 
-This section should take approximately **1-2 hours**.
-
 > ##### Learning objectives
 > 
 > - Understand how array strides work, and why they're important for efficient linear operations
@@ -78,9 +76,7 @@ This section should take approximately **1-2 hours**.
 
 ### 3️⃣ Convolutions
 
-Convolutions are a vital part of image classifiers. In part 3, has you write your own functions to perform 1D and 2D convolutions, using your knowledge of `einsum` and `as_strided` from previous sections.
-
-This section should take **1-2 hours**. If you're confident you understand the basic mechanism of convolutions, and you're pushed for time, you can skip some of the questions in this section.
+Convolutions are a vital part of image classifiers. In part 3, has you write your own functions to perform 1D and 2D convolutions, using your knowledge of `einsum` and `as_strided` from previous sections. This section contains some of the hardest exercises, so if you get stuck then you should be willing to move on to section 4 (which is probably the most important of today's sections).
 
 > ##### Learning objectives
 >
@@ -90,8 +86,6 @@ This section should take **1-2 hours**. If you're confident you understand the b
 ### 4️⃣ Making your own modules
 
 In part 4, we start on some of the exercises that will be built on in day 3. We'll be taking our functions from sections 2 & 3, and using them to create modules which inherit from PyTorch's `nn.Module`. 
-
-Don't worry if you don't get through all of this part; today's exercises are quite long and it's more important to understand them deeply than to rush ahead! If you do get to this section, it should take you approximately **2 hours**.
 
 > ##### Learning objectives
 >
@@ -1820,6 +1814,13 @@ The way multiple channels work is also different. A convolution has some number 
 
 ### Exercise - implement 2D max pooling
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 Implement `maxpool2d` using `torch.as_strided` and `torch.amax` (= max over axes) together. Your version should behave the same as the PyTorch version, but only the indicated arguments need to be supported.
 
 
@@ -2134,6 +2135,8 @@ You should spend up to ~10 minutes on this exercise.
 
 Note that ReLU's constructor has no arguments, so it doesn't need an `extra_repr`.
 
+(Gotcha - [`torch.max`](https://pytorch.org/docs/stable/generated/torch.max.html) and [`torch.maximum`](https://pytorch.org/docs/stable/generated/torch.maximum.html) are not the same thing. Which should you use here?)
+
 
 ```python
 class ReLU(nn.Module):
@@ -2230,6 +2233,7 @@ class Flatten(nn.Module):
         end_dim = self.end_dim if self.end_dim >= 0 else len(shape) + self.end_dim
 
         shape_left = shape[:start_dim]
+        # shape_middle = t.prod(t.tensor(shape[start_dim : end_dim+1])).item()
         shape_middle = functools.reduce(lambda x, y: x*y, shape[start_dim : end_dim+1])
         shape_right = shape[end_dim+1:]
 
