@@ -138,10 +138,6 @@ if question and (not st.session_state["suppress_output"]):
         # Also filter out content to specific sets of exercises, if asked to
         if exercises:
             my_embeddings=my_embeddings.filter(title_filter = lambda x: any([ex.replace(" ", "_") in x for ex in exercises]))
-        st.title("Text")
-        st.write(my_embeddings.texts)
-        st.title("Titles")
-        st.write(my_embeddings.titles)
         if len(my_embeddings) == 0:
             st.error("Warning - your filters are excluding all content from the chatbot's context window.")
             # st.stop()
