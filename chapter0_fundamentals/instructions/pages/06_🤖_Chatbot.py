@@ -19,9 +19,9 @@ while "chapter" in os.getcwd():
     os.chdir("..")
 # Now with this reference point, we can add things to sys.path
 root_suffix = r"\chapter0_fundamentals\instructions" if is_local else "/chapter0_fundamentals/instructions"
-root_dir = os.getcwd() + root_suffix
-root_path = Path(root_dir)
-if root_dir not in sys.path: sys.path.append(root_dir)
+root_path = (Path.cwd() / "chapter0_fundamentals" / "instructions").resolve()
+sys.path.append(str(root_path))
+sys.path.append(str(root_path.parent))
 
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
@@ -34,7 +34,7 @@ names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 
 if "my_embeddings" not in st.session_state:
     path = root_path / "my_embeddings.pkl"
-    with open(path, "rb") as f:
+    with open(str(path), "rb") as f:
         st.session_state["my_embeddings"] = pickle.load(f)
 if "history" not in st.session_state:
     st.session_state["history"] = []
