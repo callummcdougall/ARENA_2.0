@@ -137,12 +137,12 @@ if question and (not st.session_state["suppress_output"]):
             my_embeddings=my_embeddings.filter(title_filter = lambda x: "(solution)" not in x)
         # Also filter out content to specific sets of exercises, if asked to
         if exercises:
-            my_embeddings=my_embeddings.filter(title_filter = lambda x: any([ex.replace("_", " ") in x for ex in exercises]))
+            my_embeddings=my_embeddings.filter(title_filter = lambda x: any([ex.replace(" ", "_") in x for ex in exercises]))
         if len(my_embeddings) == 0:
             st.error("Warning - your filters are excluding all content from the chatbot's context window.")
             # st.stop()
         response = answer_question(
-            my_embeddings=st.session_state["my_embeddings"], 
+            my_embeddings=my_embeddings, 
             question=question, 
             prompt_template="SIMPLE", # "SOURCES", "COMPLEX"
             model=model,
