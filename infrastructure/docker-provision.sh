@@ -34,4 +34,4 @@ fi
 #  done
 
 # Pull the docker image and start a container
- ssh ubuntu@$1 'bash -s' < docker-provision-on-instance-part-2.sh
+ssh ubuntu@$1 'bash -s' < docker-provision-on-instance-part-2.sh

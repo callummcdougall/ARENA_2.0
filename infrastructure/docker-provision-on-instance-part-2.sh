@@ -2,7 +2,7 @@ set -e
 
 sudo setfacl --modify user:ubuntu:rw /var/run/docker.sock
 
-# Add the wmlb_ssh key to the ssh-agent
+# Add the ssh key to the ssh-agent
 chmod 600 ~/.ssh/arena_ssh
 eval "`ssh-agent -s`"
 ssh-add ~/.ssh/arena_ssh
