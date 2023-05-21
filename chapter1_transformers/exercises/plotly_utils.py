@@ -10,11 +10,7 @@ from transformer_lens import utils, HookedTransformer
 from typing import Dict
 import pandas as pd
 from jaxtyping import Float
-from part4_interp_on_algorithmic_model.brackets_datasets import BracketsDataset # type: ignore
 import einops
-
-
-
 
 
 # GENERIC PLOTTING FUNCTIONS
@@ -178,7 +174,7 @@ def plot_failure_types_scatter(
     unbalanced_component_1: Float[Tensor, "batch"],
     unbalanced_component_2: Float[Tensor, "batch"],
     failure_types_dict: Dict[str, Float[Tensor, "batch"]],
-    data: BracketsDataset
+    data
 ):
     failure_types = np.full(len(unbalanced_component_1), "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
@@ -196,7 +192,7 @@ def plot_failure_types_scatter(
     ).update_traces(marker_size=4)
     fig.show()
 
-def plot_contribution_vs_open_proportion(unbalanced_component: Float[Tensor, "batch"], title: str, failure_types_dict: Dict, data: BracketsDataset):
+def plot_contribution_vs_open_proportion(unbalanced_component: Float[Tensor, "batch"], title: str, failure_types_dict: Dict, data):
     failure_types = np.full(len(unbalanced_component), "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
         failure_types = np.where(utils.to_numpy(mask), name, failure_types)
@@ -209,7 +205,7 @@ def plot_contribution_vs_open_proportion(unbalanced_component: Float[Tensor, "ba
 
 def mlp_attribution_scatter(
     out_by_component_in_pre_20_unbalanced_dir: Float[Tensor, "comp batch"], 
-    data: BracketsDataset, failure_types_dict: Dict
+    data, failure_types_dict: Dict
 ) -> None:
     failure_types = np.full(out_by_component_in_pre_20_unbalanced_dir.shape[-1], "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
@@ -227,7 +223,7 @@ def mlp_attribution_scatter(
         ).update_traces(marker_size=4, opacity=0.5).update_layout(legend_title_text='Failure type')
         fig.show()
 
-def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], model: HookedTransformer, data: BracketsDataset, failure_types_dict: Dict, layer: int, renderer=None):
+def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], model: HookedTransformer, data, failure_types_dict: Dict, layer: int, renderer=None):
     
     failure_types = np.full(neurons_in_unbalanced_dir.shape[0], "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
@@ -272,7 +268,7 @@ def plot_attn_pattern(pattern: Float[Tensor, "batch head_idx seqQ seqK"]):
     fig.show()
     
 
-def hists_per_comp(out_by_component_in_unbalanced_dir: Float[Tensor, "component batch"], data: BracketsDataset, xaxis_range=(-1, 1)):
+def hists_per_comp(out_by_component_in_unbalanced_dir: Float[Tensor, "component batch"], data, xaxis_range=(-1, 1)):
     '''
     Plots the contributions in the unbalanced direction, as supplied by the `out_by_component_in_unbalanced_dir` tensor.
     '''

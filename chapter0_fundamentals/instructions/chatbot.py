@@ -84,7 +84,7 @@ class EmbeddingGroup:
                         title += " (solution)"
                     all_titles_and_text.append((title, chunk))
 
-        e = EmbeddingGroup(find_embeddings = True)
+        e = EmbeddingGroup()
         t0 = time.time()
         bar = tqdm(all_titles_and_text)
         for title, text in bar:
@@ -129,7 +129,7 @@ class EmbeddingGroup:
 
     @property
     def embeddings_tensor(self):
-        return t.stack([e.embedding_vector for e in self]) if self.find_embeddings else None
+        return t.stack([e.embedding_vector for e in self])
 
     @property
     def n_tokens(self):
