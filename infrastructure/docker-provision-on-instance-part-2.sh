@@ -1,7 +1,5 @@
 set -e
 
-WMLB_IMAGE=wmlb
-
 sudo setfacl --modify user:paperspace:rw /var/run/docker.sock
 
 # Add the wmlb_ssh key to the ssh-agent
