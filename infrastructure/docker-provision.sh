@@ -6,15 +6,15 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-# Default SSH key if not provided, check if file exists
-SSH_KEY=${2:-~/.ssh/id_rsa}
-echo "Using SSH key: $SSH_KEY"
-
-if [ ! -f "$SSH_KEY" ]; then
-    echo "SSH key does not exist at $SSH_KEY. Please ensure key is provided and re-run script."
-    exit 1
-fi
-
+## Default SSH key if not provided, check if file exists
+#SSH_KEY=${2:-~/.ssh/id_rsa}
+#echo "Using SSH key: $SSH_KEY"
+#
+#if [ ! -f "$SSH_KEY" ]; then
+#    echo "SSH key does not exist at $SSH_KEY. Please ensure key is provided and re-run script."
+#    exit 1
+#fi
+#
 ## Skip over the prompt to add the instance to known_hosts
 #ssh-keyscan -H $1 >> ~/.ssh/known_hosts
 #
@@ -33,5 +33,5 @@ fi
 #    ssh -q ubuntu@$1 exit
 #  done
 
-# Pull the docker image and start a container
+# Pull the wmlbredwood/wmlb image and start one or two containers
 ssh ubuntu@$1 'bash -s' < docker-provision-on-instance-part-2.sh
