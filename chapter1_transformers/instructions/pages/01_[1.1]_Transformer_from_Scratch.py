@@ -136,10 +136,10 @@ from pathlib import Path
 import webbrowser
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter1_transformers"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part1_transformer_from_scratch"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
 # import part1_transformer_from_scratch.solutions as solutions

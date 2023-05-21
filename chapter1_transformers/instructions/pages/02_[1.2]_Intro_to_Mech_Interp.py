@@ -34,7 +34,7 @@ def section_0():
 
     st.markdown(r"""
 
-<img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/circuit.png" width="350">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/lens2.png" width="350">
 
 
 If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
@@ -131,10 +131,10 @@ from transformer_lens import utils, HookedTransformer, HookedTransformerConfig, 
 import circuitsvis as cv
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter1_transformers"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part2_intro_to_mech_interp"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, plot_comp_scores, hist, plot_logit_attribution
 from part1_transformer_from_scratch.solutions import get_log_probs

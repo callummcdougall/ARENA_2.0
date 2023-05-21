@@ -1546,17 +1546,17 @@ You can read the syntax for sweep config dictionaries [here](https://docs.wandb.
 
 
 ```python
-# YOUR CODE HERE - fill `sweep_config`
 
 if MAIN:
     sweep_config = dict()
-    
+    # YOUR CODE HERE - fill `sweep_config`
     tests.test_sweep_config(sweep_config)
 
 ```
 
 <details>
-<summary>Solution </summary>
+<summary>Solution</summary>
+
 
 ```python
 sweep_config = dict(
@@ -1567,10 +1567,8 @@ sweep_config = dict(
         max_epochs = dict(min = 1, max = 4),
         learning_rate = dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values'),
     )
-)
-```
 
-We could equivalently have `max_epochs = dict(values = [1, 2, 3])`.
+```
 </details>
 
 
@@ -1703,7 +1701,7 @@ if MAIN:
     trained_model = LitResNet.load_from_checkpoint(trainer.checkpoint_callback.best_model_path, args=trainer.model.args)
     
     # Check models are identical
-    assert all([(p1 == p2).all() for p1, p2 in zip(model.resnet.parameters(), trained_model.resnet.parameters())])
+    assert all([(p1.to(device) == p2.to(device)).all() for p1, p2 in zip(model.resnet.parameters(), trained_model.resnet.parameters())])
 
 ```
 
