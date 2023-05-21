@@ -83,6 +83,8 @@ COPY infrastructure/ssh /etc/ssh
 RUN chmod 600 /etc/ssh/*key
 RUN echo "export ACCELERATE_DISABLE_RICH=1" >> /etc/profile
 
+WORKDIR /root/
+
 CMD /usr/sbin/sshd -D
 
 LABEL org.opencontainers.image.source="https://github.com/pranavgade20/ARENA_2.0"
