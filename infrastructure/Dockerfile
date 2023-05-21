@@ -34,7 +34,7 @@ RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 COPY infrastructure/arena_ssh /root/.ssh/
 RUN pwd && find ~/.ssh && chmod 0600 ~/.ssh/arena_ssh  # just in case perms were messed up
 COPY infrastructure/arena_ssh.pub /root/.ssh/
-RUN cd $HOME && GIT_SSH_COMMAND='ssh -i /root/.ssh/arena_ssh -o IdentitiesOnly=yes' git clone git@github.com:callummcdougall/ARENA_2.0.git
+RUN cd $HOME && GIT_SSH_COMMAND='ssh -i /root/.ssh/arena_ssh -o IdentitiesOnly=yes' git clone git@github.com:pranavgade20/ARENA_2.0.git
 
 # Install the repo dependencies
 ARG ENV_PATH=~/ARENA_2.0/.env/
@@ -88,4 +88,4 @@ WORKDIR /root/
 
 CMD /usr/sbin/sshd -D
 
-LABEL org.opencontainers.image.source="https://github.com/callummcdougall/ARENA_2.0"
+LABEL org.opencontainers.image.source="https://github.com/pranavgade20/ARENA_2.0"
