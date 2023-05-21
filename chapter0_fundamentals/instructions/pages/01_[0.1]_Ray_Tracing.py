@@ -469,7 +469,6 @@ def intersect_ray_1d(ray: t.Tensor, segment: t.Tensor) -> bool:
     Return True if the ray intersects the segment.
     '''
     # SOLUTION
-
     # Get the x and y coordinates (ignore z)
     ray = ray[..., :2]
     segment = segment[..., :2]
@@ -730,7 +729,6 @@ def intersect_rays_1d(rays: Float[Tensor, "nrays 2 3"], segments: Float[Tensor, 
     For each ray, return True if it intersects any segment.
     '''
     # SOLUTION
-    
     NR = rays.size(0)
     NS = segments.size(0)
 
@@ -885,7 +883,6 @@ def make_rays_2d(num_pixels_y: int, num_pixels_z: int, y_limit: float, z_limit: 
     Returns: shape (num_rays=num_pixels_y * num_pixels_z, num_points=2, num_dims=3).
     '''
     # SOLUTION
-    
     n_pixels = num_pixels_y * num_pixels_z
     ygrid = t.linspace(-y_limit, y_limit, num_pixels_y)
     zgrid = t.linspace(-z_limit, z_limit, num_pixels_z)
@@ -1051,7 +1048,6 @@ def triangle_ray_intersects(A: Point, B: Point, C: Point, O: Point, D: Point) ->
     Return True if the ray and the triangle intersect.
     '''
     # SOLUTION
-    
     s, u, v = t.linalg.solve(
         t.stack([-D, B - A, C - A], dim=1), 
         O - A
@@ -1170,7 +1166,6 @@ def raytrace_triangle(
     For each ray, return True if the triangle intersects that ray.
     '''
     # SOLUTION
-    
     NR = rays.size(0)
 
     # Triangle is [[Ax, Ay, Az], [Bx, By, Bz], [Cx, Cy, Cz]]
@@ -1381,7 +1376,6 @@ def raytrace_mesh(
     For each ray, return the distance to the closest intersecting triangle, or infinity.
     '''
     # SOLUTION
-
     NR = rays.size(0)
     NT = triangles.size(0)
 

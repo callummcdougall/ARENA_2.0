@@ -629,10 +629,21 @@ if MAIN:
 
 # %%
 
-# YOUR CODE HERE - fill `sweep_config`
 
 if MAIN:
 	sweep_config = dict()
+	# FLAT SOLUTION
+	# YOUR CODE HERE - fill `sweep_config`
+	sweep_config = dict(
+		method = 'random',
+		metric = dict(name = 'accuracy', goal = 'maximize'),
+		parameters = dict(
+			batch_size = dict(values = [32, 64, 128, 256]),
+			max_epochs = dict(min = 1, max = 4),
+			learning_rate = dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values'),
+		)
+	)
+	# FLAT SOLUTION END
 	
 	tests.test_sweep_config(sweep_config)
 
@@ -673,7 +684,7 @@ if MAIN:
 	trained_model = LitResNet.load_from_checkpoint(trainer.checkpoint_callback.best_model_path, args=trainer.model.args)
 	
 	# Check models are identical
-	assert all([(p1 == p2).all() for p1, p2 in zip(model.resnet.parameters(), trained_model.resnet.parameters())])
+	assert all([(p1.to(device) == p2.to(device)).all() for p1, p2 in zip(model.resnet.parameters(), trained_model.resnet.parameters())])
 
 # %%
 

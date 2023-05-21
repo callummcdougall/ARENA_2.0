@@ -22,10 +22,10 @@ from transformer_lens.hook_points import HookPoint
 from transformer_lens.components import LayerNorm
 
 # Make sure exercises are in the path
-CHAPTER = r"chapter1_transformers"
-EXERCISES_DIR = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/exercises").resolve()
-if str(EXERCISES_DIR) not in sys.path: sys.path.append(str(EXERCISES_DIR))
-os.chdir(EXERCISES_DIR / "part4_interp_on_algorithmic_model")
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part4_interp_on_algorithmic_model"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 import plotly_utils
 from plotly_utils import hist, bar, imshow
@@ -60,7 +60,7 @@ if MAIN:
 	
 	model = HookedTransformer(cfg).eval()
 	
-	state_dict = t.load("brackets_model_state_dict.pt")
+	state_dict = t.load(section_dir / "brackets_model_state_dict.pt")
 	model.load_state_dict(state_dict)
 
 # %%
@@ -117,7 +117,7 @@ if MAIN:
 
 if MAIN:
 	N_SAMPLES = 5000
-	with open("brackets_data.json") as f:
+	with open(section_dir / "brackets_data.json") as f:
 		data_tuples: List[Tuple[str, bool]] = json.load(f)
 		print(f"loaded {len(data_tuples)} examples")
 	assert isinstance(data_tuples, list)
