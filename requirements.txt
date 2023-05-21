@@ -1,6 +1,3 @@
-# Make sure to install the torch dependencies with conda:
-# conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
-
 einops
 requests
 pytest
