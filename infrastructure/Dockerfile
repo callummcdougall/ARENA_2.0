@@ -18,7 +18,7 @@
 # ------------------------------------------------------------------------------------------
 
 # to launch multiple instances on the server:
-# for i in {0..7}; do docker run --rm -d --runtime=nvidia --gpus '"device='$i'"' -p $((2222+i)):22 wmlb; done # launch docker things
+# for i in {0..7}; do docker run --rm -d --runtime=nvidia --gpus '"device='$i'"' -p $((2222+i)):22 arena; done # launch docker things
 FROM nvcr.io/nvidia/pytorch:23.04-py3
 
 RUN apt-get update -y && apt-get upgrade -y
@@ -39,6 +39,7 @@ RUN cd $HOME && GIT_SSH_COMMAND='ssh -i /root/.ssh/arena_ssh -o IdentitiesOnly=y
 # Install the repo dependencies
 ARG ENV_PATH=~/ARENA_2.0/.env/
 
+RUN pip install -r ~/ARENA_2.0/requirements.txt
 
 # Install VSCode extensions if they aren't there
 RUN echo -ne '\n\
@@ -53,12 +54,12 @@ fi \n\
 ' >> ~/.bashrc
 
 # Add the key to ssh-agent
-RUN echo 'chmod 600 ~/.ssh/arena_ssh\n\
+RUN echo -ne 'chmod 600 ~/.ssh/arena_ssh\n\
 eval "`ssh-agent -s`"\n\
 ssh-add ~/.ssh/arena_ssh' >> ~/.bashrc
 
 # Set up .gitconfig
-RUN echo '[user]\n\
+RUN echo -ne '[user]\n\
         name = ARENA Account\n\
         email = pranav@arena.education\n\
 ' > ~/.gitconfig
@@ -66,7 +67,7 @@ RUN echo '[user]\n\
 # Skip over prompt to add github to known_hosts
 RUN ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-RUN echo 'Include /etc/ssh/sshd_config.d/*.conf\n\
+RUN echo -ne 'Include /etc/ssh/sshd_config.d/*.conf\n\
 PermitRootLogin yes\n\
 AuthorizedKeysFile  /etc/ssh/authorized_keys\n\
 PubkeyAuthentication yes\n\
@@ -78,7 +79,7 @@ PrintMotd no\n\
 AcceptEnv LANG LC_*\n\
 Subsystem       sftp    /usr/lib/openssh/sftp-server' > /etc/ssh/sshd_config
 RUN mkdir /run/sshd
-RUN echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAJZyTBrpcH1u4WHGKNCgIKV1V+S8xHsX4Z+OWd4c0Zq pranavgade20+wmlb@gmail.com' > /etc/ssh/authorized_keys
+RUN echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAJZyTBrpcH1u4WHGKNCgIKV1V+S8xHsX4Z+OWd4c0Zq pranavgade20+arena@gmail.com' > /etc/ssh/authorized_keys
 COPY infrastructure/ssh /etc/ssh
 RUN chmod 600 /etc/ssh/*key
 RUN echo "export ACCELERATE_DISABLE_RICH=1" >> /etc/profile
