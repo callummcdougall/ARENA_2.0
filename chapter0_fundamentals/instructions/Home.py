@@ -61,7 +61,7 @@ Some highlights from this chapter include:
 
 ## About this page
 
-This page was made using an app called Streamlit. It's hosted from the prerequisite materials [GitHub repo](https://github.com/callummcdougall/Prerequisite-materials). It provides a very simple way to display markdown, as well as more advanced features like interactive plots and animations. This is how the instructions for each day will be presented.
+This page was made using an app called Streamlit. It's hosted from the main course [GitHub repo](https://github.com/callummcdougall/Prerequisite-materials). It provides a very simple way to display markdown, as well as more advanced features like interactive plots and animations. This is how the instructions for each day will be presented.
 
 On the left, you can see a sidebar (or if it's collapsed, you will be able to see if you click on the small arrow in the top-left to expand it). This sidebar should show a page called `Home` (which is the page you're currently reading), as well as one for each of the different parts of today's exercises.
 
@@ -110,6 +110,132 @@ Once you've cloned the repo and navigated into it (at the root directory), you s
     * Then install the rest of the requirements by navigating running `pip install -r requirements.txt`.
 * To run a set of exercises, navigate to the appropriate `instructions` directory (e.g. `chapter0_fundamentals/instructions`) and run `streamlit run Home.py` in your terminal.
     * This should open up a local copy of the page you're reading right now, and you're good to go!
+
+</details>
+
+Note - if you choose this option, then you may require more compute than your laptop can provide. If you're following this material virtually, you may want to consider a cloud provider such as Lambda Labs or Paperspace.
+
+<details>
+<summary>Setup instructions for Lambda Labs</summary>
+
+Here is a set of instructions for spinning up a Lambda Labs instance, and accessing it via VSCode. We may shortly add more sets of instructions for other cloud providers (since Lambda Labs has finite capacity, and it isn't always possible to find a free instance).
+
+
+
+## Instructions for signing up
+
+Sign up for an account [here](https://lambdalabs.com/service/gpu-cloud).
+
+Add an **SSH key**. Give it a name like `<Firstname><Lastname>` (we will refer to this as `<keyname>` from now on).
+
+When you create it, it will automatically be downloaded. The file should have a `.pem` extension - this is a common container format for keys or certificates.
+
+## VSCode remote-ssh extension
+
+The [**remote ssh extension**](https://code.visualstudio.com/docs/remote/ssh) is very useful for abstracting away some of the messy command-line based details of SSH. You should install this extension now.
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/architecture-ssh.png" width="600">
+
+
+At this point, the instructions differ between Windows and Linux/MacOS.
+
+### Windows
+
+Having installed the SSH extension, Windows may have automatically created a .ssh file for you, and it will be placed in `C:\Users\<user>` by default. If it hasn't done this, then you should create one yourself (you can do this from the Windows command prompt via `md C:\Users\<user>\.ssh`).
+
+Move your downloaded SSH key into this folder. Then, set permissions on the SSH key (i.e. the `.pem` file):
+		
+* Right click on file, press “Properties”, then go to the “Security” tab.
+* Click “Advanced”, then “Disable inheritance” in the window that pops up.
+    
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/instruction1.png" width="500">
+
+* Choose the first option “Convert inherited permissions…”
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/instruction2.png" width="500">
+
+* Go back to the “Security” tab, click "Edit" to change permissions, and remove every user except the owner.
+    * You can check who the owner is by going back to "Security -> Advanced" and looking for the "Owner" field at the top of the window).
+
+### Linux / MacOS
+
+* Make your `.ssh` directory using the commands `mkdir -p ~/.ssh` then `chmod 700 ~/.ssh`.
+* Set permissions on the key: `chmod 600 ~/.ssh/<keyname>.pem`
+
+## Launch your instance
+
+Go back to the Lambda Labs page, go to "instances", and click "Launch instance".
+
+You'll see several options, some of them might be greyed out if unavailable. Pick a cheap one (we're only interested in testing this at the moment, and at any rate even a relatively cheap one will probably be more powerful than the one you're currently using in your laptop). 
+
+Enter your SSH key name. Choose a region (your choice here doesn't really matter for our purposes).
+
+Once you finish this process, you should see your GPU instance is running:
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/gpu_instance.png" width="700">
+
+You should also see an SSH LOGIN field, which will look something like: `ssh ubuntu@<ip-address>`.
+
+## Set up your config file
+
+Setting up a **config file** remove the need to use long command line arguments, e.g. `ssh -i ~/.ssh/<keyname>.pem ubuntu@instance-ip-address`.
+
+
+
+Click on the <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/vscode-ssh.png" width="35"> button in the bottom left, choose "Open SSH Configuration File...", then click <code>C:\\Users\\<user>\\.ssh\\config</code>.
+
+An empty config file will open. You should copy in the following instructions:
+
+```c
+Host <ip-address>
+    IdentityFile C:\Users\<user>\.ssh\<keyname>.pem
+    User <user>
+```
+
+where the IP address and user come from the **SSH LOGIN** field in the table, and the identity file is the path of your SSH key. For instance, the file I would use (corresponding to the table posted above) looks like:
+
+```c
+Host <ip-address>
+    IdentityFile C:\Users\<user>\.ssh\<keyname>.pem
+    User <user>
+```
+
+## Connect to your instance
+
+Click the green button <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/vscode-ssh.png" width="35"> again, and choose "Connect to Host...". Your IP address should appear as one of the hosts. Choose this option.
+
+A new VSCode window will open up. If you're asked if you want to install the recommended extensions for Python, click yes. If you're asked to choose an OS (Windows, Mac or Linux), choose Linux.
+
+Click on the file explorer icon in the top-left, and open the directory `ubuntu` (or whichever directory you want to use as your working directory in this machine). 
+
+And there you go - you're all set! 
+
+To check your GPU is working, you can open a Python or Notebook file and run `!nvidia-smi`. You should see GPU information which matches the machine you chose from the Lambda Labs website, and is different from the result you get from running this command on your local machine. 
+
+Another way to check out your GPU For instance is to run the PyTorch code `torch.cuda.get_device_name()`. For example, this is what I see after SSHing in:
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/gpu_type.png" width="500">
+<br>
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/gpu_type_2.png" width="450">
+
+You can also use `torch.cuda.get_device_properties` (which takes your device as an argument).
+
+Once you've verified this is working, you can start running code on GPUs. The easiest way to do this is just to drag and drop your files into the file explorer window on the left hand side.
+
+You'll also need to choose a Python interpreter. Choose the conda or miniconda one if it's available, if not then choose the top-listed version. You'll probably need to `%pip install` some libraries.
+
+For convenience, here is a list of libraries I've had to pip-install when spinning up a Lambda Labs VM, during the indirect object identification exercises (which forms a superset of all the libraries you'll need for the first two chapters). If you're working on material from the first chapter, you can leave out the circuitsvis and transformer_lens libraries (as well as protobuf, which fixes an error I sometimes get from the transformer_lens library). Lastly, if my circuitsvis fork (which allows you to label the attention heads you plot) isn't working, you can replace it with `pip install circuitsvis`.
+
+```python
+%pip install plotly
+%pip install wandb
+%pip install pytorch-lightning
+%pip install jaxtyping
+%pip install einops
+%pip install git+https://github.com/callummcdougall/CircuitsVis.git#subdirectory=python
+%pip install transformer_lens
+%pip install protobuf==3.20.*
+```
 
 </details>
 
