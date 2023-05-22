@@ -17,6 +17,8 @@ from IPython.display import display
 from jaxtyping import Float, Int, Bool, Shaped, jaxtyped
 import typeguard
 
+import utils
+
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
@@ -58,7 +60,7 @@ def make_rays_1d(num_pixels: int, y_limit: float) -> t.Tensor:
     '''
     r = t.zeros((num_pixels, 2, 3))
     r[:, 1, 0] = 1
-    r[:, 1, 1] = t.linspace(-y_limit, y_limit, steps=num_pixels)
+    t.linspace(-y_limit, y_limit, steps=num_pixels, out=r[:, 1, 1])
     debug(r)
     return r
 
@@ -70,3 +72,61 @@ if MAIN:
     fig = render_lines_with_plotly(rays1d)
 
 # %%
+
+if MAIN:
+    fig = setup_widget_fig_ray()
+    display(fig)
+
+@interact
+def response(seed=(0, 10, 1), v=(-2.0, 2.0, 0.01)):
+    t.manual_seed(seed)
+    L_1, L_2 = t.rand(2, 2)
+    P = lambda v: L_1 + v * (L_2 - L_1)
+    x, y = zip(P(-2), P(2))
+    with fig.batch_update(): 
+        fig.data[0].update({"x": x, "y": y}) 
+        fig.data[1].update({"x": [L_1[0], L_2[0]], "y": [L_1[1], L_2[1]]}) 
+        fig.data[2].update({"x": [P(v)[0]], "y": [P(v)[1]]})
+
+# %%
+
+segments = t.tensor([
+    [[1.0, -12.0, 0.0], [1, -6.0, 0.0]], 
+    [[0.5, 0.1, 0.0], [0.5, 1.15, 0.0]], 
+    [[2, 12.0, 0.0], [2, 21.0, 0.0]]
+])
+
+utils.render_lines_with_plotly(rays1d, segments)
+
+# %%
+def intersect_ray_1d(ray: t.Tensor, segment: t.Tensor) -> bool:
+    '''
+    ray: shape (n_points=2, n_dim=3)  # O, D points
+    segment: shape (n_points=2, n_dim=3)  # L_1, L_2 points
+
+    Return True if the ray intersects the segment.
+    '''
+    O = ray[0, :2]
+    D = ray[1, :2]
+    L1 = segment[0, :2]
+    L2 = segment[1, :2]
+
+    right = L1 - O
+    left = t.stack([D, L1 - L2], dim=1)
+
+    try:
+        X = t.linalg.solve(left, right)
+    except RuntimeError:
+        return False
+
+    u, v = X
+    return u >= 0 and 0 <= v <= 1
+
+
+if MAIN:
+    tests.test_intersect_ray_1d(intersect_ray_1d)
+    tests.test_intersect_ray_1d_special_case(intersect_ray_1d)
+
+# %%
+
+
