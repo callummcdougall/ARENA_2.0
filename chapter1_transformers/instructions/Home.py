@@ -141,7 +141,7 @@ Sign up for an account [here](https://lambdalabs.com/service/gpu-cloud).
 
 Add an **SSH key**. Give it a name like `<Firstname><Lastname>` (we will refer to this as `<keyname>` from now on).
 
-When you create it, it will automatically be downloaded. The file should have a `.pem` extension - this is a common container format for keys or certificates.
+When you create it, it will automatically be downloaded. The file may have a `.pem` extension - this is a common container format for keys or certificates.
 
 ## VSCode remote-ssh extension
 
@@ -156,7 +156,7 @@ At this point, the instructions differ between Windows and Linux/MacOS.
 
 Having installed the SSH extension, Windows may have automatically created a .ssh file for you, and it will be placed in `C:\Users\<user>` by default. If it hasn't done this, then you should create one yourself (you can do this from the Windows command prompt via `md C:\Users\<user>\.ssh`).
 
-Move your downloaded SSH key into this folder. Then, set permissions on the SSH key (i.e. the `.pem` file):
+Move your downloaded SSH key into this folder. Then, set permissions on the SSH key:
 		
 * Right click on file, press “Properties”, then go to the “Security” tab.
 * Click “Advanced”, then “Disable inheritance” in the window that pops up.
@@ -173,7 +173,7 @@ Move your downloaded SSH key into this folder. Then, set permissions on the SSH 
 #### Linux / MacOS
 
 * Make your `.ssh` directory using the commands `mkdir -p ~/.ssh` then `chmod 700 ~/.ssh`.
-* Set permissions on the key: `chmod 600 ~/.ssh/<keyname>.pem`
+* Set permissions on the key: `chmod 600 ~/.ssh/<keyname>`
 
 ## Launch your instance
 
@@ -200,6 +200,7 @@ Once you've got to this stage, you can proceed with either option α or β below
 5. Reboot your instance with `sudo reboot`
 6. Reconnect with step 1; navigate to the infrastructure folder with `cd ARENA_2.0/infrastructure`; and run the second part of the setup script: `bash docker-provision-on-instance-part-1.sh`
 7. Set up your config file:
+
 ```c
 Host arena2
     HostName <ip-address>
@@ -208,9 +209,11 @@ Host arena2
     Port 2222
 ```
 
+**Make sure the IdentityFile points to your SSH key, and that you've swapped `<ip-address>`, `<user>` and `<keyname>` for your own values.**
+
 ## Option β: Pip
 
-Setting up a **config file** remove the need to use long command line arguments, e.g. `ssh -i ~/.ssh/<keyname>.pem ubuntu@instance-ip-address`.
+Setting up a **config file** remove the need to use long command line arguments, e.g. `ssh -i ~/.ssh/<keyname> ubuntu@instance-ip-address`.
 
 Click on the <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/vscode-ssh.png" width="35"> button in the bottom left, choose "Open SSH Configuration File...", then click <code>C:\\Users\\<user>\\.ssh\\config</code>.
 
@@ -218,7 +221,7 @@ An empty config file will open. You should copy in the following instructions:
 
 ```c
 Host <ip-address>
-    IdentityFile C:\Users\<user>\.ssh\<keyname>.pem
+    IdentityFile C:\Users\<user>\.ssh\<keyname>
     User <user>
 ```
 
@@ -226,7 +229,7 @@ where the IP address and user come from the **SSH LOGIN** field in the table, an
 
 ```c
 Host <ip-address>
-    IdentityFile C:\Users\<user>\.ssh\<keyname>.pem
+    IdentityFile C:\Users\<user>\.ssh\<keyname>
     User <user>
 ```
 
