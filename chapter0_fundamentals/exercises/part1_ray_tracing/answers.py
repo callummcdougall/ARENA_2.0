@@ -281,7 +281,11 @@ if MAIN:
     y_limit = z_limit = 1
 
     rays = make_rays_2d(num_pixels_y, num_pixels_z, y_limit, z_limit)
+	# Returns: shape (num_rays=num_pixels_y * num_pixels_z, num_points=2, num_dims=3).
+    rot = t.tensor([[0, 0, 1], [0, 1, 0], [1, 0, 0]], dtype=t.float32)
     rays[:, 0] = t.tensor([-2.5, 0.0, 0.0])
+    rays = rays @ rot
+    # rays = einops.einsum(rays, rot, "nrays npoints ndims, x y -> ")
     dists = raytrace_mesh(rays, triangles)
     intersects = t.isfinite(dists).view(num_pixels_y, num_pixels_z)
     dists_square = dists.view(num_pixels_y, num_pixels_z)
