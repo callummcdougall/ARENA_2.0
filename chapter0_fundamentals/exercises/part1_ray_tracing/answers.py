@@ -203,16 +203,16 @@ def intersect_rays_1d(rays: Float[Tensor, "nrays 2 3"], segments: Float[Tensor, 
     Ds = einops.repeat(D, "r p -> s r p", s=nsegments, p=spacial_dims, r=nrays)
     
     targets = L1s - Os
-    stacked = t.stack((Ds, L2s - L1s), dim=-1)
+    stacked = t.stack((Ds, L1s - L2s), dim=-1)
     #matrixes = einops.rearrange(stacked, "n d=2 s=2 -> ", )
-    try:
-        X = t.linalg.solve(stacked, targets)
-    except RuntimeError:
-        return False
+    assert stacked.shape == (nsegments, nrays, spacial_dims, 2)
+    singular = t.linalg.matrix_rank(stacked) != min(stacked.shape[-2], stacked.shape[-1])
+    stacked[singular] = t.eye(spacial_dims, 2)
+    X = t.linalg.solve(stacked, targets)
     assert X.shape == (nsegments, nrays, 2), f"{X.shape=}"
     us = X[..., 0]
     vs = X[..., 1]
-    segment_ray_good = (us >= 0) & (0 <= vs) & ( vs <= 1)
+    segment_ray_good = (us >= 0) & (0 <= vs) & ( vs <= 1) & ~singular
     ray_good = segment_ray_good.any(dim=0)
     return ray_good
 
