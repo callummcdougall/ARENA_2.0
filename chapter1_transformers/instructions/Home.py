@@ -84,16 +84,16 @@ First, clone the [GitHub repo](https://github.com/callummcdougall/ARENA_2.0) int
 ```
 .
 ├── chapter0_fundamentals
-├── chapter1_transformers
 │   ├── exercises
-│   │   ├── part1_transformer_from_scratch
+│   │   ├── part1_ray_tracing
 │   │   │   ├── solutions.py
 │   │   │   ├── tests.py
 │   │   │   └── answers.py*
-│   │   ├── part2_intro_to_mech_interp
+│   │   ├── part2_cnns
 │   │   ⋮    ⋮
 │   └── instructions
 │       └── Home.py
+├── chapter1_transformers
 ├── chapter2_rl
 ├── chapter3_training_at_scale
 └── requirements.txt
@@ -101,10 +101,13 @@ First, clone the [GitHub repo](https://github.com/callummcdougall/ARENA_2.0) int
 
 There is a directory for each chapter of the course (e.g. `chapter0_fundamentals`). Each of these directories has an `instructions` folder (which contain the files used to generate the pages you're reading right now) `exercises` folder (where you'll be doing the actual exercises). The latter will contain a subfolder for each day of exercises, and that folder will contain files such as `solutions.py` and `tests.py` (as well as other data sometimes, which gets used as part of the exercises). You'll be completing the exercises in an `answers.py` file in this subfolder (which you'll need to create).
 
-Once you've cloned the repo and navigated into it (at the root directory), you should do the following:
+Once you've cloned the repo and navigated into it (at the root directory), there are two possible ways you can proceed (use the tabs to see both options).
+
+### Option 1A: Conda
 
 * Make & activate a virtual environment.
     * We strongly recommend using `conda` for this. You can install `conda` [here](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), and find basic instructions [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
+    * The command for creating a new env is `conda create --name arena python=3.10`.
 * Install requirements.
     * First, install PyTorch.
         * If you're on Windows, the command is `conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia`.
@@ -113,6 +116,14 @@ Once you've cloned the repo and navigated into it (at the root directory), you s
 * To run a set of exercises, navigate to the appropriate `instructions` directory (e.g. `chapter0_fundamentals/instructions`) and run `streamlit run Home.py` in your terminal.
     * This should open up a local copy of the page you're reading right now, and you're good to go!
 
+### Option 1B: Docker
+
+If you are using linux or WSL, this is the best way to ensure that your environment contains all the relevant dependencies.
+
+1. Install docker using [this guide](https://docs.docker.com/engine/install/), depending on the platform you are using.
+2. Install the [nvidia container runtime](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
+3. Launch the container with `docker run --rm -d --runtime=nvidia --gpus '"device='"0"'"' -p 2222:22 ghcr.io/pranavgade20/arena:latest`.
+        
 </details>
 
 Note - if you choose this option, then you may require more compute than your laptop can provide. If you're following this material virtually, you may want to consider a cloud provider such as Lambda Labs or Paperspace.
@@ -159,7 +170,7 @@ Move your downloaded SSH key into this folder. Then, set permissions on the SSH 
 * Go back to the “Security” tab, click "Edit" to change permissions, and remove every user except the owner.
     * You can check who the owner is by going back to "Security -> Advanced" and looking for the "Owner" field at the top of the window).
 
-### Linux / MacOS
+#### Linux / MacOS
 
 * Make your `.ssh` directory using the commands `mkdir -p ~/.ssh` then `chmod 700 ~/.ssh`.
 * Set permissions on the key: `chmod 600 ~/.ssh/<keyname>.pem`
@@ -178,11 +189,28 @@ Once you finish this process, you should see your GPU instance is running:
 
 You should also see an SSH LOGIN field, which will look something like: `ssh ubuntu@<ip-address>`.
 
-## Set up your config file
+Once you've got to this stage, you can proceed with either option α or β below. After choosing one of them, you can skip to the section "Connect to your instance".
+
+## Option α: Docker
+
+1. Go to https://ssheasy.com/ (or a similar website, or a ssh client like openssh or putty) and enter the IP of your instance in the `Host to connect` field, `ubuntu` in the `User` field, and select the private key for the key you uploaded to lambda labs. We recommend you upload [this file](https://github.com/callummcdougall/ARENA_2.0/blob/main/infrastructure/arena_ssh.pub) to lambda labs, and upload [this file](https://github.com/callummcdougall/ARENA_2.0/blob/main/infrastructure/arena_ssh) to ssheasy.
+2. Clone the repository with `git clone --depth 1 -b main https://github.com/callummcdougall/ARENA_2.0/`
+3. Go to the infrastructure folder with `cd ARENA_2.0/infrastructure`
+4. Run the first part of the setup script: `bash docker-provision-on-instance-part-1.sh`. This will download docker and set up drivers for your GPUs
+5. Reboot your instance with `sudo reboot`
+6. Reconnect with step 1; navigate to the infrastructure folder with `cd ARENA_2.0/infrastructure`; and run the second part of the setup script: `bash docker-provision-on-instance-part-1.sh`
+7. Set up your config file:
+```c
+Host arena2
+    HostName <ip-address>
+    IdentityFile C:\Users\<user>\.ssh\<keyname>
+    User root
+    Port 2222
+```
+
+## Option β: Pip
 
 Setting up a **config file** remove the need to use long command line arguments, e.g. `ssh -i ~/.ssh/<keyname>.pem ubuntu@instance-ip-address`.
-
-
 
 Click on the <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/vscode-ssh.png" width="35"> button in the bottom left, choose "Open SSH Configuration File...", then click <code>C:\\Users\\<user>\\.ssh\\config</code>.
 
@@ -202,7 +230,9 @@ Host <ip-address>
     User <user>
 ```
 
-## Connect to your instance
+---
+
+### Connect to your instance
 
 Click the green button <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/vscode-ssh.png" width="35"> again, and choose "Connect to Host...". Your IP address should appear as one of the hosts. Choose this option.
 
@@ -224,7 +254,9 @@ You can also use `torch.cuda.get_device_properties` (which takes your device as 
 
 Once you've verified this is working, you can start running code on GPUs. The easiest way to do this is just to drag and drop your files into the file explorer window on the left hand side.
 
-You'll also need to choose a Python interpreter. Choose the conda or miniconda one if it's available, if not then choose the top-listed version. You'll probably need to `%pip install` some libraries.
+You'll also need to choose a Python interpreter. Choose the conda or miniconda one if it's available, if not then choose the top-listed version.
+
+Lastly, ***if you chose option β above rather than α***, then you'll probably need to `%pip install` some libraries.
 
 For convenience, here is a list of libraries I've had to pip-install when spinning up a Lambda Labs VM, during the indirect object identification exercises (which forms a superset of all the libraries you'll need for the first two chapters). If you're working on material from the first chapter, you can leave out the circuitsvis and transformer_lens libraries (as well as protobuf, which fixes an error I sometimes get from the transformer_lens library). Lastly, if my circuitsvis fork (which allows you to label the attention heads you plot) isn't working, you can replace it with `pip install circuitsvis`.
 

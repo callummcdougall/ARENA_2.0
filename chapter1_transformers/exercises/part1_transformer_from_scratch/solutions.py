@@ -1,6 +1,7 @@
 # %%
 
 import os; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import sys
 import einops
 from dataclasses import dataclass
 from transformer_lens import HookedTransformer
