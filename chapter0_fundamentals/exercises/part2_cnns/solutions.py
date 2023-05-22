@@ -205,23 +205,23 @@ if MAIN:
 			size=(4,),
 			stride=(1,),
 		),
+		TestCase(
+			output=t.tensor([[0, 2], [5, 7]]), 
+			size=(4,),
+			stride=(1,),
+		),
 	
 		TestCase(
 			output=t.tensor([0, 1, 2, 3, 4]),
 			size=None,
 			stride=None,
 		),
-		# Explanation: the tensor is held in a contiguous memory block. When you get to the end
-		# of one row, a single stride jumps to the start of the next row
 	
 		TestCase(
 			output=t.tensor([0, 5, 10, 15]),
 			size=None,
 			stride=None,
 		),
-		# Explanation: this is same as previous case, only now you're moving in colspace (i.e. skipping
-		# 5 elements) each time you move one element across the output tensor.
-		# So stride is 5 rather than 1
 	
 		TestCase(
 			output=t.tensor([
@@ -231,9 +231,6 @@ if MAIN:
 			size=None,
 			stride=None,
 		),
-		# Explanation: consider the output tensor. As you move one element along a row, you want to jump
-		# one element in the `test_input_a` (since you're just going to the next row). As you move
-		# one element along a column, you want to jump to the next column, i.e. a stride of 5.
 	
 		TestCase(
 			output=t.tensor([
@@ -258,17 +255,6 @@ if MAIN:
 			size=None,
 			stride=None,
 		),
-	
-		TestCase(
-			output=t.tensor([
-				[[0, 1, 2]], 
-				[[9, 10, 11]]
-			]), 
-			size=None,
-			stride=None,
-		),
-		# Note here that the middle element of `stride` doesn't actually matter, since you never
-		# jump in this dimension. You could change it and the test result would still be the same
 	]
 	
 	for (i, test_case) in enumerate(test_cases):
