@@ -10,4 +10,4 @@ if [ -n "$(docker ps -a -q)" ]; then
 fi
 
 docker run --name "arena" -d --runtime=nvidia --gpus '"device='"0"'"' -p 2222:22 ghcr.io/pranavgade20/arena:latest;
-sudo ufw allow 2222
+sudo ufw allow 2222;
