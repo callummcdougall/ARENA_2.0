@@ -129,8 +129,9 @@ if MAIN:
 
 # %%
 
-@jaxtyped
-@typeguard.typechecked
+# @jaxtyped
+# @typeguard.typechecked
+
 def intersect_ray_1d_typed(ray: Float[Tensor, "p s"],
                            segment: Float[Tensor, "p s"]) -> bool:
     '''
@@ -140,7 +141,10 @@ def intersect_ray_1d_typed(ray: Float[Tensor, "p s"],
     Return True if the ray intersects the segment.
     '''
 
-    O = ray[0, :2]
+    planar_rays = ray[..., :2]
+    planar_segments = segments[..., :2]
+
+    O = planar_rays[0]
     D = ray[1, :2]
     L1 = segment[0, :2]
     L2 = segment[1, :2]
@@ -160,3 +164,88 @@ def intersect_ray_1d_typed(ray: Float[Tensor, "p s"],
 intersect_ray_1d_typed(t.rand(3), t.rand(2))
 
 # %%
+
+
+# O = ray[0, :2]
+# D = ray[1, :2]
+# L1 = segment[0, :2]
+# L2 = segment[1, :2]
+
+# right = L1 - O
+# left = t.stack([D, L1 - L2], dim=1)
+
+# try:
+#     X = t.linalg.solve(left, right)
+# except RuntimeError:
+#     return False
+
+# u, v = X
+# return u >= 0 and 0 <= v <= 1
+
+def intersect_rays_1d(rays: Float[Tensor, "nrays 2 3"], segments: Float[Tensor, "nsegments 2 3"]) -> Bool[Tensor, "nrays"]:
+    '''
+    For each ray, return True if it intersects any segment.
+    '''
+    spacial_dims = 2
+    nrays = rays.shape[0]
+    nsegments = segments.shape[0]
+    O = rays[:, 0, :spacial_dims]
+    D = rays[:, 1, :spacial_dims]
+    assert O.shape == (nrays, spacial_dims)
+    assert D.shape == (nrays, spacial_dims)
+    L1 = segments[:, 0, :spacial_dims]
+    L2 = segments[:, 1, :spacial_dims]
+    assert L1.shape == (nsegments, spacial_dims), f"{L1.shape=} {nsegments=} {spacial_dims=}"
+    assert L2.shape == (nsegments, spacial_dims)
+    L1s = einops.repeat(L1, "s p -> s r p", s=nsegments, p=spacial_dims, r=nrays)
+    L2s = einops.repeat(L2, "s p -> s r p", s=nsegments, p=spacial_dims, r=nrays)
+    Os = einops.repeat(O, "r p -> s r p" , s=nsegments, p=spacial_dims, r=nrays)
+    Ds = einops.repeat(D, "r p -> s r p", s=nsegments, p=spacial_dims, r=nrays)
+    
+    targets = L1s - Os
+    stacked = t.stack((Ds, L2s - L1s), dim=-1)
+    #matrixes = einops.rearrange(stacked, "n d=2 s=2 -> ", )
+    try:
+        X = t.linalg.solve(stacked, targets)
+    except RuntimeError:
+        return False
+    assert X.shape == (nsegments, nrays, 2), f"{X.shape=}"
+    us = X[..., 0]
+    vs = X[..., 1]
+    segment_ray_good = (us >= 0) & (0 <= vs) & ( vs <= 1)
+    ray_good = segment_ray_good.any(dim=0)
+    return ray_good
+
+
+
+if MAIN:
+    tests.test_intersect_rays_1d(intersect_rays_1d)
+    tests.test_intersect_rays_1d_special_case(intersect_rays_1d)
+
+
+# %%
+# JAMESD
+def intersect_rays_1d(rays: Float[Tensor, "nrays 2 3"], segments: Float[Tensor, "nsegments 2 3"]) -> Bool[Tensor, "nrays"]:
+    '''
+    For each ray, return True if it intersects any segment.
+    '''
+    spacial_dims = 2
+    nrays = rays.shape[0]
+    nsegments = segments.shape[0]
+    O = rays[:, 0, :spacial_dims]
+    D = rays[:, 1, :spacial_dims]
+    assert O.shape == (nrays, spacial_dims)
+    assert D.shape == (nrays, spacial_dims)
+    L1 = segments[:, 0, :spacial_dims]
+    L2 = segments[:, 1, :spacial_dims]
+    assert L1.shape == (nsegments, spacial_dims)
+    assert L2.shape == (nsegments, spacial_dims)
+
+    L1minusL2 = L1 - L2
+    L1minusO = L1 - O
+
+    left = t.stack([D, L1minusL2], dim=-1)
+
+if MAIN:
+    tests.test_intersect_rays_1d(intersect_rays_1d)
+    tests.test_intersect_rays_1d_special_case(intersect_rays_1d)
