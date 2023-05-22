@@ -129,4 +129,34 @@ if MAIN:
 
 # %%
 
+@jaxtyped
+@typeguard.typechecked
+def intersect_ray_1d_typed(ray: Float[Tensor, "p s"],
+                           segment: Float[Tensor, "p s"]) -> bool:
+    '''
+    ray: shape (n_points=2, n_dim=3)  # O, D points
+    segment: shape (n_points=2, n_dim=3)  # L_1, L_2 points
 
+    Return True if the ray intersects the segment.
+    '''
+
+    O = ray[0, :2]
+    D = ray[1, :2]
+    L1 = segment[0, :2]
+    L2 = segment[1, :2]
+
+    right = L1 - O
+    left = t.stack([D, L1 - L2], dim=1)
+
+    try:
+        X = t.linalg.solve(left, right)
+    except RuntimeError:
+        return False
+
+    u, v = X
+    return u >= 0 and 0 <= v <= 1
+
+
+intersect_ray_1d_typed(t.rand(3), t.rand(2))
+
+# %%
