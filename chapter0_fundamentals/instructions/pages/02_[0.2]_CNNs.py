@@ -724,7 +724,9 @@ as_strided exercises can be notoriously confusing and fiddly, so you should be w
 
 In the exercises below, we will work with the `test_input` tensor above. You should fill in the `size` and `stride` arguments so that calling `test_input.as_strided` with these arguments produces the desired output. When you run the cell, the `for` loop at the end will iterate through the test cases and print out whether the test passed or failed.
 
-We've already filled in the first one as an example. The output is a 1D tensor of length 4 (hence we want `size=(4,)`), and the values are the first row of `input_tensor` (hence we want to move one element along the `input_tensor` at each step, i.e. `stride=1`).
+We've already filled in the first two as an example, along with illustrations explaining what's going on:
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/strides-illustration.png" width="650">
 
 By the end of these examples, hopefully you'll have a clear idea of what's going on. If you're still confused by some of these, then the dropdown below the codeblock contains some annotations to explain the answers.
 
@@ -743,23 +745,23 @@ if MAIN:
             size=(4,),
             stride=(1,),
         ),
+        TestCase(
+            output=t.tensor([[0, 2], [5, 7]]), 
+            size=(4,),
+            stride=(1,),
+        ),
     
         TestCase(
             output=t.tensor([0, 1, 2, 3, 4]),
             size=None,
             stride=None,
         ),
-        # Explanation: the tensor is held in a contiguous memory block. When you get to the end
-        # of one row, a single stride jumps to the start of the next row
     
         TestCase(
             output=t.tensor([0, 5, 10, 15]),
             size=None,
             stride=None,
         ),
-        # Explanation: this is same as previous case, only now you're moving in colspace (i.e. skipping
-        # 5 elements) each time you move one element across the output tensor.
-        # So stride is 5 rather than 1
     
         TestCase(
             output=t.tensor([
@@ -769,9 +771,6 @@ if MAIN:
             size=None,
             stride=None,
         ),
-        # Explanation: consider the output tensor. As you move one element along a row, you want to jump
-        # one element in the `test_input_a` (since you're just going to the next row). As you move
-        # one element along a column, you want to jump to the next column, i.e. a stride of 5.
     
         TestCase(
             output=t.tensor([
@@ -796,17 +795,6 @@ if MAIN:
             size=None,
             stride=None,
         ),
-    
-        TestCase(
-            output=t.tensor([
-                [[0, 1, 2]], 
-                [[9, 10, 11]]
-            ]), 
-            size=None,
-            stride=None,
-        ),
-        # Note here that the middle element of `stride` doesn't actually matter, since you never
-        # jump in this dimension. You could change it and the test result would still be the same
     ]
     
     for (i, test_case) in enumerate(test_cases):
@@ -831,11 +819,13 @@ test_cases = [
     TestCase(
         output=t.tensor([0, 1, 2, 3]), 
         size=(4,),
-        stride=(1,)
+        stride=(1,),
     ),
-    # Explanation: the output is a 1D vector of length 4 (hence size=(4,))
-    # and each time you move one element along in this output vector, you also want to move
-    # one element along the `test_input_a` tensor
+    TestCase(
+        output=t.tensor([[0, 2], [5, 7]]), 
+        size=(4,),
+        stride=(1,),
+    ),
 
     TestCase(
         output=t.tensor([0, 1, 2, 3, 4]),
@@ -889,17 +879,6 @@ test_cases = [
         size=(4,),
         stride=(6,)
     ),
-
-    TestCase(
-        output=t.tensor([
-            [[0, 1, 2]], 
-            [[9, 10, 11]]
-        ]), 
-        size=(2, 1, 3),
-        stride=(9, 0, 1)
-    ),
-    # Note here that the middle element of `stride` doesn't actually matter, since you never
-    # jump in this dimension. You could change it and the test result would still be the same
 ]
 ```
 </details>
@@ -994,18 +973,40 @@ if MAIN:
 <summary>Hint 1</summary>
 
 You want your output array to be as follows:
-    
-```
-output[i] = sum_over_j ( mat[i, j] * vec[j] )
-```
 
-so first try to create an array with `arr[i, j] = mat[i, j] * vec[j]`, then we can sum over this to get our output.
+$$
+\text{output}[i] = \sum_j \text{mat}[i, j] \times \text{vector}[j]
+$$
+
+so first try to create an array with:
+
+$$
+\text{arr}[i, j] = \text{mat}[i, j] \times \text{vector}[j]
+$$
+
+then you can calculate `output` by summing over the second dimension of `arr`.
 </details>
 
 <details>
 <summary>Hint 2</summary>
 
-Use striding to create an expanded vector with `vec_expanded[i, j] = vec[j]`, then we can compute `arr` as described in hint 1.
+First try to use strides to create `vec_expanded` such that:
+
+$$
+\text{vec\_expanded}[i, j] = \text{vec}[j]
+$$
+
+then we can compute:
+
+$$
+\begin{align}
+\text{arr}[i, j] &= \text{mat}[i, j] \times \text{vec\_expanded}[i, j] \\
+\text{output}[i, j] &= \sum_j \text{arr}[i, j]
+\end{align}
+$$
+
+with the first equation being a simple elementwise multiplication, and the second equation being a sum over the second dimension.
+
 </details>
 
 <details>
