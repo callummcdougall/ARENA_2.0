@@ -297,3 +297,178 @@ def as_strided_mm(matA: Float[Tensor, "i j"], matB: Float[Tensor, "j k"]) -> Flo
 if MAIN:
     tests.test_mm(as_strided_mm)
     tests.test_mm2(as_strided_mm)
+
+
+#%% Convolutions
+
+def conv1d_minimal_simple(x: Float[Tensor, "w"], weights: Float[Tensor, "kw"]) -> Float[Tensor, "ow"]:
+    '''
+    Like torch's conv1d using bias=False and all other keyword arguments left at their default values.
+
+    Simplifications: batch = input channels = output channels = 1.
+
+    x: shape (width,)
+    weights: shape (kernel_width,)
+
+    Returns: shape (output_width,)
+    '''
+    # SOLUTION
+
+    w = x.shape[0]
+    kw = weights.shape[0]
+    # Get output width, using formula
+    ow = w - kw + 1
+
+    # Get strides for x
+    s_w = x.stride(0)
+
+    # Get strided x (the new dimension has same stride as the original stride of x)
+    x_new_shape = (ow, kw)
+    x_new_stride = (s_w, s_w)
+    # Common error: s_w is always 1 if the tensor `x` wasn't itself created via striding, so if you put 1 here you won't spot your mistake until you try this with conv2d!
+    x_strided = x.as_strided(size=x_new_shape, stride=x_new_stride)
+
+    return einops.einsum(x_strided, weights, "ow kw, kw -> ow")
+
+
+if MAIN:
+    tests.test_conv1d_minimal_simple(conv1d_minimal_simple)
+# %%
+
+def conv1d_minimal(x: Float[Tensor, "b ic w"], weights: Float[Tensor, "oc ic kw"]) -> Float[Tensor, "b oc ow"]:
+    '''
+    Like torch's conv1d using bias=False and all other keyword arguments left at their default values.
+
+    x: shape (batch, in_channels, width)
+    weights: shape (out_channels, in_channels, kernel_width)
+
+    Returns: shape (batch, out_channels, output_width)
+    '''
+    # SOLUTION
+
+    b, ic, w = x.shape
+    oc, ic2, kw = weights.shape
+    assert ic == ic2, "in_channels for x and weights don't match up"
+    # Get output width, using formula
+    ow = w - kw + 1
+
+    # Get strides for x
+    s_b, s_ic, s_w = x.stride()
+
+    # Get strided x (the new dimension has the same stride as the original width-stride of x)
+    x_new_shape = (b, ic, ow, kw)
+    x_new_stride = (s_b, s_ic, s_w, s_w)
+    # Common error: xsWi is always 1, so if you put 1 here you won't spot your mistake until you try this with conv2d!
+    x_strided = x.as_strided(size=x_new_shape, stride=x_new_stride)
+
+    return einops.einsum(x_strided, weights, "b ic ow kw, oc ic kw -> b oc ow",)
+
+
+# %%
+def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic kh kw"]) -> Float[Tensor, "b oc oh ow"]:
+    '''
+    Like torch's conv2d using bias=False and all other keyword arguments left at their default values.
+
+    x: shape (batch, in_channels, height, width)
+    weights: shape (out_channels, in_channels, kernel_height, kernel_width)
+
+    Returns: shape (batch, out_channels, output_height, output_width)
+    '''
+    pass
+
+    # old shapes
+    b, ic, h, w = x.shape
+    oc, ic2, kh, kw = weights.shape
+    assert ic == ic2
+
+    # new shape
+    h_new = h - (kh -1)
+    w_new = w - (kw -1)
+
+    # old stride
+    s_b, s_ic, s_h, s_w = x.stride()
+
+    # new stride
+    x_new_shape = (b, ic, h_new, w_new, kh, kw)
+    x_new_stride = (s_b, s_ic, s_h, s_w, s_h, s_w)
+
+    # apply new stride
+    x_strided = x.as_strided(
+        size=x_new_shape,
+        stride=x_new_stride
+    )
+
+    return einops.einsum(x_strided, weights, "b ic h_new w_new kh kw, oc ic kh kw -> b oc h_new w_new")
+
+
+
+if MAIN:
+    tests.test_conv2d_minimal(conv2d_minimal)
+# %%
+IntOrPair = Union[int, Tuple[int, int]]
+Pair = Tuple[int, int]
+
+class MaxPool2d(nn.Module):
+    def __init__(self, kernel_size: IntOrPair, stride: Optional[IntOrPair] = None, padding: IntOrPair = 1):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''Call the functional version of maxpool2d.'''
+        self.maxpool2d(x, self.kernel_size, self.stride, self.padding)
+        pass
+
+    def extra_repr(self) -> str:
+        '''Add additional information to the string representation of this class.'''
+        pass
+
+    def maxpool2d(
+        x: Float[Tensor, "b ic h w"], 
+        kernel_size: IntOrPair, 
+        stride: Optional[IntOrPair] = None, 
+        padding: IntOrPair = 0
+    ) -> Float[Tensor, "b ic oh ow"]:
+        '''
+        Like PyTorch's maxpool2d.
+
+        x: shape (batch, channels, height, width)
+        stride: if None, should be equal to the kernel size
+
+        Return: (batch, channels, output_height, output_width)
+        '''
+        # SOLUTION
+
+        # Set actual values for stride and padding, using force_pair function
+        if stride is None:
+            stride = kernel_size
+        stride_h, stride_w = force_pair(stride)
+        padding_h, padding_w = force_pair(padding)
+        kh, kw = force_pair(kernel_size)
+
+        # Get padded version of x
+        x_padded = pad2d(x, left=padding_w, right=padding_w, top=padding_h, bottom=padding_h, pad_value=-t.inf)
+
+        # Calculate output height and width for x
+        b, ic, h, w = x_padded.shape
+        ow = 1 + (w - kw) // stride_w
+        oh = 1 + (h - kh) // stride_h
+
+        # Get strided x
+        s_b, s_c, s_h, s_w = x_padded.stride()
+
+        x_new_shape = (b, ic, oh, ow, kh, kw)
+        x_new_stride = (s_b, s_c, s_h * stride_h, s_w * stride_w, s_h, s_w)
+        x_strided = x_padded.as_strided(size=x_new_shape, stride=x_new_stride)
+
+        # Argmax over dimensions of the maxpool kernel
+        # (note these are the same dims that we multiply over in 2D convolutions)
+        output = t.amax(x_strided, dim=(-1, -2))
+        return output
+
+
+if MAIN:
+    tests.test_maxpool2d_module(MaxPool2d)
+    m = MaxPool2d(kernel_size=3, stride=2, padding=1)
+    print(f"Manually verify that this is an informative repr: {m}")
