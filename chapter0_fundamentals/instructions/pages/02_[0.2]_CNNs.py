@@ -225,12 +225,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr1 = einops.rearrange(arr, "b c h w -> c h (b w)")
-
 ```
 </details>
 
@@ -256,12 +254,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr2 = einops.repeat(arr[0], "c h w -> c (2 h) w")
-
 ```
 </details>
 
@@ -287,12 +283,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr3 = einops.repeat(arr[0:2], "b c h w -> c (b h) (2 w)")
-
 ```
 </details>
 
@@ -318,12 +312,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr4 = einops.repeat(arr[0], "c h w -> c (h 2) w")
-
 ```
 </details>
 
@@ -349,12 +341,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr5 = einops.rearrange(arr[0], "c h w -> h (c w)")
-
 ```
 </details>
 
@@ -380,12 +370,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr6 = einops.rearrange(arr, "(b1 b2) c h w -> c (b1 h) (b2 w)", b1=2)
-
 ```
 </details>
 
@@ -411,12 +399,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr7 = einops.reduce(arr.astype(float), "b c h w -> h (b w)", "max").astype(int)
-
 ```
 </details>
 
@@ -442,12 +428,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr8 = einops.reduce(arr.astype(float), "b c h w -> h w", "min").astype(int)
-
 ```
 </details>
 
@@ -473,12 +457,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr9 = einops.rearrange(arr[1], "c h w -> c w h")
-
 ```
 </details>
 
@@ -504,12 +486,10 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 arr10 = einops.reduce(arr, "(b1 b2) c (h h2) (w w2) -> c (b1 h) (b2 w)", "max", h2=2, w2=2, b1=2)
-
 ```
 </details>
 
@@ -726,7 +706,7 @@ In the exercises below, we will work with the `test_input` tensor above. You sho
 
 We've already filled in the first two as an example, along with illustrations explaining what's going on:
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/strides-illustration.png" width="650">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/strides2.png" width="650">
 
 By the end of these examples, hopefully you'll have a clear idea of what's going on. If you're still confused by some of these, then the dropdown below the codeblock contains some annotations to explain the answers.
 
