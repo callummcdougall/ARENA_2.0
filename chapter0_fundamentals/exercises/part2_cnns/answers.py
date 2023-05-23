@@ -280,3 +280,52 @@ if MAIN:
     tests.test_mm(as_strided_mm)
     tests.test_mm2(as_strided_mm)
 
+# %%
+def conv1d_minimal_simple(x: Float[Tensor, "w"], weights: Float[Tensor, "kw"]) -> Float[Tensor, "ow"]:
+    '''
+    Like torch's conv1d using bias=False and all other keyword arguments left at their default values.
+
+    Simplifications: batch = input channels = output channels = 1.
+
+    x: shape (width,)
+    weights: shape (kernel_width,)
+
+    Returns: shape (output_width,)
+    '''
+    w, kw = (x.shape[0], weights.shape[0])
+    ow = w - kw + 1
+    x_part = x.as_strided(size=(ow, kw), stride=(x.stride()[-1], x.stride()[-1]))
+    k_part = weights.as_strided(size=(ow, kw), stride=(0, weights.stride()[-1]))
+    return t.sum(x_part*k_part, dim=1)
+
+
+if MAIN:
+    tests.test_conv1d_minimal_simple(conv1d_minimal_simple)
+
+
+# %%
+
+def conv1d_minimal(x: Float[Tensor, "b ic w"], weights: Float[Tensor, "oc ic kw"]) -> Float[Tensor, "b oc ow"]:
+    '''
+    x: shape (batch, in_channels, width)
+    weights: shape (out_channels, in_channels, kernel_width)
+
+    Returns: shape (batch, out_channels, output_width)
+    '''
+    b, ic, w = x.shape
+    oc, ic2, kw = weights.shape
+    assert ic == ic2
+    ow = w - kw + 1
+
+    x_size = (b, oc, ic, ow, kw)
+    x_stride = (x.stride()[-3], 0, x.stride()[-2], x.stride()[-1], x.stride()[-1])
+    k_stride = (0, weights.stride()[-3], weights.stride()[-2], 0, weights.stride()[-1])
+
+    x_part = x.as_strided(size=x_size, stride=x_stride)
+    k_part = weights.as_strided(size=x_size, stride=k_stride)
+    return einops.einsum(x_part*k_part, "b oc ic ow kw -> b oc ow")
+
+
+if MAIN:
+    tests.test_conv1d_minimal(conv1d_minimal)
+
