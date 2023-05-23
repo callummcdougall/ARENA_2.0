@@ -547,8 +547,6 @@ class Flatten(nn.Module):
 if MAIN:
     tests.test_flatten(Flatten)
 # %%
-import math
-
 
 class Linear(nn.Module):
     def __init__(self, in_features: int, out_features: int, bias=True):
@@ -570,7 +568,7 @@ class Linear(nn.Module):
 
         # initialisation
         with torch.no_grad():
-            bound = math.sqrt(1 / in_features)
+            bound = np.sqrt(1 / in_features)
             self.weight.uniform_(-bound, bound)
             if self.bias is not None:
                 self.bias.uniform_(-bound, bound)
@@ -622,7 +620,7 @@ class Conv2d(nn.Module):
         self.weight = nn.Parameter(
             torch.zeros(out_channels, in_channels, *force_pair(kernel_size))
         )
-        k = 1 / math.sqrt(in_channels * torch.prod(Tensor(force_pair(kernel_size))))
+        k = 1 / np.sqrt(in_channels * torch.prod(Tensor(force_pair(kernel_size))))
 
         with torch.no_grad():
             self.weight.uniform_(-k, k)
