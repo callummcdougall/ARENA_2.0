@@ -64,6 +64,31 @@ def test_calculate_neuron_input_weights(
     print("All tests in `test_calculate_neuron_input_weights` passed!")
 
 
+def test_calculate_neuron_output_weights(
+    calculate_neuron_output_weights: Callable,
+    model: HookedTransformer, 
+) -> Float[Tensor, "neurons rows cols"]:
+    '''
+    Returns tensor of the output weights for each neuron in the list, at each square on the board,
+    projected along the corresponding probe directions.
+    '''
+    layer = 5
+    neuron = 1393
+    probe = t.randn(model.cfg.d_model, 8, 8, device=model.cfg.device)
+
+    w_out = model.W_out[layer, neuron].detach()
+    w_out_normed = w_out / w_out.norm(dim=0, keepdim=True)
+
+    expected = einops.einsum(
+        w_out_normed, probe,
+        "d_model, d_model row col -> row col",
+    )
+    actual = calculate_neuron_output_weights(model, probe, layer, neuron = 1393)
+
+    t.testing.assert_close(expected, actual)
+    print("All tests in `test_calculate_neuron_output_weights` passed!")
+
+
 
 def test_patching_metric(
     patching_metric: Callable,

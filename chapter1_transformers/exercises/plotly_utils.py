@@ -26,13 +26,16 @@ def imshow(tensor, renderer=None, **kwargs):
         facet_labels = None
     if "color_continuous_scale" not in kwargs_pre:
         kwargs_pre["color_continuous_scale"] = "RdBu"
+    if "color_continuous_midpoint" not in kwargs_pre:
+        kwargs_pre["color_continuous_midpoint"] = 0.0
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    fig = px.imshow(utils.to_numpy(tensor), color_continuous_midpoint=0.0, **kwargs_pre).update_layout(**kwargs_post)
+    fig = px.imshow(utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post)
     if facet_labels:
         for i, label in enumerate(facet_labels):
             fig.layout.annotations[i]['text'] = label
     fig.show(renderer=renderer)
+
 
 def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
     '''
@@ -81,6 +84,10 @@ def scatter(x, y, renderer=None, **kwargs):
         add_line = kwargs.pop("add_line")
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    if "facet_labels" in kwargs_pre:
+        facet_labels = kwargs_pre.pop("facet_labels")
+    else:
+        facet_labels = None
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     fig = px.scatter(y=y, x=x, **kwargs_pre).update_layout(**kwargs_post)
@@ -97,6 +104,9 @@ def scatter(x, y, renderer=None, **kwargs):
             fig.add_trace(go.Scatter(mode='lines', x=x, y=y, showlegend=False))
         else:
             raise ValueError(f"Unrecognized add_line: {add_line}. Please use either 'x=y' or 'x=c' or 'y=c' for some float c.")
+    if facet_labels:
+        for i, label in enumerate(facet_labels):
+            fig.layout.annotations[i]['text'] = label
     fig.show(renderer)
 
 def bar(tensor, renderer=None, **kwargs):
@@ -120,6 +130,9 @@ def hist(tensor, renderer=None, **kwargs):
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     px.histogram(x=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+
+
+
 
 
 

@@ -19,9 +19,11 @@ def imshow(tensor, renderer=None, **kwargs):
         facet_labels = None
     if "color_continuous_scale" not in kwargs_pre:
         kwargs_pre["color_continuous_scale"] = "RdBu"
+    if "color_continuous_midpoint" not in kwargs_pre:
+        kwargs_pre["color_continuous_midpoint"] = 0.0
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    fig = px.imshow(utils.to_numpy(tensor), color_continuous_midpoint=0.0, **kwargs_pre).update_layout(**kwargs_post)
+    fig = px.imshow(utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post)
     if facet_labels:
         for i, label in enumerate(facet_labels):
             fig.layout.annotations[i]['text'] = label
