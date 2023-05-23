@@ -3,7 +3,7 @@
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
 import torch as t
-from torch import Tensor as T
+from torch import Tensor
 from torch import nn
 import torch.nn.functional as F
 from collections import OrderedDict
@@ -361,6 +361,34 @@ if MAIN:
 	
 	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
 
+# %%
+
+
+if MAIN:
+	data_augmentation_transform = transforms.Compose([
+		transforms.RandomRotation(degrees=15),
+		transforms.RandomResizedCrop(size=28, scale=(0.8, 1.2)),
+		transforms.RandomHorizontalFlip(p=0.5),
+		transforms.RandomVerticalFlip(p=0.5),
+		transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+		transforms.ToTensor(),
+		transforms.Normalize((0.1307,), (0.3081,))
+	])
+
+# %%
+
+def get_mnist_augmented(subset: int = 1, train_transform=None, test_transform=None):
+	if train_transform is None:
+		train_transform = MNIST_TRANSFORM
+	if test_transform is None:
+		test_transform = MNIST_TRANSFORM
+	mnist_trainset = datasets.MNIST(root="./data", train=True, download=True, transform=train_transform)
+	mnist_testset = datasets.MNIST(root="./data", train=False, download=True, transform=test_transform)
+	if subset > 1:
+		mnist_trainset = Subset(mnist_trainset, indices=range(0, len(mnist_trainset), subset))
+		mnist_testset = Subset(mnist_testset, indices=range(0, len(mnist_testset), subset))
+	return mnist_trainset, mnist_testset
+
 # %% 2️⃣ ASSEMBLING RESNET
 
 class Sequential(nn.Module):
@@ -388,9 +416,10 @@ class Sequential(nn.Module):
 # %%
 
 class BatchNorm2d(nn.Module):
-	running_mean: Float[t.Tensor, "num_features"]
-	running_var: Float[t.Tensor, "num_features"]
-	num_batches_tracked: Int[t.Tensor, ""]
+	# The type hints below aren't functional, they're just for documentation
+	running_mean: Float[Tensor, "num_features"]
+	running_var: Float[Tensor, "num_features"]
+	num_batches_tracked: Int[Tensor, ""] # This is how we denote a scalar tensor
 
 	def __init__(self, num_features: int, eps=1e-05, momentum=0.1):
 		'''
