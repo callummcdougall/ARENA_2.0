@@ -120,7 +120,8 @@ if MAIN:
 	tests.test_intersect_ray_1d_special_case(intersect_ray_1d)
 
 # %%
-
+@jaxtyped
+@typeguard.typechecked
 def intersect_rays_1d(rays: Float[Tensor, "nrays 2 3"], segments: Float[Tensor, "nsegments 2 3"]) -> Bool[Tensor, "nrays"]:
 	'''
 	For each ray, return True if it intersects any segment.
