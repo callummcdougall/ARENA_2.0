@@ -353,16 +353,16 @@ def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic k
               kh,
               ow,
               kw)
-    x_stride = (x.stride()[-3],
+    x_stride = (x.stride()[-4],
                 0,
-                x.stride()[-4],
+                x.stride()[-3],
                 x.stride()[-2],
                 x.stride()[-2],
                 x.stride()[-1],
                 x.stride()[-1])
     k_stride = (0,
-                weights.stride()[-3],
                 weights.stride()[-4],
+                weights.stride()[-3],
                 0,
                 weights.stride()[-2],
                 0,
@@ -372,34 +372,47 @@ def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic k
     k_part = weights.as_strided(size=x_size, stride=k_stride)
     return einops.einsum(x_part*k_part, "b oc ic oh kh ow kw -> b oc oh ow")
 
+if MAIN:
+    tests.test_conv2d_minimal(conv2d_minimal)
+
 # %%
-def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic kh kw"]) -> Float[Tensor, "b oc oh ow"]:
+
+def pad1d(x: t.Tensor, left: int, right: int, pad_value: float) -> t.Tensor:
+    '''Return a new tensor with padding applied to the edges.
+
+    x: shape (batch, in_channels, width), dtype float32
+
+    Return: shape (batch, in_channels, left + right + width)
     '''
-    Like torch's conv2d using bias=False and all other keyword arguments left at their default values.
+    results = x.new_full((*x.shape[:-1], x.shape[-1] + left + right), pad_value)
+    results[..., left:left + x.shape[-1]] = x
+    return results
 
-    x: shape (batch, in_channels, height, width)
-    weights: shape (out_channels, in_channels, kernel_height, kernel_width)
+if MAIN:
+    tests.test_pad1d(pad1d)
+    tests.test_pad1d_multi_channel(pad1d)
 
-    Returns: shape (batch, out_channels, output_height, output_width)
+
+# %%
+
+def pad2d(x: t.Tensor, left: int, right: int, top: int, bottom: int, pad_value: float) -> t.Tensor:
+    '''Return a new tensor with padding applied to the edges.
+
+    x: shape (batch, in_channels, height, width), dtype float32
+
+    Return: shape (batch, in_channels, top + height + bottom, left + width + right)
     '''
-    # SOLUTION
-
-    b, ic, h, w = x.shape
-    oc, ic2, kh, kw = weights.shape
-    assert ic == ic2, "in_channels for x and weights don't match up"
-    ow = w - kw + 1
-    oh = h - kh + 1
-
-    s_b, s_ic, s_h, s_w = x.stride()
-
-    # Get strided x (the new height/width dims have the same stride as the original height/width-strides of x)
-    x_new_shape = (b, ic, oh, ow, kh, kw)
-    x_new_stride = (s_b, s_ic, s_h, s_w, s_h, s_w)
-
-    x_strided = x.as_strided(size=x_new_shape, stride=x_new_stride)
-
-    return einops.einsum(x_strided, weights, "b ic oh ow kh kw, oc ic kh kw -> b oc oh ow")
+    results = x.new_full((*x.shape[:-2], 
+                          x.shape[-2] + top + bottom,
+                          x.shape[-1] + left + right),
+                          pad_value)
+    results[..., top:top + x.shape[-2], left:left + x.shape[-1]] = x
+    return results
 
 
 if MAIN:
-    tests.test_conv2d_minimal(conv2d_minimal)
+    tests.test_pad2d(pad2d)
+    tests.test_pad2d_multi_channel(pad2d)
+
+# %%
+
