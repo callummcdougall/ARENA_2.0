@@ -234,9 +234,11 @@ def as_strided_trace(mat: Float[Tensor, "i j"]) -> Float[Tensor, ""]:
     '''
     Returns the same as `torch.trace`, using only `as_strided` and `sum` methods.
     '''
-    rows, columns = mat.shape
-    size = min(rows, columns)
-    return mat.as_strided(size=(size,), stride=(columns + 1,)).sum()
+    assert mat.size(0) == mat.size(1)
+
+    size = mat.shape[0]
+    stride = mat.stride()
+    return mat.as_strided(size=(size,), stride=(stride[0] + stride[1],)).sum()
 
 
 if MAIN:
@@ -248,7 +250,10 @@ def as_strided_mv(mat: Float[Tensor, "i j"], vec: Float[Tensor, "j"]) -> Float[T
     '''
     Returns the same as `torch.matmul`, using only `as_strided` and `sum` methods.
     '''
-    pass
+    i, j = mat.shape
+    mat_2 = vec.as_strided((i, j), (0, vec.stride()[0]))
+    mul = mat * mat_2
+    return mul.sum(-1)
 
 
 if MAIN:
@@ -261,7 +266,14 @@ def as_strided_mm(matA: Float[Tensor, "i j"], matB: Float[Tensor, "j k"]) -> Flo
     '''
     Returns the same as `torch.matmul`, using only `as_strided` and `sum` methods.
     '''
-    pass
+    i, j, k = (*matA.shape, matB.shape[1])
+    size = (i, k, j)
+    # Strides represent i, k, js.  
+    matA_2 = matA.as_strided(size, (matA.stride()[-2], 0, matA.stride()[-1]))
+    matB_2 = matB.as_strided(size, (0, matB.stride()[-1], matB.stride()[-2]))
+
+    mul = matA_2 * matB_2
+    return mul.sum(-1)
 
 
 if MAIN:
