@@ -139,3 +139,132 @@ if MAIN:
     tests.test_einsum_mm(einsum_mm)
     tests.test_einsum_inner(einsum_inner)
     tests.test_einsum_outer(einsum_outer)
+
+# %%
+
+if MAIN:
+    test_input = t.tensor(
+        [[0, 1, 2, 3, 4], 
+        [5, 6, 7, 8, 9], 
+        [10, 11, 12, 13, 14], 
+        [15, 16, 17, 18, 19]], dtype=t.float
+    )
+
+# %%
+import torch as t
+from collections import namedtuple
+
+
+if MAIN:
+    TestCase = namedtuple("TestCase", ["output", "size", "stride"])
+
+    test_cases = [
+        TestCase(
+            output=t.tensor([0, 1, 2, 3]), 
+            size=(4,),
+            stride=(1,),
+        ),
+        TestCase(
+            output=t.tensor([[0, 2], [5, 7]]), 
+            size=(2, 2),
+            stride=(5, 2),
+        ),
+
+        TestCase(
+            output=t.tensor([0, 1, 2, 3, 4]),
+            size=(5,),
+            stride=(1,),
+        ),
+
+        TestCase(
+            output=t.tensor([0, 5, 10, 15]),
+            size=(4,),
+            stride=(5,),
+        ),
+
+        TestCase(
+            output=t.tensor([
+                [0, 1, 2], 
+                [5, 6, 7]
+            ]), 
+            size=(2, 3),
+            stride=(5, 1),
+        ),
+
+        TestCase(
+            output=t.tensor([
+                [0, 1, 2], 
+                [10, 11, 12]
+            ]), 
+            size=(2, 3),
+            stride=(10, 1),
+        ),
+
+        TestCase(
+            output=t.tensor([
+                [0, 0, 0], 
+                [11, 11, 11]
+            ]), 
+            size=(2, 3),
+            stride=(11, 0),
+        ),
+
+        TestCase(
+            output=t.tensor([0, 6, 12, 18]), 
+            size=(4,),
+            stride=(6,),
+        ),
+    ]
+
+    for (i, test_case) in enumerate(test_cases):
+        if (test_case.size is None) or (test_case.stride is None):
+            print(f"Test {i} failed: attempt missing.")
+        else:
+            actual = test_input.as_strided(size=test_case.size, stride=test_case.stride)
+            if (test_case.output != actual).any():
+                print(f"Test {i} failed:")
+                print(f"Expected: {test_case.output}")
+                print(f"Actual: {actual}\n")
+            else:
+                print(f"Test {i} passed!\n")
+
+
+# %%
+def as_strided_trace(mat: Float[Tensor, "i j"]) -> Float[Tensor, ""]:
+    '''
+    Returns the same as `torch.trace`, using only `as_strided` and `sum` methods.
+    '''
+    rows, columns = mat.shape
+    size = min(rows, columns)
+    return mat.as_strided(size=(size,), stride=(columns + 1,)).sum()
+
+
+if MAIN:
+    tests.test_trace(as_strided_trace)
+
+# %%
+
+def as_strided_mv(mat: Float[Tensor, "i j"], vec: Float[Tensor, "j"]) -> Float[Tensor, "i"]:
+    '''
+    Returns the same as `torch.matmul`, using only `as_strided` and `sum` methods.
+    '''
+    pass
+
+
+if MAIN:
+    tests.test_mv(as_strided_mv)
+    tests.test_mv2(as_strided_mv)
+
+# %%
+
+def as_strided_mm(matA: Float[Tensor, "i j"], matB: Float[Tensor, "j k"]) -> Float[Tensor, "i k"]:
+    '''
+    Returns the same as `torch.matmul`, using only `as_strided` and `sum` methods.
+    '''
+    pass
+
+
+if MAIN:
+    tests.test_mm(as_strided_mm)
+    tests.test_mm2(as_strided_mm)
+
