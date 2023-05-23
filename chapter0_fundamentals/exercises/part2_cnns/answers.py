@@ -410,7 +410,6 @@ def pad2d(x: t.Tensor, left: int, right: int, top: int, bottom: int, pad_value: 
     return results
 
 
-
 if MAIN:
     tests.test_pad2d(pad2d)
     tests.test_pad2d_multi_channel(pad2d)
@@ -502,10 +501,16 @@ class Linear(nn.Module):
         If `bias` is False, set `self.bias` to None.
         '''
         super().__init__()
-        self.weight = nn.Parameter(t.rand(out_features, in_features))
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = t.rand(out_features, in_features)
+        self.weight = (self.weight*2 - 1)/t.tensor([in_features]).sqrt()
+        self.weight = nn.Parameter(self.weight)
         self.bias = None
         if bias:
-            self.bias = nn.Parameter(t.rand(out_features))
+            self.bias = t.rand(out_features)
+            self.bias = (self.bias*2 - 1)/t.tensor([in_features]).sqrt()
+            self.bias = nn.Parameter(self.bias)
         
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -519,10 +524,205 @@ class Linear(nn.Module):
         return mul
 
     def extra_repr(self) -> str:
-        pass
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
 
 
 if MAIN:
     tests.test_linear_forward(Linear)
     tests.test_linear_parameters(Linear)
     tests.test_linear_no_bias(Linear)
+
+# %%
+IntOrPair = Union[int, Tuple[int, int]]
+Pair = Tuple[int, int]
+
+def force_pair(v: IntOrPair) -> Pair:
+    '''Convert v to a pair of int, if it isn't already.'''
+    if isinstance(v, tuple):
+        if len(v) != 2:
+            raise ValueError(v)
+        return (int(v[0]), int(v[1]))
+    elif isinstance(v, int):
+        return (v, v)
+    raise ValueError(v)
+
+# Examples of how this function can be used:
+
+
+if MAIN:
+    for v in [(1, 2), 2, (1, 2, 3)]:
+        try:
+            print(f"{v!r:9} -> {force_pair(v)!r}")
+        except ValueError:
+            print(f"{v!r:9} -> ValueError")
+
+
+# %%
+from solutions import conv2d
+
+class Conv2d(nn.Module):
+    def __init__(
+        self, in_channels: int, out_channels: int, kernel_size: IntOrPair, stride: IntOrPair = 1, padding: IntOrPair = 0
+    ):
+        '''
+        Same as torch.nn.Conv2d with bias=False.
+
+        Name your weight field `self.weight` for compatibility with the PyTorch version.
+        '''
+        super().__init__()
+        self.weight = t.rand(out_channels, in_channels,*force_pair(kernel_size))
+        N_k = in_channels*force_pair(kernel_size)[0]*force_pair(kernel_size)[1]
+        self.weight = (self.weight*2 - 1)/t.tensor([N_k]).sqrt()
+        self.weight = nn.Parameter(self.weight)
+        self.stride = force_pair(stride)
+        self.padding = force_pair(padding)
+        
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''Apply the functional conv2d you wrote earlier.'''
+        return conv2d(x, self.weight, self.stride, self.padding)
+
+    def extra_repr(self) -> str:
+        pass
+
+
+if MAIN:
+    tests.test_conv2d_module(Conv2d)
+
+
+# %%
+
+class SimpleCNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.maxpool = MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.relu = ReLU()
+        self.flatten = Flatten()
+        self.fc = Linear(in_features=32*14*14, out_features=10)
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        return self.fc(self.flatten(self.relu(self.maxpool(self.conv(x)))))
+
+
+
+if MAIN:
+    device = t.device("cuda" if t.cuda.is_available() else "cpu")
+    model = SimpleCNN().to(device)
+    print(model)
+
+# %%
+if MAIN:
+    MNIST_TRANSFORM = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+
+def get_mnist(subset: int = 1):
+    '''Returns MNIST training data, sampled by the frequency given in `subset`.'''
+    mnist_trainset = datasets.MNIST(root="./data", train=True, download=True, transform=MNIST_TRANSFORM)
+    mnist_testset = datasets.MNIST(root="./data", train=False, download=True, transform=MNIST_TRANSFORM)
+
+    if subset > 1:
+        mnist_trainset = Subset(mnist_trainset, indices=range(0, len(mnist_trainset), subset))
+        mnist_testset = Subset(mnist_testset, indices=range(0, len(mnist_testset), subset))
+
+    return mnist_trainset, mnist_testset
+
+
+
+if MAIN:
+    mnist_trainset, mnist_testset = get_mnist()
+    mnist_trainloader = DataLoader(mnist_trainset, batch_size=64, shuffle=True)
+    mnist_testloader = DataLoader(mnist_testset, batch_size=64, shuffle=True)
+
+# %%
+
+if MAIN:
+    img, label = mnist_trainset[1]
+
+    imshow(
+        img.squeeze(), 
+        color_continuous_scale="gray", 
+        zmin=img.min().item(),
+        zmax=img.max().item(),
+        title=f"Digit = {label}",
+        width=450,
+    )
+# %%
+if MAIN:
+    img_input = img.unsqueeze(0).to(device) # add batch dimension
+    probs = model(img_input).squeeze().softmax(-1).detach()
+
+    bar(
+        probs,
+        x=range(1, 11),
+        template="ggplot2",
+        width=600,
+        title="Classification probabilities", 
+        labels={"x": "Digit", "y": "Probability"}, 
+        text_auto='.2f',
+        showlegend=False, 
+        xaxis_tickmode="linear"
+    )
+
+# %%
+
+if MAIN:
+    batch_size = 64
+    epochs = 3
+
+    mnist_trainset, _ = get_mnist(subset = 10)
+    mnist_trainloader = DataLoader(mnist_trainset, batch_size=64, shuffle=True)
+
+    optimizer = t.optim.Adam(model.parameters())
+    loss_list = []
+
+    for epoch in tqdm(range(epochs)):
+        for imgs, labels in mnist_trainloader:
+            imgs = imgs.to(device)
+            labels = labels.to(device)
+            logits = model(imgs)
+            loss = F.cross_entropy(logits, labels)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            loss_list.append(loss.item())   # .item() converts single-elem tensor to scalar
+
+
+# %%
+
+if MAIN:
+    line(
+        loss_list, 
+        yaxis_range=[0, max(loss_list) + 0.1],
+        labels={"x": "Num batches seen", "y": "Cross entropy loss"}, 
+        title="ConvNet training on MNIST (cross entropy loss)",
+        width=700
+    )
+
+# %%
+
+if MAIN:
+    img = mnist_trainset[99][0]
+    probs = model(img.unsqueeze(0).to(device)).squeeze().softmax(-1).detach()
+    imshow(
+        img.squeeze(), 
+        color_continuous_scale="gray", 
+        zmin=img.min().item(),
+        zmax=img.max().item(),
+        title=f"Digit = {label}",
+        width=450,
+    )
+    bar(
+        probs,
+        x=range(1, 11),
+        template="ggplot2",
+        width=600,
+        title="Classification probabilities", 
+        labels={"x": "Digit", "y": "Probability"}, 
+        text_auto='.2f',
+        showlegend=False, 
+        xaxis_tickmode="linear"
+    )
+# %%
