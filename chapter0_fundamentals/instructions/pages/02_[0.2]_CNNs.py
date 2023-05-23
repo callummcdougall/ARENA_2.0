@@ -747,8 +747,8 @@ if MAIN:
         ),
         TestCase(
             output=t.tensor([[0, 2], [5, 7]]), 
-            size=(4,),
-            stride=(1,),
+            size=(2, 2),
+            stride=(5, 2),
         ),
     
         TestCase(
@@ -996,7 +996,7 @@ $$
 \text{vec\_expanded}[i, j] = \text{vec}[j]
 $$
 
-then we can compute:
+We can then compute:
 
 $$
 \begin{align}
@@ -1074,11 +1074,18 @@ if MAIN:
 
 If you did the first one, this isn't too dissimilar. We have:
 
-```
-output[i, k] = sum_over_j ( matA[i, j] * matB[j, k] )
-```
+$$
+\text{output}[i, k] = \sum_j \text{matA}[i, j] \times \text{matB}[j, k]
+$$
 
-so in this case, try to create an array with `arr[i, j, k] = matA[i, j] * matB[j, k]`, and then sum this array over `j` to get `output`.
+
+so in this case, try to create an array with:
+
+$$
+\text{arr}[i, j, k] = \text{matA}[i, j] \times \text{matB}[j, k]
+$$
+
+then sum this array over `j` to get our output.
 
 We need to create expanded versions of both `matA` and `matB` in order to take this product.
 </details>
@@ -1086,7 +1093,13 @@ We need to create expanded versions of both `matA` and `matB` in order to take t
 <details>
 <summary>Hint 2</summary>
 
-We want `matA_expanded[i, j, k] = matA[i, j]`, so our stride for `matA` should be `(matA.stride(0), matA.stride(1), 0)`.
+We want to compute
+
+$$
+\text{matA\_expanded}[i, j, k] = \text{matA}[i, j]
+$$
+
+so our stride for `matA` should be `(matA.stride(0), matA.stride(1), 0)`.
         
 A similar idea applies for `matB`.
 </details>
@@ -2684,7 +2697,7 @@ In subsequent exercises, we'll proceed to a more advanced architecture: residual
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Einops and Einsum'),     (section_2, '2️⃣ Array strides'),     (section_3, '3️⃣ Convolutions'),     (section_4, '4️⃣ Making your own modules'), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Einops and Einsum"),     (section_2, "2️⃣ Array strides"),     (section_3, "3️⃣ Convolutions"),     (section_4, "4️⃣ Making your own modules"), 
 ]
 
 func_list = [func for func, page in func_page_list]
