@@ -1324,7 +1324,7 @@ Importance: 🟠🟠🟠🟠⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
-This is the main function we've been building towards, and marks the end of the core exercises. If should involve a lot of repurposed code from the last excercise.
+This is the main function we've been building towards, and marks the end of the core exercises. It should involve a lot of repurposed code from the last excercise.
 ```
 
 Implement `raytrace_mesh` and as before, reshape and visualize the output. Your Pikachu is centered on (0, 0, 0), so you'll want to slide the ray origin back to at least `x=-2` to see it properly.
