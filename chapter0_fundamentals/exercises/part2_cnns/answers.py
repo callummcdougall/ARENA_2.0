@@ -329,3 +329,77 @@ def conv1d_minimal(x: Float[Tensor, "b ic w"], weights: Float[Tensor, "oc ic kw"
 if MAIN:
     tests.test_conv1d_minimal(conv1d_minimal)
 
+# %%
+
+def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic kh kw"]) -> Float[Tensor, "b oc oh ow"]:
+    '''
+    Like torch's conv2d using bias=False and all other keyword arguments left at their default values.
+
+    x: shape (batch, in_channels, height, width)
+    weights: shape (out_channels, in_channels, kernel_height, kernel_width)
+
+    Returns: shape (batch, out_channels, output_height, output_width)
+    '''
+    b, ic, h, w = x.shape
+    oc, ic2, kh, kw = weights.shape
+    assert ic == ic2
+    ow = w - kw + 1
+    oh = h - kh + 1
+
+    x_size = (b,
+              oc,
+              ic,
+              oh,
+              kh,
+              ow,
+              kw)
+    x_stride = (x.stride()[-3],
+                0,
+                x.stride()[-4],
+                x.stride()[-2],
+                x.stride()[-2],
+                x.stride()[-1],
+                x.stride()[-1])
+    k_stride = (0,
+                weights.stride()[-3],
+                weights.stride()[-4],
+                0,
+                weights.stride()[-2],
+                0,
+                weights.stride()[-1])
+
+    x_part = x.as_strided(size=x_size, stride=x_stride)
+    k_part = weights.as_strided(size=x_size, stride=k_stride)
+    return einops.einsum(x_part*k_part, "b oc ic oh kh ow kw -> b oc oh ow")
+
+# %%
+def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic kh kw"]) -> Float[Tensor, "b oc oh ow"]:
+    '''
+    Like torch's conv2d using bias=False and all other keyword arguments left at their default values.
+
+    x: shape (batch, in_channels, height, width)
+    weights: shape (out_channels, in_channels, kernel_height, kernel_width)
+
+    Returns: shape (batch, out_channels, output_height, output_width)
+    '''
+    # SOLUTION
+
+    b, ic, h, w = x.shape
+    oc, ic2, kh, kw = weights.shape
+    assert ic == ic2, "in_channels for x and weights don't match up"
+    ow = w - kw + 1
+    oh = h - kh + 1
+
+    s_b, s_ic, s_h, s_w = x.stride()
+
+    # Get strided x (the new height/width dims have the same stride as the original height/width-strides of x)
+    x_new_shape = (b, ic, oh, ow, kh, kw)
+    x_new_stride = (s_b, s_ic, s_h, s_w, s_h, s_w)
+
+    x_strided = x.as_strided(size=x_new_shape, stride=x_new_stride)
+
+    return einops.einsum(x_strided, weights, "b ic oh ow kh kw, oc ic kh kw -> b oc oh ow")
+
+
+if MAIN:
+    tests.test_conv2d_minimal(conv2d_minimal)
