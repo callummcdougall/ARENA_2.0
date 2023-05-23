@@ -42,16 +42,13 @@ def make_rays_1d(num_pixels: int, y_limit: float) -> t.Tensor:
         [[0, 0, 0], [1, 1, 0]],
     ]
     '''
-    # rays = []
 
-    # for _ in range(num_pixels):
-    #     rays.append(t.stack((t.zeros(3), t.FloatTensor(3).uniform_(-y_limit, y_limit))))
+    rays = t.zeros((num_pixels, 2, 3))
 
-    # return t.stack(rays)
+    t.linspace(start=-y_limit, end=y_limit, steps=num_pixels, out=rays[:,1,1])
 
-    rays = t.zeros((num_pixels, 2, 3), dtype=t.float32)
-    t.linspace(-y_limit, y_limit, num_pixels, out=rays[:, 1, 1])
-    rays[:, 1, 0] = 1
+    rays[:,1,0] = 1
+
     return rays
 
 rays1d = make_rays_1d(9, 10.0)
@@ -84,14 +81,14 @@ def response(seed=(0, 10, 1), v=(-2.0, 2.0, 0.01)):
 # %%
 @jaxtyped
 @typeguard.typechecked
-def intersect_ray_1d(ray: Float[t.Tensor, "points=2 dim=3"], segment: Float[t.Tensor, "points=2 dim=3"]) -> bool:
+def intersect_ray_1d(ray, segment) -> bool:
     '''
     ray: shape (n_points=2, n_dim=3)  # O, D points
     segment: shape (n_points=2, n_dim=3)  # L_1, L_2 points
 
     Return True if the ray intersects the segment.
     '''
-    def find_intersection_point(lhs_matrix: Float[t.Tensor, "points=2 dim=2"], rhs_matrix: Float[t.Tensor, "points=2 dim=1"]):
+    def find_intersection_point(lhs_matrix, rhs_matrix):
         if t.linalg.det(lhs_matrix).item():
             return t.linalg.solve(lhs_matrix, rhs_matrix)
         return None
