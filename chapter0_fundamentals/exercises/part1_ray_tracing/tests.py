@@ -65,3 +65,5 @@ def test_triangle_ray_intersects(triangle_ray_intersects):
         expected = solutions.triangle_ray_intersects(A, B, C, O, D)
         assert actual == expected
     print("All tests in `test_triangle_ray_intersects` passed!")
+
+# %%

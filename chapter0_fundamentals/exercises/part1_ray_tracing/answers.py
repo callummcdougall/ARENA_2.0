@@ -328,6 +328,11 @@ if MAIN:
     tests.test_triangle_ray_intersects(triangle_ray_intersects)
 
 # %%
+if MAIN:
+    with open(section_dir / "pikachu.pt", "rb") as f:
+        triangles = t.load(f)
+
+# %%
 def raytrace_mesh(
     rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
     triangles: Float[Tensor, "ntriangles trianglePoints=3 dims=3"]
@@ -341,9 +346,34 @@ def raytrace_mesh(
     triangles: Float[Tensor, "nrays ntriangles rayPoints=2 dims=3"] = einops.repeat(triangles, "nt rp d -> nr nt rp d", nr=NR)
 
     A = triangles[:,:,0]
-    B = triangles[:,:,]
+    B = triangles[:,:,1]
+    C = triangles[:,:,2]
     
     D = rays[:,:,1]
+    O = rays[:,:,0]
+
+    lhs = t.stack([
+        -D, B - A, C - A 
+    ], dim=-1)
+
+    rhs = O - A
+
+    singular: Float[Tensor, "nrays"] = t.linalg.det(lhs) < 1e-6
+
+    # replace non-invertible matrices with identity
+    lhs[singular] = t.eye(3)
+
+    # solve all the systems
+    intersection_points = t.linalg.solve(lhs, rhs)
+
+    # create boolean array with entries corresponding to if solution satisfies constraints 
+    intersection_points = intersection_points[...,1:]
+    print(intersection_points)
+    on_segment = intersection_points[0] >= 0 & intersection_points[1] >= 0 & (intersection_points[0] + intersection_points[1] <= 1)
+
+    # do an and with that array and the array for if a matrix is invertible
+    valid_intersections = on_segment & (~singular)
+    return valid_intersections
 
 
 
@@ -364,3 +394,4 @@ if MAIN:
     for i, text in enumerate(["Intersects", "Distance"]): 
         fig.layout.annotations[i]['text'] = text
     fig.show()
+# %%
