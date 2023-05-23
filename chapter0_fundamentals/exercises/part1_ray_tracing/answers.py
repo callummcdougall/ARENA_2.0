@@ -200,8 +200,226 @@ if MAIN:
     display(fig)
 
 # %%
-x = t.zeros(5,)
-y = x[0:1]
-print(y)
-y[0] = t.tensor(7)
-print(x)
+Point = Float[Tensor, "points=3"]
+
+@jaxtyped
+@typeguard.typechecked
+def triangle_ray_intersects(A: Point, B: Point, C: Point, O: Point, D: Point) -> bool:
+    '''
+    A: shape (3,), one vertex of the triangle
+    B: shape (3,), second vertex of the triangle
+    C: shape (3,), third vertex of the triangle
+    O: shape (3,), origin point
+    D: shape (3,), direction point
+
+    Return True if the ray and the triangle intersect.
+    '''
+    matrix = t.stack((D, B-A, C-A)).T
+    print(matrix)
+    x = t.linalg.solve(matrix, O-A)
+    print(x)
+
+    s, u, v = x.unbind(0)
+
+    return ((u >= 0) & (v >= 0) & (u+v <= 1)).item()
+
+#%%
+
+D = t.tensor([1, 0, 0], dtype=t.float32)
+O = t.tensor([0, 0, 0], dtype=t.float32)
+A = t.tensor([1, 0, 1], dtype=t.float32)
+B = t.tensor([1, 1, -1], dtype=t.float32)
+C = t.tensor([1, -1, -1], dtype=t.float32)
+
+triangle_ray_intersects(A, B, C, O, D)
+
+
+#%%
+if MAIN:
+    tests.test_triangle_ray_intersects(triangle_ray_intersects)
+# %% Test raytrace_triangle
+
+def raytrace_triangle(
+    rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
+    triangle: Float[Tensor, "trianglePoints=3 dims=3"]
+) -> Bool[Tensor, "nrays"]:
+    '''
+    For each ray, return True if the triangle intersects that ray.
+    '''
+
+    nrays = rays.shape[0]
+    # Repeat triangle along nrays dimension
+    A, B, C = einops.repeat(triangle, "trianglePoints dims -> trianglePoints nrays dims", nrays=nrays)
+    assert A.shape == (nrays, 3)
+
+    # build matrix of linear equations
+    mat: Float[t.Tensor, "nrays 3 3"] = t.stack((rays[:, 1], B-A, C-A), dim =-1)
+    assert mat.shape == (nrays, 3, 3)
+
+    # check for singularity
+    is_singular: Bool[t.Tensor, "nrays"] = t.linalg.det(mat).abs() < 1e-8
+    mat[is_singular] = t.eye(3)
+
+    # solve set of linear equations
+    sol = t.linalg.solve(mat, rays[:, 0] - A)
+    s, u, v = sol.unbind(dim=-1)
+
+    # check of requirements to u and v are fulfilled and singularity mask is false
+    return ((u >= 0) & (v >= 0) & (u+v <= 1) & ~is_singular)
+
+
+
+
+#%%
+ray = t.stack((O, D))
+rays = t.stack((ray, ray))
+triangle = t.stack((A, B, C))
+triangles = t.stack((triangle, triangle))
+
+
+raytrace_triangle(rays, triangle)
+
+#%%
+
+
+
+if MAIN:
+    A = t.tensor([1, 0.0, -0.5])
+    B = t.tensor([1, -0.5, 0.0])
+    C = t.tensor([1, 0.5, 0.5])
+    num_pixels_y = num_pixels_z = 30
+    y_limit = z_limit = 0.5
+
+    # Plot triangle & rays
+    test_triangle = t.stack([A, B, C], dim=0)
+    rays2d = make_rays_2d(num_pixels_y, num_pixels_z, y_limit, z_limit)
+    triangle_lines = t.stack([A, B, C, A, B, C], dim=0).reshape(-1, 2, 3)
+    render_lines_with_plotly(rays2d, triangle_lines)
+
+    # Calculate and display intersections
+    intersects = raytrace_triangle(rays2d, test_triangle)
+    img = intersects.reshape(num_pixels_y, num_pixels_z).int()
+    imshow(img, origin="lower", width=600, title="Triangle (as intersected by rays)")
+
+# %% Debugging
+
+def raytrace_triangle_with_bug(
+    rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
+    triangle: Float[Tensor, "trianglePoints=3 dims=3"]
+) -> Bool[Tensor, "nrays"]:
+    '''
+    For each ray, return True if the triangle intersects that ray.
+    '''
+    NR = rays.size(0)
+
+    A, B, C = einops.repeat(triangle, "pts dims -> pts NR dims", NR=NR)
+
+    O, D = rays.unbind(1)
+
+    mat = t.stack([- D, B - A, C - A], dim=-1)
+
+    dets = t.linalg.det(mat)
+    is_singular = dets.abs() < 1e-8
+    mat[is_singular] = t.eye(3)
+
+    vec = O - A
+
+    sol = t.linalg.solve(mat, vec)
+    s, u, v = sol.unbind(dim=-1)
+
+    return ((u >= 0) & (v >= 0) & (u + v <= 1) & ~is_singular)
+
+intersects = raytrace_triangle_with_bug(rays2d, test_triangle)
+img = intersects.reshape(num_pixels_y, num_pixels_z).int()
+imshow(img, origin="lower", width=600, title="Triangle (as intersected by rays)")
+
+
+
+#%% raytrace mesh
+def raytrace_mesh(
+    rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
+    triangles: Float[Tensor, "ntriangles trianglePoints=3 dims=3"]
+) -> Bool[Tensor, "nrays"]:
+    '''
+    For each ray, return the distance to the closest intersecting triangle, or infinity.
+    '''
+    # retrieve nrays ntriangles
+    NR = rays.shape[0]
+    NT = triangles.shape[0]
+
+    # repeat along axes
+    rays_repeated = einops.repeat(rays, "nrays rayPoints dims -> nrays ntriangles rayPoints dims", ntriangles = NT)
+    triangles_repeated = einops.repeat(triangles, "ntriangles trianglePoints dims -> nrays ntriangles trianglePoints dims", nrays = NR)
+
+    # retrieve single vectors
+
+    O, D = rays_repeated.unbind(dim=2)
+    A, B, C = triangles_repeated.unbind(dim=2)
+
+    # build mat
+    mat: Float[Tensor, "nrays rayPoints 3 3"] = t.stack((-D, B-A, C-A), dim=-1)
+    assert mat.shape == (NR, NT, 3, 3)
+
+    # check for singularities
+    dets = t.linalg.det(mat)
+    is_singular = dets.abs() < 1e-8
+    mat[is_singular] = t.eye(3)
+
+    # do solver
+    sol = t.linalg.solve(mat, O-A)
+    assert sol.shape == (NR, NT, 3)
+
+    s, u, v = sol.unbind(dim=-1)
+
+    # where u, v not fulfilled, plug inf to s
+    is_intersect = ((u >= 0) & (v >= 0) & (u + v <= 1) & ~is_singular)
+    s[~is_intersect] = t.inf
+    assert s.shape == (NR,NT)
+
+    # min s along all axes
+    s = t.min(s, dim=-1, out=(s, idxs))
+
+    return s
+
+    
+
+
+#%% raytrace mesh simple test
+
+D = t.tensor([1, 0, 0], dtype=t.float32)
+O = t.tensor([0, 0, 0], dtype=t.float32) # setting O back
+A = t.tensor([1, 0, 1], dtype=t.float32)
+B = t.tensor([1, 1, -1], dtype=t.float32)
+C = t.tensor([1, -1, -1], dtype=t.float32)
+
+ray = t.stack((O, D))
+rays = t.stack((ray, ray))
+triangle = t.stack((A, B, C))
+triangles = t.stack((triangle, triangle))
+
+raytrace_mesh(rays, triangles)
+
+
+
+
+
+#%% raytrace mesh test
+
+if MAIN:
+    num_pixels_y = 120
+    num_pixels_z = 120
+    y_limit = z_limit = 1
+
+    rays = make_rays_2d(num_pixels_y, num_pixels_z, y_limit, z_limit)
+    rays[:, 0] = t.tensor([-2, 0.0, 0.0])
+    dists = raytrace_mesh(rays, triangles)
+    intersects = t.isfinite(dists).view(num_pixels_y, num_pixels_z)
+    dists_square = dists.view(num_pixels_y, num_pixels_z)
+    img = t.stack([intersects, dists_square], dim=0)
+
+    fig = px.imshow(img, facet_col=0, origin="lower", color_continuous_scale="magma", width=1000)
+    fig.update_layout(coloraxis_showscale=False)
+    for i, text in enumerate(["Intersects", "Distance"]): 
+        fig.layout.annotations[i]['text'] = text
+    fig.show()
+# %%
