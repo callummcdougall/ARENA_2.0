@@ -860,7 +860,7 @@ class LitConvNetTest(pl.LightningModule):
         self.convnet = ConvNet()
         self.args = args
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         '''Convenience function since train/validation steps are similar.'''
         pass
 
@@ -929,7 +929,7 @@ class LitConvNetTest(pl.LightningModule):
         self.convnet = ConvNet()
         self.args = args
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         '''Convenience function since train/validation steps are similar.'''
         # SOLUTION
         imgs, labels = batch
@@ -2240,7 +2240,7 @@ class LitResNet(pl.LightningModule):
         super().__init__()
         pass
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         '''
         Convenience function since train/validation steps are similar.
         '''
