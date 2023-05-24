@@ -277,12 +277,13 @@ class ConvNet(nn.Module):
         self.flatten = Flatten()
         self.fc1 = Linear(in_features=7*7*64, out_features=128)
         self.fc2 = Linear(in_features=128, out_features=10)
+        self.relu3 = ReLU()
         
     def forward(self, x: t.Tensor) -> t.Tensor:
         # SOLUTION
         x = self.maxpool1(self.relu1(self.conv1(x)))
         x = self.maxpool2(self.relu2(self.conv2(x)))
-        x = self.fc2(self.fc1(self.flatten(x)))
+        x = self.fc2(self.relu3(self.fc1(self.flatten(x))))
         return x
 ```
 </details>
@@ -859,7 +860,7 @@ class LitConvNetTest(pl.LightningModule):
         self.convnet = ConvNet()
         self.args = args
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         '''Convenience function since train/validation steps are similar.'''
         pass
 
@@ -928,7 +929,7 @@ class LitConvNetTest(pl.LightningModule):
         self.convnet = ConvNet()
         self.args = args
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         '''Convenience function since train/validation steps are similar.'''
         # SOLUTION
         imgs, labels = batch
@@ -1283,51 +1284,10 @@ if MAIN:
 
 ```
 
-## AveragePool
-
-Let's end our collection of `nn.Module`s with an easy one 🙂
-
-The ResNet has a Linear layer with 1000 outputs at the end in order to produce classification logits for each of the 1000 classes. Any Linear needs to have a constant number of input features, but the ResNet is supposed to be compatible with arbitrary height and width, so we can't just do a pooling operation with a fixed kernel size and stride.
-
-Luckily, the simplest possible solution works decently: take the mean over the spatial dimensions. Intuitively, each position has an equal "vote" for what objects it can "see".
-
-
-### Exercise - implement `AveragePool`
-
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
-
-You should spend up to 5-10 minutes on this exercise.
-```
-
-This should be a pretty straightforward implementation; it doesn't have any weights or parameters of any kind, so you only need to implement the `forward` method.
-
-
-```python
-class AveragePool(nn.Module):
-    def forward(self, x: t.Tensor) -> t.Tensor:
-        '''
-        x: shape (batch, channels, height, width)
-        Return: shape (batch, channels)
-        '''
-        pass
-
-
-```
-
 <details>
 <summary>Solution</summary>
 
-```python
-class AveragePool(nn.Module):
-    def forward(self, x: t.Tensor) -> t.Tensor:
-        '''
-        x: shape (batch, channels, height, width)
-        Return: shape (batch, channels)
-        '''
-        return t.mean(x, dim=(2, 3))
-```
+
 ```python
 class BatchNorm2d(nn.Module):
     # The type hints below aren't functional, they're just for documentation
@@ -1388,7 +1348,56 @@ class BatchNorm2d(nn.Module):
     def extra_repr(self) -> str:
         # SOLUTION
         return ", ".join([f"{key}={getattr(self, key)}" for key in ["num_features", "eps", "momentum"]])
+```
+</details>
 
+
+## AveragePool
+
+Let's end our collection of `nn.Module`s with an easy one 🙂
+
+The ResNet has a Linear layer with 1000 outputs at the end in order to produce classification logits for each of the 1000 classes. Any Linear needs to have a constant number of input features, but the ResNet is supposed to be compatible with arbitrary height and width, so we can't just do a pooling operation with a fixed kernel size and stride.
+
+Luckily, the simplest possible solution works decently: take the mean over the spatial dimensions. Intuitively, each position has an equal "vote" for what objects it can "see".
+
+
+### Exercise - implement `AveragePool`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
+
+This should be a pretty straightforward implementation; it doesn't have any weights or parameters of any kind, so you only need to implement the `forward` method.
+
+
+```python
+class AveragePool(nn.Module):
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, channels)
+        '''
+        pass
+
+
+```
+
+<details>
+<summary>Solution</summary>
+
+```python
+class AveragePool(nn.Module):
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, channels)
+        '''
+        return t.mean(x, dim=(2, 3))
+```
+```python
 class AveragePool(nn.Module):
     def forward(self, x: t.Tensor) -> t.Tensor:
         '''
@@ -1426,7 +1435,7 @@ The right-most block in the diagram, `ResidualBlock`, is nested inside `BlockGro
 Similarly, `BlockGroup` is nested multiple times (four to be precise) in the full `ResNet34` architecture.
 </details>
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet_diagram.svg" width="900">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet_diagram_fixed3.svg" width="900">
 
 
 
@@ -2231,7 +2240,7 @@ class LitResNet(pl.LightningModule):
         super().__init__()
         pass
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         '''
         Convenience function since train/validation steps are similar.
         '''
