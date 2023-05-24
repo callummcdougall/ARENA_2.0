@@ -349,7 +349,7 @@ We define a transform for the MNIST data (which is applied to each image in the 
 
 Next, we define our datasets, using the `torchvision.datasets` library. The argument `root="./data"` indicates that we're storing our data in the `./data` directory, and `transform=MNIST_TRANSFORM` tells us that we should apply our previously defined `transform` to each element in our dataset.
 
-The `Subset` function allows us to take a subset of a dataset. The argument `indices` is a list of indices to sample from the dataset. For example, `Subset(mnist_trainset, indices=[0, 1, 2])` will return a dataset containing only the first three elements of `mnist_trainset`.
+The `Subset` function allows us to take a subset of a dataset. The argument `indices` is a list of indices to sample from the dataset. For example, `Sample(mnist_trainset, indices=[0, 1, 2])` will return a dataset containing only the first three elements of `mnist_trainset`.
 
 
 ---
@@ -362,7 +362,7 @@ for X, y in mnist_trainloader:
     ...
 ```
 
-where `X` is a 4D array of shape `(batch_size, 1, 28, 28)` where each slice is an image, and `y` is a 1D tensor of labels of length `batch_size`. Without using this helpful object, we'd have to iterate through our dataset as follows:
+where `X` is a 3D array of shape `(batch_size, 28, 28)` where each slice is an image, and `y` is a 1D tensor of labels of length `batch_size`. Without using this helpful object, we'd have to iterate through our dataset as follows:
 
 ```python
 for i in range(len(mnist_trainset) // batch_size):
@@ -429,7 +429,7 @@ One last thing to discuss before we move onto training our model: **GPUs**. We'l
 
 * The `to` method is really useful here - it can move objects between different devices (i.e. CPU and GPU) *as well as* changing a tensor's datatype.
     * Note that `to` is never inplace for tensors (i.e. you have to call `x = x.to(device)`), but when working with models, calling `model = model.to(device)` or `model.to(device)` are both perfectly valid.
-* Errors from having one object (e.g. tensor, model) on cpu and another on cuda are very common. Some useful practices to avoid this:
+* Errors from having one device on cpu and another on cuda are very common. Some useful practices to avoid this:
     * Throw in assert statements, to make sure tensors are on the same device
     * Remember that when you initialise an array (e.g. with `t.zeros` or `t.arange`), it will be on CPU by default.
     * Tensor methods like [`new_zeros`](https://pytorch.org/docs/stable/generated/torch.Tensor.new_zeros.html) or [`new_full`](https://pytorch.org/docs/stable/generated/torch.Tensor.new_full.html) are useful, because they'll create tensors which match the device and dtype of the base tensor.
@@ -659,7 +659,7 @@ if MAIN:
         logger=logger,
         log_every_n_steps=1,
     )
-    trainer.fit(model=model, train_dataloaders=trainloader, val_dataloaders=testloader)
+    trainer.fit(model=model, train_dataloaders=trainloader)
 
 ```
 
@@ -1020,16 +1020,18 @@ Now we can update the `get_mnist` function to incorporate data augmentation for 
 
 ```python
 def get_mnist_augmented(subset: int = 1, train_transform=None, test_transform=None):
-    if train_transform is None:
-        train_transform = MNIST_TRANSFORM
-    if test_transform is None:
-        test_transform = MNIST_TRANSFORM
-    mnist_trainset = datasets.MNIST(root="./data", train=True, download=True, transform=data_augmentation_transform)
-    mnist_testset = datasets.MNIST(root="./data", train=False, download=True, transform=data_augmentation_transform)
-    if subset > 1:
-        mnist_trainset = Subset(mnist_trainset, indices=range(0, len(mnist_trainset), subset))
-        mnist_testset = Subset(mnist_testset, indices=range(0, len(mnist_testset), subset))
-    return mnist_trainset, mnist_testset
+
+if MAIN:
+       if train_transform is None:
+           train_transform = MNIST_TRANSFORM
+       if test_transform is None:
+           test_transform = MNIST_TRANSFORM
+       mnist_trainset = datasets.MNIST(root="./data", train=True, download=True, transform=train_transform)
+       mnist_testset = datasets.MNIST(root="./data", train=False, download=True, transform=test_transform)
+       if subset > 1:
+           mnist_trainset = Subset(mnist_trainset, indices=range(0, len(mnist_trainset), subset))
+           mnist_testset = Subset(mnist_testset, indices=range(0, len(mnist_testset), subset))
+       return mnist_trainset, mnist_testset
 
 ```
 
@@ -1282,51 +1284,10 @@ if MAIN:
 
 ```
 
-## AveragePool
-
-Let's end our collection of `nn.Module`s with an easy one 🙂
-
-The ResNet has a Linear layer with 1000 outputs at the end in order to produce classification logits for each of the 1000 classes. Any Linear needs to have a constant number of input features, but the ResNet is supposed to be compatible with arbitrary height and width, so we can't just do a pooling operation with a fixed kernel size and stride.
-
-Luckily, the simplest possible solution works decently: take the mean over the spatial dimensions. Intuitively, each position has an equal "vote" for what objects it can "see".
-
-
-### Exercise - implement `AveragePool`
-
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
-
-You should spend up to 5-10 minutes on this exercise.
-```
-
-This should be a pretty straightforward implementation; it doesn't have any weights or parameters of any kind, so you only need to implement the `forward` method.
-
-
-```python
-class AveragePool(nn.Module):
-    def forward(self, x: t.Tensor) -> t.Tensor:
-        '''
-        x: shape (batch, channels, height, width)
-        Return: shape (batch, channels)
-        '''
-        pass
-
-
-```
-
 <details>
 <summary>Solution</summary>
 
-```python
-class AveragePool(nn.Module):
-    def forward(self, x: t.Tensor) -> t.Tensor:
-        '''
-        x: shape (batch, channels, height, width)
-        Return: shape (batch, channels)
-        '''
-        return t.mean(x, dim=(2, 3))
-```
+
 ```python
 class BatchNorm2d(nn.Module):
     # The type hints below aren't functional, they're just for documentation
@@ -1387,7 +1348,56 @@ class BatchNorm2d(nn.Module):
     def extra_repr(self) -> str:
         # SOLUTION
         return ", ".join([f"{key}={getattr(self, key)}" for key in ["num_features", "eps", "momentum"]])
+```
+</details>
 
+
+## AveragePool
+
+Let's end our collection of `nn.Module`s with an easy one 🙂
+
+The ResNet has a Linear layer with 1000 outputs at the end in order to produce classification logits for each of the 1000 classes. Any Linear needs to have a constant number of input features, but the ResNet is supposed to be compatible with arbitrary height and width, so we can't just do a pooling operation with a fixed kernel size and stride.
+
+Luckily, the simplest possible solution works decently: take the mean over the spatial dimensions. Intuitively, each position has an equal "vote" for what objects it can "see".
+
+
+### Exercise - implement `AveragePool`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
+
+This should be a pretty straightforward implementation; it doesn't have any weights or parameters of any kind, so you only need to implement the `forward` method.
+
+
+```python
+class AveragePool(nn.Module):
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, channels)
+        '''
+        pass
+
+
+```
+
+<details>
+<summary>Solution</summary>
+
+```python
+class AveragePool(nn.Module):
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, channels)
+        '''
+        return t.mean(x, dim=(2, 3))
+```
+```python
 class AveragePool(nn.Module):
     def forward(self, x: t.Tensor) -> t.Tensor:
         '''
