@@ -344,8 +344,9 @@ class Sequential(nn.Module):
             x = mod(x)
         return x
 
-# %%
 import einops
+
+
 
 class BatchNorm2d(nn.Module):
     # The type hints below aren't functional, they're just for documentation
@@ -365,7 +366,7 @@ class BatchNorm2d(nn.Module):
         self.bias = nn.Parameter(t.zeros(num_features))
         self.register_buffer("running_mean", t.zeros(num_features))
         self.register_buffer("running_var", t.ones(num_features))
-        self.num_batches_tracked = t.tensor(0)
+        self.register_buffer("num_batches_tracked",t.tensor(0))
         self.epsilon = eps
         self.momentum = momentum
 
@@ -406,7 +407,6 @@ if MAIN:
     tests.test_batchnorm2d_forward(BatchNorm2d)
     tests.test_batchnorm2d_running_mean(BatchNorm2d)
 
-# %%
 
 class AveragePool(nn.Module):
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -417,7 +417,6 @@ class AveragePool(nn.Module):
         return einops.reduce(x, "b c h w -> b c", "mean")
     
 
-# %%
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_feats: int, out_feats: int, first_stride=1):
@@ -435,12 +434,13 @@ class ResidualBlock(nn.Module):
             assert(in_feats == out_feats)
 
         self.left = Sequential(
-            Conv2d(in_feats, out_feats, kernel_size=3, stride=first_stride, padding=1),
-            BatchNorm2d(out_feats),
-            ReLU(),
-            Conv2d(out_feats, out_feats, kernel_size=3, stride=1, padding=1),
-            BatchNorm2d(out_feats)
-        )
+                    Conv2d(in_feats, out_feats, kernel_size=3, stride=first_stride, padding=1),
+                    BatchNorm2d(out_feats),
+                    ReLU(),
+                    Conv2d(out_feats, out_feats, kernel_size=3, stride=1, padding=1),
+                    BatchNorm2d(out_feats)
+                )
+
 
         if first_stride > 1:
             self.right = Sequential(
@@ -449,6 +449,10 @@ class ResidualBlock(nn.Module):
             )
         else:
             self.right = nn.Identity()
+            
+        
+
+            
 
         self.relu = ReLU()
 
@@ -465,7 +469,6 @@ class ResidualBlock(nn.Module):
         # SOLUTION
         x_left = self.left(x)
         x_right = self.right(x)
-        print(x_left.shape, x_right.shape)
         return self.relu(x_left + x_right)
 # class ResidualBlock(nn.Module):
 #     def __init__(self, in_feats: int, out_feats: int, first_stride=1):
@@ -508,14 +511,13 @@ class ResidualBlock(nn.Module):
 #         return self.relu(x1 + x2)
     
     
-# %%
 class BlockGroup(nn.Module):
     def __init__(self, n_blocks: int, in_feats: int, out_feats: int, first_stride=1):
         '''An n_blocks-long sequence of ResidualBlock where only the first block uses the provided stride.'''
         super().__init__()
         self.n_blocks = n_blocks
         self.first_res = ResidualBlock(in_feats, out_feats, first_stride=first_stride)
-        self.res_blocks = Sequential(*[ResidualBlock(out_feats, out_feats, first_stride=1) for i in range(n_blocks - 1)])
+        self.res_blocks = Sequential(*[ResidualBlock(out_feats, out_feats) for i in range(n_blocks - 1)])
         
     def forward(self, x: t.Tensor) -> t.Tensor:
         '''
@@ -542,8 +544,10 @@ class ResNet34(nn.Module):
         in_features_per_group = [64] + out_features_per_group[:-1]
         zipped = zip(n_blocks_per_group, in_features_per_group, out_features_per_group, first_strides_per_group)
        
+
+       
         self.resnet34 = Sequential(
-            Conv2d(3, 64, kernel_size = 7, stride=2, padding=1),
+            Conv2d(3, 64, kernel_size = 7, stride=2, padding=3),
             BatchNorm2d(64),
             ReLU(),
             MaxPool2d(kernel_size=3, stride=2),
@@ -551,7 +555,7 @@ class ResNet34(nn.Module):
                          for (n_blocks, in_feats, out_feats, first_stride) in zipped]),
             AveragePool(),
             Flatten(),
-            Linear(512,n_classes),
+            Linear(out_features_per_group[-1], n_classes),
         )
        
         
@@ -576,4 +580,118 @@ class ResNet34(nn.Module):
 
 if MAIN:
     my_resnet = ResNet34()
+    
+def copy_weights(my_resnet: ResNet34, pretrained_resnet: models.resnet.ResNet) -> ResNet34:
+    '''Copy over the weights of `pretrained_resnet` to your resnet.'''
+
+    # Get the state dictionaries for each model, check they have the same number of parameters & buffers
+    mydict = my_resnet.state_dict()
+    pretraineddict = pretrained_resnet.state_dict()
+    assert len(mydict) == len(pretraineddict), "Mismatching state dictionaries."
+
+    # Define a dictionary mapping the names of your parameters / buffers to their values in the pretrained model
+    state_dict_to_load = {
+        mykey: pretrainedvalue
+        for (mykey, myvalue), (pretrainedkey, pretrainedvalue) in zip(mydict.items(), pretraineddict.items())
+    }
+
+    # Load in this dictionary to your model
+    my_resnet.load_state_dict(state_dict_to_load)
+
+    return my_resnet
+
+
+
+if MAIN:
+    pretrained_resnet = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    my_resnet = copy_weights(my_resnet, pretrained_resnet)
+    print_param_count(my_resnet, pretrained_resnet)
+
+
+if MAIN:
+    IMAGE_FILENAMES = [
+        "chimpanzee.jpg",
+        "golden_retriever.jpg",
+        "platypus.jpg",
+        "frogs.jpg",
+        "fireworks.jpg",
+        "astronaut.jpg",
+        "iguana.jpg",
+        "volcano.jpg",
+        "goofy.jpg",
+        "dragonfly.jpg",
+    ]
+
+    IMAGE_FOLDER = section_dir / "resnet_inputs"
+
+    images = [Image.open(IMAGE_FOLDER / filename) for filename in IMAGE_FILENAMES]
 # %%
+IMAGE_SIZE = 224
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+IMAGENET_TRANSFORM = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+])
+
+def prepare_data(images: List[Image.Image]) -> t.Tensor:
+    '''
+    Return: shape (batch=len(images), num_channels=3, height=224, width=224)
+    '''
+    tensors = [IMAGENET_TRANSFORM(img) for img in images]
+    return t.stack(tensors, dim=0)
+
+
+if MAIN:
+    prepared_images = prepare_data(images)
+
+    assert prepared_images.shape == (len(images), 3, IMAGE_SIZE, IMAGE_SIZE)
+
+def predict(model, images):
+    logits: t.Tensor = model(images)
+    return logits.argmax(dim=1)
+
+
+# %%
+#one = (my_resnet(prepared_images[-1].unsqueeze(dim=0)) - pretrained_resnet(prepared_images[-1].unsqueeze(dim=0)))
+their_logits = pretrained_resnet(prepared_images[-1].unsqueeze(dim=0))
+my_logits = my_resnet(prepared_images[-1].unsqueeze(dim=0))
+# %%
+if MAIN:
+    my_predictions = predict(my_resnet, prepared_images)
+    pretrained_predictions = predict(pretrained_resnet, prepared_images)
+    assert all(my_predictions == pretrained_predictions)
+# %%
+if MAIN:
+    with open(section_dir / "imagenet_labels.json") as f:
+        imagenet_labels = list(json.load(f).values())
+        
+if MAIN:
+    for img, label in zip(images, my_predictions):
+        print(f"Class {label}: {imagenet_labels[label]}")
+        display(img)
+        print()
+# %%
+
+
+def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
+    '''
+    Creates a ResNet34 instance, replaces its final linear layer with a classifier
+    for `n_classes` classes, and freezes all weights except the ones in this layer.
+
+    Returns the ResNet model.
+    '''
+    my_resnet = ResNet34()
+    pretrained_resnet = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    my_resnet = copy_weights(my_resnet, pretrained_resnet)
+    
+    my_resnet.requires_grad_(False)
+    
+    my_resnet.state_dict()['resnet34.7.weight'] = nn.Linear(512, n_classes)
+
+
+if MAIN:
+    tests.test_get_resnet_for_feature_extraction(get_resnet_for_feature_extraction)
+    
