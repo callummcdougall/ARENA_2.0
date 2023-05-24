@@ -400,8 +400,11 @@ class Sequential(nn.Module):
 
     def forward(self, x: t.Tensor) -> t.Tensor:
         '''Chain each module together, with the output from one feeding into the next one.'''
-        for mod in self._modules.values():
+        for k, mod in self._modules.items():
+            if False:
+                k
             x = mod(x)
+            assert x is not None
         return x
 # %%
 class BatchNorm2d(nn.Module):
@@ -453,7 +456,7 @@ class BatchNorm2d(nn.Module):
         # # weight = einops.rearrange(self.weight, )
         # bias = einops.rearrange(self.bias, )
 
-        result = ((x - self.running_mean) / np.sqrt(self.running_var + self.eps)) * self.weight + self.bias
+        result = ((x - self.running_mean) / t.sqrt(self.running_var + self.eps)) * self.weight + self.bias
         return result
 
 
@@ -550,7 +553,7 @@ class ResidualBlock(nn.Module):
         '''
         super().__init__()
 
-        self.left_branch = Sequential(OrderedDict([
+        self.left_branch = Sequential(**OrderedDict([
             ("conv1", Conv2d(
                 in_channels=in_feats,
                 out_channels=out_feats,
@@ -599,3 +602,68 @@ class ResidualBlock(nn.Module):
         residual = self.right_branch.forward(x)
         return self.relu1.forward(result + residual)
 # %%
+
+class BlockGroup(nn.Module):
+    def __init__(self, n_blocks: int, in_feats: int, out_feats: int, first_stride=1):
+        '''An n_blocks-long sequence of ResidualBlock where only the first block uses the provided stride.'''
+        super().__init__()
+
+        blocks = [ResidualBlock(in_feats=in_feats, out_feats=out_feats, first_stride=first_stride)]
+        for i in range(n_blocks - 1):
+            b = ResidualBlock(in_feats=in_feats, out_feats=out_feats)
+            blocks.append(b)
+        self.parts = Sequential(*blocks)
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        Compute the forward pass.
+
+        x: shape (batch, in_feats, height, width)
+
+        Return: shape (batch, out_feats, height / first_stride, width / first_stride)
+        '''
+        return self.parts.forward()
+
+# %%
+resnet = models.resnet34()
+print(torchinfo.summary(resnet, input_size=(1, 3, 64, 64)))
+
+# %%
+class ResNet34(nn.Module):
+    def __init__(
+        self,
+        n_blocks_per_group=[3, 4, 6, 3],
+        out_features_per_group=[64, 128, 256, 512],
+        first_strides_per_group=[1, 2, 2, 2],
+        n_classes=1000,
+    ):
+        super().__init__()
+        in_feats = 64
+        block_groups = []
+        for blocks, out_feats, strides in zip(n_blocks_per_group, out_features_per_group, first_strides_per_group):
+            group = BlockGroup(n_blocks=blocks, in_feats=in_feats, out_feats=out_feats, first_stride=strides)
+            block_groups.append(group)
+            in_feats = out_feats
+        final_in_features = out_features_per_group[-1]
+        self.parts = Sequential(
+            Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2),
+            BatchNorm2d(num_features=64),
+            ReLU(),
+            MaxPool2d(kernel_size=3, stride=2),
+            *block_groups,
+            AveragePool(),
+            Flatten(),
+            Linear(in_features=final_in_features, out_features=n_classes)
+        )
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, n_classes)
+        '''
+        return self.parts.forward(x)
+
+
+if MAIN:
+    my_resnet = ResNet34()
+    print(torchinfo.summary(my_resnet, input_size=(1, 3, 64, 64)))
