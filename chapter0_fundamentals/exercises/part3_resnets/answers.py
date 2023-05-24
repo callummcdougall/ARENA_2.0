@@ -666,10 +666,221 @@ if MAIN:
     infos = []
     for s in (my_resnet, th_resnet):
         infos.append(str(torchinfo.summary(my_resnet, input_size=(1, 3, 64, 64))))
-    if t1 == t2:
+    if infos[0] == infos[1]:
         print("YAAAAAY!")
     for t1, t2 in zip(*infos):
         if t1 != t2:
             print(f"{t1} {t2}")
 
 # %%
+def copy_weights(my_resnet: ResNet34, pretrained_resnet: models.resnet.ResNet) -> ResNet34:
+    '''Copy over the weights of `pretrained_resnet` to your resnet.'''
+
+    # Get the state dictionaries for each model, check they have the same number of parameters & buffers
+    mydict = my_resnet.state_dict()
+    pretraineddict = pretrained_resnet.state_dict()
+    assert len(mydict) == len(pretraineddict), "Mismatching state dictionaries."
+
+    # Define a dictionary mapping the names of your parameters / buffers to their values in the pretrained model
+    state_dict_to_load = {
+        mykey: pretrainedvalue
+        for (mykey, myvalue), (pretrainedkey, pretrainedvalue) in zip(mydict.items(), pretraineddict.items())
+    }
+
+    # Load in this dictionary to your model
+    my_resnet.load_state_dict(state_dict_to_load)
+
+    return my_resnet
+
+CHEATER = True
+if CHEATER:
+    my_resnet = models.resnet34()
+
+if MAIN:
+    pretrained_resnet = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    my_resnet = copy_weights(my_resnet, pretrained_resnet)
+
+# %%
+print_param_count(my_resnet, pretrained_resnet)
+
+# %%
+if MAIN:
+    IMAGE_FILENAMES = [
+        "chimpanzee.jpg",
+        "golden_retriever.jpg",
+        "platypus.jpg",
+        "frogs.jpg",
+        "fireworks.jpg",
+        "astronaut.jpg",
+        "iguana.jpg",
+        "volcano.jpg",
+        "goofy.jpg",
+        "dragonfly.jpg",
+    ]
+
+    IMAGE_FOLDER = section_dir / "resnet_inputs"
+
+    images = [Image.open(IMAGE_FOLDER / filename) for filename in IMAGE_FILENAMES]
+
+# %%
+
+if MAIN:
+    images[0]
+
+
+# %%
+
+IMAGE_SIZE = 224
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+IMAGENET_TRANSFORM = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+])
+
+# %%
+def prepare_data(images: List[Image.Image]) -> t.Tensor:
+    '''
+    Return: shape (batch=len(images), num_channels=3, height=224, width=224)
+    '''
+    t_images = [IMAGENET_TRANSFORM(im) for im in images]
+    return t.stack(t_images, dim=0)
+
+
+if MAIN:
+    prepared_images = prepare_data(images)
+    assert prepared_images.shape == (len(images), 3, IMAGE_SIZE, IMAGE_SIZE)
+
+
+# %%
+def predict(model, images):
+    logits: t.Tensor = model(images)
+    return logits.argmax(dim=1)
+
+if MAIN:
+    with open(section_dir / "imagenet_labels.json") as f:
+        imagenet_labels = list(json.load(f).values())
+#
+
+# %%
+
+# Check your predictions match the pretrained model's
+
+if MAIN:
+    my_predictions = predict(my_resnet, prepared_images)
+    pretrained_predictions = predict(pretrained_resnet, prepared_images)
+    assert all(my_predictions == pretrained_predictions)
+
+# %%
+# Print out your predictions, next to the corresponding images
+
+if MAIN:
+    for img, label in zip(images, my_predictions):
+        print(f"Class {label}: {imagenet_labels[label]}")
+        display(img)
+        print()
+
+# %%
+
+def predict(model, images):
+    logits: t.Tensor = model(images)
+    return logits.argmax(dim=1)
+
+# %%
+if MAIN:
+    with open(section_dir / "imagenet_labels.json") as f:
+        imagenet_labels = list(json.load(f).values())
+
+# %%
+# Check your predictions match the pretrained model's
+
+if MAIN:
+    my_predictions = predict(my_resnet, prepared_images)
+    pretrained_predictions = predict(pretrained_resnet, prepared_images)
+    assert all(my_predictions == pretrained_predictions)
+
+# %%
+# Print out your predictions, next to the corresponding images
+
+if MAIN:
+    for img, label in zip(images, my_predictions):
+        print(f"Class {label}: {imagenet_labels[label]}")
+        display(img)
+        print()
+
+# %%
+class NanModule(nn.Module):
+    '''
+    Define a module that always returns NaNs (we will use hooks to identify this error).
+    '''
+    def forward(self, x):
+        return t.full_like(x, float('nan'))
+
+
+if MAIN:
+    model = nn.Sequential(
+        nn.Identity(),
+        NanModule(),
+        nn.Identity()
+    )
+
+
+def hook_check_for_nan_output(module: nn.Module, input: Tuple[t.Tensor], output: t.Tensor) -> None:
+    '''
+    Hook function which detects when the output of a layer is NaN.
+    '''
+    if t.isnan(output).any():
+        raise ValueError(f"NaN output from {module}")
+
+
+def add_hook(module: nn.Module) -> None:
+    '''
+    Register our hook function in a module.
+
+    Use model.apply(add_hook) to recursively apply the hook to model and all submodules.
+    '''
+    module.register_forward_hook(hook_check_for_nan_output)
+
+
+def remove_hooks(module: nn.Module) -> None:
+    '''
+    Remove all hooks from module.
+
+    Use module.apply(remove_hooks) to do this recursively.
+    '''
+    module._backward_hooks.clear()
+    module._forward_hooks.clear()
+    module._forward_pre_hooks.clear()
+
+if MAIN:
+    model = model.apply(add_hook)
+    input = t.randn(3)
+
+    try:
+        output = model(input)
+    except ValueError as e:
+        print(e)
+
+    model = model.apply(remove_hooks)
+
+# %%
+
+def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
+    '''
+    Creates a ResNet34 instance, replaces its final linear layer with a classifier
+    for `n_classes` classes, and freezes all weights except the ones in this layer.
+
+    Returns the ResNet model.
+    '''
+    resnet = models.resnet34()
+    pretrained_resnet = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    resnet = copy_weights(resnet, pretrained_resnet)
+
+    resnet.requires_grad_(False)
+
+
+
+if MAIN:
+    tests.test_get_resnet_for_feature_extraction(get_resnet_for_feature_extraction)
