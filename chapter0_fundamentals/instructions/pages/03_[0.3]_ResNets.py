@@ -1435,7 +1435,7 @@ The right-most block in the diagram, `ResidualBlock`, is nested inside `BlockGro
 Similarly, `BlockGroup` is nested multiple times (four to be precise) in the full `ResNet34` architecture.
 </details>
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet_diagram.svg" width="900">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/resnet_diagram_fixed.svg" width="900">
 
 
 
