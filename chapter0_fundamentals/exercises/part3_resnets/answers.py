@@ -665,8 +665,11 @@ if MAIN:
     th_resnet = models.resnet34()
     infos = []
     for s in (my_resnet, th_resnet):
-        torchinfo.summary(my_resnet, input_size=(1, 3, 64, 64))
-    print()
-    print(torchinfo.summary(, input_size=(1, 3, 64, 64)))
+        infos.append(str(torchinfo.summary(my_resnet, input_size=(1, 3, 64, 64))))
+    if t1 == t2:
+        print("YAAAAAY!")
+    for t1, t2 in zip(*infos):
+        if t1 != t2:
+            print(f"{t1} {t2}")
 
 # %%
