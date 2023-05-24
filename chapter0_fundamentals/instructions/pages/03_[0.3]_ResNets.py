@@ -277,12 +277,13 @@ class ConvNet(nn.Module):
         self.flatten = Flatten()
         self.fc1 = Linear(in_features=7*7*64, out_features=128)
         self.fc2 = Linear(in_features=128, out_features=10)
+        self.relu3 = ReLU()
         
     def forward(self, x: t.Tensor) -> t.Tensor:
         # SOLUTION
         x = self.maxpool1(self.relu1(self.conv1(x)))
         x = self.maxpool2(self.relu2(self.conv2(x)))
-        x = self.fc2(self.fc1(self.flatten(x)))
+        x = self.fc2(self.relu3(self.fc1(self.flatten(x))))
         return x
 ```
 </details>
