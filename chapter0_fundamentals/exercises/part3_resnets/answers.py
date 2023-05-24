@@ -430,3 +430,306 @@ class ResidualBlock(nn.Module):
         return ReLU()(left + right)
 
 # %%
+class BlockGroup(nn.Module):
+    def __init__(self, n_blocks: int, in_feats: int, out_feats: int, first_stride=1):
+        '''An n_blocks-long sequence of ResidualBlock where only the first block uses the provided stride.'''
+        super().__init__()
+        blocks = [ResidualBlock(in_feats, out_feats, first_stride)]
+        blocks += [ResidualBlock(out_feats, out_feats, 1) for _ in range(n_blocks - 1)]
+        self.blocks = nn.Sequential(*blocks)
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        Compute the forward pass.
+
+        x: shape (batch, in_feats, height, width)
+
+        Return: shape (batch, out_feats, height / first_stride, width / first_stride)
+        '''
+        return self.blocks(x)
+# %%
+class ResNet34(nn.Module):
+    def __init__(
+        self,
+        n_blocks_per_group=[3, 4, 6, 3],
+        out_features_per_group=[64, 128, 256, 512],
+        first_strides_per_group=[1, 2, 2, 2],
+        n_classes=1000,
+    ):
+        super().__init__()
+        self.n_blocks_per_group = n_blocks_per_group
+        self.out_features_per_group = out_features_per_group
+        self.first_strides_per_group = first_strides_per_group
+        self.n_classes = n_classes
+
+        parts = [
+            Conv2d(3, 64, kernel_size=7, stride=2, padding=3),
+            BatchNorm2d(64),
+            ReLU(),
+            MaxPool2d(kernel_size=3, stride=2, padding=1),
+        ]
+        for i in range(len(n_blocks_per_group)):
+            blocks = n_blocks_per_group[i]
+            in_features = 64 if i == 0 else out_features_per_group[i -1]
+            out_features = out_features_per_group[i]
+            stride = first_strides_per_group[i]
+            parts.append(BlockGroup(blocks, in_features, out_features, stride))
+        
+        parts += [
+            AveragePool(),
+            Flatten(),
+            Linear(out_features_per_group[-1], n_classes),
+        ]
+        self.model = nn.Sequential(*parts)
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, n_classes)
+        '''
+        return self.model(x)
+
+if MAIN:
+    my_resnet = ResNet34()
+# %%
+def copy_weights(my_resnet: ResNet34, pretrained_resnet: models.resnet.ResNet) -> ResNet34:
+    '''Copy over the weights of `pretrained_resnet` to your resnet.'''
+
+    # Get the state dictionaries for each model, check they have the same number of parameters & buffers
+    mydict = my_resnet.state_dict()
+    pretraineddict = pretrained_resnet.state_dict()
+    assert len(mydict) == len(pretraineddict), "Mismatching state dictionaries."
+
+    # Define a dictionary mapping the names of your parameters / buffers to their values in the pretrained model
+    state_dict_to_load = {
+        mykey: pretrainedvalue
+        for (mykey, myvalue), (pretrainedkey, pretrainedvalue) in zip(mydict.items(), pretraineddict.items())
+    }
+
+    # Load in this dictionary to your model
+    my_resnet.load_state_dict(state_dict_to_load)
+
+    return my_resnet
+
+
+
+if MAIN:
+    pretrained_resnet = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    my_resnet = copy_weights(my_resnet, pretrained_resnet)
+    print_param_count(my_resnet, pretrained_resnet)
+# %%
+if MAIN:
+    IMAGE_FILENAMES = [
+        "chimpanzee.jpg",
+        "golden_retriever.jpg",
+        "platypus.jpg",
+        "frogs.jpg",
+        "fireworks.jpg",
+        "astronaut.jpg",
+        "iguana.jpg",
+        "volcano.jpg",
+        "goofy.jpg",
+        "dragonfly.jpg",
+    ]
+
+    IMAGE_FOLDER = section_dir / "resnet_inputs"
+
+    images = [Image.open(IMAGE_FOLDER / filename) for filename in IMAGE_FILENAMES]
+# %%
+if MAIN:
+    images[0]
+# %%
+IMAGE_SIZE = 224
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+IMAGENET_TRANSFORM = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+])
+# %%
+def prepare_data(images: List[Image.Image]) -> t.Tensor:
+    '''
+    Return: shape (batch=len(images), num_channels=3, height=224, width=224)
+    '''
+    images = [IMAGENET_TRANSFORM(img) for img in images]
+    return t.stack(images)
+
+
+if MAIN:
+    prepared_images = prepare_data(images)
+
+    assert prepared_images.shape == (len(images), 3, IMAGE_SIZE, IMAGE_SIZE)
+
+class NanModule(nn.Module):
+    '''
+    Define a module that always returns NaNs (we will use hooks to identify this error).
+    '''
+    def forward(self, x):
+        return t.full_like(x, float('nan'))
+
+
+if MAIN:
+    model = nn.Sequential(
+        nn.Identity(),
+        NanModule(),
+        nn.Identity()
+    )
+
+
+def hook_check_for_nan_output(module: nn.Module, input: Tuple[t.Tensor], output: t.Tensor) -> None:
+    '''
+    Hook function which detects when the output of a layer is NaN.
+    '''
+    if t.isnan(output).any():
+        raise ValueError(f"NaN output from {module}")
+
+
+def add_hook(module: nn.Module) -> None:
+    '''
+    Register our hook function in a module.
+
+    Use model.apply(add_hook) to recursively apply the hook to model and all submodules.
+    '''
+    module.register_forward_hook(hook_check_for_nan_output)
+
+
+def remove_hooks(module: nn.Module) -> None:
+    '''
+    Remove all hooks from module.
+
+    Use module.apply(remove_hooks) to do this recursively.
+    '''
+    module._backward_hooks.clear()
+    module._forward_hooks.clear()
+    module._forward_pre_hooks.clear()
+
+
+
+if MAIN:
+    model = model.apply(add_hook)
+    input = t.randn(3)
+
+    try:
+        output = model(input)
+    except ValueError as e:
+        print(e)
+
+    model = model.apply(remove_hooks)
+
+# %%
+def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
+    '''
+    Creates a ResNet34 instance, replaces its final linear layer with a classifier
+    for `n_classes` classes, and freezes all weights except the ones in this layer.
+
+    Returns the ResNet model.
+    '''
+    my_resnet = copy_weights(ResNet34(), pretrained_resnet)
+    my_resnet.requires_grad_(False)
+
+    in_feat = ResNet34().model[-1].in_features
+    my_resnet.model[-1] = Linear(in_feat, out_features=n_classes)
+    return my_resnet
+
+
+
+if MAIN:
+    tests.test_get_resnet_for_feature_extraction(get_resnet_for_feature_extraction)
+
+#%%
+
+def get_cifar(subset: int):
+    cifar_trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=IMAGENET_TRANSFORM)
+    cifar_testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=IMAGENET_TRANSFORM)
+
+    if subset > 1:
+        cifar_trainset = Subset(cifar_trainset, indices=range(0, len(cifar_trainset), subset))
+        cifar_testset = Subset(cifar_testset, indices=range(0, len(cifar_testset), subset))
+
+    return cifar_trainset, cifar_testset
+
+
+@dataclass
+class ResNetTrainingArgs():
+    batch_size: int = 64
+    max_epochs: int = 3
+    max_steps: int = 500
+    optimizer: t.optim.Optimizer = t.optim.Adam
+    learning_rate: float = 1e-3
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day4-resnet"
+    log_every_n_steps: int = 1
+    n_classes: int = 10
+    subset: int = 10
+
+    def __post_init__(self):
+        trainset, testset = get_cifar(self.subset)
+        self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size)
+        self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
+
+# %%
+class LitResNet(pl.LightningModule):
+    def __init__(self, args: ResNetTrainingArgs):
+        super().__init__()
+        self.args = args
+        self.resnet = get_resnet_for_feature_extraction(args.n_classes)
+
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+        '''
+        Convenience function since train/validation steps are similar.
+        '''
+        imgs, labels = batch
+        logits = self.resnet(imgs)
+        return logits, labels
+
+    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        logits, labels = self._shared_train_val_step(batch)
+        loss = F.cross_entropy(logits, labels)
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+        '''
+        Operates on a single batch of data from the validation set. In this step you might
+        generate examples or calculate anything of interest like accuracy.
+        '''
+        logits, labels = self._shared_train_val_step(batch)
+        val_loss = F.cross_entropy(logits, labels)
+        self.log("val_loss", val_loss)
+
+        pred = logits.argmax(dim=-1)
+        accuracy = t.sum((pred == labels)) / labels.shape[0]
+        self.log("accuracy", accuracy)
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        optimizer = t.optim.Adam(self.resnet.model[-1].parameters())
+        return optimizer
+
+#%%
+if MAIN:
+    args = ResNetTrainingArgs()
+    model = LitResNet(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.validate(model=model, dataloaders=args.testloader)
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+
+    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+
+# %%
