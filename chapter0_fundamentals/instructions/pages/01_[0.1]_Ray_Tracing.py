@@ -1238,7 +1238,7 @@ def raytrace_triangle_with_bug(
     return ((u >= 0) & (v >= 0) & (u + v <= 1) & ~is_singular)
 
 
-intersects = raytrace_triangle(rays2d, test_triangle)
+intersects = raytrace_triangle_with_bug(rays2d, test_triangle)
 img = intersects.reshape(num_pixels_y, num_pixels_z).int()
 imshow(img, origin="lower", width=600, title="Triangle (as intersected by rays)")
 ```
@@ -1336,7 +1336,7 @@ Reminder - `t.linalg.solve` (and most batched operations) can accept multiple di
 def raytrace_mesh(
     rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
     triangles: Float[Tensor, "ntriangles trianglePoints=3 dims=3"]
-) -> Bool[Tensor, "nrays"]:
+) -> Float[Tensor, "nrays"]:
     '''
     For each ray, return the distance to the closest intersecting triangle, or infinity.
     '''
@@ -1371,7 +1371,7 @@ if MAIN:
 def raytrace_mesh(
     rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
     triangles: Float[Tensor, "ntriangles trianglePoints=3 dims=3"]
-) -> Bool[Tensor, "nrays"]:
+) -> Float[Tensor, "nrays"]:
     '''
     For each ray, return the distance to the closest intersecting triangle, or infinity.
     '''

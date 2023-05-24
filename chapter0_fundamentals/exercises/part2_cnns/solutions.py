@@ -207,8 +207,8 @@ if MAIN:
 		),
 		TestCase(
 			output=t.tensor([[0, 2], [5, 7]]), 
-			size=(4,),
-			stride=(1,),
+			size=(2, 2),
+			stride=(5, 2),
 		),
 	
 		TestCase(
