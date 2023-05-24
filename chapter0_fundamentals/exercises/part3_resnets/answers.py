@@ -633,6 +633,7 @@ IMAGENET_STD = [0.229, 0.224, 0.225]
 IMAGENET_TRANSFORM = transforms.Compose([
     transforms.ToTensor(),
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    transforms.Lambda(lambda x : torch.stack([x[0],x[0],x[0]], dim=0)),
     transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
 ])
 
@@ -689,9 +690,95 @@ def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
     
     my_resnet.requires_grad_(False)
     
-    my_resnet.state_dict()['resnet34.7.weight'] = nn.Linear(512, n_classes)
+    my_resnet.resnet34[7] = Linear(512, n_classes)
+    
+    return my_resnet
 
 
 if MAIN:
     tests.test_get_resnet_for_feature_extraction(get_resnet_for_feature_extraction)
     
+# %%
+def get_cifar(subset: int):
+    cifar_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=IMAGENET_TRANSFORM)
+    cifar_testset = datasets.MNIST(root='./data', train=False, download=True, transform=IMAGENET_TRANSFORM)
+
+    if subset > 1:
+        cifar_trainset = Subset(cifar_trainset, indices=range(0, len(cifar_trainset), subset))
+        cifar_testset = Subset(cifar_testset, indices=range(0, len(cifar_testset), subset))
+
+    return cifar_trainset, cifar_testset
+
+
+@dataclass
+class ResNetTrainingArgs():
+    batch_size: int = 128
+    max_epochs: int = 6
+    max_steps: int = 500
+    optimizer: t.optim.Optimizer = t.optim.Adam
+    learning_rate: float = 1e-3
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day4-resnet"
+    log_every_n_steps: int = 1
+    n_classes: int = 10
+    subset: int = 10
+
+    def __post_init__(self):
+        trainset, testset = get_cifar(self.subset)
+        self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size, num_workers=30)
+        self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size, num_workers=30)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
+        
+
+class LitResNet(pl.LightningModule):
+    def __init__(self, args: ResNetTrainingArgs):
+        super().__init__()
+        self.resnet = get_resnet_for_feature_extraction(10)
+        self.args=args
+
+    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        data, target = batch
+        logits = self.resnet(data)
+        loss = F.cross_entropy(logits, target)
+        self.log("train_loss", loss)
+        return loss
+        
+
+    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+        '''
+        Operates on a single batch of data from the validation set. In this step you might
+        generate examples or calculate anything of interest like accuracy.
+        '''
+        data, target = batch
+        logits = self.resnet(data)
+        guess = t.argmax(logits, dim=-1)
+        acc = t.mean((target == guess), dtype=t.float16)
+        self.log("accuracy", acc)
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        optimizer = self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
+        return optimizer
+
+
+if MAIN:
+    args = ResNetTrainingArgs()
+    model = LitResNet(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+
+    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+# %%
