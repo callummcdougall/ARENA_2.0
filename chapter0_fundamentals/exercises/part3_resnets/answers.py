@@ -382,3 +382,51 @@ if MAIN:
     tests.test_batchnorm2d_module(BatchNorm2d)
     tests.test_batchnorm2d_forward(BatchNorm2d)
     tests.test_batchnorm2d_running_mean(BatchNorm2d)
+
+#%%
+class ResidualBlock(nn.Module):
+    def __init__(self, in_feats: int, out_feats: int, first_stride=1):
+        '''
+        A single residual block with optional downsampling.
+
+        For compatibility with the pretrained model, declare the left side branch first using a `Sequential`.
+
+        If first_stride is > 1, this means the optional (conv + bn) should be present on the right branch. Declare it second using another `Sequential`.
+        '''
+        super().__init__()
+        self.left = nn.Sequential(
+            Conv2d(in_feats, out_feats, 
+                   kernel_size=3,
+                   stride=first_stride,
+                   padding=1),
+            BatchNorm2d(out_feats),
+            nn.ReLU(),
+            Conv2d(out_feats, out_feats, 
+                   kernel_size=3,
+                   stride=1,
+                   padding=1),
+            BatchNorm2d(out_feats)
+        )
+        if first_stride > 1:
+            self.right = nn.Sequential(
+                Conv2d(in_feats, out_feats, kernel_size=1, stride=first_stride),
+                BatchNorm2d(out_feats)
+            )
+        else:
+            self.right = nn.Identity()
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        Compute the forward pass.
+
+        x: shape (batch, in_feats, height, width)
+
+        Return: shape (batch, out_feats, height / stride, width / stride)
+
+        If no downsampling block is present, the addition should just add the left branch's output to the input.
+        '''
+        left = self.left(x)
+        right = self.right(x)
+        return ReLU()(left + right)
+
+# %%
