@@ -195,14 +195,12 @@ class LitConvNet(pl.LightningModule):
         imgs, labels = batch
         logits = self.convnet(imgs)
         loss = F.cross_entropy(logits, labels)
-        self.log("train_loss", loss, batch_idx=batch_idx)
-        self.log("train_is_called", 1)
+        self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
         print("validation print")
         self.log("validation_is_called", 1)
-        self.log("validation_batch_idx", batch_idx)
 
     def configure_optimizers(self):
         '''
@@ -302,8 +300,6 @@ class LitConvNet(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
         return optimizer
-
-
 
 if MAIN:
     args = ConvNetTrainingArgs()
@@ -407,7 +403,7 @@ class Sequential(nn.Module):
             assert x is not None
         return x
 # %%
-class BatchNorm2d(nn.Module):
+class BatchNorm2dUS(nn.Module):
     # The type hints below aren't functional, they're just for documentation
     num_features: int
     running_mean: Float[Tensor, "num_features"]
@@ -464,7 +460,7 @@ class BatchNorm2d(nn.Module):
         return f"{self.num_features=},{self.momentum=},{self.eps=}"
 
 
-if MAIN:
+if MAIN and False:
     tests.test_batchnorm2d_module(BatchNorm2d)
     tests.test_batchnorm2d_forward(BatchNorm2d)
     tests.test_batchnorm2d_running_mean(BatchNorm2d)
@@ -553,7 +549,7 @@ class ResidualBlock(nn.Module):
         '''
         super().__init__()
 
-        self.left_branch = Sequential(**OrderedDict([
+        self.left_branch = Sequential(*OrderedDict([
             ("conv1", Conv2d(
                 in_channels=in_feats,
                 out_channels=out_feats,
@@ -569,21 +565,21 @@ class ResidualBlock(nn.Module):
                 kernel_size=(3, 3),
                 padding=1,
             )),
-        ]))
+        ]).values())
 
         if first_stride == 1:
             self.right_branch = nn.Identity()
         else:
-            self.right_branch = Sequential(OrderedDict([
+            self.right_branch = Sequential(*OrderedDict([
                 ("conv1", Conv2d(
                     in_channels=in_feats,
                     out_channels=out_feats,
                     stride=first_stride,
                     kernel_size=(1, 1),
-                    padding=1,
+                    padding=0,
                 )),
                 ("batchnorm1", BatchNorm2d(num_features=out_feats))
-            ]))
+            ]).values())
 
         self.relu1 = ReLU()
 
@@ -610,7 +606,7 @@ class BlockGroup(nn.Module):
 
         blocks = [ResidualBlock(in_feats=in_feats, out_feats=out_feats, first_stride=first_stride)]
         for i in range(n_blocks - 1):
-            b = ResidualBlock(in_feats=in_feats, out_feats=out_feats)
+            b = ResidualBlock(in_feats=out_feats, out_feats=out_feats)
             blocks.append(b)
         self.parts = Sequential(*blocks)
 
@@ -622,11 +618,11 @@ class BlockGroup(nn.Module):
 
         Return: shape (batch, out_feats, height / first_stride, width / first_stride)
         '''
-        return self.parts.forward()
+        return self.parts.forward(x)
 
 # %%
-resnet = models.resnet34()
-print(torchinfo.summary(resnet, input_size=(1, 3, 64, 64)))
+# resnet = models.resnet34()
+# print(torchinfo.summary(resnet, input_size=(1, 3, 64, 64)))
 
 # %%
 class ResNet34(nn.Module):
@@ -666,4 +662,11 @@ class ResNet34(nn.Module):
 
 if MAIN:
     my_resnet = ResNet34()
-    print(torchinfo.summary(my_resnet, input_size=(1, 3, 64, 64)))
+    th_resnet = models.resnet34()
+    infos = []
+    for s in (my_resnet, th_resnet):
+        torchinfo.summary(my_resnet, input_size=(1, 3, 64, 64))
+    print()
+    print(torchinfo.summary(, input_size=(1, 3, 64, 64)))
+
+# %%
