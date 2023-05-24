@@ -310,3 +310,75 @@ if MAIN:
 
     plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
 # %%
+class BatchNorm2d(nn.Module):
+    # The type hints below aren't functional, they're just for documentation
+    running_mean: Float[Tensor, "num_features"]
+    running_var: Float[Tensor, "num_features"]
+    num_batches_tracked: Int[Tensor, ""] # This is how we denote a scalar tensor
+
+    def __init__(self, num_features: int, eps=1e-05, momentum=0.1):
+        '''
+        Like nn.BatchNorm2d with track_running_stats=True and affine=True.
+
+        Name the learnable affine parameters `weight` and `bias` in that order.
+        '''
+        super().__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+
+        self.weight = nn.Parameter(t.ones(num_features))
+        self.bias = nn.Parameter(t.zeros(num_features))
+
+        self.register_buffer("running_mean", t.zeros(num_features))
+        self.register_buffer("running_var", t.ones(num_features))
+        self.register_buffer("num_batches_tracked", t.tensor(0))
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        Normalize each channel.
+
+        Compute the variance using `torch.var(x, unbiased=False)`
+        Hint: you may also find it helpful to use the argument `keepdim`.
+
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, channels, height, width)
+        '''
+        if self.training:
+            mean = x.mean(dim=(0, 2,3), keepdim=True)
+            var = x.var(dim=(0, 2, 3), unbiased=False, keepdim=True)
+
+            # update running values
+            if self.momentum is None:
+                raise NotImplementedError
+
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean.squeeze()
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var.squeeze()
+            self.num_batches_tracked += 1
+        else:
+            mean = rearrange(self.running_mean, "channels -> 1 channels 1 1")
+            var = rearrange(self.running_var, "channels -> 1 channels 1 1")
+        
+        weight = rearrange(self.weight, "channels -> 1 channels 1 1")
+        bias = rearrange(self.bias, "channels -> 1 channels 1 1")
+        
+        raw_val = (x - mean)/(var + self.eps).sqrt()
+        return raw_val * weight + bias
+
+    def extra_repr(self) -> str:
+        pass
+
+
+class AveragePool(nn.Module):
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        '''
+        x: shape (batch, channels, height, width)
+        Return: shape (batch, channels)
+        '''
+        # SOLUTION
+        return t.mean(x, dim=(2, 3))
+
+if MAIN:
+    tests.test_batchnorm2d_module(BatchNorm2d)
+    tests.test_batchnorm2d_forward(BatchNorm2d)
+    tests.test_batchnorm2d_running_mean(BatchNorm2d)
