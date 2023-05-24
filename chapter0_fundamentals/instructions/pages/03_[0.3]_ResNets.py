@@ -349,7 +349,7 @@ We define a transform for the MNIST data (which is applied to each image in the 
 
 Next, we define our datasets, using the `torchvision.datasets` library. The argument `root="./data"` indicates that we're storing our data in the `./data` directory, and `transform=MNIST_TRANSFORM` tells us that we should apply our previously defined `transform` to each element in our dataset.
 
-The `Subset` function allows us to take a subset of a dataset. The argument `indices` is a list of indices to sample from the dataset. For example, `Sample(mnist_trainset, indices=[0, 1, 2])` will return a dataset containing only the first three elements of `mnist_trainset`.
+The `Subset` function allows us to take a subset of a dataset. The argument `indices` is a list of indices to sample from the dataset. For example, `Subset(mnist_trainset, indices=[0, 1, 2])` will return a dataset containing only the first three elements of `mnist_trainset`.
 
 
 ---
@@ -362,7 +362,7 @@ for X, y in mnist_trainloader:
     ...
 ```
 
-where `X` is a 3D array of shape `(batch_size, 28, 28)` where each slice is an image, and `y` is a 1D tensor of labels of length `batch_size`. Without using this helpful object, we'd have to iterate through our dataset as follows:
+where `X` is a 4D array of shape `(batch_size, 1, 28, 28)` where each slice is an image, and `y` is a 1D tensor of labels of length `batch_size`. Without using this helpful object, we'd have to iterate through our dataset as follows:
 
 ```python
 for i in range(len(mnist_trainset) // batch_size):
@@ -429,7 +429,7 @@ One last thing to discuss before we move onto training our model: **GPUs**. We'l
 
 * The `to` method is really useful here - it can move objects between different devices (i.e. CPU and GPU) *as well as* changing a tensor's datatype.
     * Note that `to` is never inplace for tensors (i.e. you have to call `x = x.to(device)`), but when working with models, calling `model = model.to(device)` or `model.to(device)` are both perfectly valid.
-* Errors from having one device on cpu and another on cuda are very common. Some useful practices to avoid this:
+* Errors from having one object (e.g. tensor, model) on cpu and another on cuda are very common. Some useful practices to avoid this:
     * Throw in assert statements, to make sure tensors are on the same device
     * Remember that when you initialise an array (e.g. with `t.zeros` or `t.arange`), it will be on CPU by default.
     * Tensor methods like [`new_zeros`](https://pytorch.org/docs/stable/generated/torch.Tensor.new_zeros.html) or [`new_full`](https://pytorch.org/docs/stable/generated/torch.Tensor.new_full.html) are useful, because they'll create tensors which match the device and dtype of the base tensor.
@@ -659,7 +659,7 @@ if MAIN:
         logger=logger,
         log_every_n_steps=1,
     )
-    trainer.fit(model=model, train_dataloaders=trainloader)
+    trainer.fit(model=model, train_dataloaders=trainloader, val_dataloaders=testloader)
 
 ```
 
