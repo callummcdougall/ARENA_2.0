@@ -167,7 +167,6 @@ class RMSprop:
 		self.lmda = weight_decay
 		self.alpha = alpha
 
-		self.gs = [t.zeros_like(p) for p in self.params]
 		self.bs = [t.zeros_like(p) for p in self.params]
 		self.vs = [t.zeros_like(p) for p in self.params]
 
@@ -177,11 +176,10 @@ class RMSprop:
 
 	@t.inference_mode()
 	def step(self) -> None:
-		for i, (p, g, b, v) in enumerate(zip(self.params, self.gs, self.bs, self.vs)):
+		for i, (p, b, v) in enumerate(zip(self.params, self.bs, self.vs)):
 			new_g = p.grad
 			if self.lmda != 0:
 				new_g = new_g + self.lmda * p
-			self.gs[i] = new_g
 			new_v = self.alpha * v + (1 - self.alpha) * new_g.pow(2)
 			self.vs[i] = new_v
 			if self.mu > 0:
@@ -268,7 +266,7 @@ class AdamW:
 		'''Implements Adam.
 
 		Like the PyTorch version, but assumes amsgrad=False and maximize=False
-			https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+			https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
 		'''
 		self.params = list(params)
 		self.lr = lr
