@@ -585,3 +585,29 @@ if MAIN:
     }
     tests.test_sweep_config(sweep_config)
 # %%
+
+# (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
+
+def train():
+    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args.learning_rate = wandb.config['learning_rate']
+    args.batch_size = wandb.config['batch_size']
+    args.max_epochs = wandb.config['max_epochs']
+
+    model = LitResNet(args)
+    
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    
+    wandb.finish()
+# %%
+
+if MAIN:
+    sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
+    wandb.agent(sweep_id=sweep_id, function=train, count=3)
+# %%
