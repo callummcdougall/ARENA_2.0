@@ -3,20 +3,17 @@ import os
 
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
-import pandas as pd
-import torch as t
-from torch import Tensor, optim
-import torch.nn.functional as F
-from torchvision import datasets
-from torch.utils.data import DataLoader, Subset
-from typing import Callable, Iterable, List, Tuple, Optional
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from dataclasses import dataclass
 from pathlib import Path
-import numpy as np
-from IPython.display import display, HTML
+from typing import Optional, Tuple
+
+import pytorch_lightning as pl
+import torch as t
+import torch.nn.functional as F
 import wandb
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
+from torch.utils.data import DataLoader, Subset
+from torchvision import datasets
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -26,13 +23,9 @@ if str(exercises_dir) not in sys.path:
     sys.path.append(str(exercises_dir))
 os.chdir(section_dir)
 
-from plotly_utils import bar, imshow
 from part3_resnets.solutions import (
-    IMAGENET_TRANSFORM,
-    get_resnet_for_feature_extraction,
-    plot_train_loss_and_test_accuracy_from_metrics,
-)
-from part4_optimization.utils import plot_fn, plot_fn_with_points
+    IMAGENET_TRANSFORM, get_resnet_for_feature_extraction)
+
 import part4_optimization.tests as tests
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
@@ -55,18 +48,6 @@ def get_cifar(subset: int = 1):
         )
     return cifar_trainset, cifar_testset
 
-
-if MAIN:
-    cifar_trainset, cifar_testset = get_cifar()
-
-    imshow(
-        cifar_trainset.data[:15],
-        facet_col=0,
-        facet_col_wrap=5,
-        facet_labels=[cifar_trainset.classes[i] for i in cifar_trainset.targets[:15]],
-        title="CIFAR-10 images",
-        height=600,
-    )
 
 # %%
 if MAIN:
@@ -180,15 +161,13 @@ if MAIN:
     tests.test_sweep_config(sweep_config)
 # %%
 def train() -> None:
-    print(wandb.config)
     args = ResNetFinetuningArgsWandb(
         trainset=cifar_trainset_small,
         testset=cifar_testset_small,
-        batch_size=wandb.config.batch_size,
-        max_epochs=wandb.config.max_epochs,
-        learning_rate=wandb.config.learning_rate,
     )
-    print(args)
+    args.batch_size=wandb.config['batch_size'],
+    args.max_epochs=wandb.config['max_epochs'],
+    args.learning_rate=wandb.config['learning_rate'],
     model = LitResNet(args)
 
     trainer = pl.Trainer(

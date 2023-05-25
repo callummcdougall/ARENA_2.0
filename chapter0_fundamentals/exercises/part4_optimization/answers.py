@@ -609,30 +609,28 @@ if MAIN:
     wandb.finish()
 # %%
 if MAIN:
-    sweep_config = {
-        "method": "random",
-        "name": "sweep",
-        "metric": {"goal": "maximize", "name": "accuracy"},
-        "parameters": {
-            "batch_size": {"values": [32, 64, 128, 256]},
-            "max_epochs": {"values": [1, 2, 3]},
-            "learning_rate": {"max": 0.1, "min": 0.0001, "distribution": "log_uniform_values"},
-        },
-    }
-
     # YOUR CODE HERE - fill `sweep_config`
+    sweep_config = dict(
+        method="random",
+        metric=dict(name="accuracy", goal="maximize"),
+        parameters=dict(
+            batch_size=dict(values=[32, 64, 128, 256]),
+            max_epochs=dict(min=1, max=4),
+            learning_rate=dict(max=0.1, min=0.0001, distribution="log_uniform_values"),
+        ),
+    )
+    # FLAT SOLUTION END
+
     tests.test_sweep_config(sweep_config)
 # %%
 def train() -> None:
-    print(wandb.config)
     args = ResNetFinetuningArgsWandb(
-        trainset=cifar_trainset_small,
-        testset=cifar_testset_small,
-        batch_size=wandb.config.batch_size,
-        max_epochs=wandb.config.max_epochs,
-        learning_rate=wandb.config.learning_rate,
+        trainset=cifar_trainset_small, testset=cifar_testset_small
     )
-    print(args)
+    args.batch_size = wandb.config["batch_size"]
+    args.max_epochs = wandb.config["max_epochs"]
+    args.learning_rate = wandb.config["learning_rate"]
+
     model = LitResNet(args)
 
     trainer = pl.Trainer(
@@ -644,13 +642,12 @@ def train() -> None:
     trainer.fit(
         model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader
     )
-    
+    wandb.finish()
+
+
 # %%
 if MAIN:
     wandb.init()
-    try:
-        sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
-        wandb.agent(sweep_id=sweep_id, function=train, count=3)
-    finally:
-        wandb.finish()
- # %%
+    sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
+    wandb.agent(sweep_id=sweep_id, function=train, count=3)
+# %%
