@@ -212,6 +212,7 @@ if MAIN:
     tests.test_rmsprop(RMSprop)
 # %%
 
+
 class Adam:
     def __init__(
         self,
@@ -221,11 +222,11 @@ class Adam:
         eps: float = 1e-08,
         weight_decay: float = 0.0,
     ):
-        '''Implements Adam.
+        """Implements Adam.
 
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
             https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
-        '''
+        """
         self.params = list(
             params
         )  # turn params into a list (because it might be a generator)
@@ -251,21 +252,22 @@ class Adam:
                 g += self.weight_decay * param
 
             self.inertia[i] = self.betas[0] * self.inertia[i] + (1 - self.betas[0]) * g
-            self.inertia_var[i] = self.betas[1] * self.inertia_var[i] + (1 - self.betas[1]) * (g ** 2)
+            self.inertia_var[i] = self.betas[1] * self.inertia_var[i] + (
+                1 - self.betas[1]
+            ) * (g**2)
             inertia = self.inertia[i] / ((1 - self.betas[0] ** self.steps))
             inertia_var = self.inertia_var[i] / ((1 - self.betas[1] ** self.steps))
             param -= self.lr * inertia / (inertia_var.sqrt() + self.eps)
         self.steps += 1
 
-
     def __repr__(self) -> str:
         return f"Adam(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
-
 
 
 if MAIN:
     tests.test_adam(Adam)
 # %%
+
 
 class AdamW:
     def __init__(
@@ -276,11 +278,11 @@ class AdamW:
         eps: float = 1e-08,
         weight_decay: float = 0.0,
     ):
-        '''Implements Adam.
+        """Implements Adam.
 
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
             https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
-        '''
+        """
         self.params = list(
             params
         )  # turn params into a list (because it might be a generator)
@@ -301,9 +303,11 @@ class AdamW:
     def step(self) -> None:
         for i, param in enumerate(self.params):
             g = param.grad.clone()
-            param *= (1 - self.weight_decay * self.lr)   
+            param *= 1 - self.weight_decay * self.lr
             self.inertia[i] = self.betas[0] * self.inertia[i] + (1 - self.betas[0]) * g
-            self.inertia_var[i] = self.betas[1] * self.inertia_var[i] + (1 - self.betas[1]) * (g ** 2)
+            self.inertia_var[i] = self.betas[1] * self.inertia_var[i] + (
+                1 - self.betas[1]
+            ) * (g**2)
             inertia = self.inertia[i] / ((1 - self.betas[0] ** self.steps))
             inertia_var = self.inertia_var[i] / ((1 - self.betas[1] ** self.steps))
             param -= self.lr * inertia / (inertia_var.sqrt() + self.eps)
@@ -313,20 +317,26 @@ class AdamW:
         return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
 
 
-
 if MAIN:
     tests.test_adamw(AdamW)
 
+
 # %%
-def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
-    '''Optimize the a given function starting from the specified point.
+def opt_fn(
+    fn: Callable,
+    xy: t.Tensor,
+    optimizer_class,
+    optimizer_hyperparams: dict,
+    n_iters: int = 100,
+):
+    """Optimize the a given function starting from the specified point.
 
     optimizer_class: one of the optimizers you've defined, either SGD, RMSprop, or Adam
     optimzer_kwargs: keyword arguments passed to your optimiser (e.g. lr and weight_decay)
-    '''
+    """
     if not xy.requires_grad:
         raise ValueError("Requires grad")
-    
+
     xys = xy.new_zeros((n_iters, 2))
     opt = optimizer_class([xy], **optimizer_hyperparams)
     for i in range(n_iters):
@@ -337,28 +347,35 @@ def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: d
         opt.zero_grad()
     return xys
 
+
 # %%
 
 if MAIN:
     points = []
 
     optimizer_list = [
-        #(SGD, {"lr": 0.03, "momentum": 0.99}),
-        #(RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
+        # (SGD, {"lr": 0.03, "momentum": 0.99}),
+        # (RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
         (Adam, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
         (AdamW, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
-        (RMSprop, {"lr": 0.2, "alpha": .5, "momentum": 0.99, "weight_decay": 0.005}),
+        (RMSprop, {"lr": 0.2, "alpha": 0.5, "momentum": 0.99, "weight_decay": 0.005}),
         (SGD, {"lr": 0.2, "momentum": 0.5, "weight_decay": 0.005}),
     ]
 
     for optimizer_class, params in optimizer_list:
         xy = t.tensor([2.5, 2.5], requires_grad=True)
-        xys = opt_fn(pathological_curve_loss, xy=xy, optimizer_class=optimizer_class, optimizer_hyperparams=params)
+        xys = opt_fn(
+            pathological_curve_loss,
+            xy=xy,
+            optimizer_class=optimizer_class,
+            optimizer_hyperparams=params,
+        )
         points.append((xys, optimizer_class, params))
 
     plot_fn_with_points(pathological_curve_loss, points=points)
 
 # %%
+
 
 def bivariate_gaussian(x, y, x_mean=0.0, y_mean=0.0, x_sig=1.0, y_sig=1.0):
     norm = 1 / (2 * np.pi * x_sig * y_sig)
@@ -366,8 +383,10 @@ def bivariate_gaussian(x, y, x_mean=0.0, y_mean=0.0, x_sig=1.0, y_sig=1.0):
     y_exp = (-1 * (y - y_mean) ** 2) / (2 * y_sig**2)
     return -norm * t.exp(x_exp + y_exp)
 
+
 # if MAIN:
 #     plot_fn(bivariate_gaussian, x_range=(-2, 2), y_range=(-2, 2))
+
 
 def neg_trimodal_func(x, y):
     z = -bivariate_gaussian(x, y, x_mean=1.0, y_mean=-0.5, x_sig=0.2, y_sig=0.2)
@@ -379,8 +398,10 @@ def neg_trimodal_func(x, y):
 # if MAIN:
 #     plot_fn(neg_trimodal_func, x_range=(-2, 2), y_range=(-2, 2))
 
+
 def rosenbrocks_banana_func(x: t.Tensor, y: t.Tensor, a=1, b=100) -> t.Tensor:
     return (a - x) ** 2 + b * (y - x**2) ** 2 + 1
+
 
 # if MAIN:
 #     plot_fn(rosenbrocks_banana_func, x_range=(-2, 2), y_range=(-1, 3), log_scale=True)
@@ -389,29 +410,43 @@ if MAIN:
     points = []
 
     optimizer_list = [
-        #(SGD, {"lr": 0.03, "momentum": 0.99}),
-        #(RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
+        # (SGD, {"lr": 0.03, "momentum": 0.99}),
+        # (RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
         (Adam, {"lr": 0.9, "betas": (0.99, 0.99), "weight_decay": 0.005}),
         (AdamW, {"lr": 0.9, "betas": (0.99, 0.99), "weight_decay": 0.005}),
-        (RMSprop, {"lr": 0.9, "alpha": .5, "momentum": 0.8, "weight_decay": 0.005}),
+        (RMSprop, {"lr": 0.9, "alpha": 0.5, "momentum": 0.8, "weight_decay": 0.005}),
         # (SGD, {"lr": 0.2, "momentum": 0.8, "weight_decay": 0.005}),
     ]
 
     for optimizer_class, params in optimizer_list:
         xy = t.tensor([0.0, 3.0], requires_grad=True)
-        xys = opt_fn(rosenbrocks_banana_func, xy=xy, optimizer_class=optimizer_class, optimizer_hyperparams=params)
+        xys = opt_fn(
+            rosenbrocks_banana_func,
+            xy=xy,
+            optimizer_class=optimizer_class,
+            optimizer_hyperparams=params,
+        )
         points.append((xys, optimizer_class, params))
 
     plot_fn_with_points(rosenbrocks_banana_func, points=points)
 
 # %%
 
+
 def get_cifar(subset: int = 1):
-    cifar_trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=IMAGENET_TRANSFORM)
-    cifar_testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=IMAGENET_TRANSFORM)
+    cifar_trainset = datasets.CIFAR10(
+        root="./data", train=True, download=True, transform=IMAGENET_TRANSFORM
+    )
+    cifar_testset = datasets.CIFAR10(
+        root="./data", train=False, download=True, transform=IMAGENET_TRANSFORM
+    )
     if subset > 1:
-        cifar_trainset = Subset(cifar_trainset, indices=range(0, len(cifar_trainset), subset))
-        cifar_testset = Subset(cifar_testset, indices=range(0, len(cifar_testset), subset))
+        cifar_trainset = Subset(
+            cifar_trainset, indices=range(0, len(cifar_trainset), subset)
+        )
+        cifar_testset = Subset(
+            cifar_testset, indices=range(0, len(cifar_testset), subset)
+        )
     return cifar_trainset, cifar_testset
 
 
@@ -424,18 +459,19 @@ if MAIN:
         facet_col_wrap=5,
         facet_labels=[cifar_trainset.classes[i] for i in cifar_trainset.targets[:15]],
         title="CIFAR-10 images",
-        height=600
+        height=600,
     )
-#%% 
+# %%
 
 if MAIN:
     cifar_trainset, cifar_testset = get_cifar(subset=1)
     cifar_trainset_small, cifar_testset_small = get_cifar(subset=10)
 
-#%%
+# %%
+
 
 @dataclass
-class ResNetFinetuningArgs():
+class ResNetFinetuningArgs:
     batch_size: int = 64
     max_epochs: int = 3
     max_steps: int = 500
@@ -452,53 +488,69 @@ class ResNetFinetuningArgs():
     def __post_init__(self):
         if self.trainset is None or self.testset is None:
             self.trainset, self.testset = get_cifar(self.subset)
-        self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
-        self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
+        self.trainloader = DataLoader(
+            self.trainset, shuffle=True, batch_size=self.batch_size
+        )
+        self.testloader = DataLoader(
+            self.testset, shuffle=False, batch_size=self.batch_size
+        )
         self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
+
+
 class LitResNet(pl.LightningModule):
     def __init__(self, args: ResNetFinetuningArgs):
         super().__init__()
         self.resnet = get_resnet_for_feature_extraction(args.n_classes)
         self.args = args
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
-        '''
+    def _shared_train_val_step(
+        self, batch: Tuple[t.Tensor, t.Tensor]
+    ) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+        """
         Convenience function since train/validation steps are similar.
-        '''
+        """
         imgs, labels = batch
         logits = self.resnet(imgs)
         return logits, labels
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
-        '''
-        Here you compute and return the training loss and some additional metrics for e.g. 
+    def training_step(
+        self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int
+    ) -> t.Tensor:
+        """
+        Here you compute and return the training loss and some additional metrics for e.g.
         the progress bar or logger.
-        '''
+        """
         logits, labels = self._shared_train_val_step(batch)
         loss = F.cross_entropy(logits, labels)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
-        '''
+        """
         Operates on a single batch of data from the validation set. In this step you might
         generate examples or calculate anything of interest like accuracy.
-        '''
+        """
         logits, labels = self._shared_train_val_step(batch)
         classifications = logits.argmax(dim=1)
         accuracy = t.sum(classifications == labels) / len(classifications)
         self.log("accuracy", accuracy)
 
     def configure_optimizers(self):
-        '''
+        """
         Choose what optimizers and learning-rate schedulers to use in your optimization.
-        '''
-        optimizer = self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
+        """
+        optimizer = self.args.optimizer(
+            self.resnet.out_layers.parameters(), lr=self.args.learning_rate
+        )
         return optimizer
+
+
 # %%
 
 if MAIN:
-    args = ResNetFinetuningArgs(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args = ResNetFinetuningArgs(
+        trainset=cifar_trainset_small, testset=cifar_testset_small
+    )
     model = LitResNet(args)
 
     trainer = pl.Trainer(
@@ -507,15 +559,21 @@ if MAIN:
         logger=args.logger,
         log_every_n_steps=args.log_every_n_steps,
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    trainer.fit(
+        model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader
+    )
 
     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 
-    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+    plot_train_loss_and_test_accuracy_from_metrics(
+        metrics, "Feature extraction with ResNet34"
+    )
 # %%
 
 if MAIN:
-    args = ResNetFinetuningArgs(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args = ResNetFinetuningArgs(
+        trainset=cifar_trainset_small, testset=cifar_testset_small
+    )
     model = LitResNet(args)
 
     trainer = pl.Trainer(
@@ -524,12 +582,17 @@ if MAIN:
         logger=args.logger,
         log_every_n_steps=args.log_every_n_steps,
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    trainer.fit(
+        model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader
+    )
 
     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 
-    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+    plot_train_loss_and_test_accuracy_from_metrics(
+        metrics, "Feature extraction with ResNet34"
+    )
 # %%
+
 
 def test_resnet_on_random_input(n_inputs: int = 3):
     indices = np.random.choice(len(cifar_trainset), n_inputs).tolist()
@@ -539,27 +602,34 @@ def test_resnet_on_random_input(n_inputs: int = 3):
         x = t.stack(list(map(IMAGENET_TRANSFORM, imgs)))
         logits: t.Tensor = model.resnet(x)
     probs = logits.softmax(-1)
-    if probs.ndim == 1: probs = probs.unsqueeze(0)
+    if probs.ndim == 1:
+        probs = probs.unsqueeze(0)
     for img, label, prob in zip(imgs, classes, probs):
         display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
         imshow(
-            img, 
-            width=200, height=200, margin=0,
-            xaxis_visible=False, yaxis_visible=False
+            img,
+            width=200,
+            height=200,
+            margin=0,
+            xaxis_visible=False,
+            yaxis_visible=False,
         )
         bar(
             prob,
             x=cifar_trainset.classes,
             template="ggplot2",
-            width=600, height=400,
-            labels={"x": "Classification", "y": "Probability"}, 
-            text_auto='.2f', showlegend=False,
+            width=600,
+            height=400,
+            labels={"x": "Classification", "y": "Probability"},
+            text_auto=".2f",
+            showlegend=False,
         )
 
 
 if MAIN:
     test_resnet_on_random_input()
 # %%
+
 
 @dataclass
 class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
@@ -569,63 +639,125 @@ class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
     def __post_init__(self):
         super().__post_init__()
         if self.use_wandb:
-            self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
+            self.logger = WandbLogger(
+                save_dir=self.log_dir, project=self.log_name, name=self.run_name
+            )
+
 
 if MAIN:
-    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args = ResNetFinetuningArgsWandb(
+        trainset=cifar_trainset_small, testset=cifar_testset_small
+    )
     model = LitResNet(args)
 
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         max_steps=args.max_steps,
         logger=args.logger,
-        log_every_n_steps=args.log_every_n_steps
+        log_every_n_steps=args.log_every_n_steps,
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    trainer.fit(
+        model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader
+    )
     wandb.finish()
 
 # %%
 
 if MAIN:
     sweep_config = {
-    'method': 'random',
-    'name': 'sweep',
-    'metric': {
-        'goal': 'maximize', 
-        'name': 'accuracy'
+        "method": "random",
+        "name": "sweep",
+        "metric": {"goal": "maximize", "name": "accuracy"},
+        "parameters": {
+            "batch_size": {"values": [32, 64, 128, 256]},
+            "max_epochs": {"values": [1, 2, 3]},
+            "learning_rate": {
+                "distribution": "log_uniform_values",
+                "max": 1,
+                "min": 1e-3,
+            },
         },
-    'parameters': {
-        'batch_size': {'values': [32, 64, 128, 256]},
-        'max_epochs': {'values': [1, 2, 3]},
-        'learning_rate': {'distribution': 'log_uniform_values', 'max': 1e-1, 'min': 1e-4}
-     }
-}
+    }
     tests.test_sweep_config(sweep_config)
 # %%
 
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
+
 
 def train():
     wandb.init()
     args = ResNetFinetuningArgsWandb(
         trainset=cifar_trainset_small,
         testset=cifar_testset_small,
-        batch_size=wandb.config['batch_size'],
-        max_epochs=wandb.config['max_epochs'], 
-        learning_rate=wandb.config['learning_rate']
-        )
+        batch_size=wandb.config["batch_size"],
+        max_epochs=wandb.config["max_epochs"],
+        learning_rate=wandb.config["learning_rate"],
+    )
     model = LitResNet(args)
 
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         max_steps=args.max_steps,
         logger=args.logger,
-        log_every_n_steps=args.log_every_n_steps
+        log_every_n_steps=args.log_every_n_steps,
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    trainer.fit(
+        model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader
+    )
     wandb.finish()
 
-if MAIN:
-    sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
+
+if MAIN and False:
+    sweep_id = wandb.sweep(sweep=sweep_config, project="day4-resnet-sweep")
     wandb.agent(sweep_id=sweep_id, function=train, count=50)
 # %%
+
+
+class LitResNetWandb(LitResNet):
+    def __init__(self, args):
+        super().__init__(args)
+        self.args.logger.watch(self.resnet, log="all")
+
+
+# %%
+def train_again():
+    wandb.init()
+    args = ResNetFinetuningArgsWandb(
+        trainset=cifar_trainset_small,
+        testset=cifar_testset_small,
+        batch_size=wandb.config["batch_size"],
+        max_epochs=wandb.config["max_epochs"],
+        learning_rate=wandb.config["learning_rate"],
+    )
+    model = LitResNetWandb(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps,
+    )
+    trainer.fit(
+        model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader
+    )
+    wandb.finish()
+
+
+if MAIN:
+    sweep_config = {
+        "method": "random",
+        "name": "sweep",
+        "metric": {"goal": "maximize", "name": "accuracy"},
+        "parameters": {
+            "batch_size": {"values": [32, 64, 128, 256]},
+            "max_epochs": {"values": [1, 2, 3, 4]},
+            "learning_rate": {
+                "distribution": "log_uniform_values",
+                "max": 1,
+                "min": 1e-4,
+            },
+        },
+    }
+
+    sweep_id = wandb.sweep(sweep=sweep_config, project="day4-resnet-sweep")
+    wandb.agent(sweep_id=sweep_id, function=train_again, count=10)
