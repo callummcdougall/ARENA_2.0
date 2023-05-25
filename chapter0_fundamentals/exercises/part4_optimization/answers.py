@@ -40,8 +40,15 @@ MAIN = __name__ == "__main__"
 
 
 # %%
-def pathological_curve_loss(x: t.Tensor, y: t.Tensor):
+import einops
+def pathological_curve_loss(x: t.Tensor, y: t.Tensor, angle=0):
     # Example of a pathological curvature. There are many more possible, feel free to experiment here!
+    rotations = t.tensor([
+        [np.cos(angle), np.sin(angle)],
+        [-np.sin(angle), np.cos(angle)],
+    ], dtype=x.dtype)
+    xy = t.stack([x, y], dim=-1)
+    x, y = einops.einsum(rotations, xy, "a b, ... b -> a ...")
     x_loss = t.tanh(x) ** 2 + 0.01 * t.abs(x)
     y_loss = t.sigmoid(y)
     return x_loss + y_loss
@@ -173,4 +180,257 @@ if MAIN:
 
 
 #%%
-t.optim.SGD
+class RMSprop:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.01,
+        alpha: float = 0.99,
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+        momentum: float = 0.0,
+    ):
+        '''Implements RMSprop.
+
+        Like the PyTorch version, but assumes centered=False
+            https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
+
+        '''
+        self.params = list(
+            params
+        )  # turn params into a list (because it might be a generator)
+        self.lr = lr
+        self.momentum = momentum
+        self.weight_decay = weight_decay
+        self.alpha = alpha
+        self.eps = eps
+
+        self.v = [t.zeros_like(param) for param in self.params]
+        self.b = [t.zeros_like(param) for param in self.params]
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        for param, v, b in zip(self.params, self.v, self.b):
+            grad = param.grad
+            if self.weight_decay != 0:
+                grad = grad + self.weight_decay * param
+
+            v.set_(self.alpha * v + (1 - self.alpha) * grad.square())
+
+            if self.momentum > 0:
+                b.set_(self.momentum * b + grad/(v.sqrt() + self.eps))
+                param.add_(b, alpha=-self.lr)
+            else:
+                param.add_(grad/(v.sqrt() + self.eps), alpha=-self.lr)
+
+
+
+    def __repr__(self) -> str:
+        return f"RMSprop(lr={self.lr}, eps={self.eps}, momentum={self.mu}, weight_decay={self.lmda}, alpha={self.alpha})"
+
+
+
+if MAIN:
+    tests.test_rmsprop(RMSprop)
+
+
+#%%
+class Adam:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        self.params = list(params)
+        self.lr = lr
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+
+        self.m = [t.zeros_like(param) for param in self.params]
+        self.v = [t.zeros_like(param) for param in self.params]
+
+        self.t = 0
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        self.t += 1
+        for param, m, v in zip(self.params, self.m, self.v):
+            grad = param.grad
+            assert grad is not None
+            if self.weight_decay != 0:
+                grad = grad + self.weight_decay * param
+            m.set_(self.betas[0] * m + (1 - self.betas[0]) * grad)
+            v.set_(self.betas[1] * v + (1 - self.betas[1]) * grad.square())
+
+            mhat = m / (1 - self.betas[0] ** self.t)
+            vhat = v / (1 - self.betas[1] ** self.t)
+
+            param.add_(mhat / (vhat.sqrt() + self.eps), alpha=-self.lr)
+
+    def __repr__(self) -> str:
+        return f"Adam(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_adam(Adam)
+# %%
+class AdamW:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
+        '''
+        self.params = list(params)
+        self.lr = lr
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+
+        self.m = [t.zeros_like(param) for param in self.params]
+        self.v = [t.zeros_like(param) for param in self.params]
+
+        self.t = 0
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        self.t += 1
+        for param, m, v in zip(self.params, self.m, self.v):
+            grad = param.grad
+            assert grad is not None
+            if self.weight_decay != 0:
+                param *= (1 - self.lr * self.weight_decay)
+
+            m.set_(self.betas[0] * m + (1 - self.betas[0]) * grad)
+            v.set_(self.betas[1] * v + (1 - self.betas[1]) * grad.square())
+
+            mhat = m / (1 - self.betas[0] ** self.t)
+            vhat = v / (1 - self.betas[1] ** self.t)
+
+            param -= self.lr * mhat / (vhat.sqrt() + self.eps)
+
+    def __repr__(self) -> str:
+        return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_adamw(AdamW)
+#%%
+
+def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
+    '''Optimize the a given function starting from the specified point.
+
+    optimizer_class: one of the optimizers you've defined, either SGD, RMSprop, or Adam
+    optimzer_kwargs: keyword arguments passed to your optimiser (e.g. lr and weight_decay)
+    '''
+    results = []
+    optim = optimizer_class([xy], **optimizer_hyperparams)
+
+    for i in range(n_iters):
+        results.append(xy.tolist())
+        val = fn(*xy)
+        val.backward()
+        optim.step()
+        optim.zero_grad()
+
+    return t.tensor(results)
+
+#%%
+if MAIN:
+    points = []
+
+    optimizer_list = [
+        (SGD, {"lr": 0.03, "momentum": 0.99}),
+        (RMSprop, {"lr": 0.03, "alpha": 0.99, "momentum": 0.8}),
+        (Adam, {"lr": 0.3, "betas": (0.99, 0.99), "weight_decay": 0.001}),
+    ]
+    optimizer_list += [
+        (AdamW, optimizer_list[-1][1])
+    ]
+
+    for optimizer_class, params in optimizer_list:
+        xy = t.tensor([2.5, 2.5], requires_grad=True)
+        xys = opt_fn(pathological_curve_loss, xy=xy, optimizer_class=optimizer_class, optimizer_hyperparams=params, n_iters=300)
+        points.append((xys, optimizer_class, params))
+
+    plot_fn_with_points(pathological_curve_loss, points=points)
+# %%
+def get_cifar(subset: int = 1):
+    cifar_trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=IMAGENET_TRANSFORM)
+    cifar_testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=IMAGENET_TRANSFORM)
+    if subset > 1:
+        cifar_trainset = Subset(cifar_trainset, indices=range(0, len(cifar_trainset), subset))
+        cifar_testset = Subset(cifar_testset, indices=range(0, len(cifar_testset), subset))
+    return cifar_trainset, cifar_testset
+
+
+#%%
+
+if MAIN:
+    cifar_trainset, cifar_testset = get_cifar()
+
+    imshow(
+        cifar_trainset.data[:15],
+        facet_col=0,
+        facet_col_wrap=5,
+        facet_labels=[cifar_trainset.classes[i] for i in cifar_trainset.targets[:15]],
+        title="CIFAR-10 images",
+        height=600
+    )
+
+#%%
+if MAIN:
+    cifar_trainset, cifar_testset = get_cifar(subset=1)
+    cifar_trainset_small, cifar_testset_small = get_cifar(subset=10)
+
+@dataclass
+class ResNetFinetuningArgs():
+    batch_size: int = 64
+    max_epochs: int = 3
+    max_steps: int = 500
+    optimizer: t.optim.Optimizer = t.optim.Adam
+    learning_rate: float = 1e-3
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day5-resnet"
+    log_every_n_steps: int = 1
+    n_classes: int = 10
+    subset: int = 10
+    trainset: Optional[datasets.CIFAR10] = None
+    testset: Optional[datasets.CIFAR10] = None
+
+    def __post_init__(self):
+        if self.trainset is None or self.testset is None:
+            self.trainset, self.testset = get_cifar(self.subset)
+        self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
+        self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
