@@ -60,7 +60,7 @@ def format_name(name, params):
     name = f"{name}({', '.join([f'{k}={v}' for k, v in params.items()])})"
     return name.replace("(", "<br>   ").replace(")", "").replace(", ", "<br>   ") + "<br>"
 
-def plot_fn_with_points(fn: Callable, points: List[Tuple[t.Tensor, str]], x_range=[-5, 5], y_range=[-10, 5], n_points=100):
+def plot_fn_with_points(fn: Callable, points: List[Tuple[t.Tensor, str]], x_range=[-2, 2], y_range=[-10, 5], n_points=100):
 
     x_min = min(*[xys.T[0].min().item() - 1.0 for (xys, *args) in points], x_range[0])
     x_max = max(*[xys.T[0].max().item() + 1.0 for (xys, *args) in points], x_range[1])

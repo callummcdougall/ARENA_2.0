@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 from IPython.display import display, HTML
+import wandb
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -193,7 +194,7 @@ class RMSprop:
 
 
 
-if MAIN
+if MAIN:
     tests.test_rmsprop(RMSprop)
 
 
@@ -345,3 +346,222 @@ if MAIN:
         points.append((xys, optimizer_class, params))
 
     plot_fn_with_points(pathological_curve_loss, points=points)
+
+
+
+
+
+
+
+
+#%%
+def get_cifar(subset: int = 1):
+    cifar_trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=IMAGENET_TRANSFORM)
+    cifar_testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=IMAGENET_TRANSFORM)
+    if subset > 1:
+        cifar_trainset = Subset(cifar_trainset, indices=range(0, len(cifar_trainset), subset))
+        cifar_testset = Subset(cifar_testset, indices=range(0, len(cifar_testset), subset))
+    return cifar_trainset, cifar_testset
+
+
+if MAIN:
+    cifar_trainset, cifar_testset = get_cifar()
+
+    imshow(
+        cifar_trainset.data[:15],
+        facet_col=0,
+        facet_col_wrap=5,
+        facet_labels=[cifar_trainset.classes[i] for i in cifar_trainset.targets[:15]],
+        title="CIFAR-10 images",
+        height=600
+    )
+# %%
+if MAIN:
+    cifar_trainset, cifar_testset = get_cifar(subset=1)
+    cifar_trainset_small, cifar_testset_small = get_cifar(subset=10)
+
+@dataclass
+class ResNetFinetuningArgs():
+    batch_size: int = 64
+    max_epochs: int = 3
+    max_steps: int = 500
+    optimizer: t.optim.Optimizer = t.optim.Adam
+    learning_rate: float = 1e-3
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day5-resnet"
+    log_every_n_steps: int = 1
+    n_classes: int = 10
+    subset: int = 10
+    trainset: Optional[datasets.CIFAR10] = None
+    testset: Optional[datasets.CIFAR10] = None
+
+    def __post_init__(self):
+        if self.trainset is None or self.testset is None:
+            self.trainset, self.testset = get_cifar(self.subset)
+        self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
+        self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
+# %%
+class LitResNet(pl.LightningModule):
+    def __init__(self, args: ResNetFinetuningArgs):
+        super().__init__()
+        self.resnet = get_resnet_for_feature_extraction(args.n_classes)
+        self.args = args
+
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+        '''
+        Convenience function since train/validation steps are similar.
+        '''
+        imgs, labels = batch
+        logits = self.resnet(imgs)
+        return logits, labels
+
+    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        logits, labels = self._shared_train_val_step(batch)
+        loss = F.cross_entropy(logits, labels)
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+        '''
+        Operates on a single batch of data from the validation set. In this step you might
+        generate examples or calculate anything of interest like accuracy.
+        '''
+        logits, labels = self._shared_train_val_step(batch)
+        classifications = logits.argmax(dim=1)
+        accuracy = t.sum(classifications == labels) / len(classifications)
+        self.log("accuracy", accuracy)
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        optimizer = self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
+        return optimizer
+# %%
+if MAIN:
+    args = ResNetFinetuningArgs(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    model = LitResNet(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps,
+    )
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+
+    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+# %%
+def test_resnet_on_random_input(n_inputs: int = 3):
+    indices = np.random.choice(len(cifar_trainset), n_inputs).tolist()
+    classes = [cifar_trainset.classes[cifar_trainset.targets[i]] for i in indices]
+    imgs = cifar_trainset.data[indices]
+    with t.inference_mode():
+        x = t.stack(list(map(IMAGENET_TRANSFORM, imgs)))
+        logits: t.Tensor = model.resnet(x)
+    probs = logits.softmax(-1)
+    if probs.ndim == 1: probs = probs.unsqueeze(0)
+    for img, label, prob in zip(imgs, classes, probs):
+        display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
+        imshow(
+            img, 
+            width=200, height=200, margin=0,
+            xaxis_visible=False, yaxis_visible=False
+        )
+        bar(
+            prob,
+            x=cifar_trainset.classes,
+            template="ggplot2",
+            width=600, height=400,
+            labels={"x": "Classification", "y": "Probability"}, 
+            text_auto='.2f', showlegend=False,
+        )
+
+
+if MAIN:
+    test_resnet_on_random_input()
+# %%
+
+import wandb
+
+#%%
+@dataclass
+class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
+    use_wandb: bool = True
+    run_name: Optional[str] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.use_wandb:
+            self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
+# %%
+if MAIN:
+    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    model = LitResNet(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    wandb.finish()
+# %%
+if MAIN:
+    sweep_config = {
+    'method': 'random',
+    'name': 'jc-sweep',
+    'metric': {
+        'goal': 'maximize', 
+        'name': 'accuracy'
+    },
+    'parameters': {
+        'batch_size': {'values': (32, 64, 128, 256)},
+        'max_epochs': {'values': (1, 2, 3)},
+        'learning_rate': {'max': 0.1, 'min': 0.0001, "distribution": "log_uniform_values"}
+     }
+}
+
+    tests.test_sweep_config(sweep_config)
+# %%
+PROJECT_NAME = "jc-first"
+# (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
+
+def main():
+    wandb.init(project=PROJECT_NAME)
+
+    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args.batch_size = wandb.config["batch_size"]
+    args.max_epochs = wandb.config["max_epochs"]
+    args.learning_rate = wandb.config["learning_rate"]
+    model = LitResNet(args)
+
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    wandb.finish()
+
+
+sweep_id = wandb.sweep(sweep=sweep_config,
+                       entity="can-rager",
+                       project=PROJECT_NAME)
+
+wandb.agent(sweep_id,
+            function=main,
+            count=10)
+
+# %%
