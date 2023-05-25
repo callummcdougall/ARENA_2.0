@@ -119,7 +119,7 @@ class LitConvNet(pl.LightningModule):
 		accuracy = t.sum(classifications == labels) / len(classifications)
 		self.log("test accuracy", accuracy)
 		self.log("param count", self.param_count)
-		self.log("sample", self.sample)
+		self.log("sample", self.args.sample)
 
 	def configure_optimizers(self):
 		optimizer = self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
@@ -163,7 +163,13 @@ def train():
     trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
     wandb.finish()
 
+
+def yaml_to_dict(file_path):
+    with open(file_path, 'r') as file:
+        yaml_data = yaml.safe_load(file)
+    return yaml_data
+
 if __name__ == "__main__":
-	sweep_config = wandb.sdk.sweep.sweep_config_from_yaml_file("config.YAML")
+	sweep_config = yaml_to_dict("/root/ARENA_2.0/chapter0_fundamentals/exercises/part4_optimization/config.YAML")
 	sweep_id = wandb.sweep(sweep_config)
 	wandb.agent(sweep_id, train)
