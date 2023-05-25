@@ -107,11 +107,11 @@ Once you've cloned the repo and navigated into it (at the root directory), there
 
 * Make & activate a virtual environment.
     * We strongly recommend using `conda` for this. You can install `conda` [here](https://conda.io/projects/conda/en/latest/user-guide/install/index.html), and find basic instructions [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
-    * The command for creating a new env is `conda create --name arena python=3.10`.
+    * The command for creating a new env is `conda create --name arena python=3.8`.
 * Install requirements.
     * First, install PyTorch.
         * If you're on Windows, the command is `conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia`.
-        * If you're on MAC, the command is `conda install pytorch=1.13.1 torchvision`.
+        * If you're on MAC/Linux, the command is `conda install pytorch=1.13.1 torchvision`.
     * Then install the rest of the requirements by navigating running `pip install -r requirements.txt`.
 * To run a set of exercises, navigate to the appropriate `instructions` directory (e.g. `chapter0_fundamentals/instructions`) and run `streamlit run Home.py` in your terminal.
     * This should open up a local copy of the page you're reading right now, and you're good to go!

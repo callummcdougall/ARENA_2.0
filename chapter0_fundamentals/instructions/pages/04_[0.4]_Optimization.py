@@ -659,7 +659,6 @@ class RMSprop:
         self.lmda = weight_decay
         self.alpha = alpha
 
-        self.gs = [t.zeros_like(p) for p in self.params]
         self.bs = [t.zeros_like(p) for p in self.params]
         self.vs = [t.zeros_like(p) for p in self.params]
 
@@ -671,11 +670,10 @@ class RMSprop:
     @t.inference_mode()
     def step(self) -> None:
         # SOLUTION
-        for i, (p, g, b, v) in enumerate(zip(self.params, self.gs, self.bs, self.vs)):
+        for i, (p, b, v) in enumerate(zip(self.params, self.bs, self.vs)):
             new_g = p.grad
             if self.lmda != 0:
                 new_g = new_g + self.lmda * p
-            self.gs[i] = new_g
             new_v = self.alpha * v + (1 - self.alpha) * new_g.pow(2)
             self.vs[i] = new_v
             if self.mu > 0:
@@ -833,7 +831,7 @@ class AdamW:
         '''Implements Adam.
 
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
-            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+            https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
         '''
         pass
 
@@ -854,35 +852,6 @@ if MAIN:
 
 ```
 
-## Plotting multiple optimisers
-
-Finally, we've provided some code which should allow you to plot more than one of your optimisers at once.
-
-
-### Exercise - implement `opt_fn`
-
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
-
-You should spend up to 10-15 minutes on this exercise.
-```
-
-First, you should fill in this function. It will be pretty much exactly the same as your `opt_fn_with_sgd` from earlier, the only difference is that this function works when passed an arbitrary optimizer (you should only have to change one line of code from your previous function). The `optimizer_hyperparams` argument is a dictionary which will contain keywords like `lr` and `momentum`.
-
-
-```python
-def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
-    '''Optimize the a given function starting from the specified point.
-
-    optimizer_class: one of the optimizers you've defined, either SGD, RMSprop, or Adam
-    optimzer_kwargs: keyword arguments passed to your optimiser (e.g. lr and weight_decay)
-    '''
-    pass
-
-
-```
-
 <details>
 <summary>Solution</summary>
 
@@ -900,7 +869,7 @@ class AdamW:
         '''Implements Adam.
 
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
-            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+            https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
         '''
         # SOLUTION
         self.params = list(params)
@@ -939,7 +908,44 @@ class AdamW:
 
     def __repr__(self) -> str:
         return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+```
+</details>
 
+
+## Plotting multiple optimisers
+
+Finally, we've provided some code which should allow you to plot more than one of your optimisers at once.
+
+
+### Exercise - implement `opt_fn`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
+First, you should fill in this function. It will be pretty much exactly the same as your `opt_fn_with_sgd` from earlier, the only difference is that this function works when passed an arbitrary optimizer (you should only have to change one line of code from your previous function). The `optimizer_hyperparams` argument is a dictionary which will contain keywords like `lr` and `momentum`.
+
+
+```python
+def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
+    '''Optimize the a given function starting from the specified point.
+
+    optimizer_class: one of the optimizers you've defined, either SGD, RMSprop, or Adam
+    optimzer_kwargs: keyword arguments passed to your optimiser (e.g. lr and weight_decay)
+    '''
+    pass
+
+
+```
+
+<details>
+<summary>Solution</summary>
+
+
+```python
 def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
     '''Optimize the a given function starting from the specified point.
 
@@ -1076,12 +1082,12 @@ More generally, if you're trying to replicate a paper, it's important to be able
 ### Exercise - rewrite SGD to use parameter groups
 
 ```c
-Difficulty: 🟠🟠🟠🟠⚪
+Difficulty: 🟠🟠🟠🟠🟠
 Importance: 🟠🟠⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
-It's important to conceptually understand parameter groups; the finnicky details of this exercise are less important.
+It's valuable to conceptually understand parameter groups. This exercise has many less important finnicky details, when creating the param groups dictionary.
 ```
 
 You should rewrite the `SGD` optimizer from the earlier exercises, to use `param_groups`. A few things to keep in mind during this exercise:
