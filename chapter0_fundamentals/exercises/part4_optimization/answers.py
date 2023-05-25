@@ -619,3 +619,5 @@ def train():
 if MAIN:
     sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
     wandb.agent(sweep_id=sweep_id, function=train, count=3)
+
+##### PART 3
