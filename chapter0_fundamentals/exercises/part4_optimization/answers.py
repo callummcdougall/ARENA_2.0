@@ -51,4 +51,88 @@ def opt_fn_with_sgd(fn: Callable, xy: t.Tensor, lr=0.001, momentum=0.98, n_iters
 
     Return: (n_iters, 2). The (x,y) BEFORE each step. So out[0] is the starting point.
     '''
-    pass
+    sgd = t.optim.SGD(params=[xy], lr=lr, momentum=momentum)
+    
+    inputs = t.zeros((n_iters, 2))
+
+    for n in range(n_iters):
+        value = fn(xy[0], xy[1])
+        inputs[n] = xy.detach()
+        value.backward()
+        sgd.step()
+        sgd.zero_grad()
+
+    return inputs
+
+
+    
+# %%
+if MAIN:
+    points = []
+
+    optimizer_list = [
+        (optim.SGD, {"lr": 0.1, "momentum": 0.0}),
+        (optim.SGD, {"lr": 0.02, "momentum": 0.99}),
+    ]
+
+    for optimizer_class, params in optimizer_list:
+        xy = t.tensor([2.5, 2.5], requires_grad=True)
+        xys = opt_fn_with_sgd(pathological_curve_loss, xy=xy, lr=params['lr'], momentum=params['momentum'])
+
+        points.append((xys, optimizer_class, params))
+
+    plot_fn_with_points(pathological_curve_loss, points=points)
+# %%
+class SGD:
+    def __init__(
+        self, 
+        params: Iterable[t.nn.parameter.Parameter], 
+        lr: float, 
+        momentum: float = 0.0, 
+        weight_decay: float = 0.0
+    ):
+        '''Implements SGD with momentum.
+
+        Like the PyTorch version, but assume nesterov=False, maximize=False, and dampening=0
+            https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
+
+        '''
+        self.params = list(params) # turn params into a list (because it might be a generator)
+        self.lr = lr
+        self.momentum = momentum
+        self.weight_decay = weight_decay
+        self.prev_step = [None]*len(self.params)
+        
+        self.zero_grad()
+
+        
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = t.zeros_like(param)
+
+    @t.inference_mode()
+    def step(self) -> None:
+        for idx, param in enumerate(self.params):
+            assert param.grad is not None, "gradients of parameters must be defined!"
+            grad = param.grad
+            if self.lr != 0:
+                grad += self.weight_decay*param
+            if self.momentum != 0:
+                if self.prev_step[idx] is not None:
+                    step = self.momentum * self.prev_step[idx] + grad # type: ignore
+                else:
+                    step = grad
+                grad = step
+                self.prev_step[idx] = step
+            param -= self.lr*grad
+
+
+    def __repr__(self) -> str:
+        return f"SGD(lr={self.lr}, momentum={self.mu}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_sgd(SGD)
+# %%
