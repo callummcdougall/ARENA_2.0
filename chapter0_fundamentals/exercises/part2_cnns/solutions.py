@@ -839,6 +839,10 @@ if MAIN:
 	
 def get_mnist(subset: int = 1):
 	'''Returns MNIST training data, sampled by the frequency given in `subset`.'''
+	MNIST_TRANSFORM = transforms.Compose([
+		transforms.ToTensor(),
+		transforms.Normalize((0.1307,), (0.3081,))
+	])
 	mnist_trainset = datasets.MNIST(root="./data", train=True, download=True, transform=MNIST_TRANSFORM)
 	mnist_testset = datasets.MNIST(root="./data", train=False, download=True, transform=MNIST_TRANSFORM)
 

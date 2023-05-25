@@ -71,10 +71,10 @@ if MAIN:
     print(summary)
 
 # %%
-
-x = t.rand((1, 1, 28, 28)).to(device)
-model(x)
-print([x.device for x in model.parameters()])
+if MAIN:
+    x = t.rand((1, 1, 28, 28)).to(device)
+    model(x)
+    print([x.device for x in model.parameters()])
 # %%
 if MAIN:
     MNIST_TRANSFORM = transforms.Compose([
