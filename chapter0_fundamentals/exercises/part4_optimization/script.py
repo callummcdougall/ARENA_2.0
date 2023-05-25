@@ -165,9 +165,9 @@ def train() -> None:
         trainset=cifar_trainset_small,
         testset=cifar_testset_small,
     )
-    args.batch_size=wandb.config['batch_size'],
-    args.max_epochs=wandb.config['max_epochs'],
-    args.learning_rate=wandb.config['learning_rate'],
+    args.batch_size=wandb.config['batch_size']
+    args.max_epochs=wandb.config['max_epochs']
+    args.learning_rate=wandb.config['learning_rate']
     model = LitResNet(args)
 
     trainer = pl.Trainer(
