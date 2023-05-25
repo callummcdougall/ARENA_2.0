@@ -101,15 +101,12 @@ class SGD:
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
-        self.prev_step = [None]*len(self.params)
-        
-        self.zero_grad()
-
+        self.buffer = [None]*len(self.params)
         
 
     def zero_grad(self) -> None:
         for param in self.params:
-            param.grad = t.zeros_like(param)
+            param.grad = None
 
     @t.inference_mode()
     def step(self) -> None:
@@ -119,12 +116,12 @@ class SGD:
             if self.lr != 0:
                 grad += self.weight_decay*param
             if self.momentum != 0:
-                if self.prev_step[idx] is not None:
-                    step = self.momentum * self.prev_step[idx] + grad # type: ignore
+                if self.buffer[idx] is not None:
+                    step = self.momentum * self.buffer[idx] + grad # type: ignore
                 else:
                     step = grad
                 grad = step
-                self.prev_step[idx] = step
+                self.buffer[idx] = step
             param -= self.lr*grad
 
 
@@ -135,4 +132,107 @@ class SGD:
 
 if MAIN:
     tests.test_sgd(SGD)
+# %%
+class RMSprop:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.01,
+        alpha: float = 0.99,
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+        momentum: float = 0.0,
+    ):
+        '''Implements RMSprop.
+
+        Like the PyTorch version, but assumes centered=False
+            https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
+
+        '''
+        self.params = list(params)
+        self.lr = lr
+        self.alpha = alpha
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.momentum = momentum
+        if self.momentum != 0:
+            self.buffer = [t.zeros_like(param) for param in self.params] 
+        self.square_average = [t.zeros_like(param) for param in self.params] 
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        for idx, param in enumerate(self.params):
+            grad = param.grad
+            assert grad is not None, "gradients of parameters must be defined!"
+            if self.weight_decay != 0:
+                grad += self.weight_decay*param
+            self.square_average[idx] = self.alpha*self.square_average[idx] + (1 - self.alpha)*grad**2
+            if self.momentum > 0:
+                self.buffer[idx] = self.momentum*self.buffer[idx] + grad / (t.sqrt(self.square_average[idx]) + self.eps)
+                param -= self.lr * self.buffer[idx]
+            else:
+                param -= self.lr * grad / (t.sqrt(self.square_average[idx]) + self.eps)
+
+    def __repr__(self) -> str:
+        return f"RMSprop(lr={self.lr}, eps={self.eps}, momentum={self.mu}, weight_decay={self.lmda}, alpha={self.alpha})"
+
+
+
+if MAIN:
+    tests.test_rmsprop(RMSprop)
+# %%
+class Adam:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        self.params = list(params)
+        self.lr = lr
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.m = [t.zeros_like(param) for param in self.params] 
+        self.v = [t.zeros_like(param) for param in self.params] 
+        self.step_number = 1
+
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = None
+
+    @t.inference_mode()
+    def step(self) -> None:
+        for idx, param in enumerate(self.params):
+            grad = param.grad
+            assert grad is not None, "gradients of parameters must be defined!"
+            if self.weight_decay != 0:
+                grad += self.weight_decay*param
+            self.m[idx] = self.betas[0]*self.m[idx] + (1 - self.betas[0])*grad
+            self.v[idx] = self.betas[1]*self.v[idx] + (1 - self.betas[1])*grad**2
+            m_scaled = self.m[idx] / (1 - self.betas[0] ** self.step_number)
+            v_scaled = self.v[idx] / (1 - self.betas[1] ** self.step_number)
+            self.step_number += 1
+
+            param -= self.lr*m_scaled / (t.sqrt(v_scaled)  + self.eps)
+
+    def __repr__(self) -> str:
+        return f"Adam(lr={self.lr}, beta1={self.betas[0]}, beta2={self.betas[1]}, eps={self.eps}, weight_decay={self.lr})"
+
+
+
+if MAIN:
+    tests.test_adam(Adam)
 # %%
