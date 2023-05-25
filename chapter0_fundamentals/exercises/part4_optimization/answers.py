@@ -336,7 +336,7 @@ def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: d
     optimizer_class: one of the optimizers you've defined, either SGD, RMSprop, or Adam
     optimzer_kwargs: keyword arguments passed to your optimiser (e.g. lr and weight_decay)
     '''
-    optimizer = optimizer_class(xy, **optimizer_hyperparams)
+    optimizer = optimizer_class([xy], **optimizer_hyperparams)
     points = []
 
     for iter in tqdm(range(n_iters)):
@@ -366,4 +366,222 @@ if MAIN:
         points.append((xys.detach().clone(), optimizer_class, params))
 
     plot_fn_with_points(pathological_curve_loss, points=points)
+# %%
+
+def bivariate_gaussian(x, y, x_mean=0.0, y_mean=0.0, x_sig=1.0, y_sig=1.0):
+    norm = 1 / (2 * np.pi * x_sig * y_sig)
+    x_exp = (-1 * (x - x_mean) ** 2) / (2 * x_sig**2)
+    y_exp = (-1 * (y - y_mean) ** 2) / (2 * y_sig**2)
+    return norm * t.exp(x_exp + y_exp)
+
+def neg_trimodal_func(x, y):
+    z = -bivariate_gaussian(x, y, x_mean=1.0, y_mean=-0.5, x_sig=0.2, y_sig=0.2)
+    z -= bivariate_gaussian(x, y, x_mean=-1.0, y_mean=0.5, x_sig=0.2, y_sig=0.2)
+    z -= bivariate_gaussian(x, y, x_mean=-0.5, y_mean=-0.8, x_sig=0.2, y_sig=0.2)
+    return z
+
+
+if MAIN:
+    plot_fn(neg_trimodal_func, x_range=(-2, 2), y_range=(-2, 2))
+# %%
+
+if MAIN:
+    points = []
+
+    optimizer_list = [
+        (SGD, {"lr": 0.1, "momentum": 0.99}),
+        (RMSprop, {"lr": 0.1, "alpha": 0.99, "momentum": 0.8}),
+        (Adam, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
+    ]
+
+    for optimizer_class, params in optimizer_list:
+        xy = t.tensor([2.5, 2.5], requires_grad=True)
+        xys = opt_fn(bivariate_gaussian, xy=xy, optimizer_class=optimizer_class, optimizer_hyperparams=params, n_iters = 300)
+        points.append((xys.detach().clone(), optimizer_class, params))
+
+    plot_fn_with_points(bivariate_gaussian, points=points)
+# %%
+
+def get_cifar(subset: int = 1):
+    cifar_trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=IMAGENET_TRANSFORM)
+    cifar_testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=IMAGENET_TRANSFORM)
+    if subset > 1:
+        cifar_trainset = Subset(cifar_trainset, indices=range(0, len(cifar_trainset), subset))
+        cifar_testset = Subset(cifar_testset, indices=range(0, len(cifar_testset), subset))
+    return cifar_trainset, cifar_testset
+
+
+if MAIN:
+    cifar_trainset, cifar_testset = get_cifar()
+
+    imshow(
+        cifar_trainset.data[:15],
+        facet_col=0,
+        facet_col_wrap=5,
+        facet_labels=[cifar_trainset.classes[i] for i in cifar_trainset.targets[:15]],
+        title="CIFAR-10 images",
+        height=600
+    )
+# %%
+if MAIN:
+    cifar_trainset, cifar_testset = get_cifar(subset=1)
+    cifar_trainset_small, cifar_testset_small = get_cifar(subset=10)
+
+@dataclass
+class ResNetFinetuningArgs():
+    batch_size: int = 64
+    max_epochs: int = 3
+    max_steps: int = 500
+    optimizer: t.optim.Optimizer = t.optim.Adam
+    learning_rate: float = 1e-3
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day5-resnet"
+    log_every_n_steps: int = 1
+    n_classes: int = 10
+    subset: int = 10
+    trainset: Optional[datasets.CIFAR10] = None
+    testset: Optional[datasets.CIFAR10] = None
+
+    def __post_init__(self):
+        if self.trainset is None or self.testset is None:
+            self.trainset, self.testset = get_cifar(self.subset)
+        self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
+        self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
+        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
+# %%
+class LitResNet(pl.LightningModule):
+    def __init__(self, args: ResNetFinetuningArgs):
+        super().__init__()
+        self.resnet = get_resnet_for_feature_extraction(args.n_classes)
+        self.args = args
+
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
+        '''
+        Convenience function since train/validation steps are similar.
+        '''
+        imgs, labels = batch
+        logits = self.resnet(imgs)
+        return logits, labels
+
+    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        logits, labels = self._shared_train_val_step(batch)
+        loss = F.cross_entropy(logits, labels)
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+        '''
+        Operates on a single batch of data from the validation set. In this step you might
+        generate examples or calculate anything of interest like accuracy.
+        '''
+        logits, labels = self._shared_train_val_step(batch)
+        classifications = logits.argmax(dim=1)
+        accuracy = t.sum(classifications == labels) / len(classifications)
+        self.log("accuracy", accuracy)
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        optimizer = self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
+        return optimizer
+# %%
+if MAIN:
+    args = ResNetFinetuningArgs(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    model = LitResNet(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps,
+    )
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+
+    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+# %%
+
+def test_resnet_on_random_input(n_inputs: int = 3):
+    indices = np.random.choice(len(cifar_trainset), n_inputs).tolist()
+    classes = [cifar_trainset.classes[cifar_trainset.targets[i]] for i in indices]
+    imgs = cifar_trainset.data[indices]
+    with t.inference_mode():
+        x = t.stack(list(map(IMAGENET_TRANSFORM, imgs)))
+        logits: t.Tensor = model.resnet(x)
+    probs = logits.softmax(-1)
+    if probs.ndim == 1: probs = probs.unsqueeze(0)
+    for img, label, prob in zip(imgs, classes, probs):
+        display(HTML(f"<h2>Classification probabilities (true class = {label})</h2>"))
+        imshow(
+            img, 
+            width=200, height=200, margin=0,
+            xaxis_visible=False, yaxis_visible=False
+        )
+        bar(
+            prob,
+            x=cifar_trainset.classes,
+            template="ggplot2",
+            width=600, height=400,
+            labels={"x": "Classification", "y": "Probability"}, 
+            text_auto='.2f', showlegend=False,
+        )
+
+
+if MAIN:
+    test_resnet_on_random_input()
+# %%
+import wandb
+
+# %%
+
+@dataclass
+class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
+    use_wandb: bool = True
+    run_name: Optional[str] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.use_wandb:
+            self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
+# %%
+if MAIN:
+    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    model = LitResNet(args)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        max_steps=args.max_steps,
+        logger=args.logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    wandb.finish()
+# %%
+
+if MAIN:
+    sweep_config = dict()
+    sweep_config = {
+        'method': 'random',
+        'name': 'sweep',
+        'metric': {
+            'name': 'accuracy',
+            'goal': 'maximize'
+        },
+        'parameters': {
+            'learning_rate': {
+                'distribution': 'log_uniform_values',
+                'min': 1e-4,
+                'max': 1e-1
+                },
+            'batch_size': {'values': [32, 64, 128, 256]},
+            'max_epochs': {'values': [1, 2, 3]}
+        }
+    }
+    tests.test_sweep_config(sweep_config)
 # %%
