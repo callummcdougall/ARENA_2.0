@@ -1,5 +1,5 @@
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
-os.environ["WANDB_API_KEY"] = "b8945890f2fbbf190f01246cd6e2f48f27dd5fd9"
+os.environ["WANDB_API_KEY"] = None
 import sys
 import pandas as pd
 import torch as t
