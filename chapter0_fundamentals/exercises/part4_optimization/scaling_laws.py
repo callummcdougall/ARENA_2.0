@@ -33,8 +33,7 @@ import yaml
 import math
 
 
-
-
+##############################
 
 
 class ConvNet(t.nn.Module):
@@ -50,8 +49,8 @@ class ConvNet(t.nn.Module):
 		self.maxpool2 = MaxPool2d(kernel_size=2, stride=2, padding=0)
 		
 		self.flatten = Flatten()
-		self.fc1 = Linear(in_features=7*7*64*h, out_features=h)
-		self.fc2 = Linear(in_features=h, out_features=10)
+		self.fc1 = Linear(in_features=7*7*64*h, out_features=128*h)
+		self.fc2 = Linear(in_features=128*h, out_features=10)
 		
 	def forward(self, x: t.Tensor) -> t.Tensor:
 		x = self.maxpool1(self.relu1(self.conv1(x)))
@@ -78,10 +77,6 @@ class ConvNetTrainingArgs():
 	model_width: int = 128
 
 	def __post_init__(self):
-		'''
-		This code runs after the class is instantiated. It can reference things like
-		self.sample, which are defined in the __init__ block.
-		'''
 		trainset, testset = get_mnist(subset=self.sample)
 		self.trainloader = DataLoader(trainset, shuffle=True, batch_size=self.batch_size)
 		self.testloader = DataLoader(testset, shuffle=False, batch_size=self.batch_size)
@@ -119,12 +114,12 @@ class LitConvNet(pl.LightningModule):
 		return loss
 	
 	def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
-
 		logits, labels = self._shared_train_val_step(batch)
 		classifications = logits.argmax(dim=1)
 		accuracy = t.sum(classifications == labels) / len(classifications)
-		self.log("accuracy", accuracy)
+		self.log("test accuracy", accuracy)
 		self.log("param count", self.param_count)
+		self.log("sample", self.sample)
 
 	def configure_optimizers(self):
 		optimizer = self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
@@ -169,8 +164,6 @@ def train():
     wandb.finish()
 
 if __name__ == "__main__":
-	train()
-
-
-#sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
-#wandb.agent(sweep_id=sweep_id, function=train, count=3)
+	sweep_config = wandb.sdk.sweep.sweep_config_from_yaml_file("config.YAML")
+	sweep_id = wandb.sweep(sweep_config)
+	wandb.agent(sweep_id, train)

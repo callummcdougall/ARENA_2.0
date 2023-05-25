@@ -6,6 +6,6 @@ metric:
 name: sweep
 parameters:
     model_width: 
-        values: [128, 181, 256, 362, 512]
+        values: [2, 4, 8, 16]
     sample: 
         values: [.125, .25, .5, 1]
