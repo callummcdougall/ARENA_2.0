@@ -211,3 +211,57 @@ if MAIN:
     tests.test_rmsprop(RMSprop)
 # %%
 
+class Adam:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        self.params = list(
+            params
+        )  # turn params into a list (because it might be a generator)
+        self.lr = lr
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.inertia = [t.zeros_like(param) for param in self.params]
+        self.inertia_var = [t.zeros_like(param) for param in self.params]
+        self.steps = 1
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            if param.grad is not None:
+                param.grad.zero_()
+
+    @t.inference_mode()
+    def step(self) -> None:
+        for i, param in enumerate(self.params):
+            g = param.grad.clone()
+
+            if abs(self.weight_decay) > 1e-10:
+                g += self.weight_decay * param
+
+            self.inertia[i] = self.betas[0] * self.inertia[i] + (1 - self.betas[0]) * g
+            self.inertia_var[i] = self.betas[1] * self.inertia_var[i] + (1 - self.betas[1]) * (g ** 2)
+            inertia = self.inertia[i] / ((1 - self.betas[0] ** self.steps))
+            inertia_var = self.inertia_var[i] / ((1 - self.betas[1] ** self.steps))
+            param -= self.lr * inertia / (inertia_var.sqrt() + self.eps)
+        self.steps += 1
+
+
+    def __repr__(self) -> str:
+        return f"Adam(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_adam(Adam)
+# %%
