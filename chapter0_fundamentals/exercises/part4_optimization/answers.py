@@ -221,12 +221,12 @@ class Adam:
             if self.weight_decay != 0:
                 grad += self.weight_decay*param
             self.m[idx] = self.betas[0]*self.m[idx] + (1 - self.betas[0])*grad
-            self.v[idx] = self.betas[1]*self.v[idx] + (1 - self.betas[1])*grad**2
+            self.v[idx] = self.betas[1]*self.v[idx] + (1 - self.betas[1])*grad.pow(2)
             m_scaled = self.m[idx] / (1 - self.betas[0] ** self.step_number)
             v_scaled = self.v[idx] / (1 - self.betas[1] ** self.step_number)
-            self.step_number += 1
 
             param -= self.lr*m_scaled / (t.sqrt(v_scaled)  + self.eps)
+        self.step_number += 1
 
     def __repr__(self) -> str:
         return f"Adam(lr={self.lr}, beta1={self.betas[0]}, beta2={self.betas[1]}, eps={self.eps}, weight_decay={self.lr})"
@@ -236,3 +236,43 @@ class Adam:
 if MAIN:
     tests.test_adam(Adam)
 # %%
+class AdamW:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        self.params = list(params)
+        self.lr = lr
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.m = [t.zeros_like(param) for param in self.params] 
+        self.v = [t.zeros_like(param) for param in self.params] 
+        self.step_number = 1
+
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            param.grad = None
+
+
+    @t.inference_mode()
+    def step(self) -> None:
+        pass
+
+    def __repr__(self) -> str:
+        return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_adamw(AdamW)
