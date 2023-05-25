@@ -145,8 +145,8 @@ class RMSpropOurs:
         self.eps = eps
         self.weight_decay = weight_decay
         self.momentum = momentum
-        self.running_grad = [t.zeros_like(param) for param in params]
-        self.running_squared_grad = [t.zeros_like(param) for param in params]
+        self.running_grad = [t.zeros_like(param) for param in self.params]
+        self.running_squared_grad = [t.zeros_like(param) for param in self.params]
 
     def zero_grad(self) -> None:
         for param in self.params:
@@ -249,8 +249,8 @@ class AdamOurs:
         self.beta2 = betas[1]
         self.eps = eps
         self.weight_decay = weight_decay
-        self.running_grad = [t.zeros_like(param) for param in params]
-        self.running_squared_grad = [t.zeros_like(param) for param in params]
+        self.running_grad = [t.zeros_like(param) for param in self.params]
+        self.running_squared_grad = [t.zeros_like(param) for param in self.params]
         self.t = 0
 
     def zero_grad(self) -> None:
