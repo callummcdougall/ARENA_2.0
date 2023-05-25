@@ -298,7 +298,7 @@ Note, here you'll be using vanilla PyTorch to write your training code rather th
 
 A few gotchas:
 
-* `torch.optim.SGD` (and other optimizers you'll use) expect iterables of parameters, rather than a single parameter. So rather than passing in the tensor `xy` as the `params` argumen, you need to pass in a length-1 list containing `xy`.
+* `torch.optim.SGD` (and other optimizers you'll use) expect iterables of parameters, rather than a single parameter. So rather than passing in the tensor `xy` as the `params` argument, you need to pass in a length-1 list containing `xy`.
 * Remember to call `detach()` on your `xy` tensor at each step before you add it to your list of points. This is necessary to remove `xy` it from the computational graph.
 * An important note here - we're not optimising the parameters of a neural network; we're optimising parameters `(x, y)` which represent coordinates at which we evaluate a function.
 
@@ -1673,9 +1673,12 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#loading-from-checkpoints-with-lightning'>Loading from checkpoints with Lightning</a></li>
-    <li class='margtop'><a class='contents-el' href='#tracking-gradients'>Tracking gradients</a></li>
-    <li class='margtop'><a class='contents-el' href='#other-wandb-features'>Other WandB features</a></li>
+    <li class='margtop'><a class='contents-el' href='#scaling-laws'>Scaling Laws</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#suggested-exercise'>Suggested exercise</a></li>
+    </ul></li>
+    <li class='margtop'><a class='contents-el' href='#other-lighting-features:-checkpoints'>Other Lighting Features: Checkpoints</a></li>
+    <li class='margtop'><a class='contents-el' href='#other-wandb-features:-gradients-saving-logging'>Other WandB Features: Gradients, Saving & Logging</a></li>
     <li class='margtop'><a class='contents-el' href='#train-your-model-from-scratch'>Train your model from scratch</a></li>
     <li class='margtop'><a class='contents-el' href='#the-optimizer's-curse'>The Optimizer's Curse</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -1688,7 +1691,29 @@ def section_3():
 Congratulations for getting to the end of the main content! This section gives some suggestions for more features of PyTorch Lightning or Weights and Biases to explore, or some other experiments you can run.
 
 
-## Loading from checkpoints with Lightning
+## Scaling Laws
+
+
+These bonus exercises are taken directly from Jacob Hilton's [online deep learning curriculum](https://github.com/jacobhilton/deep_learning_curriculum/blob/master/2-Scaling-Laws.md) (which is what the original version of the ARENA course was based on). 
+
+First, you can start by reading the [Chinchilla paper](https://arxiv.org/abs/2203.15556). This is a correction to the original scaling laws paper: parameter count scales linearly with token budget for compute-optimal models, not ~quadratically. The difference comes from using a separately-tuned learning rate schedule for each token budget, rather than using a single training run to measure performance for every token budget. This highlights the importance of hyperparameter tuning for measuring scaling law exponents.
+
+You don't have to read the entire paper, just skim the graphs. Don't worry if they don't all make sense yet (it will be more illuminating when we study LLMs next week). Note that, although it specifically applies to language models, the key underlying ideas of tradeoffs between optimal dataset size and model size are generally applicable.
+
+### Suggested exercise
+
+Perform your own study of scaling laws for MNIST.
+
+- Write a script to train a small CNN on MNIST, or find one you have written previously.
+- Training for a single epoch only, vary the model size and dataset size. For the model size, multiply the width by powers of sqrt(2) (rounding if necessary - the idea is to vary the amount of compute used per forward pass by powers of 2). For the dataset size, multiply the fraction of the full dataset used by powers of 2 (i.e. 1, 1/2, 1/4, ...). To reduce noise, use a few random seeds and always use the full validation set.
+- The learning rate will need to vary with model size. Either tune it carefully for each model size, or use the rule of thumb that for Adam, the learning rate should be proportional to the initialization scale, i.e. 1/sqrt(fan_in) for the standard Kaiming He initialization (which is what PyTorch generally uses by default).
+- Plot the amount of compute used (on a log scale) against validation loss. The compute-efficient frontier should follow an approximate power law (straight line on a log scale).
+How does validation accuracy behave?
+- Study how the compute-efficient model size varies with compute. This should also follow an approximate power law. Try to estimate its exponent.
+- Repeat your entire experiment with 20% dropout to see how this affects the scaling exponents.
+
+
+## Other Lighting Features: Checkpoints
 
 
 PyTorch Lightning will automatically save checkpoints for you. By default, Lightning automatically saves a checkpoint for you in the same directory as the metrics file, with the state of your last training epoch. You can load your model from the most recent checkpoint using:
@@ -1723,7 +1748,7 @@ Lastly, you can manually save checkpoints with `trainer.save_checkpoint(filepath
 Play around with these checkpoint features. Do you find that the checkpoint when minimising training loss is also the same as the one that minimises test accuracy? Does this depend on the hyperparameters you choose?
 
 
-## Tracking gradients
+## Other WandB Features: Gradients, Saving & Logging
 
 Weights and Biases can also track gradients for you as your model trains. This is done by calling `wandb.watch(model)` at any point after you've initialised your run (i.e. after you've defined your logger, since that's when the run initialises). For instance, we can just add a line to the end of the `__init__` method of our `LitResNet` class:
 
@@ -1738,10 +1763,7 @@ Now, run the code to train your model, and visit the run page. You should eventu
 
 Have a poke around some of the gradients and parameters. Do most of them look normally distributed? Do they usually have mean around zero?
 
-
-## Other WandB features
-
-Here are a few things you might also want to play around with:
+Here are a few more features you might also want to play around with:
 
 * [Logging media and objects in experiments](https://docs.wandb.ai/guides/track/log?fbclid=IwAR3NxKsGpEjZwq3vSwYkohZllMpBwxHgOCc_k0ByuD9XGUsi_Scf5ELvGsQ) - you'll be doing this during the RL week, and it's useful when you're training generative image models like VAEs and diffusion models.
 * [Code saving](https://docs.wandb.ai/guides/app/features/panels/code?fbclid=IwAR2BkaXbRf7cqEH8kc1VzqH_kOJWGxqjUb_JCBq_SCnXOx1oF-Rt-hHydb4) - this captures all python source code files in the current director and all subdirectories. It's great for reproducibility, and also for sharing your code with others.
@@ -1794,7 +1816,7 @@ For more on this, see [Preventing "Overfitting" of Cross-Validation Data](https:
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Optimizers'),     (section_2, '2️⃣ Weights and Biases'),     (section_3, '3️⃣ Bonus'), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Optimizers"),     (section_2, "2️⃣ Weights and Biases"),     (section_3, "3️⃣ Bonus"), 
 ]
 
 func_list = [func for func, page in func_page_list]
