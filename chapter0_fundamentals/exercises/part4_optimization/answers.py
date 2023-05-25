@@ -265,3 +265,96 @@ class Adam:
 if MAIN:
     tests.test_adam(Adam)
 # %%
+
+class AdamW:
+    def __init__(
+        self,
+        params: Iterable[t.nn.parameter.Parameter],
+        lr: float = 0.001,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-08,
+        weight_decay: float = 0.0,
+    ):
+        '''Implements Adam.
+
+        Like the PyTorch version, but assumes amsgrad=False and maximize=False
+            https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
+        '''
+        self.params = list(
+            params
+        )  # turn params into a list (because it might be a generator)
+        self.lr = lr
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.inertia = [t.zeros_like(param) for param in self.params]
+        self.inertia_var = [t.zeros_like(param) for param in self.params]
+        self.steps = 1
+
+    def zero_grad(self) -> None:
+        for param in self.params:
+            if param.grad is not None:
+                param.grad.zero_()
+
+    @t.inference_mode()
+    def step(self) -> None:
+        for i, param in enumerate(self.params):
+            g = param.grad.clone()
+            param *= (1 - self.weight_decay * self.lr)   
+            self.inertia[i] = self.betas[0] * self.inertia[i] + (1 - self.betas[0]) * g
+            self.inertia_var[i] = self.betas[1] * self.inertia_var[i] + (1 - self.betas[1]) * (g ** 2)
+            inertia = self.inertia[i] / ((1 - self.betas[0] ** self.steps))
+            inertia_var = self.inertia_var[i] / ((1 - self.betas[1] ** self.steps))
+            param -= self.lr * inertia / (inertia_var.sqrt() + self.eps)
+        self.steps += 1
+
+    def __repr__(self) -> str:
+        return f"AdamW(lr={self.lr}, beta1={self.beta1}, beta2={self.beta2}, eps={self.eps}, weight_decay={self.lmda})"
+
+
+
+if MAIN:
+    tests.test_adamw(AdamW)
+
+# %%
+def opt_fn(fn: Callable, xy: t.Tensor, optimizer_class, optimizer_hyperparams: dict, n_iters: int = 100):
+    '''Optimize the a given function starting from the specified point.
+
+    optimizer_class: one of the optimizers you've defined, either SGD, RMSprop, or Adam
+    optimzer_kwargs: keyword arguments passed to your optimiser (e.g. lr and weight_decay)
+    '''
+    if not xy.requires_grad:
+        raise ValueError("Requires grad")
+    
+    xys = xy.new_zeros((n_iters, 2))
+    opt = optimizer_class([xy], **optimizer_hyperparams)
+    for i in range(n_iters):
+        xys[i] = xy.detach()
+        z = fn(*xy)
+        z.backward()
+        opt.step()
+        opt.zero_grad()
+    return xys
+
+# %%
+
+if MAIN:
+    points = []
+
+    optimizer_list = [
+        #(SGD, {"lr": 0.03, "momentum": 0.99}),
+        #(RMSprop, {"lr": 0.02, "alpha": 0.99, "momentum": 0.8}),
+        (Adam, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
+        (AdamW, {"lr": 0.2, "betas": (0.99, 0.99), "weight_decay": 0.005}),
+        (RMSprop, {"lr": 0.2, "alpha": .5, "momentum": 0.99, "weight_decay": 0.005}),
+        (SGD, {"lr": 0.2, "momentum": 0.5, "weight_decay": 0.005}),
+    ]
+
+    for optimizer_class, params in optimizer_list:
+        xy = t.tensor([2.5, 2.5], requires_grad=True)
+        xys = opt_fn(pathological_curve_loss, xy=xy, optimizer_class=optimizer_class, optimizer_hyperparams=params)
+        points.append((xys, optimizer_class, params))
+
+    plot_fn_with_points(pathological_curve_loss, points=points)
+
+# %%
