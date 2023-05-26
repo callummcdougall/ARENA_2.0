@@ -1563,32 +1563,7 @@ def topological_sort(node: Node, get_children: Callable) -> List[Node]:
     
     Should raise an error if the graph with `node` as root is not in fact acyclic.
     '''
-    # SOLUTION
-    
-    result: List[Node] = [] # stores the list of nodes to be returned (in reverse topological order)
-    perm: set[Node] = set() # same as `result`, but as a set (faster to check for membership)
-    temp: set[Node] = set() # keeps track of previously visited nodes (to detect cyclicity)
-
-    def visit(cur: Node):
-        '''
-        Recursive function which visits all the children of the current node, and appends them all
-        to `result` in the order they were found.
-        '''
-        if cur in perm:
-            return
-        if cur in temp:
-            raise ValueError("Not a DAG!")
-        temp.add(cur)
-
-        for next in get_children(cur):
-            visit(next)
-
-        result.append(cur)
-        perm.add(cur)
-        temp.remove(cur)
-
-    visit(node)
-    return result
+    pass
 ```
 </details>
 
@@ -1609,13 +1584,6 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     in reverse topological order (i.e. `tensor` should be first).
     '''
     pass
-
-    def get_parents(tensor: Tensor) -> List[Tensor]:
-        if tensor.recipe is None:
-            return []
-        return list(tensor.recipe.parents.values())
-
-    return topological_sort(tensor, get_parents)[::-1]
     
 
 
