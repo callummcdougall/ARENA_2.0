@@ -74,3 +74,45 @@ def unbroadcast(broadcasted: Arr, original: Arr) -> Arr:
 if MAIN:
     tests.test_unbroadcast(unbroadcast)
 # %%
+def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
+    '''Backwards function for x * y wrt argument 0 aka x.'''
+    if not isinstance(y, Arr):
+        y = np.array(y)
+    grad = grad_out * y
+    return unbroadcast(grad, x)
+
+def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr:
+    '''Backwards function for x * y wrt argument 1 aka y.'''
+    if not isinstance(x, Arr):
+        x = np.array(x)
+    grad = grad_out * x
+    return unbroadcast(grad, y)
+
+
+if MAIN:
+    tests.test_multiply_back(multiply_back0, multiply_back1)
+    tests.test_multiply_back_float(multiply_back0, multiply_back1)
+# %%
+def forward_and_back(a: Arr, b: Arr, c: Arr) -> Tuple[Arr, Arr, Arr]:
+    '''
+    Calculates the output of the computational graph above (g), then backpropogates the gradients and returns dg/da, dg/db, and dg/dc
+    '''
+    d = a*b
+    e = np.log(c)
+    f = d*e
+    g = np.log(f)
+
+    g_partial_f = log_back(np.array([1.0]), g, f)
+    g_partial_d = multiply_back0(g_partial_f, f, d, e)
+    g_partical_e = multiply_back1(g_partial_f, f, d, e)
+    g_partial_a = multiply_back0(g_partial_d, d, a, b)
+    g_partial_b = multiply_back1(g_partial_d, d, a, b)
+    g_partial_c = log_back(g_partical_e, e, c)
+    
+    return g_partial_a, g_partial_b, g_partial_c
+
+
+
+if MAIN:
+    tests.test_forward_and_back(forward_and_back)
+# %%
