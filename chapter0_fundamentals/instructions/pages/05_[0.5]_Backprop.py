@@ -280,7 +280,7 @@ If $N>1$, then pick any node, and follow the arrows until you reach a node with 
 </details>
 
 
-A quick note on some potentially confusing terminology. In some contexts (e.g. causal inference), it's common to call nodes with no arrows coming out of them "root nodes", and nodes with no arrows going into them "leaf nodes" (so in the diagram at the top of the page, the left nodes would be roots and the right nodes would be leaves).
+A quick note on some potentially confusing terminology. In some contexts (e.g. causal inference), it's common to call nodes with no arrows coming out of them "root nodes", and nodes with no arrows going into them "leaf nodes" (so in the diagram at the top of the page, the left nodes would be leaves and the right nodes would be roots).
 
 When we talk about computational graphs, the language is the other way around. In the diagram, `a`, `b` and `c` are the leaf nodes, and `L` is the root node. 
 
@@ -3615,7 +3615,7 @@ So far we've registered a separate backwards for each input argument that could 
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Introduction'),     (section_2, '2️⃣ Autograd'),     (section_3, '3️⃣ More forward & backward functions'),     (section_4, '4️⃣ Putting everything together'),     (section_5, '5️⃣ Bonus'), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Introduction"),     (section_2, "2️⃣ Autograd"),     (section_3, "3️⃣ More forward & backward functions"),     (section_4, "4️⃣ Putting everything together"),     (section_5, "5️⃣ Bonus"), 
 ]
 
 func_list = [func for func, page in func_page_list]
