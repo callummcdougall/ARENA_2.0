@@ -57,8 +57,6 @@ Today's exercises are probably the most directly relevant for the rest of the pr
 
 In part 1, we'll use the modules that we defined in previous exercises to build a basic CNN to classify MNIST images. We'll also learn how to train that CNN, using the very useful **PyTorch Lightning** module.
 
-This section should take **2-3 hours**.
-
 > ##### Learning Objectives
 >
 > * Learn how to assemble a convolutional neural network
@@ -68,8 +66,6 @@ This section should take **2-3 hours**.
 ### 2️⃣ Assembling ResNet
 
 In part 2, we'll start by defining a few more important modules (e.g. `BatchNorm2d` and `Sequential`), building on our work from yesterday. Then we'll build a much more complex architecture - a **residual neural network**, which uses a special type of connection called **skip connections**. 
-
-This section should take approximately **2-3 hours**.
 
 > ##### Learning Objectives
 > 
@@ -1388,15 +1384,7 @@ class AveragePool(nn.Module):
 <details>
 <summary>Solution</summary>
 
-```python
-class AveragePool(nn.Module):
-    def forward(self, x: t.Tensor) -> t.Tensor:
-        '''
-        x: shape (batch, channels, height, width)
-        Return: shape (batch, channels)
-        '''
-        return t.mean(x, dim=(2, 3))
-```
+
 ```python
 class AveragePool(nn.Module):
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -2127,6 +2115,17 @@ def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
 
 if MAIN:
     tests.test_get_resnet_for_feature_extraction(get_resnet_for_feature_extraction)
+
+```
+
+```python
+
+if MAIN:
+    my_resnet = get_resnet_for_feature_extraction(n_classes=10)
+    
+    for i, (name, param) in enumerate(my_resnet.named_parameters()):
+        print(f"{i}: {name} {param.shape}")
+    
 
 ```
 
