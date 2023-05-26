@@ -583,3 +583,303 @@ if MAIN:
     tests.test_backprop_branching(Tensor)
     tests.test_backprop_requires_grad_false(Tensor)
     tests.test_backprop_float_arg(Tensor)
+
+# %%
+##### PART 3
+def _argmax(x: Arr, dim=None, keepdim=False):
+    '''Like torch.argmax.'''
+    return np.expand_dims(np.argmax(x, axis=dim), axis=([] if dim is None else dim))
+
+Index = Union[int, Tuple[int, ...], Tuple[Arr], Tuple[Tensor]]
+
+if MAIN:
+    argmax = wrap_forward_fn(_argmax, is_differentiable=False)
+
+    a = Tensor([1.0, 0.0, 3.0, 4.0], requires_grad=True)
+    b = a.argmax()
+    assert not b.requires_grad
+    assert b.recipe is None
+    assert b.item() == 3
+
+# %%
+def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
+    '''Backward function for f(x) = -x elementwise.'''
+    # SOLUTION
+    return np.full_like(x, -1) * grad_out
+
+if MAIN:
+    negative = wrap_forward_fn(np.negative)
+    BACK_FUNCS.add_back_func(np.negative, 0, negative_back)
+
+    tests.test_negative_back(Tensor)
+
+# %%
+def exp_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
+    # SOLUTION
+    return out * grad_out
+
+# %%
+def reshape_back(grad_out: Arr, out: Arr, x: Arr, new_shape: tuple) -> Arr:
+    # SOLUTION
+    return np.reshape(grad_out, x.shape)
+
+def invert_transposition(axes: tuple) -> tuple:
+    '''
+    axes: tuple indicating a transition
+
+    Returns: inverse of this transposition, i.e. the array `axes_inv` s.t. we have:
+        np.transpose(np.transpose(x, axes), axes_inv) == x
+
+    Some examples:
+        (1, 0)    --> (1, 0)     # this is reversing a simple 2-element transposition
+        (0, 2, 1) --> (0, 1, 2)
+        (1, 2, 0) --> (2, 0, 1)  # this is reversing the order of a 3-cycle
+    '''
+    # SOLUTION
+
+    # Slick solution:
+    return tuple(np.argsort(axes))
+
+    # Slower solution, which makes it clearer what operation is happening:
+    reversed_transposition_map = {num: idx for (idx, num) in enumerate(axes)}
+    reversed_transposition = [reversed_transposition_map[idx] for idx in range(len(axes))]
+    return tuple(reversed_transposition)
+
+
+def _expand(x: Arr, new_shape) -> Arr:
+    '''
+    Like torch.expand, calling np.broadcast_to internally.
+
+    Note torch.expand supports -1 for a dimension size meaning "don't change the size".
+    np.broadcast_to does not natively support this.
+    '''
+    # SOLUTION
+
+    n_added = len(new_shape) - x.ndim
+    shape_non_negative = tuple([x.shape[i - n_added] if s == -1 else s for i, s in enumerate(new_shape)])
+    return np.broadcast_to(x, shape_non_negative)
+
+def sum_back(grad_out: Arr, out: Arr, x: Arr, dim=None, keepdim=False):
+    '''Basic idea: repeat grad_out over the dims along which x was summed'''
+    # SOLUTION
+
+    # If grad_out is a scalar, we need to make it a tensor (so we can expand it later)
+    if not isinstance(grad_out, Arr):
+        grad_out = np.array(grad_out)
+
+    # If dim=None, this means we summed over all axes, and we want to repeat back to input shape
+    if dim is None:
+        dim = list(range(x.ndim))
+
+    # If keepdim=False, then we need to add back in dims, so grad_out and x have same number of dims
+    if keepdim == False:
+        grad_out = np.expand_dims(grad_out, dim)
+
+    # Finally, we repeat grad_out along the dims over which x was summed
+    return np.broadcast_to(grad_out, x.shape)
+
+def coerce_index(index: Index) -> Union[int, Tuple[int, ...], Tuple[Arr]]:
+    '''
+    If index is of type signature `Tuple[Tensor]`, converts it to `Tuple[Arr]`.
+    '''
+    # SOLUTION
+    if isinstance(index, tuple) and set(map(type, index)) == {Tensor}:
+        return tuple([i.array for i in index])
+    else:
+        return index
+
+def _getitem(x: Arr, index: Index) -> Arr:
+    '''Like x[index] when x is a torch.Tensor.'''
+    # SOLUTION
+    return x[coerce_index(index)]
+
+def getitem_back(grad_out: Arr, out: Arr, x: Arr, index: Index):
+    '''
+    Backwards function for _getitem.
+
+    Hint: use np.add.at(a, indices, b)
+    This function works just like a[indices] += b, except that it allows for repeated indices.
+    '''
+    # SOLUTION
+    new_grad_out = np.full_like(x, 0)
+    np.add.at(new_grad_out, coerce_index(index), grad_out)
+    return new_grad_out
+
+BACK_FUNCS.add_back_func(np.add, 0, lambda grad_out, out, x, y: unbroadcast(grad_out, x))
+BACK_FUNCS.add_back_func(np.add, 1, lambda grad_out, out, x, y: unbroadcast(grad_out, y))
+BACK_FUNCS.add_back_func(np.subtract, 0, lambda grad_out, out, x, y: unbroadcast(grad_out, x))
+BACK_FUNCS.add_back_func(np.subtract, 1, lambda grad_out, out, x, y: unbroadcast(-grad_out, y))
+BACK_FUNCS.add_back_func(np.true_divide, 0, lambda grad_out, out, x, y: unbroadcast(grad_out/y, x))
+BACK_FUNCS.add_back_func(np.true_divide, 1, lambda grad_out, out, x, y: unbroadcast(grad_out*(-x/y**2), y))
+
+def add_(x: Tensor, other: Tensor, alpha: float = 1.0) -> Tensor:
+    '''Like torch.add_. Compute x += other * alpha in-place and return tensor.'''
+    np.add(x.array, other.array * alpha, out=x.array)
+    return x
+
+
+def safe_example():
+    '''This example should work properly.'''
+    a = Tensor([0.0, 1.0, 2.0, 3.0], requires_grad=True)
+    b = Tensor([2.0, 3.0, 4.0, 5.0], requires_grad=True)
+    a.add_(b)
+    c = a * b
+    c.sum().backward()
+    assert a.grad is not None and np.allclose(a.grad.array, [2.0, 3.0, 4.0, 5.0])
+    assert b.grad is not None and np.allclose(b.grad.array, [2.0, 4.0, 6.0, 8.0])
+
+
+def unsafe_example():
+    '''This example is expected to compute the wrong gradients.'''
+    a = Tensor([0.0, 1.0, 2.0, 3.0], requires_grad=True)
+    b = Tensor([2.0, 3.0, 4.0, 5.0], requires_grad=True)
+    c = a * b
+    a.add_(b)
+    c.sum().backward()
+    if a.grad is not None and np.allclose(a.grad.array, [2.0, 3.0, 4.0, 5.0]):
+        print("Grad wrt a is OK!")
+    else:
+        print("Grad wrt a is WRONG!")
+    if b.grad is not None and np.allclose(b.grad.array, [0.0, 1.0, 2.0, 3.0]):
+        print("Grad wrt b is OK!")
+    else:
+        print("Grad wrt b is WRONG!")
+
+
+def maximum_back0(grad_out: Arr, out: Arr, x: Arr, y: Arr):
+    '''Backwards function for max(x, y) wrt x.'''
+    # SOLUTION
+    bool_sum = ((x > y) + 0.5 * (x == y))
+    return unbroadcast(grad_out * bool_sum, x)
+
+def maximum_back1(grad_out: Arr, out: Arr, x: Arr, y: Arr):
+    '''Backwards function for max(x, y) wrt y.'''
+    # SOLUTION
+    bool_sum = ((x < y) + 0.5 * (x == y))
+    return unbroadcast(grad_out * bool_sum, y)
+
+def relu(x: Tensor) -> Tensor:
+    '''Like torch.nn.function.relu(x, inplace=False).'''
+    return maximum(x, 0.0)
+
+def matmul2d_back0(grad_out: Arr, out: Arr, x: Arr, y: Arr) -> Arr:
+    # SOLUTION
+    return grad_out @ y.T
+
+def matmul2d_back1(grad_out: Arr, out: Arr, x: Arr, y: Arr) -> Arr:
+    # SOLUTION
+    return x.T @ grad_out
+
+##### PART 4
+# %%
+class Parameter(Tensor):
+    def __init__(self, tensor: Tensor, requires_grad=True):
+        '''Share the array with the provided tensor.'''
+        super().__init__(tensor.array, requires_grad=requires_grad)
+
+    def __repr__(self):
+        return f"Parameter containing:\n{super().__repr__()}"
+
+
+if MAIN:
+    x = Tensor([1.0, 2.0, 3.0])
+    p = Parameter(x)
+    assert p.requires_grad
+    assert p.array is x.array
+    assert repr(p) == "Parameter containing:\nTensor(array([1., 2., 3.]), requires_grad=True)"
+    x.add_(Tensor(np.array(2.0)))
+
+    assert np.allclose(
+        p.array, np.array([3.0, 4.0, 5.0])
+    ), "in-place modifications to the original tensor should affect the parameter"
+
+# %%
+
+class Module:
+    _modules: Dict[str, "Module"]
+    _parameters: Dict[str, Parameter]
+
+    def __init__(self):
+        self._modules = {}
+        self._parameters = {}
+
+    def modules(self):
+        '''Return the direct child modules of this module.'''
+        return self.__dict__["_modules"].values()
+
+    def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
+        '''
+        Return an iterator over Module parameters.
+
+        recurse: if True, the iterator includes parameters of submodules, recursively.
+        '''
+        if not recurse:
+            return iter(self._parameters)
+        mods_iter = []
+        for child in self.modules():
+            mods_iter.append(child)
+            if not child.modules().empty():
+                mods_iter.append(child.parameters())
+        return iter(mods_iter)
+
+    def __setattr__(self, key: str, val: Any) -> None:
+        '''
+        If val is a Parameter or Module, store it in the appropriate _parameters or _modules dict.
+        Otherwise, call __setattr__ from the superclass.
+        '''
+        if isinstance(val, Parameter):
+            self._modules[key] = val
+        if isinstance(val, "Module"):
+            self._parameters[key] = val
+        super().__setattr__(key, val)
+
+    def __getattr__(self, key: str) -> Union[Parameter, "Module"]:
+        '''
+        If key is in _parameters or _modules, return the corresponding value.
+        Otherwise, raise KeyError.
+        '''
+        if key in self._parameters.keys():
+            return self._parameters[key]
+        if key in self._modules.keys():
+            return self._modules[key]
+        raise KeyError()
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self):
+        
+
+    def __repr__(self):
+        def _indent(s_, numSpaces):
+            return re.sub("\n", "\n" + (" " * numSpaces), s_)
+        lines = [f"({key}): {_indent(repr(module), 2)}" for key, module in self._modules.items()]
+        return "".join([
+            self.__class__.__name__ + "(",
+            "\n  " + "\n  ".join(lines) + "\n" if lines else "", ")"
+        ])
+
+
+class TestInnerModule(Module):
+    def __init__(self):
+        super().__init__()
+        self.param1 = Parameter(Tensor([1.0]))
+        self.param2 = Parameter(Tensor([2.0]))
+
+class TestModule(Module):
+    def __init__(self):
+        super().__init__()
+        self.inner = TestInnerModule()
+        self.param3 = Parameter(Tensor([3.0]))
+
+
+if MAIN:
+    mod = TestModule()
+    assert list(mod.modules()) == [mod.inner]
+    assert list(mod.parameters()) == [
+        mod.param3,
+        mod.inner.param1,
+        mod.inner.param2,
+    ], "parameters should come before submodule parameters"
+    print("Manually verify that the repr looks reasonable:")
+    print(mod)
