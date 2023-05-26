@@ -630,20 +630,7 @@ You should be able to implement both functions in just one line.
 <details>
 <summary>Solution</summary>
 
-```python
-def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
-    '''Backwards function for x * y wrt argument 0 aka x.'''
-    if not isinstance(y, Arr):
-        y = np.array(y)
-    return unbroadcast(y * grad_out, x)
 
-
-def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr:
-    '''Backwards function for x * y wrt argument 1 aka y.'''
-    if not isinstance(x, Arr):
-        x = np.array(x)
-    return unbroadcast(x * grad_out, y)
-```
 ```python
 def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
     '''Backwards function for x * y wrt argument 0 aka x.'''
