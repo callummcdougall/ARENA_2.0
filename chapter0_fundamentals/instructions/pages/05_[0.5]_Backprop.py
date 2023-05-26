@@ -3,7 +3,7 @@ import os, sys
 from pathlib import Path
 chapter = r"chapter0_fundamentals"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
-if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
 import streamlit as st
@@ -1618,6 +1618,13 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     in reverse topological order (i.e. `tensor` should be first).
     '''
     # SOLUTION
+
+    def get_parents(tensor: Tensor) -> List[Tensor]:
+        if tensor.recipe is None:
+            return []
+        return list(tensor.recipe.parents.values())
+
+    return topological_sort(tensor, get_parents)[::-1]
 ```
 </details>
 
