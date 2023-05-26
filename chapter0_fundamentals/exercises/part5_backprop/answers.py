@@ -105,3 +105,49 @@ def forward_and_back(a: Arr, b: Arr, c: Arr) -> Tuple[Arr, Arr, Arr]:
 if MAIN:
     tests.test_forward_and_back(forward_and_back)
 # %%
+
+@dataclass(frozen=True)
+class Recipe:
+    '''Extra information necessary to run backpropagation. You don't need to modify this.'''
+
+    func: Callable
+    "The 'inner' NumPy function that does the actual forward computation."
+    "Note, we call it 'inner' to distinguish it from the wrapper we'll create for it later on."
+
+    args: tuple
+    "The input arguments passed to func."
+    "For instance, if func was np.sum then args would be a length-1 tuple containing the tensor to be summed."
+
+    kwargs: Dict[str, Any]
+    "Keyword arguments passed to func."
+    "For instance, if func was np.sum then kwargs might contain 'dim' and 'keepdims'."
+
+    parents: Dict[int, "Tensor"]
+    "Map from positional argument index to the Tensor at that position, in order to be able to pass gradients back along the computational graph."
+
+
+# %%
+class BackwardFuncLookup:
+    def __init__(self) -> None:
+        self.functions: Dict[Tuple[Callable, int], Callable] = {}
+
+    def add_back_func(self, forward_fn: Callable, arg_position: int, back_fn: Callable) -> None:
+        self.functions[forward_fn, arg_position] = back_fn
+        
+
+    def get_back_func(self, forward_fn: Callable, arg_position: int) -> Callable:
+        return self.functions[forward_fn, arg_position]
+
+
+if MAIN:
+    BACK_FUNCS = BackwardFuncLookup()
+    BACK_FUNCS.add_back_func(np.log, 0, log_back)
+    BACK_FUNCS.add_back_func(np.multiply, 0, multiply_back0)
+    BACK_FUNCS.add_back_func(np.multiply, 1, multiply_back1)
+
+    assert BACK_FUNCS.get_back_func(np.log, 0) == log_back
+    assert BACK_FUNCS.get_back_func(np.multiply, 0) == multiply_back0
+    assert BACK_FUNCS.get_back_func(np.multiply, 1) == multiply_back1
+
+    print("Tests passed - BackwardFuncLookup class is working as expected!")
+# %%
