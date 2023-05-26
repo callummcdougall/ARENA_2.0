@@ -413,3 +413,209 @@ if MAIN:
     grad_tracking_enabled = True
     assert not b.requires_grad, "should not require grad if grad tracking globally disabled"
     assert b.recipe is None, "should not create recipe if grad tracking globally disabled"
+
+# %%
+
+import functools
+
+def wrap_forward_fn(numpy_func: Callable, is_differentiable=True) -> Callable:
+    '''
+    numpy_func: Callable
+        takes any number of positional arguments, some of which may be NumPy arrays, and 
+        any number of keyword arguments which we aren't allowing to be NumPy arrays at 
+        present. It returns a single NumPy array.
+
+    is_differentiable: 
+        if True, numpy_func is differentiable with respect to some input argument, so we 
+        may need to track information in a Recipe. If False, we definitely don't need to
+        track information.
+
+    Return: Callable
+        It has the same signature as numpy_func, except wherever there was a NumPy array, 
+        this has a Tensor instead.
+    '''
+    @functools.wraps(numpy_func)
+    def tensor_func(*args: Any, **kwargs: Any) -> Tensor:
+        np_args = [strip_tensor(a) for a in args]
+        np_kwargs = {k: strip_tensor(v) for k, v in kwargs.items()}
+        array = numpy_func(*np_args, **np_kwargs)
+        parents = {i: t for i, t in enumerate(args) if isinstance(t, Tensor)}
+        any_parent_requires_grad = any(p.requires_grad or (p.recipe is not None) for p in parents.values())
+        requires_grad = is_differentiable and grad_tracking_enabled and any_parent_requires_grad
+        out = Tensor(array, requires_grad)
+
+        if requires_grad:
+            out.recipe = Recipe(func=numpy_func, args=np_args, kwargs=np_kwargs, parents=parents)
+        return out
+    return tensor_func
+
+
+def _sum(x: Arr, dim=None, keepdim=False) -> Arr:
+    # need to be careful with sum, because kwargs have different names in torch and numpy
+    return np.sum(x, axis=dim, keepdims=keepdim)
+
+
+if MAIN:
+    log = wrap_forward_fn(np.log)
+    multiply = wrap_forward_fn(np.multiply)
+    eq = wrap_forward_fn(np.equal, is_differentiable=False)
+    sum = wrap_forward_fn(_sum)
+
+    tests.test_log(Tensor, log)
+    tests.test_log_no_grad(Tensor, log)
+    tests.test_multiply(Tensor, multiply)
+    tests.test_multiply_no_grad(Tensor, multiply)
+    tests.test_multiply_float(Tensor, multiply)
+    tests.test_sum(Tensor)
+
+
+# %%
+
+class Node:
+    def __init__(self, *children):
+        self.children = list(children)
+
+
+def get_children(node: Node) -> List[Node]:
+    return node.children
+
+def topological_sort(node: Node, get_children: Callable) -> List[Node]:
+    '''
+    Return a list of node's descendants in reverse topological order from future to past (i.e. `node` should be last).
+
+    Should raise an error if the graph with `node` as root is not in fact acyclic.
+    '''
+    result = []
+    this_gen = [node]
+    while this_gen:
+        next_gen = []
+        for p in this_gen:
+            if p in result:
+                continue
+            for c in get_children(p):
+                if c in result or c in next_gen:
+                    continue
+                next_gen.append(c)
+        this_gen = next_gen
+    return result[::-1]
+
+CHEATER = True
+if CHEATER:
+    class Node:
+        def __init__(self, *children):
+            self.children = list(children)
+
+
+    def get_children(node: Node) -> List[Node]:
+        return node.children
+
+
+    def topological_sort(node: Node, get_children: Callable) -> List[Node]:
+        '''
+        Return a list of node's descendants in reverse topological order from future to past (i.e. `node` should be last).
+
+        Should raise an error if the graph with `node` as root is not in fact acyclic.
+        '''
+        # SOLUTION
+
+        result: List[Node] = [] # stores the list of nodes to be returned (in reverse topological order)
+        perm: set[Node] = set() # same as `result`, but as a set (faster to check for membership)
+        temp: set[Node] = set() # keeps track of previously visited nodes (to detect cyclicity)
+
+        def visit(cur: Node):
+            '''
+            Recursive function which visits all the children of the current node, and appends them all
+            to `result` in the order they were found.
+            '''
+            if cur in perm:
+                return
+            if cur in temp:
+                raise ValueError("Not a DAG!")
+            temp.add(cur)
+
+            for next in get_children(cur):
+                visit(next)
+
+            result.append(cur)
+            perm.add(cur)
+            temp.remove(cur)
+
+        visit(node)
+        return result
+
+if MAIN:
+    tests.test_topological_sort_linked_list(topological_sort)
+    tests.test_topological_sort_branching(topological_sort)
+    tests.test_topological_sort_rejoining(topological_sort)
+    tests.test_topological_sort_cyclic(topological_sort)
+
+
+
+# %%
+
+
+def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
+    '''
+    For a given tensor, return a list of Tensors that make up the nodes of the given Tensor's computational graph, 
+    in reverse topological order (i.e. `tensor` should be first).
+    '''
+    def get_parents(t: Tensor):
+        if not isinstance(t, Tensor) or t.recipe is None:
+            return []
+        return t.recipe.parents.values()
+    return topological_sort(tensor, get_parents)
+
+
+
+if MAIN:
+    a = Tensor([1], requires_grad=True)
+    b = Tensor([2], requires_grad=True)
+    c = Tensor([3], requires_grad=True)
+    d = a * b
+    e = c.log()
+    f = d * e
+    g = f.log()
+    name_lookup = {a: "a", b: "b", c: "c", d: "d", e: "e", f: "f", g: "g"}
+
+    print([name_lookup[t] for t in sorted_computational_graph(g)])
+# %%
+
+def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
+    '''Accumulates gradients in the grad field of each leaf node.
+
+    tensor.backward() is equivalent to backprop(tensor).
+
+    end_node: 
+        The rightmost node in the computation graph. 
+        If it contains more than one element, end_grad must be provided.
+    end_grad: 
+        A tensor of the same shape as end_node. 
+        Set to 1 if not specified and end_node has only one element.
+    '''
+    if end_grad is None:
+        end_grad = Tensor(np.array(1))
+    if end_node.array.shape != end_grad.array.shape:
+        raise ValueError("Shapes don't match")
+    tensors = sorted_computational_graph(end_node)
+    # probably wrong
+    end_node.grad = end_grad
+
+    for t in tensors[::-1]:
+        # assert t.grad is not None
+        #  = [(arg_pos, parent) for arg_pos, parent in t.recipe.parents.items()]
+        fwd_fn = t.recipe.func
+        for i, p in t.recipe.parents.items():
+            back_fnc = BACK_FUNCS.get_back_func(fwd_fn, i)
+            p.grad = back_fnc(t.grad, t.array, *p.recipe.args, **p.recipe.kwargs)
+
+
+        
+
+if MAIN:
+    tests.test_backprop(Tensor)
+    tests.test_backprop_branching(Tensor)
+    tests.test_backprop_requires_grad_false(Tensor)
+    tests.test_backprop_float_arg(Tensor)
+
+# %%
+
