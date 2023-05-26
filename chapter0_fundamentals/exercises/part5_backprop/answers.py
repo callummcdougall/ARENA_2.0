@@ -128,3 +128,36 @@ def forward_and_back(a: Arr, b: Arr, c: Arr) -> Tuple[Arr, Arr, Arr]:
 
 if MAIN:
     tests.test_forward_and_back(forward_and_back)
+
+# %%
+
+@dataclass(frozen=True)
+class Recipe:
+    '''Extra information necessary to run backpropagation. You don't need to modify this.'''
+
+    func: Callable
+    "The 'inner' NumPy function that does the actual forward computation."
+    "Note, we call it 'inner' to distinguish it from the wrapper we'll create for it later on."
+
+    args: tuple
+    "The input arguments passed to func."
+    "For instance, if func was np.sum then args would be a length-1 tuple containing the tensor to be summed."
+
+    kwargs: Dict[str, Any]
+    "Keyword arguments passed to func."
+    "For instance, if func was np.sum then kwargs might contain 'dim' and 'keepdims'."
+
+    parents: Dict[int, "Tensor"]
+    "Map from positional argument index to the Tensor at that position, in order to be able to pass gradients back along the computational graph."
+
+# %%
+
+class Tensor:
+    def __init__(self, array: Union[Arr, list], requires_grad=False):
+        self.array = array if isinstance(array, Arr) else np.array(array)
+        self.requires_grad = requires_grad
+        self.grad = None
+        self.recipe = None
+        "If not None, this tensor's array was created via recipe.func(*recipe.args, **recipe.kwargs)."
+
+
