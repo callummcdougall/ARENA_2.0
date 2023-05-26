@@ -170,7 +170,7 @@ def test_sum(Tensor):
     assert a.sum(0).shape == (2,)
     assert a.sum(0, True).shape == (1, 2)
     print("All tests in `test_sum` passed!")
-    
+
 
 
 class Node:
@@ -480,8 +480,8 @@ def test_matmul2d(Tensor):
 
 def test_cross_entropy(Tensor, cross_entropy):
     logits = Tensor([
-        [float("-inf"), float("-inf"), float("-inf"), 0], 
-        [1/4, 1/4, 1/4, 1/4], 
+        [float("-inf"), float("-inf"), float("-inf"), 0],
+        [1/4, 1/4, 1/4, 1/4],
         [float("-inf"), 0, 0, 0]
     ])
     true_labels = Tensor([3, 0, 0])
