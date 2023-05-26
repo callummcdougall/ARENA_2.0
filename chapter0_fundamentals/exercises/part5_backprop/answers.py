@@ -426,6 +426,10 @@ def wrap_forward_fn(numpy_func: Callable, is_differentiable=True) -> Callable:
                 if isinstance(val, Tensor):
                     parents[idx] = val
 
+            if 'permute_back' in numpy_func.__name__:
+                 print(numpy_func)
+                 print(vals)
+
             out.recipe = Recipe(
                 func=numpy_func,
                 args=tuple(vals),
@@ -457,6 +461,13 @@ if MAIN:
 
 
 # %%
+class Node:
+    def __init__(self, *children):
+        self.children = list(children)
+
+
+def get_children(node: Node) -> List[Node]:
+    return node.children
 
 def topological_sort(node: Node, get_children: Callable) -> List[Node]:
     '''
@@ -920,3 +931,307 @@ if MAIN:
 	BACK_FUNCS.add_back_func(_matmul2d, 1, matmul2d_back1)
 	
 	tests.test_matmul2d(Tensor)
+
+# %%
+class Parameter(Tensor):
+    def __init__(self, tensor: Tensor, requires_grad=True):
+        '''Share the array with the provided tensor.'''
+        super().__init__(tensor.array, requires_grad=requires_grad)
+
+    def __repr__(self):
+        return f"Parameter containing:\n{super().__repr__()}"
+
+
+if MAIN:
+    x = Tensor([1.0, 2.0, 3.0])
+    p = Parameter(x)
+    assert p.requires_grad
+    assert p.array is x.array
+    assert repr(p) == "Parameter containing:\nTensor(array([1., 2., 3.]), requires_grad=True)"
+    x.add_(Tensor(np.array(2.0)))
+    assert np.allclose(
+        p.array, np.array([3.0, 4.0, 5.0])
+    ), "in-place modifications to the original tensor should affect the parameter"
+
+# %%
+class Module:
+    _modules: Dict[str, "Module"]
+    _parameters: Dict[str, Parameter]
+
+    def __init__(self):
+        self._modules = {}
+        self._parameters = {}
+
+    def modules(self):
+        '''Return the direct child modules of this module.'''
+        return self.__dict__["_modules"].values()
+
+    def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
+        '''
+        Return an iterator over Module parameters.
+
+        recurse: if True, the iterator includes parameters of submodules, recursively.
+        '''
+        for parameter in self._parameters.values():
+             yield parameter
+
+        if recurse:
+            for module in self._modules.values():
+                yield from module.parameters(recurse=recurse)
+
+    def __setattr__(self, key: str, val: Any) -> None:
+        '''
+        If val is a Parameter or Module, store it in the appropriate _parameters or _modules dict.
+        Otherwise, call __setattr__ from the superclass.
+        '''
+        if isinstance(val, Module):
+             self.__dict__["_modules"][key] = val
+        elif isinstance(val, Parameter):
+             self.__dict__["_parameters"][key] = val
+        else:
+             super().__setattr__(key, val)
+
+    def __getattr__(self, key: str) -> Union[Parameter, "Module"]:
+        '''
+        If key is in _parameters or _modules, return the corresponding value.
+        Otherwise, raise KeyError.
+        '''
+        modules = self.__dict__["_modules"]
+        parameters = self.__dict__["_parameters"]
+        if key in modules:
+             return modules[key]
+        elif key in parameters:
+             return parameters[key]
+        else:
+             raise KeyError(f"{key} is neither a module nor parameter.")
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self):
+        raise NotImplementedError("Subclasses must implement forward!")
+
+    def __repr__(self):
+        def _indent(s_, numSpaces):
+            return re.sub("\n", "\n" + (" " * numSpaces), s_)
+        lines = [f"({key}): {_indent(repr(module), 2)}" for key, module in self._modules.items()]
+        return "".join([
+            self.__class__.__name__ + "(",
+            "\n  " + "\n  ".join(lines) + "\n" if lines else "", ")"
+        ])
+
+
+class TestInnerModule(Module):
+    def __init__(self):
+        super().__init__()
+        self.param1 = Parameter(Tensor([1.0]))
+        self.param2 = Parameter(Tensor([2.0]))
+
+class TestModule(Module):
+    def __init__(self):
+        super().__init__()
+        self.inner = TestInnerModule()
+        self.param3 = Parameter(Tensor([3.0]))
+
+
+if MAIN:
+    mod = TestModule()
+    assert list(mod.modules()) == [mod.inner]
+    assert list(mod.parameters()) == [
+        mod.param3,
+        mod.inner.param1,
+        mod.inner.param2,
+    ], "parameters should come before submodule parameters"
+    print("Manually verify that the repr looks reasonable:")
+    print(mod)
+# %%
+class Linear(Module):
+    weight: Parameter
+    bias: Optional[Parameter]
+
+    def __init__(self, in_features: int, out_features: int, bias=True):
+        '''
+        A simple linear (technically, affine) transformation.
+
+        The fields should be named `weight` and `bias` for compatibility with PyTorch.
+        If `bias` is False, set `self.bias` to None.
+        '''
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+
+        sf = 1 / np.sqrt(in_features)
+
+        weight = Tensor(sf * (2 * np.random.rand(out_features, in_features) - 1))
+        self.weight = Parameter(weight)
+
+        if bias:
+            bias = Tensor(sf * (2 * np.random.rand(out_features,) - 1))
+            self.bias = Parameter(bias)
+        else:
+            self.bias = None
+
+    def forward(self, x: Tensor) -> Tensor:
+        '''
+        x: shape (*, in_features)
+        Return: shape (*, out_features)
+        '''
+        x = x @ self.weight.T
+        if self.bias is not None:
+            x += self.bias
+        return x
+
+    def extra_repr(self) -> str:
+        # note, we need to use `self.bias is not None`, because `self.bias` is either a tensor or None, not bool
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
+
+
+if MAIN:
+    linear = Linear(3, 4)
+    assert isinstance(linear.weight, Tensor)
+    assert linear.weight.requires_grad
+
+    input = Tensor([1.0, 2.0, 3.0])
+    output = linear(input)
+    assert output.requires_grad
+
+    expected_output = linear.weight @ input + linear.bias
+    np.testing.assert_allclose(output.array, expected_output.array)
+
+    print("All tests for `Linear` passed!")
+# %%
+class ReLU(Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return relu(x)
+
+class MLP(Module):
+    def __init__(self):
+        super().__init__()
+        self.linear1 = Linear(28 * 28, 64)
+        self.linear2 = Linear(64, 64)
+        self.relu1 = ReLU()
+        self.relu2 = ReLU()
+        self.output = Linear(64, 10)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.reshape((x.shape[0], 28 * 28))
+        x = self.relu1(self.linear1(x))
+        x = self.relu2(self.linear2(x))
+        x = self.output(x)
+        return x
+# %%
+def cross_entropy(logits: Tensor, true_labels: Tensor) -> Tensor:
+    '''Like torch.nn.functional.cross_entropy with reduction='none'.
+
+    logits: shape (batch, classes)
+    true_labels: shape (batch,). Each element is the index of the correct label in the logits.
+
+    Return: shape (batch, ) containing the per-example loss.
+    '''
+    
+    true = logits[arange(0, len(true_labels)), true_labels] # (batch, classes)
+    loss = -log(exp(true) / exp(logits).sum(dim=1))
+    return loss
+
+
+if MAIN:
+    tests.test_cross_entropy(Tensor, cross_entropy)
+# %%
+class NoGrad:
+    '''Context manager that disables grad inside the block. Like torch.no_grad.'''
+
+    was_enabled: bool
+
+    def __enter__(self):
+        '''
+        Method which is called whenever the context manager is entered, i.e. at the 
+        start of the `with NoGrad():` block.
+        '''
+        global grad_tracking_enabled
+        self.was_enabled = grad_tracking_enabled
+        grad_tracking_enabled = False
+
+    def __exit__(self, type, value, traceback):
+        '''
+        Method which is called whenever we exit the context manager.
+        '''
+        global grad_tracking_enabled
+        grad_tracking_enabled = self.was_enabled
+# %%
+if MAIN:
+    train_loader, test_loader = get_mnist()
+    visualize(train_loader)
+# %%
+class SGD:
+    def __init__(self, params: Iterable[Parameter], lr: float):
+        '''Vanilla SGD with no additional features.'''
+        self.params = list(params)
+        self.lr = lr
+        self.b = [None for _ in self.params]
+
+    def zero_grad(self) -> None:
+        for p in self.params:
+            p.grad = None
+
+    def step(self) -> None:
+        with NoGrad():
+            for (i, p) in enumerate(self.params):
+                assert isinstance(p.grad, Tensor)
+                p.add_(p.grad, -self.lr)
+
+
+def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int, train_loss_list: Optional[list] = None):
+    print(f"Epoch: {epoch}")
+    progress_bar = tqdm(enumerate(train_loader))
+    for (batch_idx, (data, target)) in progress_bar:
+        data = Tensor(data.numpy())
+        target = Tensor(target.numpy())
+        optimizer.zero_grad()
+        output = model(data)
+        loss = cross_entropy(output, target).sum() / len(output)
+        loss.backward()
+        progress_bar.set_description(f"Train set: Avg loss: {loss.item():.3f}")
+        optimizer.step()
+        if train_loss_list is not None: train_loss_list.append(loss.item())
+
+
+def test(model: MLP, test_loader: DataLoader, test_loss_list: Optional[list] = None):
+    test_loss = 0
+    correct = 0
+    with NoGrad():
+        for (data, target) in test_loader:
+            data = Tensor(data.numpy())
+            target = Tensor(target.numpy())
+            output: Tensor = model(data)
+            test_loss += cross_entropy(output, target).sum().item()
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += (pred == target.reshape(pred.shape)).sum().item()
+    test_loss /= len(test_loader.dataset)
+    print(f"Test set:  Avg loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({correct / len(test_loader.dataset):.1%})")
+    if test_loss_list is not None: test_loss_list.append(test_loss)
+# %%
+if MAIN:
+    num_epochs = 5
+    model = MLP()
+    start = time.time()
+    train_loss_list = []
+    test_loss_list = []
+    optimizer = SGD(model.parameters(), 0.01)
+    for epoch in range(num_epochs):
+        train(model, train_loader, optimizer, epoch, train_loss_list)
+        test(model, test_loader, test_loss_list)
+        optimizer.step()
+    print(f"\nCompleted in {time.time() - start: .2f}s")
+
+# %%
+if MAIN:
+    line(
+        train_loss_list,
+        yaxis_range=[0, max(train_loss_list) + 0.1],
+        labels={"x": "Batches seen", "y": "Cross entropy loss"},
+        title="ConvNet training on MNIST",
+        width=800,
+        hovermode="x unified",
+        template="ggplot2", # alternative aesthetic for your plots (-:
+    )
+# %%
