@@ -22,8 +22,8 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#the-ioi-task'>The IOI task</a></li>
     <li class='margtop'><a class='contents-el' href='#have-some-sense-of-proportion'>Have some sense of proportion</a></li>
+    <li class='margtop'><a class='contents-el' href='#the-ioi-task'>The IOI task</a></li>
     <li class='margtop'><a class='contents-el' href='#keeping-track-of-your-guesses-predictions'>Keeping track of your guesses & predictions</a></li>
     <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
@@ -35,6 +35,8 @@ def section_0():
 
 
 If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+
+You can toggle dark mode from the top-right buttons.
 
 
 # Indirect Object Identification
@@ -60,6 +62,20 @@ Which exercises you want to do will depend on what you're hoping to get out of t
 Each exercise will have a difficulty and importance rating out of 5, as well as an estimated maximum time you should spend on these exercises and sometimes a short annotation. You should interpret the ratings & time estimates relatively (e.g. if you find yourself spending about 50% longer on the exercises than the time estimates, adjust accordingly). Please do skip exercises / look at solutions if you don't feel like they're important enough to be worth doing, and you'd rather get to the good stuff!
 
 
+## Have some sense of proportion
+
+At a surface level, these exercises are designed to take you through the indirect object identification circuit. But it's also designed to make you a better interpretability researcher! As a result, most exercises will be doing a combination of:
+
+1. Showing you some new characteristic of the circuit, and
+2. Teaching you how to use tools and interpret results in a broader mech interp context.
+
+Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-map.png" width="900">
+
+A key idea to have in mind during these exercises is the spectrum from simpler, more exploratory tools to more rigoruous, complex tools. On the far left, you have something like inspecting attention patterns, which can give a decent (but sometimes misleading) picture of what an attention head is doing. These should be some of the first tools you reach for, and you should be using them a lot even before you have concrete hypotheses about a circuit. On the far right, you have something like path patching, which is a pretty rigorous and effortful tool that is best used when you already have reasonably concrete hypotheses about a circuit. As we go through the exercises, we'll transition from left to right along this spectrum.
+
+
 ## The IOI task
 
 The first step when trying to reverse engineer a circuit in a model is to identify *what* capability we want to reverse engineer. Indirect Object Identification is a task studied in Redwood Research's excellent [Interpretability in the Wild](https://arxiv.org/abs/2211.00593) paper (see [Neel Nanda's interview with the authors](https://www.youtube.com/watch?v=gzwj0jWbvbo) or [Kevin Wang's Twitter thread](https://threadreaderapp.com/thread/1587601532639494146.html) for an overview). The task is to complete sentences like "When Mary and John went to the store, John gave a drink to" with " Mary" rather than " John".
@@ -77,20 +93,6 @@ Why was this task chosen? The authors give a very good explanation for their cho
 * It is a crisp and well-defined task, so less likely to be solved in terms of memorisation of a large bag of heuristics (unlike e.g. tasks like "predict that the number `n+1` will follow `n`, which as Neel mentions in the video walkthrough is actually much more annoying and subtle than it first seems!).
 
 A terminology note: `IO` will refer to the indirect object (in the example, `" Mary"`), `S1` and `S2` will refer to the two instances of the subject token (i.e. `" John"`), and `end` will refer to the end token `" to"` (because this is the position we take our prediction from, and we don't care about any tokens after this point). We will also sometimes use `S` to refer to the identity of the subject token (rather than referring to the first or second instance in particular).
-
-
-## Have some sense of proportion
-
-At a surface level, these exercises are designed to take you through the indirect object identification circuit. But it's also designed to make you a better interpretability researcher! As a result, most exercises will be doing a combination of:
-
-1. Showing you some new characteristic of the circuit, and
-2. Teaching you how to use tools and interpret results in a broader mech interp context.
-
-Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-map.png" width="900">
-
-A key idea to have in mind during these exercises is the spectrum from simpler, more exploratory tools to more rigoruous, complex tools. On the far left, you have something like inspecting attention patterns, which can give a decent (but sometimes misleading) picture of what an attention head is doing. These should be some of the first tools you reach for, and you should be using them a lot even before you have concrete hypotheses about a circuit. On the far right, you have something like path patching, which is a pretty rigorous and effortful tool that is best used when you already have reasonably concrete hypotheses about a circuit. As we go through the exercises, we'll transition from left to right along this spectrum.
 
 
 ## Keeping track of your guesses & predictions
