@@ -420,7 +420,7 @@ arr7 = einops.reduce(arr.astype(float), "b c h w -> h (b w)", "max").astype(int)
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig9.html")
+    fig = st_dependencies.read_from_html("media/fig10.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -449,7 +449,7 @@ arr8 = einops.reduce(arr.astype(float), "b c h w -> h w", "min").astype(int)
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig10.html")
+    fig = st_dependencies.read_from_html("media/fig12.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -478,7 +478,7 @@ arr9 = einops.rearrange(arr[1], "c h w -> c w h")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig11.html")
+    fig = st_dependencies.read_from_html("media/fig14.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
