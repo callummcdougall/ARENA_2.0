@@ -110,7 +110,8 @@ Lastly, you'll learn how to sample from a transformer. This will involve impleme
 
 
 ```python
-import os; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import sys
 import einops
 from dataclasses import dataclass
 from transformer_lens import HookedTransformer
@@ -151,12 +152,10 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == '__main__'
 
-```
-
-```python
 
 if MAIN:
-    reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
+    if MAIN:
+        reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
 
 ```
 
@@ -568,7 +567,7 @@ def section_2():
 >     * Unembedding (a matrix for converting residual stream vectors into a distribution over tokens)
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-new.png" width="1050">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-new.png" width="850">
 
 
 ## High-Level architecture
@@ -644,7 +643,7 @@ Attention layers are effectively our way of saying to the transformer, "don't im
 Below is a schematic diagram of the attention layers. Don't worry if you don't follow this right now, we'll go into more detail during implementation.
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-attn-new.png" width="1250">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-attn-new.png" width="1100">
 
 
 ### MLP
@@ -670,6 +669,31 @@ We can view the vectors $W^{in}_{[:, i]}$ as the **input directions**, and $W^{o
 
 Terminology note - sometimes we refer to each of these $d_{mlp}$ input-output pairs as **neurons**.
 
+---
+
+If you're having trouble visualizing the linear algebra going into this, we've broken it down step by step below. We have:
+
+$$
+\begin{aligned}
+x^T W^{in} &= x^T [W^{in}_{[:, 1]}\,, ...\;, W^{in}_{[:, n]}] \\
+&= (x^T W^{in}_{[:, 1]}\,, \; ...\;, \; x^T W^{in}_{[:, n]})
+\end{aligned}
+$$
+
+where $W^{in}_{[:, i]}$ are the columns of $W^{in}$. In other words, these values (the pre-GELU activations) are projections of $x$ along the input directions of the neurons.
+
+If we add our activation function and the second matrix, then we get:
+
+$$
+\begin{aligned}
+f(x^T W^{in})W^{out} &= (f(x^T W^{in}_{[:, 1]})\,, \; ...\;,\; f(x^T W^{in}_{[:, n]})) \begin{bmatrix} \leftarrow W^{out}_{[1, :]} \rightarrow \\ \vdots \\ \leftarrow W^{out}_{[n, :]} \rightarrow \end{bmatrix} \\
+&= f(x^T W^{in}_{[:, 1]}) W^{out}_{[1, :]} + \;...\; + f(x^T W^{in}_{[:, n]}) W^{out}_{[n, :]} \\
+&= \sum_{i=1}^n f(x^T W^{in}_{[:, i]}) W^{out}_{[i, :]}
+\end{aligned}
+$$
+
+where $W^{out}_{[i, :]}$ are the rows of $W^{out}$. In other words, our output is a linear combination of the rows of $W^{out}$, with the coefficients of that linear combination given by the projections of $x$ along the columns of $W^{in}$.
+
 </details>
 
 <details>
@@ -683,7 +707,7 @@ Another related intuition (for which there is some evidence) is **MLPs as memory
 </details>
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-mlp-new-2.png" width="850">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-mlp-new-2.png" width="650">
 
 
 ### Unembedding
@@ -873,6 +897,13 @@ def load_gpt2_test(cls, gpt2_layer, input):
 
 ## LayerNorm
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 You should fill in the code below, and then run the tests to verify that your layer is working correctly.
 
 Your LayerNorm should do the following:
@@ -936,6 +967,13 @@ class LayerNorm(nn.Module):
 
 ## Embedding
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
+
 This is basically a lookup table from tokens to residual stream vectors.
 
 (Hint - you can implement this in just one line, without any complicated functions.)
@@ -990,6 +1028,13 @@ class Embed(nn.Module):
 
 ## Positional Embedding
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 Positional embedding can also be thought of as a lookup table, but rather than the indices being our token IDs, the indices are just the numbers `0`, `1`, `2`, ..., `seq_len-1` (i.e. the position indices of the tokens in the sequence).
 
 
@@ -1034,6 +1079,13 @@ class PosEmbed(nn.Module):
 
 
 ## Attention
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠🟠
+
+You should spend up to 25-35 minutes on this exercise.
+```
 
 * **Step 1:** Produce an attention pattern - for each destination token, probability distribution over previous tokens (including current token)
     * Linear map from input -> query, key shape `[batch, seq_posn, head_index, d_head]`
@@ -1327,6 +1379,13 @@ class Attention(nn.Module):
 
 ## MLP
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 Next, you should implement the MLP layer, which consists of:
 
 * A linear layer, with weight `W_in`, bias `b_in`
@@ -1394,6 +1453,13 @@ class MLP(nn.Module):
 
 ## Transformer Block
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+```
+
 Now, we can put together the attention, MLP and layernorms into a single transformer block. Remember to implement the residual connections correctly!
 
 
@@ -1446,6 +1512,13 @@ class TransformerBlock(nn.Module):
 
 ## Unembedding
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+```
+
 The unembedding is jus a linear layer (with weight `W_U` and bias `b_U`).
 
 
@@ -1497,6 +1570,13 @@ class Unembed(nn.Module):
 
 
 ## Full Transformer
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+```
 
 
 ```python
@@ -1708,10 +1788,8 @@ class TransformerTrainingArgs():
     weight_decay = 1e-2
     log_dir: str = os.getcwd() + "/logs"
     log_name: str = "day1-transformer"
+    run_name: Optional[str] = None
     log_every_n_steps: int = 1
-
-    def __post_init__(self):
-        self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name)
 
 
 if MAIN:
@@ -1761,7 +1839,7 @@ if MAIN:
 
 ## Run Training Loop
 
-If you did the day 4 or 5 material during the fundamentals week, this exercise should be familiar to you. If not, a little refresher:
+If you did the material on [PyTorch Lightning](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#pytorch-lightning) during the first week, this should all be familiar to you. If not, a little refresher:
 
 <details>
 <summary>Click here for a basic refresher on PyTorch Lightning & Weights and Biases</summary>
@@ -1788,10 +1866,12 @@ Weights and Biases is a useful service which visualises training runs and perfor
 * Remember to call `wandb.finish()` at the end of your training instance.
 </details>
 
-You should fill in the `training_step` and `configure_optimizers` methods below. Some guidance:
+You should fill in the methods below. Some guidance:
 
 * Remember we were able to calculate cross entropy loss using the `get_log_probs` function in the previous section.
 * You should use the optimizer `t.optim.AdamW` (Adam with weight decay), and with hyperparameters `lr` and `weight_decay` taken from your `TransformerTrainingArgs` dataclass instance.
+
+If you've not encountered `train_dataloader` before, this function returns a dataloader (or else something which you iterate through to get the batches used in the `training_step` function). Also, the `forward` function of the model overrides the default behaviour when you call `self(input)` within another method. Neither of these are strictly necessary, but they're useful Lightning features for keeping your code clean.
 
 
 ```python
@@ -1802,6 +1882,10 @@ class LitTransformer(pl.LightningModule):
         self.cfg = model.cfg
         self.args = args
         self.data_loader = data_loader
+
+    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+        logits = self.model(tokens)
+        return logits
 
     def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
         '''
@@ -1816,6 +1900,8 @@ class LitTransformer(pl.LightningModule):
         '''
         pass
 
+    def train_dataloader(self):
+        return self.data_loader
 
 ```
 
@@ -1831,6 +1917,10 @@ class LitTransformer(pl.LightningModule):
         self.cfg = model.cfg
         self.args = args
         self.data_loader = data_loader
+
+    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+        logits = self.model(tokens)
+        return logits
 
     def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
         '''
@@ -1851,6 +1941,9 @@ class LitTransformer(pl.LightningModule):
         # SOLUTION
         optimizer = t.optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
         return optimizer
+    
+    def train_dataloader(self):
+        return self.data_loader
 ```
 </details>
 
@@ -1859,10 +1952,11 @@ class LitTransformer(pl.LightningModule):
 
 if MAIN:
     litmodel = LitTransformer(args, model, data_loader)
+    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
     
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
-        logger=args.logger,
+        logger=logger,
         log_every_n_steps=args.log_every_n_steps
     )
     trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
@@ -1943,15 +2037,19 @@ def section_4():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#main-sampling-function'>Main Sampling Function</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-implement-sample'><b>Exercise</b> - implement <code>sample</code></a></li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#sampling-with-categorical'>Sampling with Categorical</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-basic-sampling'><b>Exercise</b> - Basic Sampling</a></li>
-        <li><a class='contents-el' href='#temperature'>Temperature</a></li>
+        <li><a class='contents-el' href='#exercise-temperature'><b>Exercise</b> - Temperature</a></li>
         <li><a class='contents-el' href='#exercise-frequency-penalty'><b>Exercise</b> - Frequency Penalty</a></li>
         <li><a class='contents-el' href='#sampling-manual-testing'>Sampling - Manual Testing</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#top-k-sampling'>Top-K Sampling</a></li>
     <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-implement-sample-top-k'><b>Exercise</b> - implement <code>sample_top_k</code></a></li>
         <li><a class='contents-el' href='#top-k-sampling-example'>Top-K Sampling - Example</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#top-p-aka-nucleus-sampling'>Top-p aka Nucleus Sampling</a></li>
@@ -1962,6 +2060,7 @@ def section_4():
     <li class='margtop'><a class='contents-el' href='#caching'>Caching</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#how-can-caching-help-us?'>How can caching help us?</a></li>
+        <li><a class='contents-el' href='#exercise-implement-caching'><b>Exercise</b> - implement caching</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#bonus-cached-beam-search'>Bonus - cached beam search</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -2080,7 +2179,9 @@ class TransformerSampler:
         '''
         Returns the most likely token (as an int).
         '''
-        pass
+        out = logits.argmax().item()
+        return out
+    
 
     @staticmethod
     def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
@@ -2122,7 +2223,18 @@ class TransformerSampler:
 
 ## Main Sampling Function
 
-The first thing you should do is implement the `sample` method. This takes in a prompt (in the form of a string), encodes it as a sequence of token ids using `self.tokenizer.encode`, and then continually generates new tokens by repeating the following steps:
+The first thing you should do is implement the `sample` method.
+
+### Exercise - implement `sample`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-25 minutes on this exercise.
+```
+
+This function takes in a prompt (in the form of a string), encodes it as a sequence of token ids using `self.tokenizer.encode`, and then continually generates new tokens by repeating the following steps:
 
 1. Passing the tokenized prompt through the model to get logits,
 2. Taking the logit vector corresponding to the last token in the prompt (i.e. the prediction for the *next* token),
@@ -2305,7 +2417,6 @@ class TransformerSampler:
         '''
         Returns the most likely token (as an int).
         '''
-        # SOLUTION
         out = logits.argmax().item()
         return out
     
@@ -2387,6 +2498,13 @@ Note that this will be slow since we aren't batching the samples, but don't worr
 
 ### Exercise - Basic Sampling
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
+
 Implement basic sampling in the `TransformerSampler` class above, then run the code below to verify your solution works.
 
 
@@ -2439,7 +2557,14 @@ def sample_basic(logits: t.Tensor) -> int:
 </details>
 
 
-### Temperature
+### Exercise - Temperature
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
 
 Temperature sounds fancy, but it's literally just dividing the logits by the temperature. You should implement this in your `TransformerSampler` class now.
 
@@ -2486,6 +2611,13 @@ The limit when temperature goes to infinity is uniform random sampling over all 
 
 
 ### Exercise - Frequency Penalty
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
 
 The frequency penalty is simple as well: count the number of occurrences of each token, then subtract `freq_penalty` for each occurrence. Hint: use `t.bincount` (documentation [here](https://pytorch.org/docs/stable/generated/torch.bincount.html)) to do this in a vectorized way.
 
@@ -2573,6 +2705,15 @@ Conceptually, the steps in top-k sampling are:
 - Normalize and sample
 
 
+### Exercise - implement `sample_top_k`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
+
 Implement the method `sample_top_k` now. Your implementation should stay in log-space throughout (don't exponentiate to obtain probabilities). This means you don't actually need to worry about normalizing, because `Categorical` accepts unnormalised logits.
 
 
@@ -2659,6 +2800,13 @@ Optionally, refer to the paper [The Curious Case of Neural Text Degeneration](ht
 
 
 #### Exercise - implement `sample_top_p`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 15-20 minutes on this exercise.
+```
 
 <details>
 <summary>Example of top-p sampling (if you're confused)</summary>
@@ -2796,6 +2944,13 @@ How do we deal with sequences that terminate early (i.e. by generating an EOS to
 
 
 #### Exercise - implement `beam_search`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You should spend up to 30-40 minutes on this exercise.
+```
 
 You should now complete the `beam_search` method in your `TransformerSampler` class.
 
@@ -3227,6 +3382,15 @@ At each attention layer, the only things the attention layer needs from the prev
 
 </details>
 
+
+### Exercise - implement caching
+
+```c
+Difficulty: 🟠🟠🟠🟠🟠
+Importance: 🟠⚪⚪⚪⚪
+
+You are expected to spend well over an hour on this exercise, if you choose to do it.
+```
 
 Modify your GPT-2 to optionally use a cache. When you run your GPT on `"My life motto:"`, it should store the necessary values in the cache. Then in the next forward pass with just `" Always"` as input, it should load the cached values instead of recomputing them (and update the cache). This only needs to work with a single input sequence (batch size of 1), and you can assume that after the first forward pass, the input will be just one token.
 
@@ -3886,7 +4050,7 @@ print("Tests passed!")
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Understanding Inputs & Outputs of a Transformer'),     (section_2, '2️⃣ Clean Transformer Implementation'),     (section_3, '3️⃣ Training a Transformer'),     (section_4, '4️⃣ Sampling from a Transformer'), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Understanding Inputs & Outputs of a Transformer"),     (section_2, "2️⃣ Clean Transformer Implementation"),     (section_3, "3️⃣ Training a Transformer"),     (section_4, "4️⃣ Sampling from a Transformer"), 
 ]
 
 func_list = [func for func, page in func_page_list]

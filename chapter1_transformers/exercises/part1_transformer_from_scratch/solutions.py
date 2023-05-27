@@ -1,6 +1,6 @@
 # %%
 
-import os; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import sys
 import einops
 from dataclasses import dataclass
@@ -42,11 +42,10 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == '__main__'
 
-# %%
-
 
 if MAIN:
-	reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
+	if MAIN:
+		reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
 
 # %% 1️⃣ UNDERSTANDING INPUTS & OUTPUTS OF A TRANSFORMER
 
@@ -548,10 +547,8 @@ class TransformerTrainingArgs():
 	weight_decay = 1e-2
 	log_dir: str = os.getcwd() + "/logs"
 	log_name: str = "day1-transformer"
+	run_name: Optional[str] = None
 	log_every_n_steps: int = 1
-
-	def __post_init__(self):
-		self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name)
 
 
 if MAIN:
@@ -591,6 +588,10 @@ class LitTransformer(pl.LightningModule):
 		self.args = args
 		self.data_loader = data_loader
 
+	def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+		logits = self.model(tokens)
+		return logits
+
 	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
 		'''
 		Here you compute and return the training loss and some additional metrics for e.g. 
@@ -608,16 +609,20 @@ class LitTransformer(pl.LightningModule):
 		'''
 		optimizer = t.optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
 		return optimizer
+	
+	def train_dataloader(self):
+		return self.data_loader
 
 # %%
 
 
 if MAIN:
 	litmodel = LitTransformer(args, model, data_loader)
+	logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
 	
 	trainer = pl.Trainer(
 		max_epochs=args.max_epochs,
-		logger=args.logger,
+		logger=logger,
 		log_every_n_steps=args.log_every_n_steps
 	)
 	trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
