@@ -22,14 +22,8 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
-    <li><ul class="contents">
-        <li><a class='contents-el' href='#110125-understanding-inputs-&-outputs-of-a-transformer'>1️⃣ Understanding Inputs & Outputs of a Transformer</a></li>
-        <li><a class='contents-el' href='#1010125-clean-transformer-implementation'>2️⃣ Clean Transformer Implementation</a></li>
-        <li><a class='contents-el' href='#12510125-training-a-transformer'>3️⃣ Training a Transformer</a></li>
-        <li><a class='contents-el' href='#1010125-sampling-from-a-transformer'>4️⃣ Sampling from a Transformer</a></li>
-    </ul></li>
-    <li class='margtop'><a class='contents-el' href='#setup-don't-read,-just-run'>Setup (don't read, just run)</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
+    <li class='margtop'><a class='contents-el' href='#setup-don't-read-just-run'>Setup (don't read, just run)</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -38,6 +32,8 @@ def section_0():
 
 
 If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+
+You can toggle dark mode from the top-right buttons.
 
 
 # [1.1] - Transformers from scratch
@@ -55,7 +51,7 @@ The exercises are written to accompany Neel Nanda's [TransformerLens library](ht
 ## Content & Learning Objectives
 
 
-### 1️⃣ Understanding Inputs & Outputs of a Transformer
+#### 1️⃣ Understanding Inputs & Outputs of a Transformer
 
 In this section, we'll take a first look at transformers - what their function is, how information moves inside a transformer, and what inputs & outputs they take.
 
@@ -66,7 +62,7 @@ In this section, we'll take a first look at transformers - what their function i
 > - Learn what tokenization is, and how models do it
 > - Understand what logits are, and how to use them to derive a probability distribution over the vocabulary
 
-### 2️⃣ Clean Transformer Implementation
+#### 2️⃣ Clean Transformer Implementation
 
 Here, we'll implement a transformer from scratch, using only PyTorch's tensor operations. This will give us a good understanding of how transformers work, and how to use them. We do this by going module-by-module, in an experience which should feel somewhat similar to last week's ResNet exercises. Much like with ResNets, you'll conclude by loading in pretrained weights and verifying that your model works as expected.
 
@@ -84,7 +80,7 @@ Here, we'll implement a transformer from scratch, using only PyTorch's tensor op
 >     * Embedding (a lookup table from tokens to residual stream vectors)
 >     * Unembedding (a matrix for converting residual stream vectors into a distribution over tokens)
 
-### 3️⃣ Training a Transformer
+#### 3️⃣ Training a Transformer
 
 Next, you'll learn how to train your transformer from scratch. This will be quite similar to the training loops you wrote for ResNet in your first week.
 
@@ -94,7 +90,7 @@ Next, you'll learn how to train your transformer from scratch. This will be quit
 > * Write a basic transformer training loop with PyTorch Lightning
 > * Interpret the transformer's falling cross entropy loss with reference to features of the training data (e.g. bigram frequencies)
 
-### 4️⃣ Sampling from a Transformer
+#### 4️⃣ Sampling from a Transformer
 
 Lastly, you'll learn how to sample from a transformer. This will involve implementing a few different sampling methods, and writing a caching system which can reuse computations from previous forward passes to improve your model's text generation speed.
 
@@ -171,9 +167,9 @@ def section_1():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#what-is-the-point-of-a-transformer?'>What is the point of a transformer?</a></li>
+    <li class='margtop'><a class='contents-el' href='#what-is-the-point-of-a-transformer'>What is the point of a transformer?</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#how-is-the-model-trained?'>How is the model trained?</a></li>
+        <li><a class='contents-el' href='#how-is-the-model-trained'>How is the model trained?</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#tokens-transformer-inputs'>Tokens - Transformer Inputs</a></li>
     <li><ul class="contents">
@@ -183,7 +179,7 @@ def section_1():
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#text-generation'>Text generation</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#**step-13:**-add-this-to-the-end-of-the-input,-re-run'>**Step 5:** Add this to the end of the input, re-run</a></li>
+        <li><a class='contents-el' href='#**step-13:**-add-this-to-the-end-of-the-input-re-run'>**Step 5:** Add this to the end of the input, re-run</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#key-takeaways'>Key takeaways</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -229,7 +225,7 @@ The model's output is the vector $x$ (one for each prediction it makes). We call
 How do we stop the transformer by "cheating" by just looking at the tokens it's trying to predict? Answer - we make the transformer have *causal attention* (as opposed to *bidirectional attention*). Causal attention only allows information to move forwards in the sequence, never backwards. The prediction of what comes after token 50 is only a function of the first 50 tokens, *not* of token 51. We say the transformer is **autoregressive**, because it only predicts future words based on past data.
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-overview-new.png" width="1150">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-overview-new.png" width="900">
 
 
 ## Tokens - Transformer Inputs
@@ -526,14 +522,14 @@ def section_2():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#high-level-architecture'>High-Level architecture</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#tokenization-&-embedding'>Tokenization & Embedding</a></li>
+        <li><a class='contents-el' href='#tokenization-embedding'>Tokenization & Embedding</a></li>
         <li><a class='contents-el' href='#residual-stream'>Residual stream</a></li>
         <li><a class='contents-el' href='#transformer-blocks'>Transformer blocks</a></li>
         <li><a class='contents-el' href='#mlp'>MLP</a></li>
         <li><a class='contents-el' href='#unembedding'>Unembedding</a></li>
         <li><a class='contents-el' href='#bonus-things-less-conceptually-important-but-key-technical-details'>Bonus things - less conceptually important but key technical details</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#actual-code!'>Actual Code!</a></li>
+    <li class='margtop'><a class='contents-el' href='#actual-code'>Actual Code!</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#parameters-and-activations'>Parameters and Activations</a></li>
         <li><a class='contents-el' href='#config'>Config</a></li>
@@ -2059,7 +2055,7 @@ def section_4():
     <li class='margtop'><a class='contents-el' href='#beam-search'>Beam search</a></li>
     <li class='margtop'><a class='contents-el' href='#caching'>Caching</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#how-can-caching-help-us?'>How can caching help us?</a></li>
+        <li><a class='contents-el' href='#how-can-caching-help-us'>How can caching help us?</a></li>
         <li><a class='contents-el' href='#exercise-implement-caching'><b>Exercise</b> - implement caching</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#bonus-cached-beam-search'>Bonus - cached beam search</a></li>

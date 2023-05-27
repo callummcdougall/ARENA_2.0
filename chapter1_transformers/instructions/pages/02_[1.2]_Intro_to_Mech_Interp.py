@@ -22,13 +22,7 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
-    <li><ul class="contents">
-        <li><a class='contents-el' href='#110125-transformerlens:-introduction'>1️⃣ TransformerLens: Introduction</a></li>
-        <li><a class='contents-el' href='#1010125-finding-induction-heads'>2️⃣ Finding induction heads</a></li>
-        <li><a class='contents-el' href='#12510125-transformerlens:-hooks'>3️⃣ TransformerLens: Hooks</a></li>
-        <li><a class='contents-el' href='#1010125-reverse-engineering-induction-circuits'>4️⃣ Reverse-engineering induction circuits</a></li>
-    </ul></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -38,6 +32,8 @@ def section_0():
 
 
 If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+
+You can toggle dark mode from the top-right buttons.
 
 
 # [1.2] TransformerLens & induction circuits
@@ -63,7 +59,7 @@ The running theme of the exercises is **induction circuits**. Induction circuits
 ## Content & Learning Objectives
 
 
-### 1️⃣ TransformerLens: Introduction
+#### 1️⃣ TransformerLens: Introduction
 
 This section is designed to get you up to speed with the TransformerLens library. You'll learn how to load and run models, and learn about the shared architecture template for all of these models (the latter of which should be familiar to you if you've already done the exercises that come before these, since many of the same design principles are followed).
 
@@ -75,7 +71,7 @@ This section is designed to get you up to speed with the TransformerLens library
 > - Know how to cache activations, and to access activations from the cache
 > - Use `circuitsvis` to visualise attention heads
 
-### 2️⃣ Finding induction heads
+#### 2️⃣ Finding induction heads
 
 Here, you'll learn about induction heads, how they work and why they are important. You'll also learn how to identify them from the characteristic induction head stripe in their attention patterns when the model input is a repeating sequence.
 
@@ -85,7 +81,7 @@ Here, you'll learn about induction heads, how they work and why they are importa
 > - Inspect activation patterns to identify basic attention head patterns, and write your own functions to detect attention heads for you
 > - Identify induction heads by looking at the attention patterns produced from a repeating random sequence
 
-### 3️⃣ TransformerLens: Hooks
+#### 3️⃣ TransformerLens: Hooks
 
 Next, you'll learn about hooks, which are a great feature of TransformerLens allowing you to access and intervene on activations within the model. We will mainly focus on the basics of hooks and using them to access activations (we'll mainly save the causal interventions for the later IOI exercises). You will also build some tools to perform logit attribution within your model, so you can identify which components are responsible for your model's performance on certain tasks.
 
@@ -96,7 +92,7 @@ Next, you'll learn about hooks, which are a great feature of TransformerLens all
 > - Build tools to perform attribution, i.e. detecting which components of your model are responsible for performance on a given task
 > - Understand how hooks can be used to perform basic interventions like **ablation**
 
-### 4️⃣ Reverse-engineering induction circuits
+#### 4️⃣ Reverse-engineering induction circuits
 
 Lastly, these exercises show you how you can reverse-engineer a circuit by looking directly at a transformer's weights (which can be considered a "gold standard" of interpretability; something not possible in every situation). You'll examine QK and OV circuits by multiplying through matrices (and learn how the FactoredMatrix class makes matrices like these much easier to analyse). You'll also look for evidence of composition between two induction heads, and once you've found it then you'll investigate the functionality of the full circuit formed from this composition.
 
@@ -174,7 +170,7 @@ def section_1():
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#tokenization'>Tokenization</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise-how-many-words-does-your-model-guess-correctly?'><b>Exercise</b> - how many words does your model guess correctly?</a></li>
+        <li><a class='contents-el' href='#exercise-how-many-words-does-your-model-guess-correctly'><b>Exercise</b> - how many words does your model guess correctly?</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#caching-all-activations'>Caching all Activations</a></li>
     <li><ul class="contents">
@@ -626,7 +622,7 @@ def section_2():
         <li><a class='contents-el' href='#exercise-write-your-own-detectors'><b>Exercise</b> - write your own detectors</a></li>
         <li><a class='contents-el' href='#bonus-try-different-text'>Bonus - try different text</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#what-are-induction-heads?'>What are induction heads?</a></li>
+    <li class='margtop'><a class='contents-el' href='#what-are-induction-heads'>What are induction heads?</a></li>
     <li class='margtop'><a class='contents-el' href='#checking-for-the-induction-capability'>Checking for the induction capability</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-plot-per-token-loss-on-repeated-sequence'><b>Exercise</b> - plot per-token loss on repeated sequence</a></li>
@@ -1167,7 +1163,7 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#what-are-hooks?'>What are hooks?</a></li>
+    <li class='margtop'><a class='contents-el' href='#what-are-hooks'>What are hooks?</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#hook-functions'>Hook functions</a></li>
         <li><a class='contents-el' href='#running-with-hooks'>Running with hooks</a></li>
@@ -1947,7 +1943,7 @@ def section_4():
     <li><ul class="contents">
         <li><a class='contents-el' href='#composition-scores'>Composition scores</a></li>
         <li><a class='contents-el' href='#exercise-calculate-composition-scores'><b>Exercise</b> - calculate composition scores</a></li>
-        <li><a class='contents-el' href='#exercise-batching,-and-using-the-factoredmatrix-class'><b>Exercise</b> - batching, and using the <code>FactoredMatrix</code> class</a></li>
+        <li><a class='contents-el' href='#exercise-batching-and-using-the-factoredmatrix-class'><b>Exercise</b> - batching, and using the <code>FactoredMatrix</code> class</a></li>
         <li><a class='contents-el' href='#targeted-ablations'>Targeted Ablations</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#bonus'>Bonus</a></li>
