@@ -460,7 +460,7 @@ class SGD:
             https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
 
         '''
-        self.params = list(params) # turn params into a list (because it might be a generator)
+        params = list(params) # turn params into a list (because it might be a generator)
         pass
 
     def zero_grad(self) -> None:
@@ -542,8 +542,9 @@ class SGD:
             https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
 
         '''
-        self.params = list(params) # turn params into a list (because it might be a generator)
+        params = list(params) # turn params into a list (because it might be a generator)
         # SOLUTION
+        self.params = params
         self.lr = lr
         self.mu = momentum
         self.lmda = weight_decay
@@ -611,6 +612,7 @@ class RMSprop:
             https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
 
         '''
+        params = list(params) # turn params into a list (because it might be a generator)
         pass
 
     def zero_grad(self) -> None:
@@ -651,8 +653,9 @@ class RMSprop:
             https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
 
         '''
+        params = list(params) # turn params into a list (because it might be a generator)
         # SOLUTION
-        self.params = list(params)
+        self.params = params
         self.lr = lr
         self.eps = eps
         self.mu = momentum
@@ -718,6 +721,7 @@ class Adam:
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
             https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
         '''
+        params = list(params) # turn params into a list (because it might be a generator)
         pass
 
     def zero_grad(self) -> None:
@@ -756,8 +760,9 @@ class Adam:
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
             https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
         '''
+        params = list(params) # turn params into a list (because it might be a generator)
         # SOLUTION
-        self.params = list(params)
+        self.params = params
         self.lr = lr
         self.beta1, self.beta2 = betas
         self.eps = eps
@@ -833,6 +838,7 @@ class AdamW:
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
             https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
         '''
+        params = list(params) # turn params into a list (because it might be a generator)
         pass
 
     def zero_grad(self) -> None:
@@ -871,8 +877,9 @@ class AdamW:
         Like the PyTorch version, but assumes amsgrad=False and maximize=False
             https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
         '''
+        params = list(params) # turn params into a list (because it might be a generator)
         # SOLUTION
-        self.params = list(params)
+        self.params = params
         self.lr = lr
         self.beta1, self.beta2 = betas
         self.eps = eps
@@ -1221,7 +1228,7 @@ def section_2():
     <li class='margtop'><a class='contents-el' href='#running-hyperparameter-sweeps-with-wandb'>Running hyperparameter sweeps with <code>wandb</code></a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-define-a-sweep-config-step-1'><b>Exercise</b> - define a sweep config (step 1)</a></li>
-        <li><a class='contents-el' href='#exercise-define-a-training-function-step-10'><b>Exercise</b> - define a training function (step 2)</a></li>
+        <li><a class='contents-el' href='#define-a-training-function-step-10'>Define a training function (step 2)</a></li>
         <li><a class='contents-el' href='#run-your-sweep-step-125'>Run your sweep (step 3)</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -1280,36 +1287,22 @@ We have also provided a basic training & testing loop, almost identical to the o
 ## Train function - simple (from yesterday)
 
 
-First, let's define a new dataclass to hold our training arguments. This is basically the same as yesterday's, except for a different file save name. Also note that we've added optional arguments for the `trainset` and `testset`, which are useful if we want to avoid having to run the `get_cifar` function unnecessarily.
+First, let's define a dataclass to hold our training arguments.
 
 
 ```python
-
-if MAIN:
-    cifar_trainset, cifar_testset = get_cifar(subset=1)
-    cifar_trainset_small, cifar_testset_small = get_cifar(subset=10)
-    
 @dataclass
-class ResNetFinetuningArgs():
+class ResNetTrainingArgs():
     batch_size: int = 64
     max_epochs: int = 3
     max_steps: int = 500
     optimizer: t.optim.Optimizer = t.optim.Adam
     learning_rate: float = 1e-3
     log_dir: str = os.getcwd() + "/logs"
-    log_name: str = "day5-resnet"
+    log_name: str = "day4-resnet"
     log_every_n_steps: int = 1
     n_classes: int = 10
     subset: int = 10
-    trainset: Optional[datasets.CIFAR10] = None
-    testset: Optional[datasets.CIFAR10] = None
-
-    def __post_init__(self):
-        if self.trainset is None or self.testset is None:
-            self.trainset, self.testset = get_cifar(self.subset)
-        self.trainloader = DataLoader(self.trainset, shuffle=True, batch_size=self.batch_size)
-        self.testloader = DataLoader(self.testset, shuffle=False, batch_size=self.batch_size)
-        self.logger = CSVLogger(save_dir=self.log_dir, name=self.log_name)
 
 ```
 
@@ -1318,45 +1311,40 @@ Now we'll write a new class to inherit from `LightningModule`. The one below is 
 
 ```python
 class LitResNet(pl.LightningModule):
-    def __init__(self, args: ResNetFinetuningArgs):
+    def __init__(self, args: ResNetTrainingArgs):
         super().__init__()
-        self.resnet = get_resnet_for_feature_extraction(args.n_classes)
         self.args = args
+        self.resnet = get_resnet_for_feature_extraction(self.args.n_classes)
+        self.trainset, self.testset = get_cifar(subset=self.args.subset)
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor, t.Tensor]:
-        '''
-        Convenience function since train/validation steps are similar.
-        '''
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        return self.resnet(x)
+
+    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
         imgs, labels = batch
-        logits = self.resnet(imgs)
+        logits = self(imgs)
         return logits, labels
 
     def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
-        '''
-        Here you compute and return the training loss and some additional metrics for e.g. 
-        the progress bar or logger.
-        '''
         logits, labels = self._shared_train_val_step(batch)
         loss = F.cross_entropy(logits, labels)
         self.log("train_loss", loss)
         return loss
     
     def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
-        '''
-        Operates on a single batch of data from the validation set. In this step you might
-        generate examples or calculate anything of interest like accuracy.
-        '''
         logits, labels = self._shared_train_val_step(batch)
         classifications = logits.argmax(dim=1)
         accuracy = t.sum(classifications == labels) / len(classifications)
         self.log("accuracy", accuracy)
 
     def configure_optimizers(self):
-        '''
-        Choose what optimizers and learning-rate schedulers to use in your optimization.
-        '''
-        optimizer = self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
-        return optimizer
+        return self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
+    
+    def train_dataloader(self):
+        return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 
 ```
 
@@ -1366,16 +1354,16 @@ Lastly, we run our model.
 ```python
 
 if MAIN:
-    args = ResNetFinetuningArgs(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args = ResNetTrainingArgs()
     model = LitResNet(args)
+    logger = CSVLogger(save_dir=args.log_dir, name=args.log_name)
     
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
-        max_steps=args.max_steps,
-        logger=args.logger,
+        logger=logger,
         log_every_n_steps=args.log_every_n_steps,
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    trainer.fit(model=model)
     
     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
     
@@ -1406,8 +1394,7 @@ def test_resnet_on_random_input(n_inputs: int = 3):
         bar(
             prob,
             x=cifar_trainset.classes,
-            template="ggplot2",
-            width=600, height=400,
+            template="ggplot2", width=600, height=400,
             labels={"x": "Classification", "y": "Probability"}, 
             text_auto='.2f', showlegend=False,
         )
@@ -1435,27 +1422,21 @@ If we were writing vanilla training loops using PyTorch, then we'd need to make 
 
 ```python
 @dataclass
-class ResNetFinetuningArgsWandb(ResNetFinetuningArgs):
-    use_wandb: bool = True
+class ResNetTrainingArgsWandb(ResNetTrainingArgs):
     run_name: Optional[str] = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        if self.use_wandb:
-            self.logger = WandbLogger(save_dir=self.log_dir, project=self.log_name, name=self.run_name)
 
 ```
 
 A few notes about this code:
 
 * We've defined this new class by inheriting from the previous `ResNetFinetuningArgs` class. Again, this is a useful way to extend functionality while keeping the code short and clean.
-* The `name` argument for `WandbLogger` is optional. If you don't specify it, then your runs will be given random names which look like `jolly-sea-1`, `fluent-snowflake-2`, `brisk-smoke-3`, etc.
+* The `run_name` argument gets optionally supplied to our `WandbLogger` object (see below). If you don't specify it, then your runs will be given random names which look like `jolly-sea-1`, `fluent-snowflake-2`, `brisk-smoke-3`, etc.
 * If we were using vanilla PyTorch, we'd start a run by calling `wandb.init()`. In Lightning, this is done automatically for us the moment we define our logger.
 
 
 Now let's run our training code, but with this new dataclass. Note that we've also included the function `wandb.finish()` at the end of the cell. This terminates the current run. It's called automatically in scripts, but in notebooks you'll need to add this before you can start a new run.
 
-When you run the cell below for the first time, you'll have to login to Weights and Biases, and paste an API key into VSCode. After this is done, your Weights and Biases training run will start. It'll give you a url which looks like:
+When you run the cell below for the first time, you'll have to login to Weights and Biases, and paste an API key into VSCode. After this is done, your Weights and Biases training run will start. It'll give you a lot of output text, one line of which will look like:
 
 ```
 View run at https://wandb.ai/<USERNAME>/<PROJECT-NAME>/runs/<RUN-NAME>
@@ -1469,21 +1450,24 @@ A nice thing about using Weights and Biases is that you don't need to worry abou
 ```python
 
 if MAIN:
-    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args = ResNetTrainingArgsWandb()
     model = LitResNet(args)
+    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
     
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         max_steps=args.max_steps,
-        logger=args.logger,
-        log_every_n_steps=args.log_every_n_steps
+        logger=logger,
+        log_every_n_steps=args.log_every_n_steps,
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
+    trainer.fit(model=model)
     wandb.finish()
 
 ```
 
 ### Run & project pages
+
+The page you visit will show you a plot of all the variables you've logged, among other things. You can do many things with these plots (e.g. click on the "edit" icon for your `train_loss` plot, and apply smoothing to get a better picture of your loss curve).
 
 The charts are a useful feature of the run page that gets opened when you click on the run page link, but they're not the only feature. You can also navigate to the project page (click on the option to the right of **Projects** on the bar at the top of the Wandb page), and see superimposed plots of all the runs in this project. You can also click on the **Table** icon on the left hand sidebar to see a table of all the runs in this project, which contains useful information (e.g. runtime, the most recent values of any logged variables, etc). However, comparing runs like this becomes especially useful when we start doing hyperparameter search.
 
@@ -1578,38 +1562,32 @@ sweep_config = dict(
 </details>
 
 
-### Exercise - define a training function (step 2)
+### Define a training function (step 2)
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+Now, we have a `train` function. This takes no arguments, and it implements a training loop just like we've seen before. Note that we've set things like `args.batch_size` from the `wandb.config` dictionary, which is how we access the hyperparameters which are set at the start of each sweep.
 
-You should spend up to 10-15 minutes on this exercise.
+<details>
+<summary>Question - why do we set these parameters after defining our <code>args</code> object?</summary>
 
-Learning how to use wandb for sweeps is very useful, so make sure you understand all parts of this code, not just the exercises.
-```
+Weights & Biases is very particular about the order in which things are defined. We can't access the `wandb.config` object until we've called `wandb.init()`, which implicitly happens when we define our logger. But we use some of the args from `args` to define our logger!
 
-You should fill in the `train()` function below. This should look exactly like the training code we used above (i.e. defining `args` and `model`, calling `pl.Trainer`, finishing with `wandb.finish()`), the only difference is that some of your args will be set from `wandb.config`. You can do this via e.g. `args.hyperparam = wand.config[hyperparam]`.
+The easiest solution is to define `args` first, then define the logger, then override the `args` values with the `wandb.config` values. There are also other ways to do this, for example:
+
+* Set up two different dataclasses, one specifically for holding the hyperparameters which vary during sweeps.
+* Create a method for the `ResNetTrainingArgsWandb` class which takes the `wandb.config` object, and updates all values based on this.
+
+Which method you choose is down to personal preference.
+</details>
 
 
 ```python
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
 
 def train():
-    pass
-
-
-```
-
-<details>
-<summary>Solution</summary>
-
-
-```python
-def train():
-    # SOLUTION
     # Define hyperparameters, override some with values from wandb.config
-    args = ResNetFinetuningArgsWandb(trainset=cifar_trainset_small, testset=cifar_testset_small)
+    args = ResNetTrainingArgsWandb()
+    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
+
     args.batch_size=wandb.config["batch_size"]
     args.max_epochs=wandb.config["max_epochs"]
     args.learning_rate=wandb.config["learning_rate"]
@@ -1619,12 +1597,17 @@ def train():
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         max_steps=args.max_steps,
-        logger=args.logger,
+        logger=logger,
         log_every_n_steps=args.log_every_n_steps
     )
-    trainer.fit(model=model, train_dataloaders=args.trainloader, val_dataloaders=args.testloader)
-    wandb.finish()
+    trainer.fit(model=model)
+
 ```
+
+<details>
+<summary>Solution</summary>
+
+
 </details>
 
 
@@ -1638,6 +1621,7 @@ Finally, you can use the code below to run your sweep! This will probably take a
 if MAIN:
     sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
     wandb.agent(sweep_id=sweep_id, function=train, count=3)
+    wandb.finish()
 
 ```
 
@@ -1683,8 +1667,8 @@ def section_3():
     <li><ul class="contents">
         <li><a class='contents-el' href='#suggested-exercise'>Suggested exercise</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#other-lighting-features:-checkpoints'>Other Lighting Features: Checkpoints</a></li>
-    <li class='margtop'><a class='contents-el' href='#other-wandb-features:-gradients-saving-logging'>Other WandB Features: Gradients, Saving & Logging</a></li>
+    <li class='margtop'><a class='contents-el' href='#other-lighting-features:-checkpoints'>Other Lighting features: Checkpoints</a></li>
+    <li class='margtop'><a class='contents-el' href='#other-wandb-features:-gradients-saving-logging'>Other WandB features: Gradients, Saving & Logging</a></li>
     <li class='margtop'><a class='contents-el' href='#train-your-model-from-scratch'>Train your model from scratch</a></li>
     <li class='margtop'><a class='contents-el' href='#the-optimizer's-curse'>The Optimizer's Curse</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -1712,14 +1696,15 @@ Perform your own study of scaling laws for MNIST.
 
 - Write a script to train a small CNN on MNIST, or find one you have written previously.
 - Training for a single epoch only, vary the model size and dataset size. For the model size, multiply the width by powers of sqrt(2) (rounding if necessary - the idea is to vary the amount of compute used per forward pass by powers of 2). For the dataset size, multiply the fraction of the full dataset used by powers of 2 (i.e. 1, 1/2, 1/4, ...). To reduce noise, use a few random seeds and always use the full validation set.
-- The learning rate will need to vary with model size. Either tune it carefully for each model size, or use the rule of thumb that for Adam, the learning rate should be proportional to the initialization scale, i.e. 1/sqrt(fan_in) for the standard Kaiming He initialization (which is what PyTorch generally uses by default).
+- The learning rate will need to vary with model size. Either tune it carefully for each model size, or use the rule of thumb that for Adam, the learning rate should be proportional to the initialization scale, i.e. `1/sqrt(fan_in)` for the standard Kaiming He initialization (which is what PyTorch generally uses by default).
+    - Note - `fan_in` refers to the variable $N_{in}$, which is `in_features` for a linear layer, and `in_channels * kernel_size * kernel_size` for a convolutional layer - in other words, the number of input parameters/activations we take a sumproduct over to get each output activation.
 - Plot the amount of compute used (on a log scale) against validation loss. The compute-efficient frontier should follow an approximate power law (straight line on a log scale).
 How does validation accuracy behave?
 - Study how the compute-efficient model size varies with compute. This should also follow an approximate power law. Try to estimate its exponent.
-- Repeat your entire experiment with 20% dropout to see how this affects the scaling exponents.
+- Repeat your entire experiment with 20% [dropout](https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html) to see how this affects the scaling exponents.
 
 
-## Other Lighting Features: Checkpoints
+## Other Lighting features: Checkpoints
 
 
 PyTorch Lightning will automatically save checkpoints for you. By default, Lightning automatically saves a checkpoint for you in the same directory as the metrics file, with the state of your last training epoch. You can load your model from the most recent checkpoint using:
@@ -1754,16 +1739,16 @@ Lastly, you can manually save checkpoints with `trainer.save_checkpoint(filepath
 Play around with these checkpoint features. Do you find that the checkpoint when minimising training loss is also the same as the one that minimises test accuracy? Does this depend on the hyperparameters you choose?
 
 
-## Other WandB Features: Gradients, Saving & Logging
+## Other WandB features: Gradients, Saving & Logging
 
-Weights and Biases can also track gradients for you as your model trains. This is done by calling `wandb.watch(model)` at any point after you've initialised your run (i.e. after you've defined your logger, since that's when the run initialises). For instance, we can just add a line to the end of the `__init__` method of our `LitResNet` class:
+Weights and Biases can also track gradients for you as your model trains. This is done by calling `wandb.watch(model)` at any point after you've initialised your run (i.e. after you've defined your logger, since that's when the run initialises). For instance, we can just add a line after defining our logger:
 
 ```python
-class LitResNetWandb(LitResNet):
-    def __init__(self, args):
-        super().__init__(args)
-        self.args.logger.watch(self.resnet, log="all")
+logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
+logger.watch(model, log="all", log_freq=10)
 ```
+
+The `log` argument can be `"gradients"`, `"parameters"`, or `"all"`, and the `log_freq` argument tells us how many steps we wait between logging gradients/parameters.
 
 Now, run the code to train your model, and visit the run page. You should eventually see dropdowns for **gradients** and **parameters** appear (you can change the `log` argument above to just `"gradients"` or `"parameters"` if you only want to see one of these). 
 

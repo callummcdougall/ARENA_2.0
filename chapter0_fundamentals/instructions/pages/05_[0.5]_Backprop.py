@@ -3,7 +3,7 @@ import os, sys
 from pathlib import Path
 chapter = r"chapter0_fundamentals"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
-sys.path.append(str(instructions_dir))
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
 import streamlit as st
@@ -1208,7 +1208,7 @@ If you're confused, you can scroll up to the diagram at the top of the page (whi
 
 ```python
 def multiply_forward(a: Union[Tensor, int], b: Union[Tensor, int]) -> Tensor:
-    '''Performs np.log on a Tensor object.'''
+    '''Performs np.multiply on a Tensor object.'''
     assert isinstance(a, Tensor) or isinstance(b, Tensor)
 
     pass
@@ -1247,7 +1247,7 @@ This is probably because you've stored the inputs to `multiply` as integers when
 
 ```python
 def multiply_forward(a: Union[Tensor, int], b: Union[Tensor, int]) -> Tensor:
-    '''Performs np.log on a Tensor object.'''
+    '''Performs np.multiply on a Tensor object.'''
     assert isinstance(a, Tensor) or isinstance(b, Tensor)
 
     # SOLUTION
@@ -1604,8 +1604,19 @@ if MAIN:
 
 ```
 
-Compare your output with the computational graph. You should never be printing `x` before `y` if there is an edge `x --> ... --> y` (this should result in approximately reverse alphabetical order).
+```python
 
+if MAIN:
+    a = Tensor([1], requires_grad=True)
+    # a2 = Tensor([1], requires_grad=True)
+    b = a * 2
+    c = a * 1
+    d = b * c
+    name_lookup = {a: "a", b: "b", c: "c", d: "d"}
+    
+    print([name_lookup[t] for t in sorted_computational_graph(d)])
+
+```
 
 <details>
 <summary>Solution</summary>
@@ -1627,6 +1638,9 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     return topological_sort(tensor, get_parents)[::-1]
 ```
 </details>
+
+
+Compare your output with the computational graph. You should never be printing `x` before `y` if there is an edge `x --> ... --> y` (this should result in approximately reverse alphabetical order).
 
 
 ### The `backward` method
@@ -1833,6 +1847,7 @@ And finally, the solution:
 A note on the solution below - you might be wondering why we need to use the `grads` dict at all. Couldn't we just store gradients in nodes' `.grad` attribute, then set `node.grad = None` if it's *not* a leaf node?
 
 The reason we don't do this is that, as a general rule, we never want to have non-None values for non-leaf tensors. We only ever store the gradients of non-leaves in the `grads` dictionary, to avoid having to store the gradients in the leaves themselves. This is a bit annoying, but it follows the behaviour of PyTorch.
+
 ```python
 def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
     '''Accumulates gradients in the grad field of each leaf node.
@@ -1889,9 +1904,6 @@ def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
                 grads[parent] += in_grad
 ```
 </details>
-
-
-
 
 """, unsafe_allow_html=True)
 
@@ -2006,7 +2018,7 @@ if MAIN:
 def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
     '''Backward function for f(x) = -x elementwise.'''
     # SOLUTION
-    return np.full_like(x, -1) * grad_out
+    return unbroadcast(-grad_out, x)
 ```
 </details>
 
@@ -3503,6 +3515,8 @@ class MyModule(Module):
 This implementation will work correctly.
 
 The danger of reusing modules is that you'd be creating a cyclical computational graph (because the same parameters would appear twice), but the `ReLU` module doesn't have any parameters (or any internal state), so this isn't a problem. It's effectively just a wrapper for the `relu` function, and you could replace `self.relu` with applying the `relu` function directly without changing the model's behaviour.
+
+This is slightly different if we're thinking about adding **hooks** to our model. Hooks are functions that are called during the forward or backward pass, and they can be used to inspect the state of the model during training. We generally want each hook to be associated with a single position in the model, rather than being called at two different points.
 </details>
 
 

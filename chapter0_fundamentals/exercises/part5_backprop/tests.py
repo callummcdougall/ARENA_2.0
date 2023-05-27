@@ -268,12 +268,12 @@ def test_backprop_float_arg(Tensor):
     print("All tests in `test_backprop_float_arg` passed!")
 
 def test_negative_back(Tensor):
-    a = Tensor([-1, 0, 1], requires_grad=True)
+    a = Tensor([-1.0, 0.0, 1.0], requires_grad=True)
     b = -a
     c = -b
-    c.backward(end_grad=np.array([[1.0, 1.0, 1.0]]))
+    c.backward(end_grad=np.array([1.0, 1.0, 1.0]))
     assert a.grad is not None
-    np.testing.assert_allclose(a.grad.array, [[1.0, 1.0, 1.0]])
+    np.testing.assert_allclose(a.grad.array, [1.0, 1.0, 1.0])
     print("All tests in `test_negative_back` passed!")
 
 def test_exp_back(Tensor):
