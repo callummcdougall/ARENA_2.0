@@ -24,8 +24,8 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
     <li class='margtop'><a class='contents-el' href='#the-ioi-task'>The IOI task</a></li>
     <li class='margtop'><a class='contents-el' href='#have-some-sense-of-proportion'>Have some sense of proportion</a></li>
-    <li class='margtop'><a class='contents-el' href='#keeping-track-of-your-guesses-&-predictions'>Keeping track of your guesses & predictions</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
+    <li class='margtop'><a class='contents-el' href='#keeping-track-of-your-guesses-predictions'>Keeping track of your guesses & predictions</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -2135,7 +2135,7 @@ def section_4():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
-    <li class='margtop'><a class='contents-el' href='#what-is-path-patching?'>What is path patching?</a></li>
+    <li class='margtop'><a class='contents-el' href='#what-is-path-patching'>What is path patching?</a></li>
     <li class='margtop'><a class='contents-el' href='#path-patching:-name-mover-heads'>Path Patching: Name Mover Heads</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-path-patching-to-the-final-residual-stream-value'><b>Exercise</b> - implement path patching to the final residual stream value</a></li>
@@ -2828,7 +2828,7 @@ def section_5():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#copying-&-writing-direction-results'>Copying & writing direction results</a></li>
+    <li class='margtop'><a class='contents-el' href='#copying-writing-direction-results'>Copying & writing direction results</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-replicate-writing-direction-results'><b>Exercise</b> - replicate writing direction results</a></li>
         <li><a class='contents-el' href='#exercise-replicate-copying-score-results'><b>Exercise</b> - replicate copying score results</a></li>
@@ -2839,7 +2839,7 @@ def section_5():
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#minimal-circuit'>Minimal Circuit</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#background:-faithfulness,-completeness,-and-minimality'>Background: faithfulness, completeness, and minimality</a></li>
+        <li><a class='contents-el' href='#background:-faithfulness-completeness-and-minimality'>Background: faithfulness, completeness, and minimality</a></li>
         <li><a class='contents-el' href='#exercise-constructing-the-minimal-circuit'><b>Exercise</b> - constructing the minimal circuit</a></li>
         <li><a class='contents-el' href='#exercise-calculate-minimality-scores'><b>Exercise</b> - calculate minimality scores</a></li>
 </ul></li>""", unsafe_allow_html=True)
