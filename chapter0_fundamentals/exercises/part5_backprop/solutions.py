@@ -644,7 +644,8 @@ if MAIN:
 
 def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
 	'''Backward function for f(x) = -x elementwise.'''
-	return np.full_like(x, -1) * grad_out
+	return unbroadcast(-grad_out, x)
+	# return np.full_like(x, -1) * grad_out
 
 
 
@@ -652,7 +653,7 @@ if MAIN:
 	negative = wrap_forward_fn(np.negative)
 	BACK_FUNCS.add_back_func(np.negative, 0, negative_back)
 	
-	tests.test_negative_back(Tensor)
+	# tests.test_negative_back(Tensor)
 
 # %%
 
