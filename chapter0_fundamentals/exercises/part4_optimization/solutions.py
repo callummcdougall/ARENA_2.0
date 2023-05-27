@@ -103,7 +103,7 @@ class SGD:
 	):
 		'''Implements SGD with momentum.
 
-		Like the PyTorch version, but assume nesssterov=False, maximize=False, and dampening=0
+		Like the PyTorch version, but assume nesterov=False, maximize=False, and dampening=0
 			https://pytorch.org/docs/stable/generated/torch.optim.SGD.html#torch.optim.SGD
 
 		'''

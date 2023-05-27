@@ -454,7 +454,18 @@ This is valid. Once NumPy expands `y` by appending a single dimension to the fro
 
 ### Why do we need broadcasting for backprop?
 
-Imagine the following simple computational graph, in which `out` is produced by broadcasting `x` to have the same shape as `y`:
+
+Often, a tensor $x$ gets broadcasted to produce another tensor $x_{broadcasted}$, when being used to create $out$. It might be easy to define the derivative wrt $out$ and $x_{broadcasted}$, but we need to know how to go from this to calculating the derivative wrt $x$.
+
+To take an example:
+
+```python
+x = t.ones(4,)
+y = t.ones(3, 4)
+out = x + y # = x_broadcasted + y
+L = out[0, 0] + out[1, 1] + out[2, 1]
+```
+
 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/xy_add_out.png" width="400">
 
@@ -462,27 +473,40 @@ Imagine the following simple computational graph, in which `out` is produced by 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/broadcast-2.png" width="400">
 
 
-Using the chain rule, we have:
+In this case, we have:
 
 $$
-\frac{dL}{dx} = \frac{dL}{dx_{broadcasted}} \times \frac{dx_{broadcasted}}{dx}
+\frac{dL}{d(out)} = \frac{dL}{dx_{broadcasted}} = \begin{bmatrix}
+1 & 0 & 0 & 0\\
+0 & 1 & 0 & 0\\
+0 & 1 & 0 & 0
+\end{bmatrix}
 $$
 
-In this multiplication, we're summing over all the elements of $x_{broadcasted}$. For each element of $x$, there are three elements of  $x_{broadcasted}$ such that the right hand term is $1$, and the rest are zero:
+How do we get from this to $\frac{dL}{dx}$? Well, we can write $L$ as a function of $x$ (ignoring $y$ for now):
 
 $$
-\frac{dx_{broadcasted}[i, j]}{dx[k]} = \begin{cases}
-    1 & \text{if } j = k\\
-    0 & \text{otherwise}
-\end{cases}
+\begin{aligned}
+L &= x_{broadcasted}[0, 0] + x_{broadcasted}[1, 1] + x_{broadcasted}[2, 1] \\
+&= x[0] + x[1] + x[1] \\
+&= x[0] + 2x[1]
+\end{aligned}
 $$
 
-so this multiplication has the effect of summing $\frac{dL}{dx_{broadcasted}}$ over the axes $x$ was broadcasted along.
+meaning the derivative with respect to $x$ is:
+
+$$
+\frac{dL}{dx} = \begin{bmatrix}
+1 & 2 & 0 & 0
+\end{bmatrix}
+$$
+
+Note how we got this by taking $\frac{dL}{dx_{broadcasted}}$, and summing it over the dimension along which $x$ was broadcasted. This leads to our general rule for handling broadcasted operations:
 
 
 > ##### Summary
 > 
-> Suppose we know $\frac{dL}{d(out)}$, and we're trying to compute $\frac{dL}{dx}$, where $x$ was broadcasted to produce $out$. There are two steps:
+> If we know $\frac{dL}{d(out)}$, and want to know $\frac{dL}{dx}$ (where $x$ was broadcasted to produce $out$) then there are two steps:
 > 
 > 1. Compute $\frac{dL}{dx_{broadcasted}}$ in the standard way, i.e. using one of your backward functions (no broadcasting involved here).
 > 2. ***Unbroadcast*** $\frac{dL}{dx_{broadcasted}}$, by summing it over the dimensions along which $x$ was broadcasted.
@@ -584,7 +608,7 @@ Functions that are differentiable with respect to more than one input tensor are
 Difficulty: 🟠🟠🟠⚪⚪
 Importance: 🟠🟠⚪⚪⚪
 
-You should spend up to 15-20 minutes on these exercises.
+You should spend up to 10-15 minutes on these exercises.
 ```
 
 
@@ -593,6 +617,12 @@ Below, you should implement both `multiply_back0` and `multiply_back1`.
 You might be wondering why we need two different functions, rather than just having a single function to serve both purposes. This will become more important later on, once we deal with functions with more than one argument, which is not symmetric in its arguments. For instance, the derivative of $x / y$ wrt $x$ is not the same as the expression you get after differentiating this wrt $y$ then swapping the labels around.
 
 The first part of each function has been provided for you (this makes sure that both inputs are arrays).
+
+<details>
+<summary>Help - I'm not sure how to use the <code>unbroadcast</code> function.</summary>
+
+First, do the calculation assuming no broadcasting. Then, use `unbroadcast` to make sure the result has the same shape as the array you're trying to calculate the derivative with respect to.
+</details>
 
 
 ```python
@@ -615,18 +645,6 @@ if MAIN:
 
 ```
 
-<details>
-<summary>Help - I'm not sure how to implement these functions.</summary>
-
-Remember the two-step process, for computing the backward function of things which (may) have been broadcasted:
-
-1. Calculate the derivative wrt the unbroadcasted version
-2. Use `unbroadcast` to get the derivative wrt the original version
-
-When using `unbroadcast`, if you're confused as to what shape to unbroadcast to, remember that your outputs should be $\frac{dL}{dx}$ and $\frac{dL}{dy}$ for the two functions respectively.
-
-You should be able to implement both functions in just one line.
-</details>
 <details>
 <summary>Solution</summary>
 
@@ -700,7 +718,6 @@ def forward_and_back(a: Arr, b: Arr, c: Arr) -> Tuple[Arr, Arr, Arr]:
     Calculates the output of the computational graph above (g), then backpropogates the gradients and returns dg/da, dg/db, and dg/dc
     '''
     # SOLUTION
-    
     d = a * b
     e = np.log(c)
     f = d * e
@@ -1629,7 +1646,6 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     in reverse topological order (i.e. `tensor` should be first).
     '''
     # SOLUTION
-
     def get_parents(tensor: Tensor) -> List[Tensor]:
         if tensor.recipe is None:
             return []
@@ -1847,7 +1863,6 @@ And finally, the solution:
 A note on the solution below - you might be wondering why we need to use the `grads` dict at all. Couldn't we just store gradients in nodes' `.grad` attribute, then set `node.grad = None` if it's *not* a leaf node?
 
 The reason we don't do this is that, as a general rule, we never want to have non-None values for non-leaf tensors. We only ever store the gradients of non-leaves in the `grads` dictionary, to avoid having to store the gradients in the leaves themselves. This is a bit annoying, but it follows the behaviour of PyTorch.
-
 ```python
 def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
     '''Accumulates gradients in the grad field of each leaf node.
@@ -1904,6 +1919,9 @@ def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
                 grads[parent] += in_grad
 ```
 </details>
+
+
+
 
 """, unsafe_allow_html=True)
 
