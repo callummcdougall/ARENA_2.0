@@ -22,6 +22,9 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
+    <li class='margtop'><a class='contents-el' href='#the-ioi-task'>The IOI task</a></li>
+    <li class='margtop'><a class='contents-el' href='#have-some-sense-of-proportion'>Have some sense of proportion</a></li>
+    <li class='margtop'><a class='contents-el' href='#keeping-track-of-your-guesses-&-predictions'>Keeping track of your guesses & predictions</a></li>
     <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#110125-model-&-task-setup'>1️⃣ Model & Task Setup</a></li>
@@ -31,7 +34,6 @@ def section_0():
         <li><a class='contents-el' href='#1310125-paper-replication'>5️⃣ Paper Replication</a></li>
         <li><a class='contents-el' href='#1610125-bonus-/-exploring-anomalies'>6️⃣ Bonus / exploring anomalies</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#having-a-sense-of-proportion'>Having a sense of proportion</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -50,7 +52,7 @@ If you have any feedback on this course (e.g. bugs, confusing explanations, part
 
 This notebook / document is built around the [Interpretability in the Wild](https://arxiv.org/abs/2211.00593) paper, in which the authors aim to understand the **indirect object identification circuit** in GPT-2 small. This circuit is resposible for the model's ability to complete sentences like `"John and Mary went to the shops, John gave a bag to"` with the correct token "`" Mary"`.
 
-It is loosely divided into different sections, each one with their own flavour. Sections 1, 2 & 3 are derived from Neel Nanda's notebook [Exploratory_Analysis_Demo](https://colab.research.google.com/github/neelnanda-io/TransformerLens/blob/main/activation_patching_in_TL_demo.py.ipynb#scrollTo=uw7PmPbLuzVO). The flavour of these exercises is experimental and loose, with a focus on demonstrating what exploratory analysis looks like in practice with the transformerlens library. The code and exercises are simple and generic, but accompanied with a lot of detail about what each stage is doing, and why (plus several optional details and tangents). Section 4 introduces you to the idea of **path patching**, which is a more rigorous and structured way of analysing the model's behaviour. Here, you'll be replicating some of the results of the paper, which will serve to rigorously validate the insights gained from earlier sections. It's the most technically dense of all five sections. Lastly, sections 5 & 6 are much less structured, and have a stronger focus on open-ended exercises & letting you go off and explore for yourself.
+It is loosely divided into different sections, each one with their own flavour. Sections 1, 2 & 3 are derived from Neel Nanda's notebook [Exploratory_Analysis_Demo](https://colab.research.google.com/github/neelnanda-io/TransformerLens/blob/main/activation_patching_in_TL_demo.py.ipynb#scrollTo=uw7PmPbLuzVO). The flavour of these exercises is experimental and loose, with a focus on demonstrating what exploratory analysis looks like in practice with the transformerlens library. They skimp on rigour, and instead try to speedrun the process of finding suggestive evidence for this circuit. The code and exercises are simple and generic, but accompanied with a lot of detail about what each stage is doing, and why (plus several optional details and tangents). Section 4 introduces you to the idea of **path patching**, which is a more rigorous and structured way of analysing the model's behaviour. Here, you'll be replicating some of the results of the paper, which will serve to rigorously validate the insights gained from earlier sections. It's the most technically dense of all five sections. Lastly, sections 5 & 6 are much less structured, and have a stronger focus on open-ended exercises & letting you go off and explore for yourself.
 
 Which exercises you want to do will depend on what you're hoping to get out of these exercises. For example:
 
@@ -64,6 +66,94 @@ Which exercises you want to do will depend on what you're hoping to get out of t
 *Note - if you find yourself getting frequent CUDA memory errors, you can periodically call `torch.cuda.empty_cache()` to [free up some memory](https://stackoverflow.com/questions/57858433/how-to-clear-gpu-memory-after-pytorch-model-training-without-restarting-kernel).*
 
 Each exercise will have a difficulty and importance rating out of 5, as well as an estimated maximum time you should spend on these exercises and sometimes a short annotation. You should interpret the ratings & time estimates relatively (e.g. if you find yourself spending about 50% longer on the exercises than the time estimates, adjust accordingly). Please do skip exercises / look at solutions if you don't feel like they're important enough to be worth doing, and you'd rather get to the good stuff!
+
+
+## The IOI task
+
+The first step when trying to reverse engineer a circuit in a model is to identify *what* capability we want to reverse engineer. Indirect Object Identification is a task studied in Redwood Research's excellent [Interpretability in the Wild](https://arxiv.org/abs/2211.00593) paper (see [Neel Nanda's interview with the authors](https://www.youtube.com/watch?v=gzwj0jWbvbo) or [Kevin Wang's Twitter thread](https://threadreaderapp.com/thread/1587601532639494146.html) for an overview). The task is to complete sentences like "When Mary and John went to the store, John gave a drink to" with " Mary" rather than " John".
+
+In the paper they rigorously reverse engineer a 26 head circuit, with 7 separate categories of heads used to perform this capability. The circuit they found roughly breaks down into three parts:
+
+1. Identify what names are in the sentence
+2. Identify which names are duplicated
+3. Predict the name that is *not* duplicated
+
+Why was this task chosen? The authors give a very good explanation for their choice in their [video walkthrough of their paper](https://www.youtube.com/watch?v=gzwj0jWbvbo), which you are encouraged to watch. To be brief, some of the reasons were:
+
+* This is a fairly common grammatical structure, so we should expect the model to build some circuitry for solving it quite early on (after it's finished with all the more basic stuff, like n-grams, punctuation, induction, and simpler grammatical structures than this one).
+* It's easy to measure: the model always puts a much higher probability on the IO and S tokens (i.e. `" Mary"` and `" John"`) than any others, and this is especially true once the model starts being stripped down to the core part of the circuit we're studying. So we can just take the logit difference between these two tokens, and use this as a metric for how well the model can solve the task.
+* It is a crisp and well-defined task, so less likely to be solved in terms of memorisation of a large bag of heuristics (unlike e.g. tasks like "predict that the number `n+1` will follow `n`, which as Neel mentions in the video walkthrough is actually much more annoying and subtle than it first seems!).
+
+A terminology note: `IO` will refer to the indirect object (in the example, `" Mary"`), `S1` and `S2` will refer to the two instances of the subject token (i.e. `" John"`), and `end` will refer to the end token `" to"` (because this is the position we take our prediction from, and we don't care about any tokens after this point). We will also sometimes use `S` to refer to the identity of the subject token (rather than referring to the first or second instance in particular).
+
+
+## Have some sense of proportion
+
+At a surface level, these exercises are designed to take you through the indirect object identification circuit. But it's also designed to make you a better interpretability researcher! As a result, most exercises will be doing a combination of:
+
+1. Showing you some new characteristic of the circuit, and
+2. Teaching you how to use tools and interpret results in a broader mech interp context.
+
+Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-map.png" width="900">
+
+A key idea to have in mind during these exercises is the spectrum from simpler, more exploratory tools to more rigoruous, complex tools. On the far left, you have something like inspecting attention patterns, which can give a decent (but sometimes misleading) picture of what an attention head is doing. These should be some of the first tools you reach for, and you should be using them a lot even before you have concrete hypotheses about a circuit. On the far right, you have something like path patching, which is a pretty rigorous and effortful tool that is best used when you already have reasonably concrete hypotheses about a circuit. As we go through the exercises, we'll transition from left to right along this spectrum.
+
+
+## Keeping track of your guesses & predictions
+
+There's a lot to keep track of in these exercises as we work through them. You'll be exposed to new functions and modules from transformerlens, new ways to causally intervene in models, all the while building up your understanding of how the IOI task is performed. The notebook starts off exploratory in nature (lots of plotting and investigation), and gradually moves into more technical details, refined analysis, and replication of the paper's results, as we improve our understanding of the IOI circuit. You are recommended to keep a document or page of notes nearby as you go through these exercises, so you can keep track of the main takeaways from each section, as well as your hypotheses for how the model performs the task, and your ideas for how you might go off and test these hypotheses on your own if the notebook were to suddenly end.
+
+If you are feeling extremely confused at any point, you can come back to the dropdown below, which contains diagrams explaining how the circuit works. There is also an accompanying intuitive explanation which you might find more helpful. However, I'd recommend you try and go through the notebook unassisted before looking at these.
+
+<details>
+<summary>Intuitive explanation of IOI circuit</summary>
+
+First, let's start with an analogy for how transformers work (you can skip this if you've already read [my post](https://www.lesswrong.com/posts/euam65XjigaCJQkcN/an-analogy-for-understanding-transformers)). Imagine a line of people, who can only look forward. Each person has a token written on their chest, and their goal is to figure out what token the person in front of them is holding. Each person is allowed to pass a question backwards along the line (not forwards), and anyone can choose to reply to that question by passing information forwards to the person who asked. In this case, the sentence is `"When Mary and John went to the store, John gave a drink to Mary"`. You are the person holding the `" to"` token, and your goal is to figure out that the person in front of him has the `" Mary"` token.
+
+To be clear about how this analogy relates to transformers:
+* Each person in the line represents a vector in the residual stream. Initially they just store their own token, but they accrue more information as they ask questions and receive answers (i.e. as components write to the residual stream)
+* The operation of an attention head is represented by a question & answer:
+    * The person who asks is the destination token, the people who answer are the source tokens
+    * The question is the query vector
+    * The information *which determines who answers the question* is the key vector
+    * The information *which gets passed back to the original asker* is the value vector
+
+Now, here is how the IOI circuit works in this analogy. Each bullet point represents a class of attention heads.
+
+* The person with the second `" John"` token asks the question "does anyone else hold the name `" John"`?". They get a reply from the first `" John"` token, who also gives him their location. So he now knows that `" John"` is repeated, and he knows that the first `" John"` token is 4th in the sequence.
+    * These are *Duplicate Token Heads*
+* You ask the question "which names are repeated?", and you get an answer from the person holding the second `" John"` token. You now also know that `" John"` is repeated, and where the first `" John"` token is. 
+    * These are *S-Inhibition Heads*
+* You ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?". You get a reply from the person holding the `" Mary"` token, who tells you that they have name `" Mary"`. You use this as your prediction.
+    * These are *Name Mover Heads*
+
+This is a fine first-pass understanding of how the circuit works. A few other features:
+
+* The person after the first `" John"` (holding `" went"`) had previously asked about the identity of the person behind him. So he knows that the 4th person in the sequence holds the `" John"` token, meaning he can also reply to the question of the person holding the second `" John"` token. *(previous token heads / induction heads)*
+    * This might not seem necessary, but since previous token heads / induction heads are just a pretty useful thing to have in general, it makes sense that you'd want to make use of this information!
+* If for some reason you forget to ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?", then you'll have another chance to do this.
+    * These are *(Backup Name Mover Heads)*
+    * Their existance might be partly because transformers are trained with **dropout**. This can make them "forget" things, so it's important to have a backup method for recovering that information!
+* You want to avoid overconfidence, so you also ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?" another time, in order to ***anti-***predict the response that you get from this question. *(negative name mover heads)*
+    * Yes, this is as weird as it sounds! The authors speculate that these heads "hedge" the predictions, avoiding high cross-entropy loss when making mistakes.
+
+</details>
+
+<details>
+<summary>Diagram 1 (simple)</summary>
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-simple-a.png" width="1000">
+
+</details>
+
+<details>
+<summary>Diagram 2 (complex)</summary>
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-d.png" width="1250">
+
+</details>
 
 
 ## Content & Learning Objectives
@@ -114,20 +204,6 @@ Each exercise will have a difficulty and importance rating out of 5, as well as 
 > * Explore other parts of the model (e.g. negative name mover heads, and induction heads)
 > * Understand the subtleties present in model circuits, and the fact that there are often more parts to a circuit than seem obvious after initial investigation
 > * Understand the importance of the three quantitative criteria used by the paper: **faithfulness**, **completeness** and **minimality**
-
-
-## Having a sense of proportion
-
-At a surface level, these exercises are designed to take you through the indirect object identification circuit. But it's also designed to make you a better interpretability researcher! As a result, most exercises will be doing a combination of:
-
-1. Showing you some new characteristic of the circuit, and
-2. Teaching you how to use tools and interpret results in a broader mech interp context.
-
-Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-map.png" width="900">
-
-A key idea to have in mind during these exercises is the spectrum from simpler, more exploratory tools to more rigoruous, complex tools. On the far left, you have something like inspecting attention patterns, which can give a decent (but sometimes misleading) picture of what an attention head is doing. These should be some of the first tools you reach for, and you should be using them a lot even before you have concrete hypotheses about a circuit. On the far right, you have something like path patching, which is a pretty rigorous and effortful tool that is best used when you already have reasonably concrete hypotheses about a circuit. As we go through the exercises, we'll transition from left to right along this spectrum.
 
 
 ## Setup
@@ -187,8 +263,6 @@ def section_1():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#indirect-object-identification'>Indirect Object Identification</a></li>
-    <li class='margtop'><a class='contents-el' href='#keeping-track-of-your-guesses-&-predictions'>Keeping track of your guesses & predictions</a></li>
     <li class='margtop'><a class='contents-el' href='#loading-our-model'>Loading our model</a></li>
     <li class='margtop'><a class='contents-el' href='#exercise-implement-the-performance-evaluation-function'><b>Exercise</b> - implement the performance evaluation function</a></li>
     <li class='margtop'><a class='contents-el' href='#brainstorm-what's-actually-going-on'>Brainstorm What's Actually Going On</a></li>
@@ -203,88 +277,6 @@ def section_1():
 > 
 > * Understand the IOI task, and why the authors chose to study it
 > * Build functions to demonstrate the model's performance on this task
-
-
-## Indirect Object Identification
-
-
-
-The first step when trying to reverse engineer a circuit in a model is to identify *what* capability I want to reverse engineer. Indirect Object Identification is a task studied in Redwood Research's excellent [Interpretability in the Wild](https://arxiv.org/abs/2211.00593) paper (see [my interview with the authors](https://www.youtube.com/watch?v=gzwj0jWbvbo) or [Kevin Wang's Twitter thread](https://threadreaderapp.com/thread/1587601532639494146.html) for an overview). The task is to complete sentences like "When Mary and John went to the store, John gave a drink to" with " Mary" rather than " John".
-
-In the paper they rigorously reverse engineer a 26 head circuit, with 7 separate categories of heads used to perform this capability. Their rigorous methods are fairly involved, so in this notebook, I'm going to skimp on rigour and instead try to speedrun the process of finding suggestive evidence for this circuit!
-
-The circuit they found roughly breaks down into three parts:
-
-1. Identify what names are in the sentence
-2. Identify which names are duplicated
-3. Predict the name that is *not* duplicated
-
-
-Why was this task chosen? The authors give a very good explanation for their choice in their [video walkthrough of their paper](https://www.youtube.com/watch?v=gzwj0jWbvbo), which you are encouraged to watch. To be brief, some of the reasons were:
-
-* This is a fairly common grammatical structure, so we should expect the model to build some circuitry for solving it quite early on (after it's finished with all the more basic stuff, like n-grams, punctuation, induction, and simpler grammatical structures than this one).
-* It's easy to measure: the model always puts a much higher probability on the IO and S tokens (i.e. `" Mary"` and `" John"`) than any others, and this is especially true once the model starts being stripped down to the core part of the circuit we're studying. So we can just take the logit difference between these two tokens, and use this as a metric for how well the model can solve the task.
-* It is a crisp and well-defined task, so less likely to be solved in terms of memorisation of a large bag of heuristics (unlike e.g. tasks like "predict that the number `n+1` will follow `n`, which as Neel mentions in the video walkthrough is actually much more annoying and subtle than it first seems!).
-
-
-A terminology note: `IO` will refer to the indirect object (in the example, `" Mary"`), `S1` and `S2` will refer to the two instances of the subject token (i.e. `" John"`), and `end` will refer to the end token `" to"` (because this is the position we take our prediction from, and we don't care about any tokens after this point). We will also sometimes use `S` to refer to the identity of the subject token (rather than referring to the first or second instance in particular).
-
-
-## Keeping track of your guesses & predictions
-
-
-There's a lot to keep track of in these exercises as we work through them. You'll be exposed to new functions and modules from transformerlens, new ways to causally intervene in models, all the while building up your understanding of how the IOI task is performed. The notebook starts off exploratory in nature (lots of plotting and investigation), and gradually moves into more technical details, refined analysis, and replication of the paper's results, as we improve our understanding of the IOI circuit. You are recommended to keep a document or page of notes nearby as you go through these exercises, so you can keep track of the main takeaways from each section, as well as your hypotheses for how the model performs the task, and your ideas for how you might go off and test these hypotheses on your own if the notebook were to suddenly end.
-
-If you are feeling extremely confused at any point, you can come back to the dropdown below, which contains diagrams explaining how the circuit works. There is also an accompanying intuitive explanation which you might find more helpful. However, I'd recommend you try and go through the notebook unassisted before looking at these.
-
-
-<details>
-<summary>Intuitive explanation of IOI circuit</summary>
-
-First, let's start with an analogy for how transformers work (you can skip this if you've already read [my post](https://www.lesswrong.com/posts/euam65XjigaCJQkcN/an-analogy-for-understanding-transformers)). Imagine a line of people, who can only look forward. Each person has a token written on their chest, and their goal is to figure out what token the person in front of them is holding. Each person is allowed to pass a question backwards along the line (not forwards), and anyone can choose to reply to that question by passing information forwards to the person who asked. In this case, the sentence is `"When Mary and John went to the store, John gave a drink to Mary"`. You are the person holding the `" to"` token, and your goal is to figure out that the person in front of him has the `" Mary"` token.
-
-To be clear about how this analogy relates to transformers:
-* Each person in the line represents a vector in the residual stream. Initially they just store their own token, but they accrue more information as they ask questions and receive answers (i.e. as components write to the residual stream)
-* The operation of an attention head is represented by a question & answer:
-    * The person who asks is the destination token, the people who answer are the source tokens
-    * The question is the query vector
-    * The information *which determines who answers the question* is the key vector
-    * The information *which gets passed back to the original asker* is the value vector
-
-Now, here is how the IOI circuit works in this analogy. Each bullet point represents a class of attention heads.
-
-* The person with the second `" John"` token asks the question "does anyone else hold the name `" John"`?". They get a reply from the first `" John"` token, who also gives him their location. So he now knows that `" John"` is repeated, and he knows that the first `" John"` token is 4th in the sequence.
-    * These are *Duplicate Token Heads*
-* You ask the question "which names are repeated?", and you get an answer from the person holding the second `" John"` token. You now also know that `" John"` is repeated, and where the first `" John"` token is. 
-    * These are *S-Inhibition Heads*
-* You ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?". You get a reply from the person holding the `" Mary"` token, who tells you that they have name `" Mary"`. You use this as your prediction.
-    * These are *Name Mover Heads*
-
-This is a fine first-pass understanding of how the circuit works. A few other features:
-
-* The person after the first `" John"` (holding `" went"`) had previously asked about the identity of the person behind him. So he knows that the 4th person in the sequence holds the `" John"` token, meaning he can also reply to the question of the person holding the second `" John"` token. *(previous token heads / induction heads)*
-    * This might not seem necessary, but since previous token heads / induction heads are just a pretty useful thing to have in general, it makes sense that you'd want to make use of this information!
-* If for some reason you forget to ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?", then you'll have another chance to do this.
-    * These are *(Backup Name Mover Heads)*
-    * Their existance might be partly because transformers are trained with **dropout**. This can make them "forget" things, so it's important to have a backup method for recovering that information!
-* You want to avoid overconfidence, so you also ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?" another time, in order to ***anti-***predict the response that you get from this question. *(negative name mover heads)*
-    * Yes, this is as weird as it sounds! The authors speculate that these heads "hedge" the predictions, avoiding high cross-entropy loss when making mistakes.
-
-</details>
-
-<details>
-<summary>Diagram 1 (simple)</summary>
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-simple-a.png" width="1000">
-
-</details>
-
-<details>
-<summary>Diagram 2 (complex)</summary>
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-d.png" width="1250">
-
-</details>
 
 
 ## Loading our model
