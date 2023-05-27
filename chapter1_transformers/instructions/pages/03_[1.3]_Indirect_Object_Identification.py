@@ -26,14 +26,6 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#have-some-sense-of-proportion'>Have some sense of proportion</a></li>
     <li class='margtop'><a class='contents-el' href='#keeping-track-of-your-guesses-&-predictions'>Keeping track of your guesses & predictions</a></li>
     <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
-    <li><ul class="contents">
-        <li><a class='contents-el' href='#110125-model-&-task-setup'>1️⃣ Model & Task Setup</a></li>
-        <li><a class='contents-el' href='#1010125-logit-attribution'>2️⃣ Logit Attribution</a></li>
-        <li><a class='contents-el' href='#12510125-activation-patching'>3️⃣ Activation Patching</a></li>
-        <li><a class='contents-el' href='#1010125-path-patching'>4️⃣ Path Patching</a></li>
-        <li><a class='contents-el' href='#1310125-paper-replication'>5️⃣ Paper Replication</a></li>
-        <li><a class='contents-el' href='#1610125-bonus-/-exploring-anomalies'>6️⃣ Bonus / exploring anomalies</a></li>
-    </ul></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -159,21 +151,21 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 ## Content & Learning Objectives
 
 
-### 1️⃣ Model & Task Setup
+#### 1️⃣ Model & Task Setup
 
 > ##### Learning objectives
 > 
 > * Understand the IOI task, and why the authors chose to study it
 > * Build functions to demonstrate the model's performance on this task
 
-### 2️⃣ Logit Attribution
+#### 2️⃣ Logit Attribution
 
 > ##### Learning objectives
 > 
 > * Perform direct logit attribution to figure out which heads are writing to the residual stream in a significant way
 > * Learn how to use different transformerlens helper functions, which decompose the residual stream in different ways
 
-### 3️⃣ Activation Patching
+#### 3️⃣ Activation Patching
 
 > ##### Learning objectives
 > 
@@ -182,7 +174,7 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 > * Use activation patching to track the layers & sequence positions in the residual stream where important information is stored and processed
 > * By the end of this section, you should be able to draw a rough sketch of the IOI circuit
 
-### 4️⃣ Path Patching
+#### 4️⃣ Path Patching
 
 > ##### Learning objectives
 > 
@@ -190,14 +182,14 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 > * Implement path patching from scratch (i.e. using hooks)
 > * Replicate several of the results in the [IOI paper](https://arxiv.org/abs/2211.00593)
 
-### 5️⃣ Paper Replication
+#### 5️⃣ Paper Replication
 
 > ##### Learning objectives
 > 
 > * Replicate most of the other results from the [IOI paper](https://arxiv.org/abs/2211.00593)
 > * Practice more open-ended, less guided coding
 
-### 6️⃣ Bonus / exploring anomalies
+#### 6️⃣ Bonus / exploring anomalies
 
 > ##### Learning objectives
 > 
