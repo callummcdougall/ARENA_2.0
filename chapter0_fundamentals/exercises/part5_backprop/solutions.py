@@ -254,7 +254,7 @@ class Tensor:
 
 	@property
 	def T(self) -> "Tensor":
-		return permute(self)
+		return permute(self, axes=(-1, -2))
 
 	def item(self):
 		return self.array.item()
@@ -375,7 +375,7 @@ if MAIN:
 # %%
 
 def multiply_forward(a: Union[Tensor, int], b: Union[Tensor, int]) -> Tensor:
-	'''Performs np.log on a Tensor object.'''
+	'''Performs np.multiply on a Tensor object.'''
 	assert isinstance(a, Tensor) or isinstance(b, Tensor)
 
 	
@@ -562,6 +562,19 @@ if MAIN:
 
 # %%
 
+
+if MAIN:
+	a = Tensor([1], requires_grad=True)
+	# a2 = Tensor([1], requires_grad=True)
+	b = a * 2
+	c = a * 1
+	d = b * c
+	name_lookup = {a: "a", b: "b", c: "c", d: "d"}
+	
+	print([name_lookup[t] for t in sorted_computational_graph(d)])
+
+# %%
+
 def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
 	'''Accumulates gradients in the grad field of each leaf node.
 
@@ -645,7 +658,6 @@ if MAIN:
 def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
 	'''Backward function for f(x) = -x elementwise.'''
 	return unbroadcast(-grad_out, x)
-	# return np.full_like(x, -1) * grad_out
 
 
 
@@ -653,7 +665,7 @@ if MAIN:
 	negative = wrap_forward_fn(np.negative)
 	BACK_FUNCS.add_back_func(np.negative, 0, negative_back)
 	
-	# tests.test_negative_back(Tensor)
+	tests.test_negative_back(Tensor)
 
 # %%
 
