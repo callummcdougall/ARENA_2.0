@@ -3707,7 +3707,7 @@ Here are a few questions for you:
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ TransformerLens: Introduction'),     (section_2, '2️⃣ Finding induction heads'),     (section_3, '3️⃣ TransformerLens: Hooks'),     (section_4, '4️⃣ Reverse-engineering induction circuits'), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ TransformerLens: Introduction"),     (section_2, "2️⃣ Finding induction heads"),     (section_3, "3️⃣ TransformerLens: Hooks"),     (section_4, "4️⃣ Reverse-engineering induction circuits"), 
 ]
 
 func_list = [func for func, page in func_page_list]
