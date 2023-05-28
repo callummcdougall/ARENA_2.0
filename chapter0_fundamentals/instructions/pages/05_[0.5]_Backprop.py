@@ -454,7 +454,18 @@ This is valid. Once NumPy expands `y` by appending a single dimension to the fro
 
 ### Why do we need broadcasting for backprop?
 
-Imagine the following simple computational graph, in which `out` is produced by broadcasting `x` to have the same shape as `y`:
+
+Often, a tensor $x$ gets broadcasted to produce another tensor $x_{broadcasted}$, when being used to create $out$. It might be easy to define the derivative wrt $out$ and $x_{broadcasted}$, but we need to know how to go from this to calculating the derivative wrt $x$.
+
+To take an example:
+
+```python
+x = t.ones(4,)
+y = t.ones(3, 4)
+out = x + y # = x_broadcasted + y
+L = out[0, 0] + out[1, 1] + out[2, 1]
+```
+
 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/xy_add_out.png" width="400">
 
@@ -462,27 +473,40 @@ Imagine the following simple computational graph, in which `out` is produced by 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/broadcast-2.png" width="400">
 
 
-Using the chain rule, we have:
+In this case, we have:
 
 $$
-\frac{dL}{dx} = \frac{dL}{dx_{broadcasted}} \times \frac{dx_{broadcasted}}{dx}
+\frac{dL}{d(out)} = \frac{dL}{dx_{broadcasted}} = \begin{bmatrix}
+1 & 0 & 0 & 0\\
+0 & 1 & 0 & 0\\
+0 & 1 & 0 & 0
+\end{bmatrix}
 $$
 
-In this multiplication, we're summing over all the elements of $x_{broadcasted}$. For each element of $x$, there are three elements of  $x_{broadcasted}$ such that the right hand term is $1$, and the rest are zero:
+How do we get from this to $\frac{dL}{dx}$? Well, we can write $L$ as a function of $x$ (ignoring $y$ for now):
 
 $$
-\frac{dx_{broadcasted}[i, j]}{dx[k]} = \begin{cases}
-    1 & \text{if } j = k\\
-    0 & \text{otherwise}
-\end{cases}
+\begin{aligned}
+L &= x_{broadcasted}[0, 0] + x_{broadcasted}[1, 1] + x_{broadcasted}[2, 1] \\
+&= x[0] + x[1] + x[1] \\
+&= x[0] + 2x[1]
+\end{aligned}
 $$
 
-so this multiplication has the effect of summing $\frac{dL}{dx_{broadcasted}}$ over the axes $x$ was broadcasted along.
+meaning the derivative with respect to $x$ is:
+
+$$
+\frac{dL}{dx} = \begin{bmatrix}
+1 & 2 & 0 & 0
+\end{bmatrix}
+$$
+
+Note how we got this by taking $\frac{dL}{dx_{broadcasted}}$, and summing it over the dimension along which $x$ was broadcasted. This leads to our general rule for handling broadcasted operations:
 
 
 > ##### Summary
 > 
-> Suppose we know $\frac{dL}{d(out)}$, and we're trying to compute $\frac{dL}{dx}$, where $x$ was broadcasted to produce $out$. There are two steps:
+> If we know $\frac{dL}{d(out)}$, and want to know $\frac{dL}{dx}$ (where $x$ was broadcasted to produce $out$) then there are two steps:
 > 
 > 1. Compute $\frac{dL}{dx_{broadcasted}}$ in the standard way, i.e. using one of your backward functions (no broadcasting involved here).
 > 2. ***Unbroadcast*** $\frac{dL}{dx_{broadcasted}}$, by summing it over the dimensions along which $x$ was broadcasted.
@@ -584,7 +608,7 @@ Functions that are differentiable with respect to more than one input tensor are
 Difficulty: 🟠🟠🟠⚪⚪
 Importance: 🟠🟠⚪⚪⚪
 
-You should spend up to 15-20 minutes on these exercises.
+You should spend up to 10-15 minutes on these exercises.
 ```
 
 
@@ -593,6 +617,12 @@ Below, you should implement both `multiply_back0` and `multiply_back1`.
 You might be wondering why we need two different functions, rather than just having a single function to serve both purposes. This will become more important later on, once we deal with functions with more than one argument, which is not symmetric in its arguments. For instance, the derivative of $x / y$ wrt $x$ is not the same as the expression you get after differentiating this wrt $y$ then swapping the labels around.
 
 The first part of each function has been provided for you (this makes sure that both inputs are arrays).
+
+<details>
+<summary>Help - I'm not sure how to use the <code>unbroadcast</code> function.</summary>
+
+First, do the calculation assuming no broadcasting. Then, use `unbroadcast` to make sure the result has the same shape as the array you're trying to calculate the derivative with respect to.
+</details>
 
 
 ```python
@@ -616,34 +646,9 @@ if MAIN:
 ```
 
 <details>
-<summary>Help - I'm not sure how to implement these functions.</summary>
-
-Remember the two-step process, for computing the backward function of things which (may) have been broadcasted:
-
-1. Calculate the derivative wrt the unbroadcasted version
-2. Use `unbroadcast` to get the derivative wrt the original version
-
-When using `unbroadcast`, if you're confused as to what shape to unbroadcast to, remember that your outputs should be $\frac{dL}{dx}$ and $\frac{dL}{dy}$ for the two functions respectively.
-
-You should be able to implement both functions in just one line.
-</details>
-<details>
 <summary>Solution</summary>
 
-```python
-def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
-    '''Backwards function for x * y wrt argument 0 aka x.'''
-    if not isinstance(y, Arr):
-        y = np.array(y)
-    return unbroadcast(y * grad_out, x)
 
-
-def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr:
-    '''Backwards function for x * y wrt argument 1 aka y.'''
-    if not isinstance(x, Arr):
-        x = np.array(x)
-    return unbroadcast(x * grad_out, y)
-```
 ```python
 def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
     '''Backwards function for x * y wrt argument 0 aka x.'''
@@ -658,40 +663,6 @@ def multiply_back1(grad_out: Arr, out: Arr, x: Union[Arr, float], y: Arr) -> Arr
         x = np.array(x)
     # SOLUTION
     return unbroadcast(x * grad_out, y)
-```
-</details>
-<details>
-<summary>Help - I don't understand why the solution works.</summary>
-
-Take `multiply_back0`.
-
-If `x` was broadcasted up to be the size of `y`, then `y` and `grad_out` will have the same shape, and the derivative of `L` wrt the broadcasted version of `x` will be `y * grad_out`. We then use `unbroadcast` to get the derivative wrt the original version of `x`.
-
-If `y` was broadcasted up to be the size of `x`, then the derivative of `L` wrt `x` is `y_broadcasted * grad_out`. But this is exactly the same as `y * grad_out` (becauase `y` gets broadcasted when we perform this multiplication), and then unbroadcasting wrt `x` does nothing because `y * grad_out` and `x` have the same shape.
-
-This might be a clearer way of writing the function, but it has the same result:
-
-```python
-def multiply_back0(grad_out: Arr, out: Arr, x: Arr, y: Union[Arr, float]) -> Arr:
-    '''Backwards function for x * y wrt argument 0 aka x.'''
-    if not isinstance(y, Arr):
-        y = np.array(y)
-
-    # If x was broadcasted up to the size of y...
-    if sum(x.shape) < sum(y.shape):
-        # ...then we calculate dL/d(x_broadcasted), and unbroadcast the result
-        assert y.shape == grad_out.shape
-        dL_dx_broadcasted = y * grad_out
-        dL_dx = unbroadcast(dL_dx_broadcasted, x)
-    
-    # If y was broadcasted up to the size of x (or there was no broadcasting)...
-    else:
-        # ...then we calculate dL/dx using y_broadcasted
-        y_broadcasted = np.broadcast_to(y, x.shape)
-        assert y_broadcasted.shape == grad_out.shape
-        dL_dx = y_broadcasted * grad_out
-    
-    return dL_dx
 ```
 </details>
 
@@ -747,7 +718,6 @@ def forward_and_back(a: Arr, b: Arr, c: Arr) -> Tuple[Arr, Arr, Arr]:
     Calculates the output of the computational graph above (g), then backpropogates the gradients and returns dg/da, dg/db, and dg/dc
     '''
     # SOLUTION
-    
     d = a * b
     e = np.log(c)
     f = d * e
@@ -871,7 +841,7 @@ Note that `args` just stores the values of the underlying arrays, but `parents` 
 
 Here are some examples, to build intuition for what the four fields of `Recipe` are, and why we need all four of them to fully describe a tensor in our graph and how it was created:
 
-<img src="https://github.com/callummcdougall/Fundamentals/blob/main/images/recipe.png?raw=true" width=800>
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/recipe-better.png" width="800">
 
 
 ## Registering backwards functions
@@ -1255,7 +1225,7 @@ If you're confused, you can scroll up to the diagram at the top of the page (whi
 
 ```python
 def multiply_forward(a: Union[Tensor, int], b: Union[Tensor, int]) -> Tensor:
-    '''Performs np.log on a Tensor object.'''
+    '''Performs np.multiply on a Tensor object.'''
     assert isinstance(a, Tensor) or isinstance(b, Tensor)
 
     pass
@@ -1294,7 +1264,7 @@ This is probably because you've stored the inputs to `multiply` as integers when
 
 ```python
 def multiply_forward(a: Union[Tensor, int], b: Union[Tensor, int]) -> Tensor:
-    '''Performs np.log on a Tensor object.'''
+    '''Performs np.multiply on a Tensor object.'''
     assert isinstance(a, Tensor) or isinstance(b, Tensor)
 
     # SOLUTION
@@ -1527,29 +1497,7 @@ def topological_sort(node: Node, get_children: Callable) -> List[Node]:
     
     Should raise an error if the graph with `node` as root is not in fact acyclic.
     '''
-        pass
-
-    def visit(cur: Node):
-        '''
-        Recursive function which visits all the children of the current node, and appends them all
-        to `result` in the order they were found.
-        '''
-        if cur in perm:
-            return
-        if cur in temp:
-            raise ValueError("Not a DAG!")
-        temp.add(cur)
-
-        for next in get_children(cur):
-            visit(next)
-
-        result.append(cur)
-        perm.add(cur)
-        temp.remove(cur)
-
-    visit(node)
-    return result
-
+    pass
 
 
 if MAIN:
@@ -1656,13 +1604,6 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     in reverse topological order (i.e. `tensor` should be first).
     '''
     pass
-
-    def get_parents(tensor: Tensor) -> List[Tensor]:
-        if tensor.recipe is None:
-            return []
-        return list(tensor.recipe.parents.values())
-
-    return topological_sort(tensor, get_parents)[::-1]
     
 
 
@@ -1680,8 +1621,19 @@ if MAIN:
 
 ```
 
-Compare your output with the computational graph. You should never be printing `x` before `y` if there is an edge `x --> ... --> y` (this should result in approximately reverse alphabetical order).
+```python
 
+if MAIN:
+    a = Tensor([1], requires_grad=True)
+    # a2 = Tensor([1], requires_grad=True)
+    b = a * 2
+    c = a * 1
+    d = b * c
+    name_lookup = {a: "a", b: "b", c: "c", d: "d"}
+    
+    print([name_lookup[t] for t in sorted_computational_graph(d)])
+
+```
 
 <details>
 <summary>Solution</summary>
@@ -1694,8 +1646,17 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     in reverse topological order (i.e. `tensor` should be first).
     '''
     # SOLUTION
+    def get_parents(tensor: Tensor) -> List[Tensor]:
+        if tensor.recipe is None:
+            return []
+        return list(tensor.recipe.parents.values())
+
+    return topological_sort(tensor, get_parents)[::-1]
 ```
 </details>
+
+
+Compare your output with the computational graph. You should never be printing `x` before `y` if there is an edge `x --> ... --> y` (this should result in approximately reverse alphabetical order).
 
 
 ### The `backward` method
@@ -2075,7 +2036,7 @@ if MAIN:
 def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
     '''Backward function for f(x) = -x elementwise.'''
     # SOLUTION
-    return np.full_like(x, -1) * grad_out
+    return unbroadcast(-grad_out, x)
 ```
 </details>
 
@@ -3572,6 +3533,8 @@ class MyModule(Module):
 This implementation will work correctly.
 
 The danger of reusing modules is that you'd be creating a cyclical computational graph (because the same parameters would appear twice), but the `ReLU` module doesn't have any parameters (or any internal state), so this isn't a problem. It's effectively just a wrapper for the `relu` function, and you could replace `self.relu` with applying the `relu` function directly without changing the model's behaviour.
+
+This is slightly different if we're thinking about adding **hooks** to our model. Hooks are functions that are called during the forward or backward pass, and they can be used to inspect the state of the model during training. We generally want each hook to be associated with a single position in the model, rather than being called at two different points.
 </details>
 
 

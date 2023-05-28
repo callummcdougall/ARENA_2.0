@@ -190,6 +190,12 @@ if MAIN:
 
 ```
 
+""", unsafe_allow_html=True)
+    fig = st_dependencies.read_from_html("media/fig1.html")
+    st.plotly_chart(fig)
+    st.markdown(r"""
+
+
 A series of images follow below, which have been created using `einops` functions performed on `arr`. You should work through these and try to produce each of the images yourself. This page also includes solutions, but you should only look at them after you've tried for at least five minutes.
 
 > *Note - if you find you're comfortable with the first ~half of these, you can skip to later sections if you'd prefer, since these aren't particularly conceptually important.*
@@ -211,7 +217,7 @@ If you think you get the general idea, then you can skip to the next section.
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig1.html")
+    fig = st_dependencies.read_from_html("media/fig2.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -240,7 +246,7 @@ arr1 = einops.rearrange(arr, "b c h w -> c h (b w)")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig2.html")
+    fig = st_dependencies.read_from_html("media/fig3.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -269,7 +275,7 @@ arr2 = einops.repeat(arr[0], "c h w -> c (2 h) w")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig3.html")
+    fig = st_dependencies.read_from_html("media/fig4.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -298,7 +304,7 @@ arr3 = einops.repeat(arr[0:2], "b c h w -> c (b h) (2 w)")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig4.html")
+    fig = st_dependencies.read_from_html("media/fig5.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -327,7 +333,7 @@ arr4 = einops.repeat(arr[0], "c h w -> c (h 2) w")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig5.html")
+    fig = st_dependencies.read_from_html("media/fig6.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -356,7 +362,7 @@ arr5 = einops.rearrange(arr[0], "c h w -> h (c w)")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig6.html")
+    fig = st_dependencies.read_from_html("media/fig7.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -385,7 +391,7 @@ arr6 = einops.rearrange(arr, "(b1 b2) c h w -> c (b1 h) (b2 w)", b1=2)
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig7.html")
+    fig = st_dependencies.read_from_html("media/fig8.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -414,7 +420,7 @@ arr7 = einops.reduce(arr.astype(float), "b c h w -> h (b w)", "max").astype(int)
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig8.html")
+    fig = st_dependencies.read_from_html("media/fig10.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -443,7 +449,7 @@ arr8 = einops.reduce(arr.astype(float), "b c h w -> h w", "min").astype(int)
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig9.html")
+    fig = st_dependencies.read_from_html("media/fig12.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -472,7 +478,7 @@ arr9 = einops.rearrange(arr[1], "c h w -> c w h")
 
 
 """, unsafe_allow_html=True)
-    fig = st_dependencies.read_from_html("media/fig10.html")
+    fig = st_dependencies.read_from_html("media/fig14.html")
     st.plotly_chart(fig)
     st.markdown(r"""
 
@@ -803,9 +809,10 @@ test_cases = [
     ),
     TestCase(
         output=t.tensor([[0, 2], [5, 7]]), 
-        size=(4,),
-        stride=(1,),
+        size=(2, 2),
+        stride=(5, 2),
     ),
+
 
     TestCase(
         output=t.tensor([0, 1, 2, 3, 4]),
@@ -2569,7 +2576,7 @@ if MAIN:
     
     bar(
         probs,
-        x=range(1, 11),
+        x=range(10),
         template="ggplot2",
         width=600,
         title="Classification probabilities", 
@@ -2646,7 +2653,7 @@ if MAIN:
     
     bar(
         probs,
-        x=range(1, 11),
+        x=range(10),
         template="ggplot2",
         width=600,
         title="Classification probabilities", 
