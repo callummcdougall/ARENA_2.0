@@ -31,9 +31,11 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/lens2.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/1w9zCWpE7xd1sDuMT_rsjARfFozeWiKF4) | [**solutions**](https://colab.research.google.com/drive/10tzGmOCQb3LoDB69vPFw71DV2d395hJl)
 
-You can toggle dark mode from the top-right buttons.
+Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
+
+You can toggle dark mode from the buttons on the top-right of this page.
 
 
 # [1.2] TransformerLens & induction circuits
@@ -107,6 +109,8 @@ Lastly, these exercises show you how you can reverse-engineer a circuit by looki
 
 
 ```python
+import os
+import sys
 import plotly.express as px
 import torch as t
 from torch import Tensor
@@ -115,13 +119,13 @@ import torch.nn.functional as F
 from pathlib import Path
 import numpy as np
 import einops
-from fancy_einsum import einsum
 from jaxtyping import Int, Float
 from typing import List, Optional, Tuple
 import functools
 from tqdm import tqdm
 from IPython.display import display
 import webbrowser
+import gdown
 from transformer_lens.hook_points import HookPoint
 from transformer_lens import utils, HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
 import circuitsvis as cv
@@ -129,10 +133,10 @@ import circuitsvis as cv
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part2_intro_to_mech_interp"
+section_dir = (exercises_dir / "part2_intro_to_mech_interp").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-from plotly_utils import imshow, plot_comp_scores, hist, plot_logit_attribution
+from plotly_utils import imshow, hist, plot_comp_scores, plot_logit_attribution, plot_loss_difference
 from part1_transformer_from_scratch.solutions import get_log_probs
 import part2_intro_to_mech_interp.tests as tests
 
@@ -195,6 +199,8 @@ def section_1():
 
 ## Introduction
 
+*Note - most of this is written from the POV of Neel Nanda.*
+
 This is a demo notebook for [TransformerLens](https://github.com/neelnanda-io/TransformerLens), **a library I ([Neel Nanda](neelnanda.io)) wrote for doing [mechanistic interpretability](https://distill.pub/2020/circuits/zoom-in/) of GPT-2 Style language models.** The goal of mechanistic interpretability is to take a trained model and reverse engineer the algorithms the model learned during training from its weights. It is a fact about the world today that we have computer programs that can essentially speak English at a human level (GPT-3, PaLM, etc), yet we have no idea how they work nor how to write one ourselves. This offends me greatly, and I would like to solve this! Mechanistic interpretability is a very young and small field, and there are a *lot* of open problems - if you would like to help, please try working on one! **Check out my [list of concrete open problems](https://docs.google.com/document/d/1WONBzNqfKIxERejrrPlQMyKqg7jSFW92x5UMXNrMdPo/edit#) to figure out where to start.**
 
 I wrote this library because after I left the Anthropic interpretability team and started doing independent research, I got extremely frustrated by the state of open source tooling. There's a lot of excellent infrastructure like HuggingFace and DeepSpeed to *use* or *train* models, but very little to dig into their internals and reverse engineer how they work. **This library tries to solve that**, and to make it easy to get into the field even if you don't work at an industry org with real infrastructure! The core features were heavily inspired by [Anthropic's excellent Garcon tool](https://transformer-circuits.pub/2021/garcon/index.html). Credit to Nelson Elhage and Chris Olah for building Garcon and showing me the value of good infrastructure for accelerating exploratory research!
@@ -212,7 +218,7 @@ TransformerLens comes loaded with >40 open source GPT-style models. You can load
 ```python
 
 if MAIN:
-    gpt2_small: HookedTransformer = HookedTransformer.from_pretrained("gpt2-small").to(device)
+    gpt2_small: HookedTransformer = HookedTransformer.from_pretrained("gpt2-small")
 
 ```
 
@@ -224,6 +230,11 @@ Even if you don't define your model in this way, you can still access the config
 
 
 ### Exercise - inspect your model
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+```
 
 Use `gpt2_small.cfg` to find the following, for your GPT-2 Small model:
 
@@ -365,6 +376,13 @@ Further, *some* models are trained to need a BOS token (OPT and my interpretabil
 
 ### Exercise - how many words does your model guess correctly?
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+```
+
 Consider the `model_description_text` you fed into your model above. How many words did your model guess correctly? Which words were correct? 
 
 
@@ -407,9 +425,9 @@ The output from this code is:
 Model accuracy: 32/112
 Correct words: ['\n', '\n', 'former', ' with', ' models', '.', ' can', ' of', 'ooked', 'Trans', 'former', '_', 'NAME', '`.', ' model', ' the', 'Trans', 'former', ' to', ' be', ' and', '-', '.', '\n', ' at', 'PT', '-', ',', ' model', ',', "'s", ' the']
 ```
-<details>
 
 So the model got 32 out of 112 words correct. Not too bad!
+</details>
 
 
 **Induction heads** are a special kind of attention head which we'll examine a lot more in coming exercises. They allow a model to perform in-context learning of a specific form: generalising from one observation that token `B` follows token `A`, to predict that token `B` will follow `A` in future occurrences of `A`, even if these two tokens had never appeared together in the model's training data.
@@ -424,7 +442,7 @@ The evidence for induction heads comes from the fact that the model successfully
 ```python
 print(gpt2_small.to_str_tokens("HookedTransformer", prepend_bos=False))     # --> ['H', 'ooked', 'Trans', 'former']
 ```
-<details>
+</details>
 
 
 ## Caching all Activations
@@ -484,7 +502,14 @@ You can use the diagram from the **Transformer Architecture** section to help yo
 
 ### Exercise - verify activations
 
-*If you're already comfortable implementing things like attention calculations (e.g. having gone through Neel's transformer walkthrough) you can skip this exercise. However, it might serve as a useful refresher.*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+
+If you're already comfortable implementing things like attention calculations (e.g. having gone through Neel's transformer walkthrough) you can skip this exercise. However, it might serve as a useful refresher.
+```
 
 Verify that `hook_q`, `hook_k` and `hook_pattern` are related to each other in the way implied by the diagram. Do this by computing `layer0_pattern_from_cache` (the attention pattern taken directly from the cache, for layer 0) and `layer0_pattern_from_q_and_k` (the attention pattern calculated from `hook_q` and `hook_k`, for layer 0). Remember that attention pattern is the probabilities, so you'll need to scale and softmax appropriately.
 
@@ -515,20 +540,10 @@ You'll need to use three different cache indexes in all:
 <summary>Solution</summary>
 
 ```python
-layer0_pattern_from_cache = gpt2_cache["pattern", 0]
-
 q, k = gpt2_cache["q", 0], gpt2_cache["k", 0]
 seq, nhead, headsize = q.shape
-layer0_attn_scores = einsum("seqQ n h, seqK n h -> n seqQ seqK", q, k)
-mask = t.triu(t.ones((seq, seq), dtype=bool), diagonal=1).cuda()
-layer0_attn_scores.masked_fill_(mask, -1e9)
-layer0_pattern_from_q_and_k = (layer0_attn_scores / headsize**0.5).softmax(-1)
-```
-```python
-q, k = gpt2_cache["q", 0], gpt2_cache["k", 0]
-seq, nhead, headsize = q.shape
-layer0_attn_scores = einsum("seqQ n h, seqK n h -> n seqQ seqK", q, k)
-mask = t.triu(t.ones((seq, seq), dtype=bool), diagonal=1).cuda()
+layer0_attn_scores = einops.einsum(q, k, "seqQ n h, seqK n h -> n seqQ seqK")
+mask = t.triu(t.ones((seq, seq), dtype=bool), diagonal=1).to(device)
 layer0_attn_scores.masked_fill_(mask, -1e9)
 layer0_pattern_from_q_and_k = (layer0_attn_scores / headsize**0.5).softmax(-1)
 
@@ -557,7 +572,7 @@ We will use the function `cv.attention.attention_patterns`, which takes two impo
 (Another optional argument is `attention_head_names`, which is useful if you don't just want the heads to show up as "Head 0", "Head 1", ... in the visualisation. Also, note that we can use `cv.attention.attention_patterns` too, which has the same syntax but presents information differently, and can be more helpful in some cases.)
 
 <details>
-<summary>Help - my <code>attention_heads</code> plots are behaving weirdly.</summary>
+<summary>Help - my <code>attention_heads</code> plots are behaving weirdly (e.g. they continually shrink after I plot them).</summary>
 
 This seems to be a bug in `circuitsvis` - on VSCode, the attention head plots continually shrink in size.
 
@@ -682,20 +697,18 @@ if MAIN:
 In the last section, we defined a tokenizer explicitly, and passed it into our model. But here, we just pass a tokenizer name. The model automatically creates a tokenizer for us (under the hood, it calls `AutoTokenizer.from_pretrained(tokenizer_name)`).
 </details>
 
-You should download your model weights `attn_only_2L_half.pth` (either manually from [this Google Drive link](https://drive.google.com/drive/folders/18gAF9HuiW9NG0MP2Gq8M7VdhXoKKxymT), or by uncommenting and running the `gdown` code below). Once you've downloaded the file, make sure it's saved under `WEIGHT_PATH` as given below.
+Below, you'll load in your weights, with some useful boilerplate code to download files from Google Drive and store them in a specified filepath:
 
 
 ```python
-# !gdown https://drive.google.com/uc?id=1vcZLJnJoYKQs-2KOjkd6LvHZrkSdoxhu
-
 
 if MAIN:
-    CHAPTER = r"chapter1_transformers"
-    EXERCISES_DIR = os.getcwd().split(CHAPTER)[0] + f"{CHAPTER}/exercises"
-    SECTION_DIR = Path(EXERCISES_DIR) / "part2_intro_to_mech_interp"
-    WEIGHT_PATH = (SECTION_DIR / "attn_only_2L_half.pth").resolve()
+    weights_dir = (section_dir / "attn_only_2L_half.pth").resolve()
     
-    assert WEIGHT_PATH.exists()
+    if not weights_dir.exists():
+        url = "https://drive.google.com/uc?id=1vcZLJnJoYKQs-2KOjkd6LvHZrkSdoxhu"
+        output = str(weights_dir)
+        gdown.download(url, output)
 
 ```
 
@@ -706,7 +719,7 @@ Finally, we'll create our model and load in the weights:
 
 if MAIN:
     model = HookedTransformer(cfg)
-    pretrained_weights = t.load(WEIGHT_PATH, map_location=device)
+    pretrained_weights = t.load(weights_dir, map_location=device)
     model.load_state_dict(pretrained_weights)
 
 ```
@@ -716,10 +729,18 @@ Use the [diagram at this link](https://mermaid.ink/svg/pako:eNrNVsFu2zAM_RVBh7UD
 
 ### Exercise - visualise attention patterns
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+
+It's important to be comfortable using circuitsvis, and the cache object.
+```
+
 *This exercise should be very quick - you can reuse code from the previous section. You should look at the solution if you're still stuck after 5-10 minutes.*
 
 Visualise the attention patterns for both layers of your model, on the following prompt:
-
 
 
 ```python
@@ -728,7 +749,6 @@ if MAIN:
     text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
     
     logits, cache = model.run_with_cache(text, remove_batch_dim=True)
-    logits2, cache2 = model.run_with_cache(text, remove_batch_dim=True)
 
 ```
 
@@ -750,15 +770,12 @@ If this isn't the problem, then it might be an issue with the Circuitsvis librar
 ```python
 
 if MAIN:
-    str_tokens = model.to_str_tokens(text)
-    for layer in range(model.cfg.n_layers):
-        attention_pattern = cache["pattern", layer]
-        display(cv.attention.attention_patterns(tokens=str_tokens, attention=attention_pattern))
+    # YOUR CODE HERE - visualize attention
 
 ```
 
 <details>
-<summary>Solution</summary>
+<summary>Solution </summary>
 
 We visualise attention patterns with the following code:
 
@@ -786,7 +803,14 @@ Now that we've observed our three basic attention patterns, it's time to make de
 
 ### Exercise - write your own detectors
 
-*These exercises shouldn't be too challenging, if you understand attention patterns. Use the hint if you're stuck on things like how to correctly index your tensors, or how to access the activation patterns from the cache. You shouldn't spend more than 10-15 minutes on these exercises.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 15-20 minutes on these exercises.
+
+These exercises shouldn't be too challenging, if you understand attention patterns. Use the hint if stuck on things like how to correctly index your tensors, or how to access the activation patterns from the cache.
+```
 
 You should fill in the functions below, which act as detectors for particular types of heads. Validate your detectors by comparing these results to the visual attention patterns above - summary statistics on their own can be dodgy, but are much more reliable if you can validate it by directly playing with the data.
 
@@ -845,22 +869,50 @@ Remember that you should be using `cache["pattern", layer]` to get all the atten
 </details>
 
 <details>
-<summary>Example solution for <code>current_attn_detector</code></summary>
+<summary>Solution </code></summary>
 
 ```python
 def current_attn_detector(cache: ActivationCache) -> List[str]:
     '''
     Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be current-token heads
     '''
-    current_attn_heads = []
+    attn_heads = []
     for layer in range(model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
             attention_pattern = cache["pattern", layer][head]
             # take avg of diagonal elements
-            current_attn_score = attention_pattern.diagonal().mean()
-            if current_attn_score > 0.4:
-                current_attn_heads.append(f"{layer}.{head}")
-    return current_attn_heads
+            score = attention_pattern.diagonal().mean()
+            if score > 0.4:
+                attn_heads.append(f"{layer}.{head}")
+    return attn_heads
+
+def prev_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be prev-token heads
+    '''
+    attn_heads = []
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            attention_pattern = cache["pattern", layer][head]
+            # take avg of sub-diagonal elements
+            score = attention_pattern.diagonal(-1).mean()
+            if score > 0.4:
+                attn_heads.append(f"{layer}.{head}")
+    return attn_heads
+
+def first_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be first-token heads
+    '''
+    attn_heads = []
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            attention_pattern = cache["pattern", layer][head]
+            # take avg of 0th elements
+            score = attention_pattern[:, 0].mean()
+            if score > 0.4:
+                attn_heads.append(f"{layer}.{head}")
+    return attn_heads
 ```
 
 Note - choosing `0.4` as a threshold is a bit arbitrary, but it seems to work well enough. In this particular case, a threshold of `0.5` results in no head being classified as a current-token head.
@@ -900,59 +952,13 @@ Again, you are strongly recommended to read the [corresponding section of the gl
 ##### Question - why couldn't an induction head form in a 1L model?
 
 <details>
-<summary>Solution</summary>
+<summary>Answer</summary>
 
 Because this would require a head which attends a key position based on the *value of the token before it*. Attention scores are just a function of the key token and the query token, and are not a function of other tokens.
 
 (The attention pattern *does* in fact include effects from other tokens because of softmax - if another key token has a high attention score, softmax inhibits this pair. But this inhibition is symmetric across positions, so can't systematically favour the token *next* to the relevant one.)
 
 Note that a key detail is that the value of adjacent tokens are (approximately) unrelated - if the model wanted to attend based on relative *position* this is easy.
-```python
-def current_attn_detector(cache: ActivationCache) -> List[str]:
-    '''
-    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be current-token heads
-    '''
-    # SOLUTION
-    attn_heads = []
-    for layer in range(model.cfg.n_layers):
-        for head in range(model.cfg.n_heads):
-            attention_pattern = cache["pattern", layer][head]
-            # take avg of diagonal elements
-            score = attention_pattern.diagonal().mean()
-            if score > 0.4:
-                attn_heads.append(f"{layer}.{head}")
-    return attn_heads
-
-def prev_attn_detector(cache: ActivationCache) -> List[str]:
-    '''
-    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be prev-token heads
-    '''
-    # SOLUTION
-    attn_heads = []
-    for layer in range(model.cfg.n_layers):
-        for head in range(model.cfg.n_heads):
-            attention_pattern = cache["pattern", layer][head]
-            # take avg of sub-diagonal elements
-            score = attention_pattern.diagonal(-1).mean()
-            if score > 0.4:
-                attn_heads.append(f"{layer}.{head}")
-    return attn_heads
-
-def first_attn_detector(cache: ActivationCache) -> List[str]:
-    '''
-    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be first-token heads
-    '''
-    # SOLUTION
-    attn_heads = []
-    for layer in range(model.cfg.n_layers):
-        for head in range(model.cfg.n_heads):
-            attention_pattern = cache["pattern", layer][head]
-            # take avg of 0th elements
-            score = attention_pattern[:, 0].mean()
-            if score > 0.4:
-                attn_heads.append(f"{layer}.{head}")
-    return attn_heads
-```
 </details>
 
 
@@ -967,13 +973,20 @@ Note - we're using small sequences (and just one sequence), since the results ar
 
 ### Exercise - plot per-token loss on repeated sequence
 
-*Neither of these functions are conceputally important, so after you've tried for ~10 minutes you should read the solutions. As long as you understand what the functions are doing, this is sufficient.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than 10-15 minutes on these exercises.
+```
 
 You should fill in the functions below. We've given you the first line of the first function, which defines a prefix (remember we need the BOS token for GPT-2, since it was trained to have one).
 
 
 ```python
-def generate_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> t.Tensor:
+def generate_repeated_tokens(
+    model: HookedTransformer, seq_len: int, batch: int = 1
+) -> Int[Tensor, "batch full_seq_len"]:
     '''
     Generates a sequence of repeated random tokens
 
@@ -1008,14 +1021,7 @@ if MAIN:
     print(f"Performance on the first half: {log_probs[:seq_len].mean():.3f}")
     print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
     
-    fig = px.line(
-        utils.to_numpy(log_probs), hover_name=rep_str[1:],
-        title=f"Per token log-prob on correct token, for sequence of length {seq_len}*2 (repeated twice)",
-        labels={"index": "Sequence position", "value": "Loss"}
-    ).update_layout(showlegend=False, hovermode="x unified")
-    fig.add_vrect(x0=0, x1=seq_len-.5, fillcolor="red", opacity=0.2, line_width=0)
-    fig.add_vrect(x0=seq_len-.5, x1=2*seq_len-1, fillcolor="green", opacity=0.2, line_width=0)
-    fig.show()
+    plot_loss_difference(log_probs, rep_str, seq_len)
 
 ```
 
@@ -1033,7 +1039,9 @@ Then you can concatenate together your prefix and two copies of the repeated tok
 
 
 ```python
-def generate_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> t.Tensor:
+def generate_repeated_tokens(
+    model: HookedTransformer, seq_len: int, batch: int = 1
+) -> Int[Tensor, "batch full_seq_len"]:
     '''
     Generates a sequence of repeated random tokens
 
@@ -1043,7 +1051,7 @@ def generate_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int 
     # SOLUTION
     prefix = (t.ones(batch, 1) * model.tokenizer.bos_token_id).long()
     rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
-    rep_tokens = t.cat([prefix, rep_tokens_half, rep_tokens_half], dim=-1).cuda()
+    rep_tokens = t.cat([prefix, rep_tokens_half, rep_tokens_half], dim=-1).to(device)
     return rep_tokens
 
 def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> Tuple[t.Tensor, t.Tensor, ActivationCache]:
@@ -1092,11 +1100,19 @@ The characteristic pattern of attention heads is a diagonal stripe, with the dia
 
 You should see that heads 4 and 10 are strongly induction-y, head 6 is very weakly induction-y, and the rest aren't.
 
+</details>
+
 
 ### Exercise - make an induction-head detector
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
 
-*This exercise should be similar to the earlier detector exercises. It shouldn't take more than 5-10 minutes, if you understand the previous exercises.*
+You shouldn't spend more than 5-10 minutes on this exercise.
+
+This exercise should be very similar to the earlier detector exercises (with a slightly more difficult form of indexing)
+```
 
 
 Now, you should make an induction pattern score function, which looks for the average attention paid to the offset diagonal. Do this in the same style as our earlier head scorers.
@@ -1363,7 +1379,14 @@ Note that, in theory, this could all be done using the `run_with_cache` function
 
 ### Exercise - calculate induction scores with hooks
 
-*Since this will be your first time using heads, if you're still confused after trying for 10-15 minutes you should look at the solutions. There is also a hint we've provided for you in a dropdown below the code, and you should try using this hint before reading the solution. This exercise is pretty conceptually important, so you should make sure you understand the solutions before moving on.*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 15-20 minutes on this exercise.
+
+This is our first exercise with hooks, which are an absolutely vital TransformerLens tool. Use the hints if you're stuck.
+```
 
 To start with, we'll look at how hooks can be used to get the same results as from the previous section (where we ran our induction head detector functions on the values in the cache).
 
@@ -1384,7 +1407,8 @@ if MAIN:
     batch = 10
     rep_tokens_10 = generate_repeated_tokens(model, seq_len, batch)
     
-    # We make a tensor to store the induction score for each head. We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
+    # We make a tensor to store the induction score for each head.
+    # We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
     induction_score_store = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
     
 def induction_score_hook(
@@ -1394,15 +1418,8 @@ def induction_score_hook(
     '''
     Calculates the induction score, and stores it in the [layer, head] position of the `induction_score_store` tensor.
     '''
-    # We take the diagonal of attention paid from each destination position to source positions seq_len-1 tokens back
-    # (This only has entries for tokens with index>=seq_len)
-    induction_stripe = pattern.diagonal(dim1=-2, dim2=-1, offset=1-seq_len)
-    # Get an average score per head
-    induction_score = einops.reduce(induction_stripe, "batch head_index position -> head_index", "mean")
-    # Store the result.
-    induction_score_store[hook.layer(), :] = induction_score
+    pass
 
-# We make a boolean filter on activation names, that's true only on attention pattern names.
 
 if MAIN:
     pattern_hook_names_filter = lambda name: name.endswith("pattern")
@@ -1447,26 +1464,39 @@ Once you have this, you can then take the mean over the batch and diagonal dimen
 <details>
 <summary>Solution</summary>
 
+
 ```python
 def induction_score_hook(
-    pattern: TT["batch", "head_index", "dest_pos", "source_pos"],
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
     hook: HookPoint,
 ):
     '''
     Calculates the induction score, and stores it in the [layer, head] position of the `induction_score_store` tensor.
     '''
-    # We take the diagonal of attention paid from each destination position to source positions seq_len-1 tokens back
+    # SOLUTION
+    # Take the diagonal of attn paid from each dest posn to src posns (seq_len-1) tokens back
     # (This only has entries for tokens with index>=seq_len)
     induction_stripe = pattern.diagonal(dim1=-2, dim2=-1, offset=1-seq_len)
     # Get an average score per head
     induction_score = einops.reduce(induction_stripe, "batch head_index position -> head_index", "mean")
     # Store the result.
     induction_score_store[hook.layer(), :] = induction_score
+
+# We make a boolean filter on activation names, that's true only on attention pattern names
 ```
 </details>
 
 
 ### Exercise - find induction heads in GPT2-small
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 10-20 minutes on this exercise.
+
+Here, you mostly just need to use previously defined functions and interpret the results, rather than writing new code.
+```
 
 *This is your first opportunity to investigate a larger and more extensively trained model, rather than the simple 2-layer model we've been using so far. None of the code required is new (you can copy most of it from previous sections), so these exercises shouldn't take very long.*
 
@@ -1489,19 +1519,22 @@ def visualize_pattern_hook(
         )
     )
 
-# YOUR CODE HERE - find induction heads in gpt2_small
+
+if MAIN:
+    # YOUR CODE HERE - find induction heads in gpt2_small
 
 ```
 
 <details>
-<summary>Solution</summary>
-
+<summary>Solution </summary>
 
 ```python
 seq_len = 50
 batch = 10
 rep_tokens_10 = generate_repeated_tokens(gpt2_small, seq_len, batch)
+
 induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads), device=gpt2_small.cfg.device)
+
 gpt2_small.run_with_hooks(
     rep_tokens_10, 
     return_type=None, # For efficiency, we don't need to calculate the logits
@@ -1509,14 +1542,19 @@ gpt2_small.run_with_hooks(
         pattern_hook_names_filter,
         induction_score_hook
     )]
+)
+
 imshow(
     induction_score_store, 
     labels={"x": "Head", "y": "Layer"},
     title="Induction Score by Head", 
     text_auto=".1f",
     width=800
+)
+
 # Observation: heads 5.1, 5.5, 6.9, 7.2, 7.10 are all strongly induction-y.
 # Confirm observation by visualizing attn patterns for layers 5 through 7:
+
 for induction_head_layer in [5, 6, 7]:
     gpt2_small.run_with_hooks(
         rep_tokens, 
@@ -1525,7 +1563,6 @@ for induction_head_layer in [5, 6, 7]:
             (utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
         ]
     )
-
 ```
 </details>
 
@@ -1582,7 +1619,14 @@ Because log probs aren't linear, they go through `log_softmax`, a non-linear fun
 
 ### Exercise - build logit attribution tool
 
-*This exercise is not particuarly conceptually important, it's just some slightly messy einsums. You should look at the solutions if you're still stuck after 10 minutes.*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 10-15 minutes on this exercise.
+
+This exercise is important, but has quite a few messy einsums, so you might get more value from reading the solution than doing the exercises.
+```
 
 You should implement the `logit_attribution` function below. This should return the contribution of each component in the "correct direction". We've already given you the unembedding vectors for the correct direction, `W_U_correct_tokens` (note that we take the `[1:]` slice of tokens, for reasons discussed above).
 
@@ -1590,19 +1634,28 @@ The code below this function will check your logit attribution function is worki
 
 
 ```python
-def logit_attribution(embed, l1_results, l2_results, W_U, tokens) -> t.Tensor:
+def logit_attribution(
+    embed: Float[Tensor, "seq d_model"],
+    l1_results: Float[Tensor, "seq nheads d_model"],
+    l2_results: Float[Tensor, "seq nheads d_model"],
+    W_U: Float[Tensor, "d_model d_vocab"],
+    tokens: Float[Tensor, "seq"]
+) -> Float[Tensor, "seq-1 n_components"]:
     '''
     Inputs:
-        embed (seq_len, d_model): the embeddings of the tokens (i.e. token + position embeddings)
-        l1_results (seq_len, n_heads, d_model): the outputs of the attention heads at layer 1 (with head as one of the dimensions)
-        l2_results (seq_len, n_heads, d_model): the outputs of the attention heads at layer 2 (with head as one of the dimensions)
-        W_U (d_model, d_vocab): the unembedding matrix
+        embed: the embeddings of the tokens (i.e. token + position embeddings)
+        l1_results: the outputs of the attention heads at layer 1 (with head as one of the dimensions)
+        l2_results: the outputs of the attention heads at layer 2 (with head as one of the dimensions)
+        W_U: the unembedding matrix
+        tokens: the token ids of the sequence
+
     Returns:
         Tensor of shape (seq_len-1, n_components)
         represents the concatenation (along dim=-1) of logit attributions from:
-            the direct path (position-1,1)
-            layer 0 logits (position-1, n_heads)
-            and layer 1 logits (position-1, n_heads)
+            the direct path (seq-1,1)
+            layer 0 logits (seq-1, n_heads)
+            layer 1 logits (seq-1, n_heads)
+        so n_components = 1 + 2*n_heads
     '''
     W_U_correct_tokens = W_U[:, tokens[1:]]
     pass
@@ -1631,25 +1684,34 @@ if MAIN:
 
 
 ```python
-def logit_attribution(embed, l1_results, l2_results, W_U, tokens) -> t.Tensor:
+def logit_attribution(
+    embed: Float[Tensor, "seq d_model"],
+    l1_results: Float[Tensor, "seq nheads d_model"],
+    l2_results: Float[Tensor, "seq nheads d_model"],
+    W_U: Float[Tensor, "d_model d_vocab"],
+    tokens: Float[Tensor, "seq"]
+) -> Float[Tensor, "seq-1 n_components"]:
     '''
     Inputs:
-        embed (seq_len, d_model): the embeddings of the tokens (i.e. token + position embeddings)
-        l1_results (seq_len, n_heads, d_model): the outputs of the attention heads at layer 1 (with head as one of the dimensions)
-        l2_results (seq_len, n_heads, d_model): the outputs of the attention heads at layer 2 (with head as one of the dimensions)
-        W_U (d_model, d_vocab): the unembedding matrix
+        embed: the embeddings of the tokens (i.e. token + position embeddings)
+        l1_results: the outputs of the attention heads at layer 1 (with head as one of the dimensions)
+        l2_results: the outputs of the attention heads at layer 2 (with head as one of the dimensions)
+        W_U: the unembedding matrix
+        tokens: the token ids of the sequence
+
     Returns:
         Tensor of shape (seq_len-1, n_components)
         represents the concatenation (along dim=-1) of logit attributions from:
-            the direct path (position-1,1)
-            layer 0 logits (position-1, n_heads)
-            and layer 1 logits (position-1, n_heads)
+            the direct path (seq-1,1)
+            layer 0 logits (seq-1, n_heads)
+            layer 1 logits (seq-1, n_heads)
+        so n_components = 1 + 2*n_heads
     '''
     W_U_correct_tokens = W_U[:, tokens[1:]]
     # SOLUTION
-    direct_attributions = einsum("emb seq, seq emb -> seq", W_U_correct_tokens, embed[:-1])
-    l1_attributions = einsum("emb seq, seq nhead emb -> seq nhead", W_U_correct_tokens, l1_results[:-1])
-    l2_attributions = einsum("emb seq, seq nhead emb -> seq nhead", W_U_correct_tokens, l2_results[:-1])
+    direct_attributions = einops.einsum(W_U_correct_tokens, embed[:-1], "emb seq, seq emb -> seq")
+    l1_attributions = einops.einsum(W_U_correct_tokens, l1_results[:-1], "emb seq, seq nhead emb -> seq nhead")
+    l2_attributions = einops.einsum(W_U_correct_tokens, l2_results[:-1], "emb seq, seq nhead emb -> seq nhead")
     return t.concat([direct_attributions.unsqueeze(-1), l1_attributions, l2_attributions], dim=-1)
 ```
 </details>
@@ -1665,7 +1727,8 @@ if MAIN:
     l1_results = cache["result", 0]
     l2_results = cache["result", 1]
     logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
-    plot_logit_attribution(logit_attr, tokens)
+    
+    plot_logit_attribution(model, logit_attr, tokens)
 
 ```
 
@@ -1705,7 +1768,14 @@ This is because of a point we discussed earlier - this plot doesn't pick up on t
 
 ### Exercise - logit attribution for the induction heads
 
-*This exercise just involves calling the `logit_attribution` function on the appropriate tensors. It's important to understand how the solutions work (and what the output means), but you shouldn't spend too much time on these functions.*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than ~10 minutes on this exercise.
+
+This exercise just involves calling logit_attribution with appropriate arguments. Don't spend too long on it, you should look at solutions if you are stuck.
+```
 
 Perform logit attribution for your attention-only model `model`, on the `rep_cache`. What do you expect to see?
 
@@ -1733,8 +1803,8 @@ if MAIN:
     assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
     assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
     
-    plot_logit_attribution(first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
-    plot_logit_attribution(second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
 
 ```
 
@@ -1776,11 +1846,18 @@ As mentioned in [the glossary](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=
 
 ### Exercise - induction head ablation
 
-*This exercise is conceptually important, but very short. Once you understand what the code is meant to do, you should be able to complete it in less than 5 minutes.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than ~10 minutes on this exercise.
+
+This exercise is conceptually important, but very short.
+```
 
 The code below provides a template for performing zero-ablation on the value vectors at a particular head (i.e. the vectors we get when applying the weight matrices `W_V` to the residual stream). If you're confused about what different activations mean, you can refer back to [the diagram](https://mermaid.ink/svg/pako:eNrNVsFu2zAM_RVBh7UDYnQLdnKyHIasOfQwFCu2Q10EikXHhmVJkWQ3Sd1_H-U4dR2kQLFDEx0kUibtR_pR1BONFQca0qVhOiV300gSHLZc7DYiOraaSWLdRsD3i0RJF9hsC-Hwm15fTO4MkzZRpgDzQ6g4J5fMOUmUFJvP4yvvOYno7pV-xIJZO4WEQKHdhjxm3KXhF70epJAtU-fF0RFrDxEnoUxogKNFZ2PAZnyuDdxH9EUe86zaI14ow8EETulwqNfEKpFxshAszkcFM8tMNo-aYMZX6DcZN19rvbuPdpF_HXrjSwurAeHzAq0Fxuq9MNaHIAim9-QhDMMmxiCY1IzzusWmrOuwd9J7090k9xMUVo_6y7G9dyz_Nx_5sX5UfXXVV_O-6iOZ21hhXvoPrvuqRkMwsr8566vbvoqvLMWrNIPkR_jif8zf-Z-6QuJUH0cYmQLjnjd-7dNmdkCbx6YmgBNWLYlKSMVECaSC2Clj6y3i3p4eN0GkBBP5q96lfVeGKJwA2mEpemy1LQuiKjDEW9m64Z0qPc69eOrT4k1y3tYrhLk6C3JeH5CTK0e0UbyMHWFCyWXrNSA2ZgIIk5wUzOb1q0Lf53ynfUhYbUQY3W0z3_SiQnaoxBVsXbfHDCJspTNAF8zeZMZNnSPU_DyYcayhde2u68uonLLUDmFiW6ADiheXgmUcL0BPfjuiLoUCIhqiyCFhvpNgn3tG01Jz5uAnz_D8pWHChIUBZaVTvzcypqEzJeyNphnDfl60Vs__ANh9IJM).
 
-The only thing left for you to do is fill in the function `head_ablation_hook` so that it performs zero-ablation on the head given by `head_index_to_ablate`. In other words, your function should return a modified version of `value` with this head ablated. (Technically you don't have to return any tensor if you're modifying `value` in-place; this is just convention.)
+**The only thing left for you to do is fill in the function `head_ablation_hook`** so that it performs zero-ablation on the head given by `head_index_to_ablate`. In other words, your function should return a modified version of `value` with this head ablated. (Technically you don't have to return any tensor if you're modifying `value` in-place; this is just convention.)
 
 A few notes to help explain the code below:
 
@@ -1807,6 +1884,7 @@ def cross_entropy_loss(logits, tokens):
     log_probs = F.log_softmax(logits, dim=-1)
     pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
     return -pred_log_probs.mean()
+
 
 
 def get_ablation_scores(
@@ -1943,6 +2021,7 @@ def section_4():
     <li><ul class="contents">
         <li><a class='contents-el' href='#composition-scores'>Composition scores</a></li>
         <li><a class='contents-el' href='#exercise-calculate-composition-scores'><b>Exercise</b> - calculate composition scores</a></li>
+        <li><a class='contents-el' href='#exercise-setting-a-baseline'><b>Exercise</b> - Setting a Baseline</a></li>
         <li><a class='contents-el' href='#exercise-batching-and-using-the-factoredmatrix-class'><b>Exercise</b> - batching, and using the <code>FactoredMatrix</code> class</a></li>
         <li><a class='contents-el' href='#targeted-ablations'>Targeted Ablations</a></li>
     </ul></li>
@@ -2049,7 +2128,7 @@ If $A$ is the one-hot encoding for token `A`, then:
 
 * $A^T W_E$ is the embedding vector for `A`.
 * $A^T W_E W_{OV}^h$ is the vector which would get written to the residual stream at the destination position, if the destination token only pays attention to `A`.
-* $A^T W_E W_{OV}^h W_U$ is the unembedding of this vector, i.e. how it affects the final logits.
+* $A^T W_E W_{OV}^h W_U$ is the unembedding of this vector, i.e. the thing which gets added to the final logits.
 
 </details>
 
@@ -2073,7 +2152,7 @@ $W_E W_{QK}^h W_E^T$ has size $(d_\text{vocab}, d_\text{vocab})$, it is a biline
 If $A$ and $B$ are one-hot encodings for tokens `A` and `B`, then $A^T W_E W_{QK}^h W_E^T B$ is the attention score paid by token `A` to token `B`:
 
 $$
-A^T \, W_E\, W_{QK}^{h}\, W_E^T \, B = \underbrace{(A^T W_E W_Q^{h})}_{\text{query for token } A} \underbrace{(B^T W_E W_K^{h})^T}_{\text{key for token }B}
+A^T \, W_E\, W_{QK}^{h}\, W_E^T \, B = \underbrace{(A^T W_E W_Q^{h})}_{\text{query for token } A}  \underbrace{(B^T W_E W_K^{h})^T}_{\text{key for token }B}
 $$
 </details>
 
@@ -2087,7 +2166,7 @@ $W_{pos} W_{QK}^h W_{pos}^T$ has size $(d_\text{vocab}, d_\text{vocab})$, it is 
 If $i$ and $j$ are one-hot encodings for positions `i` and `j` (in other words they are just the ith and jth basis vectors), then $i^T W_{pos} W_{QK}^h W_{pos}^T j$ is the attention score paid by the token with position `i` to the token with position `j`:
 
 $$
-i^T \, W_{pos}\, W_{QK}^{h}\, W_{pos}^T \, j = \underbrace{(i^T W_{pos} W_Q^{h})}_{\text{query for i-th token}} \underbrace{(j^T W_{pos} W_K^{h})^T}_{\text{key for j-th token}}
+i^T \, W_{pos}\, W_{QK}^{h}\, W_{pos}^T \, j = \underbrace{(i^T W_{pos} W_Q^{h})}_{\text{query for i-th token}}  \underbrace{(j^T W_{pos} W_K^{h})^T}_{\text{key for j-th token}}
 $$
 
 </details>
@@ -2111,7 +2190,7 @@ $$
 
 $W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T$ has size $(d_\text{vocab}, d_\text{vocab})$, it is a bilinear form describing where information is moved to and from in head $h_2$, given that the **query-side vector** is formed from the output of head $h_1$. In other words, this is an instance of **Q-composition**.
 
-If $A$ and $B$ are one-hot encodings for tokens `A` and `B`, then $A^T W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T B$ is the attention score paid **to** token `B`, **by** any token which attended strongly to an `A`-token in head $h_1$:
+If $A$ and $B$ are one-hot encodings for tokens `A` and `B`, then $A^T W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T B$ is the attention score paid **to** token `B`, **by** any token which attended strongly to an `A`-token in head $h_1$.
 
 ---
 
@@ -2119,7 +2198,7 @@ To further break this down, if it still seems confusing:
 
 $$
 \begin{aligned}
-A^T \, W_E\, W_{OV}^{h_1} W_{QK}^{h_2}\, W_E^T \, B &= \underbrace{(A^T W_E W_{OV}^{h_1}W_Q^{h_2})}_{\text{query of token which attended to A}} \underbrace{(B^T W_E W_K^{h_2})^T}_\text{key of token B} \\
+A^T \, W_E\, W_{OV}^{h_1} W_{QK}^{h_2}\, W_E^T \, B &= \underbrace{(A^T W_E W_{OV}^{h_1}W_Q^{h_2})}_{\text{query of token which attended to A}}  \underbrace{(B^T W_E W_K^{h_2})^T}_\text{key of token B} \\
 \end{aligned}
 $$
 
@@ -2144,7 +2223,14 @@ This is all possible because knowing the factorisation of a matrix gives us a mu
 
 ### Exercise - deriving properties of a factored matrix
 
-*Note - if you're less interested in the maths, you can skip these exercises.*
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than 10-25 minutes on this exercise.
+
+If you're less interested in the maths, you can skip these exercises.
+```
 
 To give you an idea of what kinds of properties you can easily compute if you have a factored matrix, let's try and derive some ourselves.
 
@@ -2466,7 +2552,14 @@ test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
 
 ### Exercise - verify this is the identity
 
-*This exercise should be very short; it only requires 2 lines of code.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 5-10 minutes on this exercise.
+
+This exercise should be very short; it only requires 2 lines of code. Understanding it conceptually is more important than the actual coding.
+```
 
 
 Now we want to check that this matrix is the identity. Since it's in factored matrix form, this is a bit tricky, but there are still things we can do.
@@ -2475,9 +2568,9 @@ First, to validate that it looks diagonal-ish, let's pick 200 random rows and co
 
 
 ```python
-# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
 
 if MAIN:
+    # YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
     imshow(
         full_OV_circuit_sample,
         labels={"x": "Input token", "y": "Logits on output token"},
@@ -2492,19 +2585,7 @@ if MAIN:
 
 Yet another nice thing about factored matrices is that you can evaluate small submatrices without having to compute the entire matrix. This is based on the fact that the `[i, j]`-th element of matrix `AB` is `A[i, :] @ B[:, j]`.
 
-When you index a factored matrix, you get back another factored matrix. So the two methods below are both valid ways to get a 200x200 sample:
-
-```python
-indices = t.randint(0, model.cfg.d_vocab, (200,))
-full_OV_circuit_sample = full_OV_circuit[indices, indices].AB
-```
-
-and:
-
-```python
-indices = t.randint(0, model.cfg.d_vocab, (200,))
-full_OV_circuit_sample = full_OV_circuit.A[indices, :] @ full_OV_circuit.B[:, indices]
-```
+When you index a factored matrix, you get back another factored matrix. So rather than explicitly calculating `A[left_indices, :] @ B[:, left_indices]`, we can just write `AB[left_indices, left_indices]`.
 </details>
 
 <details>
@@ -2607,7 +2688,14 @@ This should return about 30.79% - pretty underwhelming. It goes up to 47.73% for
 
 ### Exercise - compute effective circuit
 
-*Again, this is a conceptually important exercise involving matrix products, which should be very quick (~5-10 mins) once you understand what you're being asked to calculate. Make sure you understand what this matrix represents, and why we get the results we do.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 5-10 minutes on this exercise.
+
+This exercise should be very short; it only requires 2 lines of code. Understanding it conceptually is more important than the actual coding.
+```
 
 
 Now we return to why we have *two* induction heads. If both have the same attention pattern, the effective OV circuit is actually $W_U(W_O^{1.4}W_V^{1.4}+W_O^{1.10}W_V^{1.10})W_E$, and this is what matters. So let's re-run our analysis on this!
@@ -2623,14 +2711,7 @@ Because $W_V W_O$ is a rank 64 matrix. The sum of two is a rank 128 matrix. This
 
 
 ```python
-
-if MAIN:
-    W_O_both = einops.rearrange(model.W_O[1, [4, 10]], "head d_head d_model -> (head d_head) d_model")
-    W_V_both = einops.rearrange(model.W_V[1, [4, 10]], "head d_model d_head -> d_model (head d_head)")
-    
-    W_OV_eff = W_E @ FactoredMatrix(W_V_both, W_O_both) @ W_U
-    
-    print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(W_OV_eff):.4f}")
+# YOUR CODE HERE - compute the effective OV circuit, and run `top_1_acc` on it
 
 ```
 
@@ -2683,6 +2764,15 @@ Why is it justified to ignore token encodings? In this case, it turns out that t
 
 ### Exercise - compute full QK-circuit for `0.7`
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 10-15 minutes on this exercise.
+
+The fiddly masking and scaling steps make this exercise a bit harder than the last one. Look at the solution if you don't see where you're going wrong.
+```
+
 *This is another relatively simple matrix multiplication, although it's a bit fiddly on account of the  masking and scaling steps. If you understand what you're being asked to do but still not passing the tests, you should probably look at the solution.*
 
 
@@ -2703,9 +2793,9 @@ def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
     return masked_attn_scores
 
 
-# YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
 
 if MAIN:
+    # YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
     tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
 
 ```
@@ -2714,16 +2804,6 @@ if MAIN:
 <summary>Solution</summary>
 
 
-```python
-def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
-    '''
-    This should take the argmax of each column (ie over dim=0) and return the fraction of the time that's equal to the correct logit
-    '''
-    # SOLUTION
-    AB = full_OV_circuit.AB
-
-    return (t.argmax(AB, dim=1) == t.arange(AB.shape[0]).cuda()).float().mean().item()
-```
 ```python
 layer = 0
 head_index = 7
@@ -2744,6 +2824,7 @@ Once the tests pass, you can plot a corner of your matrix:
 
 if MAIN:
     print(f"Avg lower-diagonal value: {pos_by_pos_pattern.diag(-1).mean():.4f}")
+    
     imshow(
         utils.to_numpy(pos_by_pos_pattern[:100, :100]), 
         labels={"x": "Key", "y": "Query"}, 
@@ -2783,7 +2864,14 @@ with each $y_i$ having shape `[seq, d_model]`, and the sum of $y_i$s being the f
 
 ### Exercise - analyse the relative importance
 
-*Most of these functions just involve indexing and einsums, but figuring out exactly what the question is asking for is the hard part! If you're confused, you should definitely look at the solutions for these exercise, because understanding what you're calculating is much more important than the actual exercise of writing these functions.*
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 15-25 minutes on these exercises.
+
+Most of these functions just involve indexing and einsums, but conceptual understanding / figuring out exactly what the question is asking for is the hard part!
+```
 
 
 We can now analyse the relative importance of these 14 terms! A very crude measure is to take the norm of each term (by component and position).
@@ -2877,9 +2965,9 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     # SOLUTION
     W_Q = model.W_Q[1, ind_head_index]
 
-    return einsum(
-        "n seq d_head, d_head d_model -> n seq d_model",
-        decomposed_qk_input, W_Q
+    return einops.einsum(
+        decomposed_qk_input, W_Q,
+        "n seq d_head, d_head d_model -> n seq d_model"
     )
 
 def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
@@ -2891,9 +2979,9 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     # SOLUTION
     W_K = model.W_K[1, ind_head_index]
 
-    return einsum(
-        "n seq d_head, d_head d_model -> n seq d_model",
-        decomposed_qk_input, W_K
+    return einops.einsum(
+        decomposed_qk_input, W_K,
+        "n seq d_head, d_head d_model -> n seq d_model"
     )
 ```
 </details>
@@ -2918,6 +3006,15 @@ This is a bilinear function of q and k, and so we will end up with a `decomposed
 
 
 ### Exercise - decompose attention scores
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 5-10 minutes on this exercise.
+
+Having already done the previous exercises, this one should be easier.
+```
 
 Implement the function giving the decomposed scores (remember to scale by `sqrt(d_head)`!) For now, don't mask it.
 
@@ -2977,9 +3074,9 @@ def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.T
     The [i, j, 0, 0]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
     '''
     # SOLUTION
-    return einsum(
+    return einops.einsum(
+        decomposed_q, decomposed_k,
         "q_comp q_pos d_model, k_comp k_pos d_model -> q_comp k_comp q_pos k_pos",
-        decomposed_q, decomposed_k
     )
 ```
 </details>
@@ -3053,12 +3150,16 @@ $$
 
 Intuitively, the query is saying **"I'm looking for a token which followed $A$"**, and the key is saying **"I *am* a token which folllowed $A$"** (recall that $A^T W_E W_{OV}^{0.7}$ is the vector which gets moved one position forward by our prev token head `0.7`).
 
+Now, consider the off-diagonal elements $(A, X)$ (for $X \neq A$). We expect these to be small, because the key doesn't match the query:
+
 $$
 A^T \, W_E\, W_{QK}^{1.4}\, W_{OV}^{0.7}\, W_E^T \, X = \underbrace{(\text{I'm looking for a token which followed A})}_\text{query} \boldsymbol{\cdot} \underbrace{(\text{I am a token which followed X})}_{\text{key}}
 $$
 
 
-So we expect this element to be large, since the key contains the information which the query is looking for. But we expect the off-diagonal elements $(A, X)$ (for $X \neq A$) to be small. Hence, we expect this to be the identity.
+Hence, we expect this to be the identity.
+
+An illustration:
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described-K-last.png" width="700">
 
@@ -3067,6 +3168,13 @@ So we expect this element to be large, since the key contains the information wh
 
 
 ### Exercise - compute the K-comp circuit
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 10-20 minutes on this exercise.
+```
 
 Calculate the matrix above, as a `FactoredMatrix` object.
 
@@ -3182,7 +3290,14 @@ How do we formalise overlap? This is basically an open question, but a surprisin
 
 ### Exercise - calculate composition scores
 
-*The exercise of writing the composition score should be very easy (\~5 mins). To fill in the composition score tensors, the main difficulty is figuring out exactly which matrices to use in your functions, but again this should be relatively straightforward (\~5-10 mins).*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 15-25 minutes on these exercises.
+
+Writing a composition score function should be easy. The slightly harder part is getting the right weight matrices in the exercises that come after.
+```
 
 
 
@@ -3272,7 +3387,15 @@ for i in tqdm(range(model.cfg.n_heads)):
 ```
 </details>
 
-#### Setting a Baseline
+
+### Exercise - Setting a Baseline
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than ~10 minutes on this exercise.
+```
 
 To interpret the above graphs we need a baseline! A good one is what the scores look like at initialisation. Make a function that randomly generates a composition score 200 times and tries this. Remember to generate 4 `[d_head, d_model]` matrices, not 2 `[d_model, d_model]` matrices! This model was initialised with **Kaiming Uniform Initialisation**:
 
@@ -3281,7 +3404,7 @@ W = t.empty(shape)
 nn.init.kaiming_uniform_(W, a=np.sqrt(5))
 ```
 
-(Ideally we'd do a more efficient generation involving batching, and more samples, but we won't worry about that here)
+(Ideally we'd do a more efficient generation involving batching, and more samples, but we won't worry about that yet.)
 
 
 ```python
@@ -3314,20 +3437,6 @@ if MAIN:
 
 
 ```python
-def get_comp_score(
-    W_A: Float[Tensor, "in_A out_A"], 
-    W_B: Float[Tensor, "out_A out_B"]
-) -> float:
-    '''
-    Return the composition score between W_A and W_B.
-    '''
-    # SOLUTION
-    W_A_norm = W_A.pow(2).sum().sqrt()
-    W_B_norm = W_B.pow(2).sum().sqrt()
-    W_AB_norm = (W_A @ W_B).pow(2).sum().sqrt()
-
-    return (W_AB_norm / (W_A_norm * W_B_norm)).item()
-
 def generate_single_random_comp_score() -> float:
     '''
     Write a function which generates a single composition score for random matrices
@@ -3455,7 +3564,12 @@ To build intuition, let's consider a couple of extreme examples.
 
 ### Exercise - batching, and using the `FactoredMatrix` class
 
-*Note - this exercise is optional, and not a vitally important conceptual part  of this section. It's also quite difficult (figuring out exactly how to rearrange the tensors to allow for vectorised multiplication is messy!). You can skip this exercise if you don't find it interesting.*
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠⚪⚪⚪⚪
+
+This exercise is optional, and not a vitally important conceptual part  of this section. It's also quite messy to rearrange our tensors in the right way! You are invited to skip it if you want.
+```
 
 
 We can also use this insight to write a more efficient way to calculate composition scores - this is extremely useful if you want to do this analysis at scale! The key is that we know that our matrices have a low rank factorisation, and it's much cheaper to calculate the SVD of a narrow matrix than one that's large in both dimensions. See the [algorithm described at the end of the paper](https://transformer-circuits.pub/2021/framework/index.html#induction-heads:~:text=Working%20with%20Low%2DRank%20Matrices) (search for SVD).

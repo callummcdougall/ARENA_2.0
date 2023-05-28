@@ -315,7 +315,7 @@ if MAIN:
 def raytrace_mesh(
 	rays: Float[Tensor, "nrays rayPoints=2 dims=3"],
 	triangles: Float[Tensor, "ntriangles trianglePoints=3 dims=3"]
-) -> Bool[Tensor, "nrays"]:
+) -> Float[Tensor, "nrays"]:
 	'''
 	For each ray, return the distance to the closest intersecting triangle, or infinity.
 	'''

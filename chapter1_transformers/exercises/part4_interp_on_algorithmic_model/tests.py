@@ -151,8 +151,8 @@ def test_get_out_by_neuron_in_20_dir_less_memory(get_out_by_neuron_in_20_dir_les
 def test_get_q_and_k_for_given_input(get_q_and_k_for_given_input, model, tokenizer):
     import part4_interp_on_algorithmic_model.solutions as solutions
     parens = "()"
-    q, k = get_q_and_k_for_given_input(model, tokenizer, parens, 0, 0)
-    q_expected, k_expected = solutions.get_q_and_k_for_given_input(model, tokenizer, parens, 0, 0)
+    q, k = get_q_and_k_for_given_input(model, tokenizer, parens, 0)
+    q_expected, k_expected = solutions.get_q_and_k_for_given_input(model, tokenizer, parens, 0)
     t.testing.assert_close(q, q_expected)
     t.testing.assert_close(k, k_expected)
     print("All tests in `test_get_q_and_k_for_given_input` passed!")

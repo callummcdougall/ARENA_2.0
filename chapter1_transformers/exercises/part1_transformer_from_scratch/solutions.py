@@ -29,7 +29,7 @@ import webbrowser
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part1_transformer_from_scratch"
+section_dir = (exercises_dir / "part1_transformer_from_scratch").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
@@ -44,8 +44,7 @@ MAIN = __name__ == '__main__'
 
 
 if MAIN:
-	if MAIN:
-		reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
+	reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
 
 # %% 1️⃣ UNDERSTANDING INPUTS & OUTPUTS OF A TRANSFORMER
 
@@ -266,7 +265,6 @@ class PosEmbed(nn.Module):
 		nn.init.normal_(self.W_pos, std=self.cfg.init_range)
 
 	def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
-		
 		batch, seq_len = tokens.shape
 		return einops.repeat(self.W_pos[:seq_len], "seq d_model -> batch seq d_model", batch=batch)
 
@@ -311,7 +309,6 @@ class Attention(nn.Module):
 	def forward(
 		self, normalized_resid_pre: Float[Tensor, "batch posn d_model"]
 	) -> Float[Tensor, "batch posn d_model"]:
-
 		# Calculate query, key and value vectors
 		q = einops.einsum(
 			normalized_resid_pre, self.W_Q,
@@ -479,12 +476,8 @@ if MAIN:
 
 if MAIN:
 	demo_gpt2 = DemoTransformer(Config(debug=False)).to(device)
-	demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False);
-
-# %%
-
-
-if MAIN:
+	demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False)
+	
 	demo_logits = demo_gpt2(tokens)
 
 # %%
@@ -501,6 +494,7 @@ def get_log_probs(
 	return log_probs_for_predicted_tokens
 
 
+
 if MAIN:
 	pred_log_probs = get_log_probs(demo_logits, tokens)
 	print(f"Avg cross entropy loss: {-pred_log_probs.mean():.4f}")
@@ -511,7 +505,7 @@ if MAIN:
 
 
 if MAIN:
-	test_string = '''There is a theory which states that if ever anyone discovers exactly what the Universe is for and why it is here, it will instantly disappear and be replaced by something even more bizarre and inexplicable. There is another theory which states that'''
+	test_string = '''The Total Perspective Vortex derives its picture of the whole Universe on the principle of'''
 	for i in tqdm(range(100)):
 		test_tokens = reference_gpt2.to_tokens(test_string).to(device)
 		demo_logits = demo_gpt2(test_tokens)
@@ -704,6 +698,7 @@ class TransformerSampler:
 		return self.tokenizer.decode(input_ids)
 	
 	
+	
 	@t.inference_mode()
 	def beam_search(
 		self,
@@ -723,7 +718,7 @@ class TransformerSampler:
 		kwargs are passed to sample_next_token, to give detailed instructions on how 
 		new tokens are chosen.
 		'''
-		raise NotImplementedError()
+		pass
 	
 
 	@staticmethod
@@ -778,6 +773,7 @@ class TransformerSampler:
 		return logits / temperature
 	
 
+
 	@staticmethod
 	def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
 		'''
@@ -787,6 +783,7 @@ class TransformerSampler:
 		id_freqs = t.bincount(input_ids, minlength=d_vocab)
 		return logits - freq_penalty * id_freqs
 	
+
 	
 	@staticmethod
 	def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
@@ -796,6 +793,7 @@ class TransformerSampler:
 		sampled_token = t.distributions.categorical.Categorical(logits=logits).sample()
 		return sampled_token.item()
 	
+
 
 	@staticmethod
 	def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
@@ -808,6 +806,7 @@ class TransformerSampler:
 		# Get the actual token id, as an int
 		return top_k_token_ids[sampled_token_idx].item()
 	
+
 
 	@staticmethod
 	def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
@@ -860,7 +859,7 @@ if MAIN:
 	}
 	frequency_of_top_5 = defaultdict(int)
 	
-	N = 7500
+	N = 10_000
 	for _ in tqdm(range(N)):
 		token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
 		frequency_of_top_5[tokenizer.decode(token)] += 1

@@ -2,7 +2,7 @@
 
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
-import functools
+from functools import partial
 import json
 from typing import List, Tuple, Union, Optional, Callable, Dict
 import torch as t
@@ -17,6 +17,8 @@ from tqdm import tqdm
 from jaxtyping import Float, Int, Bool
 from pathlib import Path
 import pandas as pd
+import circuitsvis as cv
+import webbrowser
 from transformer_lens import utils, ActivationCache, HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookPoint
 from transformer_lens.components import LayerNorm
@@ -152,7 +154,7 @@ if MAIN:
 	prob_balanced = logits.softmax(-1)[:, 1]
 	
 	# Display output
-	print("Model confidence:\n" + "\n".join([f"{ex:18} : {prob:.4%}" for ex, prob in zip(examples, prob_balanced)]))
+	print("Model confidence:\n" + "\n".join([f"{ex:18} : {prob:<8.4%} : label={int(label)}" for ex, prob, label in zip(examples, prob_balanced, labels)]))
 
 # %%
 
@@ -190,6 +192,7 @@ def is_balanced_forloop(parens: str) -> bool:
 	return cumsum == 0
 
 
+
 if MAIN:
 	for (parens, expected) in zip(examples, labels):
 		actual = is_balanced_forloop(parens)
@@ -214,6 +217,7 @@ def is_balanced_vectorized(tokens: Float[Tensor, "seq_len"]) -> bool:
 	no_negative_failure = altitude.min() >= 0
 
 	return no_total_elevation_failure & no_negative_failure
+
 
 
 if MAIN:
@@ -248,8 +252,6 @@ def get_activations(
 	If names is a string, returns the activations for that hook name.
 	If names is a list of strings, returns a dictionary mapping hook names to tensors of activations.
 	'''
-	model.reset_hooks()
-
 	names_list = [names] if isinstance(names, str) else names
 	_, cache = model.run_with_cache(
 		toks,
@@ -258,10 +260,6 @@ def get_activations(
 	)
 
 	return cache[names] if isinstance(names, str) else cache
-
-
-if MAIN:
-	tests.test_get_activations(get_activations, model, data_mini)
 
 # %%
 
@@ -317,6 +315,7 @@ def get_ln_fit(
 
 
 
+
 if MAIN:
 	tests.test_get_ln_fit(get_ln_fit, model, data_mini)
 	
@@ -339,6 +338,7 @@ def get_pre_final_ln_dir(model: HookedTransformer, data: BracketsDataset) -> Flo
 	final_ln_coefs = t.from_numpy(final_ln_fit.coef_).to(device)
 
 	return final_ln_coefs.T @ post_final_ln_dir
+
 
 
 
@@ -372,6 +372,7 @@ def get_out_by_components(model: HookedTransformer, data: BracketsDataset) -> Fl
 
 
 
+
 if MAIN:
 	tests.test_get_out_by_components(get_out_by_components, model, data_mini)
 
@@ -391,25 +392,25 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION
-# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
-# remember to subtract the mean per component on balanced samples
-# Get output by components, at sequence position 0 (which is used for classification)
-out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[:, :, 0, :]
-# Get the unbalanced direction for tensors being fed into the final layernorm
-pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
-# Get the size of the contributions for each component
-out_by_component_in_unbalanced_dir = einops.einsum(
-	out_by_components_seq0,
-	pre_final_ln_dir,
-	"comp batch d_model, d_model -> comp batch",
-)
-# Subtract the mean
-out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
-# FLAT SOLUTION END
-
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
+	# remember to subtract the mean per component on balanced samples
+	# Get output by components, at sequence position 0 (which is used for classification)
+	out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[:, :, 0, :]
+	# Get the unbalanced direction for tensors being fed into the final layernorm
+	pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
+	# Get the size of the contributions for each component
+	out_by_component_in_unbalanced_dir = einops.einsum(
+		out_by_components_seq0,
+		pre_final_ln_dir,
+		"comp batch d_model, d_model -> comp batch",
+	)
+	# Subtract the mean
+	out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
+	# FLAT SOLUTION END
+	
 	tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
 	
 	plotly_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
@@ -423,6 +424,7 @@ def is_balanced_vectorized_return_both(toks: Float[Tensor, "batch seq"]) -> Tupl
 	total_elevation_failure = altitude[:, -1] != 0
 	negative_failure = altitude.max(-1).values > 0
 	return total_elevation_failure, negative_failure
+
 
 
 if MAIN:
@@ -455,13 +457,23 @@ if MAIN:
 
 
 if MAIN:
-	plotly_utils.plot_contribution_vs_open_proportion(h20_in_unbalanced_dir, "2.0", failure_types_dict, data)
+	plotly_utils.plot_contribution_vs_open_proportion(
+		h20_in_unbalanced_dir, 
+		"Head 2.0 contribution vs proportion of open brackets '('",
+		failure_types_dict, 
+		data
+	)
 
 # %%
 
 
 if MAIN:
-	plotly_utils.plot_contribution_vs_open_proportion(h21_in_unbalanced_dir, "2.1", failure_types_dict, data)
+	plotly_utils.plot_contribution_vs_open_proportion(
+		h21_in_unbalanced_dir, 
+		"Head 2.1 contribution vs proportion of open brackets '('",
+		failure_types_dict,
+		data
+	)
 
 # %% 3️⃣ UNDERSTANDING THE TOTAL ELEVATION CIRCUIT
 
@@ -505,7 +517,7 @@ def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
 	W_OV = get_WOV(model, 2, 0)
 
 	layer2_ln_fit, r2 = get_ln_fit(model, data, layernorm=model.blocks[2].ln1, seq_pos=1)
-	layer2_ln_coefs = t.from_numpy(layer2_ln_fit.coef_).cuda()
+	layer2_ln_coefs = t.from_numpy(layer2_ln_fit.coef_).to(device)
 
 	pre_final_ln_dir = get_pre_final_ln_dir(model, data)
 
@@ -518,20 +530,20 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION
-# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
-# Remember to subtract the mean for each component for balanced inputs
-pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
-out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
-	pre_layer2_outputs_seqpos1,
-	get_pre_20_dir(model, data),
-	"comp batch emb, emb -> comp batch",
-)
-out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
-# FLAT SOLUTION END
-
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
+	# Remember to subtract the mean for each component for balanced inputs
+	pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
+	out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
+		pre_layer2_outputs_seqpos1,
+		get_pre_20_dir(model, data),
+		"comp batch emb, emb -> comp batch",
+	)
+	out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
+	# FLAT SOLUTION END
+	
 	plotly_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
 
 # %%
@@ -547,26 +559,31 @@ def get_out_by_neuron(
 	data: BracketsDataset, 
 	layer: int, 
 	seq: Optional[int] = None
-) -> Float[Tensor, "batch seq neurons d_model"]:
+) -> Float[Tensor, "batch *seq neuron d_model"]:
 	'''
-	[b, s, i]th element is the vector f(x.T @ W_in[:, i]) @ W_out[i, :] which is written to the residual stream by 
-	the ith neuron (where x is the input to the MLP for the b-th element in the batch, and the s-th sequence position).
+	If seq is not None, then out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :],
+	i.e. the vector which is written to the residual stream by the ith neuron (where x
+	is the input to the residual stream (i.e. shape (batch, seq, d_model)).
+
+	If seq is None, then out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+	(Note, using * in jaxtyping indicates an optional dimension)
 	'''
 	# Get the W_out matrix for this MLP
-	W_out: Float[Tensor, "neurons d_model"] = model.W_out[layer]
+	W_out: Float[Tensor, "neuron d_model"] = model.W_out[layer]
 
 	# Get activations of the layer just after the activation function, i.e. this is f(x.T @ W_in)
-	f_x_W_in: Float[Tensor, "batch seq neurons"] = get_activations(model, data.toks, utils.get_act_name('post', layer))
+	f_x_W_in: Float[Tensor, "batch seq neuron"] = get_activations(model, data.toks, utils.get_act_name('post', layer))
 
 	# f_x_W_in are activations, so they have batch and seq dimensions - this is where we index by seq if necessary
 	if seq is not None:
-		f_x_W_in: Float[Tensor, "batch neurons"] = f_x_W_in[:, seq, :]
+		f_x_W_in: Float[Tensor, "batch neuron"] = f_x_W_in[:, seq, :]
 
 	# Calculate the output by neuron (i.e. so summing over the `neurons` dimension gives the output of the MLP)
 	out = einops.einsum(
 		f_x_W_in, 
 		W_out,
-		"... neurons, neurons d_model -> ... neurons d_model",
+		"... neuron, neuron d_model -> ... neuron d_model",
 	)
 	return out
 
@@ -579,13 +596,15 @@ def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset,
 	In other words we need to take the vector produced by the `get_out_by_neuron` function, and project it onto the 
 	unbalanced direction for head 2.0 (at seq pos = 1).
 	'''
+	# Get neuron output at sequence position 1
 	out_by_neuron_seqpos1 = get_out_by_neuron(model, data, layer, seq=1)
+	
 
 	# For each neuron, project the vector it writes to residual stream along the pre-2.0 unbalanced direction
 	return einops.einsum(
-		get_pre_20_dir(model, data),
 		out_by_neuron_seqpos1,
-		"batch neurons d_model, d_model -> batch neurons",
+		get_pre_20_dir(model, data),
+		"batch neuron d_model, d_model -> batch neuron"
 	)
 
 
@@ -625,7 +644,7 @@ if MAIN:
 if MAIN:
 	for layer in range(2):
 		# Get neuron significances for head 2.0, sequence position #1 output
-		neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir(model, data, layer)[utils.to_numpy(data.starts_open), :]
+		neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[utils.to_numpy(data.starts_open), :]
 		# Plot neurons' activations
 		plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer, renderer="browser")
 
@@ -636,7 +655,6 @@ def get_q_and_k_for_given_input(
 	tokenizer: SimpleTokenizer,
 	parens: str, 
 	layer: int, 
-	head: int
 ) -> Tuple[Float[Tensor, "seq_d_model"], Float[Tensor,  "seq_d_model"]]:
 	'''
 	Returns the queries and keys (both of shape [seq, d_model]) for the given parns input, in the attention head `layer.head`.
@@ -650,7 +668,7 @@ def get_q_and_k_for_given_input(
 		[q_name, k_name]
 	)
 
-	return activations[q_name][0, :, head, :], activations[k_name][0, :, head, :]
+	return activations[q_name][0], activations[k_name][0]
 
 
 
@@ -661,21 +679,28 @@ if MAIN:
 
 
 if MAIN:
+	layer = 0
 	all_left_parens = "".join(["(" * 40])
 	all_right_parens = "".join([")" * 40])
+	
 	model.reset_hooks()
-	q00_all_left, k00_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, 0, 0)
-	q00_all_right, k00_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, 0, 0)
-	k00_avg = (k00_all_left + k00_all_right) / 2
+	q0_all_left, k0_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, layer)
+	q0_all_right, k0_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, layer)
+	k0_avg = (k0_all_left + k0_all_right) / 2
+	
 	
 	# Define hook function to patch in q or k vectors
 def hook_fn_patch_qk(
 	value: Float[Tensor, "batch seq head d_head"], 
 	hook: HookPoint, 
 	new_value: Float[Tensor, "... seq d_head"],
-	head_idx: int = 0
+	head_idx: Optional[int] = None
 ) -> None:
-	value[..., head_idx, :] = new_value
+	if head_idx is not None:
+		value[..., head_idx, :] = new_value[..., head_idx, :]
+	else:
+		value[...] = new_value[...]
+
 
 # Define hook function to display attention patterns (using plotly)
 def hook_fn_display_attn_patterns(
@@ -683,19 +708,26 @@ def hook_fn_display_attn_patterns(
 	hook: HookPoint,
 	head_idx: int = 0
 ) -> None:
-	avg_head_attn_pattern = pattern[:, head_idx].mean(0)
-	plotly_utils.plot_attn_pattern(utils.to_numpy(avg_head_attn_pattern))
+	avg_head_attn_pattern = pattern.mean(0)
+	labels = ["[start]", *[f"{i+1}" for i in range(40)], "[end]"]
+	display(cv.attention.attention_heads(
+		tokens=labels, 
+		attention=avg_head_attn_pattern,
+		attention_head_names=["0.0", "0.1"],
+		max_value=avg_head_attn_pattern.max()
+	))
+
 
 # Run our model on left parens, but patch in the average key values for left vs right parens
 # This is to give us a rough idea how the model behaves on average when the query is a left paren
 
 if MAIN:
 	model.run_with_hooks(
-		tokenizer.tokenize(all_left_parens).cuda(),
+		tokenizer.tokenize(all_left_parens).to(device),
 		return_type=None,
 		fwd_hooks=[
-			(utils.get_act_name("k", 0), functools.partial(hook_fn_patch_qk, new_value=k00_avg)),
-			(utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns),
+			(utils.get_act_name("k", layer), partial(hook_fn_patch_qk, new_value=k0_avg)),
+			(utils.get_act_name("pattern", layer), hook_fn_display_attn_patterns),
 		]
 	)
 
@@ -723,7 +755,7 @@ if MAIN:
 		data_len_40.toks[data_len_40.isbal],
 		return_type=None,
 		fwd_hooks=[
-			(utils.get_act_name("q", 0), functools.partial(hook_fn_patch_qk, new_value=q00_all_left)),
+			(utils.get_act_name("q", 0), partial(hook_fn_patch_qk, new_value=q0_all_left)),
 			(utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns_for_single_query),
 		]
 	)
@@ -736,19 +768,19 @@ def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -
 	return model.W_E[idx]
 
 
-# FLAT SOLUTION
-# YOUR CODE HERE - define v_L and v_R, as described above.
-W_OV = model.W_V[0, 0] @ model.W_O[0, 0]
-
-layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
-layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).cuda()
-
-v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
-v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
-# FLAT SOLUTION END
-
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - define v_L and v_R, as described above.
+	W_OV = model.W_V[0, 0] @ model.W_O[0, 0]
+	
+	layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
+	layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).to(device)
+	
+	v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
+	v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
+	# FLAT SOLUTION END
+	
 	print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
 
 # %%
@@ -772,7 +804,7 @@ def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> f
 
 	We can create random vectors from the standard N(0, I) distribution.
 	'''
-	v2 = t.randn(n_samples, v.shape[0]).cuda()
+	v2 = t.randn(n_samples, v.shape[0]).to(device)
 	v2 /= v2.norm(dim=1, keepdim=True)
 
 	v1 = v / v.norm()

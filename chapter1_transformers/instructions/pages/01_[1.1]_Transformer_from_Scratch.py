@@ -31,9 +31,11 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/transformer-building.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/1Zl3zSdli_epSfaoQ_HeBCuE6dkGWTowd) | [**solutions**](https://colab.research.google.com/drive/1neFAal6woQ7p-u0LpU7ZqvHeEaJ6j2DG)
 
-You can toggle dark mode from the top-right buttons.
+Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
+
+You can toggle dark mode from the buttons on the top-right of this page.
 
 
 # [1.1] - Transformers from scratch
@@ -135,7 +137,7 @@ import webbrowser
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part1_transformer_from_scratch"
+section_dir = (exercises_dir / "part1_transformer_from_scratch").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
@@ -150,8 +152,7 @@ MAIN = __name__ == '__main__'
 
 
 if MAIN:
-    if MAIN:
-        reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
+    reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
 
 ```
 
@@ -241,7 +242,6 @@ We can factor this into 2 questions:
 Let's start with the second of these questions.
 
 
-
 ### Converting sub-units to vectors
 
 We basically make a massive lookup table, which is called an **embedding**. It has one vector for each possible sub-unit of language we might get (we call this set of all sub-units our **vocabulary**). We label every element in our vocabulary with an integer (this labelling never changes), and we use this integer to index into the embedding.
@@ -259,7 +259,7 @@ W_E &= \begin{bmatrix}
 \leftarrow v_0 \rightarrow \\
 \leftarrow v_1 \rightarrow \\
 \vdots \\
-\leftarrow v_{N-1} \rightarrow \\
+\leftarrow v_{d_{vocab}-1} \rightarrow \\
 \end{bmatrix} \quad \text{is the embedding matrix (size }d_{vocab} \times d_{embed}\text{),} \\
 \\
 t_i &= (0, \dots, 0, 1, 0, \dots, 0) \quad \text{is the one-hot encoding for the }i\text{th word (length }d_{vocab}\text{)} \\
@@ -295,14 +295,16 @@ We begin with the 256 ASCII characters as our tokens, and then find the most com
 
 <details>
 <summary>Fun (totally optional) exercise - can you guess what the first-formed 3/4/5/6/7-letter encodings in GPT-2's vocabulary are?</summary>
-They are:
+Run this code to find out:
 
-```
-3 -> "ing"
-4 -> " and"
-5 -> " that"
-6 -> " their"
-7 -> " people"
+```python
+lengths = dict.fromkeys(range(3, 8), "")
+for tok, idx in sorted_vocab:
+    if not lengths.get(len(tok), True):
+        lengths[len(tok)] = tok
+
+for length, tok in lengths.items():
+    print(f"{length}: {tok}")
 ```
 </details>
 
@@ -895,7 +897,7 @@ def load_gpt2_test(cls, gpt2_layer, input):
 
 ```c
 Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1043,7 +1045,6 @@ class PosEmbed(nn.Module):
         nn.init.normal_(self.W_pos, std=self.cfg.init_range)
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
-        
         pass
 
 
@@ -1066,7 +1067,6 @@ class PosEmbed(nn.Module):
         nn.init.normal_(self.W_pos, std=self.cfg.init_range)
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
-        
         # SOLUTION
         batch, seq_len = tokens.shape
         return einops.repeat(self.W_pos[:seq_len], "seq d_model -> batch seq d_model", batch=batch)
@@ -1165,7 +1165,7 @@ if MAIN:
 ```
 
 """, unsafe_allow_html=True)
-    with open("chapter1_transformers/instructions/media/attn_patterns_demo.html", "rb") as file:
+    with open("media/attn_patterns_demo.html", "rb") as file:
         attn_patterns_demo = file.read()
     st.components.v1.html(attn_patterns_demo, height=550)
     st.markdown(r"""
@@ -1319,7 +1319,6 @@ class Attention(nn.Module):
         self, normalized_resid_pre: Float[Tensor, "batch posn d_model"]
     ) -> Float[Tensor, "batch posn d_model"]:
         # SOLUTION
-
         # Calculate query, key and value vectors
         q = einops.einsum(
             normalized_resid_pre, self.W_Q,
@@ -1629,7 +1628,9 @@ class DemoTransformer(nn.Module):
 
 if MAIN:
     demo_gpt2 = DemoTransformer(Config(debug=False)).to(device)
-    demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False);
+    demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False)
+    
+    demo_logits = demo_gpt2(tokens)
 
 ```
 
@@ -1651,13 +1652,6 @@ in other words, the negative log prob of the true classification.
 
 
 ```python
-
-if MAIN:
-    demo_logits = demo_gpt2(tokens)
-
-```
-
-```python
 def get_log_probs(
     logits: Float[Tensor, "batch posn d_vocab"], 
     tokens: Int[Tensor, "batch posn"]
@@ -1668,6 +1662,7 @@ def get_log_probs(
     log_probs_for_predicted_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
 
     return log_probs_for_predicted_tokens
+
 
 
 if MAIN:
@@ -1684,7 +1679,7 @@ We can also greedily generate text, by taking the most likely next token and con
 ```python
 
 if MAIN:
-    test_string = '''There is a theory which states that if ever anyone discovers exactly what the Universe is for and why it is here, it will instantly disappear and be replaced by something even more bizarre and inexplicable. There is another theory which states that'''
+    test_string = '''The Total Perspective Vortex derives its picture of the whole Universe on the principle of'''
     for i in tqdm(range(100)):
         test_tokens = reference_gpt2.to_tokens(test_string).to(device)
         demo_logits = demo_gpt2(test_tokens)
@@ -2050,9 +2045,13 @@ def section_4():
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#top-p-aka-nucleus-sampling'>Top-p aka Nucleus Sampling</a></li>
     <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-implement-sample-top-p'><b>Exercise</b> - implement <code>sample_top_p</code></a></li>
         <li><a class='contents-el' href='#top-p-sampling-example'>Top-p Sampling - Example</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#beam-search'>Beam search</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-implement-beam-search'><b>Exercise</b> - implement <code>beam_search</code></a></li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#caching'>Caching</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#how-can-caching-help-us'>How can caching help us?</a></li>
@@ -2132,7 +2131,7 @@ class TransformerSampler:
         kwargs are passed to sample_next_token, to give detailed instructions on how 
         new tokens are chosen.
         '''
-        raise NotImplementedError()
+        pass
     
 
     @staticmethod
@@ -2225,7 +2224,7 @@ The first thing you should do is implement the `sample` method.
 
 ```c
 Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 ```
@@ -2351,6 +2350,7 @@ class TransformerSampler:
         return self.tokenizer.decode(input_ids)
     
     
+    
     @t.inference_mode()
     def beam_search(
         self,
@@ -2370,7 +2370,7 @@ class TransformerSampler:
         kwargs are passed to sample_next_token, to give detailed instructions on how 
         new tokens are chosen.
         '''
-        raise NotImplementedError()
+        pass
     
 
     @staticmethod
@@ -2426,6 +2426,7 @@ class TransformerSampler:
         return logits / temperature
     
 
+
     @staticmethod
     def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
         '''
@@ -2436,6 +2437,7 @@ class TransformerSampler:
         id_freqs = t.bincount(input_ids, minlength=d_vocab)
         return logits - freq_penalty * id_freqs
     
+
     
     @staticmethod
     def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
@@ -2446,6 +2448,7 @@ class TransformerSampler:
         sampled_token = t.distributions.categorical.Categorical(logits=logits).sample()
         return sampled_token.item()
     
+
 
     @staticmethod
     def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
@@ -2459,6 +2462,7 @@ class TransformerSampler:
         # Get the actual token id, as an int
         return top_k_token_ids[sampled_token_idx].item()
     
+
 
     @staticmethod
     def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
@@ -2520,7 +2524,7 @@ if MAIN:
     }
     frequency_of_top_5 = defaultdict(int)
     
-    N = 7500
+    N = 10_000
     for _ in tqdm(range(N)):
         token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
         frequency_of_top_5[tokenizer.decode(token)] += 1
@@ -2557,7 +2561,7 @@ def sample_basic(logits: t.Tensor) -> int:
 
 ```c
 Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2705,7 +2709,7 @@ Conceptually, the steps in top-k sampling are:
 
 ```c
 Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+Importance: 🟠⚪⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2795,11 +2799,11 @@ The steps are:
 Optionally, refer to the paper [The Curious Case of Neural Text Degeneration](https://arxiv.org/pdf/1904.09751.pdf) for some comparison of different methods.
 
 
-#### Exercise - implement `sample_top_p`
+### Exercise - implement `sample_top_p`
 
 ```c
 Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+Importance: 🟠⚪⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -2939,7 +2943,7 @@ Note how after each "generate" stage, we have `num_beams ** 2` possible completi
 How do we deal with sequences that terminate early (i.e. by generating an EOS token)? Answer - we append them to the list of completions which we'll return at the end, and remove them from the generation tree. Our algorithm terminates when either all our sequences have length `max_new_tokens` larger than the initial prompt length, or we've generated `num_returns_sequences` terminating sequences.
 
 
-#### Exercise - implement `beam_search`
+### Exercise - implement `beam_search`
 
 ```c
 Difficulty: 🟠🟠🟠🟠⚪

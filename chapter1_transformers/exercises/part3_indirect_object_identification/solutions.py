@@ -29,7 +29,7 @@ t.set_grad_enabled(False)
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part3_indirect_object_identification"
+section_dir = (exercises_dir / "part3_indirect_object_identification").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line, scatter, bar
@@ -139,7 +139,9 @@ if MAIN:
 		return answer_logit_diff if per_prompt else answer_logit_diff.mean()
 
 
-# tests.test_logits_to_ave_logit_diff(logits_to_ave_logit_diff)
+
+if MAIN:
+	tests.test_logits_to_ave_logit_diff(logits_to_ave_logit_diff)
 
 # %%
 
@@ -221,9 +223,8 @@ if MAIN:
 		) / batch_size
 
 
-# Test function by checking that it gives the same result as the original logit difference
+	# Test function by checking that it gives the same result as the original logit difference
 
-if MAIN:
 	t.testing.assert_close(
 		residual_stack_to_logit_diff(final_token_residual_stream, cache),
 		original_average_logit_diff
@@ -352,22 +353,22 @@ if MAIN:
 
 # %%
 
+def ioi_metric(
+	logits: Float[Tensor, "batch seq d_vocab"], 
+	answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+	corrupted_logit_diff: float = corrupted_logit_diff,
+	clean_logit_diff: float = clean_logit_diff,
+) -> Float[Tensor, ""]:
+	'''
+	Linear function of logit diff, calibrated so that it equals 0 when performance is 
+	same as on corrupted input, and 1 when performance is same as on clean input.
+	'''
+	patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
+	return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
+
+
 
 if MAIN:
-	def ioi_metric(
-		logits: Float[Tensor, "batch seq d_vocab"], 
-		answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
-		corrupted_logit_diff: float = corrupted_logit_diff,
-		clean_logit_diff: float = clean_logit_diff,
-	) -> Float[Tensor, ""]:
-		'''
-		Linear function of logit diff, calibrated so that it equals 0 when performance is 
-		same as on corrupted input, and 1 when performance is same as on clean input.
-		'''
-		patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
-		return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
-	
-	
 	t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
 	t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
 	t.testing.assert_close(ioi_metric((clean_logits + corrupted_logits) / 2).item(), 0.5)
@@ -762,12 +763,11 @@ if MAIN:
 
 # %%
 
-
 if MAIN:
 	def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
 		'''
 		Returns logit difference between the correct and incorrect answer.
-	
+
 		If per_prompt=True, return the array of differences rather than the average.
 		'''
 		
@@ -778,8 +778,10 @@ if MAIN:
 		# Find logit difference
 		answer_logit_diff = io_logits - s_logits
 		return answer_logit_diff if per_prompt else answer_logit_diff.mean()
-	
-	
+
+
+
+if MAIN:
 	model.reset_hooks(including_permanent=True)
 	
 	ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
@@ -811,22 +813,22 @@ if MAIN:
 
 # %%
 
+def ioi_metric_2(
+	logits: Float[Tensor, "batch seq d_vocab"],
+	clean_logit_diff: float = ioi_average_logit_diff,
+	corrupted_logit_diff: float = abc_average_logit_diff,
+	ioi_dataset: IOIDataset = ioi_dataset,
+) -> float:
+	'''
+	We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+	and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+	'''
+	patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+	return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+
+
 
 if MAIN:
-	def ioi_metric_2(
-		logits: Float[Tensor, "batch seq d_vocab"],
-		clean_logit_diff: float = ioi_average_logit_diff,
-		corrupted_logit_diff: float = abc_average_logit_diff,
-		ioi_dataset: IOIDataset = ioi_dataset,
-	) -> float:
-		'''
-		We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
-		and -1 when performance has been destroyed (i.e. is same as ABC dataset).
-		'''
-		patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
-		return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
-	
-	
 	print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
 	print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
 
@@ -971,7 +973,6 @@ def patch_head_input(
 	orig_activation[:, :, heads_to_patch] = patched_cache[hook.name][:, :, heads_to_patch]
 	return orig_activation
 # FLAT SOLUTION END
-
 
 if MAIN:
 	def get_path_patch_head_to_heads(
@@ -1529,7 +1530,7 @@ if MAIN:
 		model.add_hook(lambda name: name.endswith("z"), hook_fn, is_permanent=is_permanent)
 
 		return model
-# FLAT SOLUTION END
+	# FLAT SOLUTION END
 
 # %%
 

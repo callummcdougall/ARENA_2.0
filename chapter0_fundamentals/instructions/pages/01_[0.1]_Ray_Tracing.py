@@ -52,7 +52,7 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#triangle-coordinates'>Triangle Coordinates</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#triangle-ray-intersection'>Triangle-Ray Intersection</a></li>
-        <li><a class='contents-el' href='#exercise-implement-triangle-line-intersects'><b>Exercise</b> - implement <code>triangle_line_intersects</code></a></li>
+        <li><a class='contents-el' href='#exercise-implement-triangle-ray-intersects'><b>Exercise</b> - implement <code>triangle_ray_intersects</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#single-triangle-rendering'>Single-Triangle Rendering</a></li>
     <li><ul class="contents">
@@ -497,7 +497,6 @@ def intersect_ray_1d(ray: t.Tensor, segment: t.Tensor) -> bool:
 
 
 ### Aside - typechecking
-
 
 
 Typechecking is a useful habit to get into. It's not strictly necessary, but it can be a great help when you're debugging.
@@ -990,7 +989,7 @@ $$
 We can therefore find the coordinates `s`, `u`, `v` of the intersection point by solving the linear system above.
 
 
-### Exercise - implement `triangle_line_intersects`
+### Exercise - implement `triangle_ray_intersects`
 
 ```c
 Difficulty: 🟠🟠🟠⚪⚪
@@ -999,7 +998,7 @@ Importance: 🟠🟠🟠⚪⚪
 You should spend up to 15-20 minutes on this exercise.
 ```
 
-Using `torch.linalg.solve` and `torch.stack`, implement `triangle_line_intersects(A, B, C, O, D)`.
+Using `torch.linalg.solve` and `torch.stack`, implement `triangle_ray_intersects(A, B, C, O, D)`.
 
 A few tips:
 
