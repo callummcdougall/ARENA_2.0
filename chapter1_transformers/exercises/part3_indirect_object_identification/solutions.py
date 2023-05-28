@@ -353,18 +353,19 @@ if MAIN:
 
 # %%
 
-def ioi_metric(
-	logits: Float[Tensor, "batch seq d_vocab"], 
-	answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
-	corrupted_logit_diff: float = corrupted_logit_diff,
-	clean_logit_diff: float = clean_logit_diff,
-) -> Float[Tensor, ""]:
-	'''
-	Linear function of logit diff, calibrated so that it equals 0 when performance is 
-	same as on corrupted input, and 1 when performance is same as on clean input.
-	'''
-	patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
-	return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
+if MAIN:
+	def ioi_metric(
+		logits: Float[Tensor, "batch seq d_vocab"], 
+		answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+		corrupted_logit_diff: float = corrupted_logit_diff,
+		clean_logit_diff: float = clean_logit_diff,
+	) -> Float[Tensor, ""]:
+		'''
+		Linear function of logit diff, calibrated so that it equals 0 when performance is 
+		same as on corrupted input, and 1 when performance is same as on clean input.
+		'''
+		patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
+		return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
 
 
 
@@ -813,18 +814,19 @@ if MAIN:
 
 # %%
 
-def ioi_metric_2(
-	logits: Float[Tensor, "batch seq d_vocab"],
-	clean_logit_diff: float = ioi_average_logit_diff,
-	corrupted_logit_diff: float = abc_average_logit_diff,
-	ioi_dataset: IOIDataset = ioi_dataset,
-) -> float:
-	'''
-	We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
-	and -1 when performance has been destroyed (i.e. is same as ABC dataset).
-	'''
-	patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
-	return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+if MAIN:
+	def ioi_metric_2(
+		logits: Float[Tensor, "batch seq d_vocab"],
+		clean_logit_diff: float = ioi_average_logit_diff,
+		corrupted_logit_diff: float = abc_average_logit_diff,
+		ioi_dataset: IOIDataset = ioi_dataset,
+	) -> float:
+		'''
+		We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+		and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+		'''
+		patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+		return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
 
 
 

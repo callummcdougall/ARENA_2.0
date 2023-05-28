@@ -172,6 +172,9 @@ details {
     padding-bottom:1px;
     border-radius: 4px;
 }
+details > div.stCodeBlock {
+    margin-bottom: 1rem;
+} 
 summary {
     margin-bottom: 5px;
 }
