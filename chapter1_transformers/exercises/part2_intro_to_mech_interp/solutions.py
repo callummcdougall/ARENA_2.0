@@ -1,5 +1,7 @@
 # %%
 
+import os
+import sys
 import plotly.express as px
 import torch as t
 from torch import Tensor
@@ -8,13 +10,13 @@ import torch.nn.functional as F
 from pathlib import Path
 import numpy as np
 import einops
-from fancy_einsum import einsum
 from jaxtyping import Int, Float
 from typing import List, Optional, Tuple
 import functools
 from tqdm import tqdm
 from IPython.display import display
 import webbrowser
+import gdown
 from transformer_lens.hook_points import HookPoint
 from transformer_lens import utils, HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
 import circuitsvis as cv
@@ -22,10 +24,10 @@ import circuitsvis as cv
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part2_intro_to_mech_interp"
+section_dir = (exercises_dir / "part2_intro_to_mech_interp").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-from plotly_utils import imshow, plot_comp_scores, hist, plot_logit_attribution
+from plotly_utils import imshow, hist, plot_comp_scores, plot_logit_attribution, plot_loss_difference
 from part1_transformer_from_scratch.solutions import get_log_probs
 import part2_intro_to_mech_interp.tests as tests
 
@@ -40,7 +42,7 @@ MAIN = __name__ == "__main__"
 
 
 if MAIN:
-	gpt2_small: HookedTransformer = HookedTransformer.from_pretrained("gpt2-small").to(device)
+	gpt2_small: HookedTransformer = HookedTransformer.from_pretrained("gpt2-small")
 
 # %%
 
@@ -110,8 +112,8 @@ if MAIN:
 	# YOUR CODE HERE - define `layer0_pattern_from_q_and_k` manually, by manually performing the steps of the attention calculation (dot product, masking, scaling, softmax)
 	q, k = gpt2_cache["q", 0], gpt2_cache["k", 0]
 	seq, nhead, headsize = q.shape
-	layer0_attn_scores = einsum("seqQ n h, seqK n h -> n seqQ seqK", q, k)
-	mask = t.triu(t.ones((seq, seq), dtype=bool), diagonal=1).cuda()
+	layer0_attn_scores = einops.einsum(q, k, "seqQ n h, seqK n h -> n seqQ seqK")
+	mask = t.triu(t.ones((seq, seq), dtype=bool), diagonal=1).to(device)
 	layer0_attn_scores.masked_fill_(mask, -1e9)
 	layer0_pattern_from_q_and_k = (layer0_attn_scores / headsize**0.5).softmax(-1)
 	# FLAT SOLUTION END
@@ -157,23 +159,21 @@ if MAIN:
 
 # %%
 
-# !gdown https://drive.google.com/uc?id=1vcZLJnJoYKQs-2KOjkd6LvHZrkSdoxhu
-
 
 if MAIN:
-	CHAPTER = r"chapter1_transformers"
-	EXERCISES_DIR = os.getcwd().split(CHAPTER)[0] + f"{CHAPTER}/exercises"
-	SECTION_DIR = Path(EXERCISES_DIR) / "part2_intro_to_mech_interp"
-	WEIGHT_PATH = (SECTION_DIR / "attn_only_2L_half.pth").resolve()
+	weights_dir = (section_dir / "attn_only_2L_half.pth").resolve()
 	
-	assert WEIGHT_PATH.exists()
+	if not weights_dir.exists():
+		url = "https://drive.google.com/uc?id=1vcZLJnJoYKQs-2KOjkd6LvHZrkSdoxhu"
+		output = str(weights_dir)
+		gdown.download(url, output)
 
 # %%
 
 
 if MAIN:
 	model = HookedTransformer(cfg)
-	pretrained_weights = t.load(WEIGHT_PATH, map_location=device)
+	pretrained_weights = t.load(weights_dir, map_location=device)
 	model.load_state_dict(pretrained_weights)
 
 # %%
@@ -183,16 +183,18 @@ if MAIN:
 	text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
 	
 	logits, cache = model.run_with_cache(text, remove_batch_dim=True)
-	logits2, cache2 = model.run_with_cache(text, remove_batch_dim=True)
 
 # %%
 
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - visualize attention
 	str_tokens = model.to_str_tokens(text)
 	for layer in range(model.cfg.n_layers):
 		attention_pattern = cache["pattern", layer]
 		display(cv.attention.attention_patterns(tokens=str_tokens, attention=attention_pattern))
+	# FLAT SOLUTION END
 
 # %%
 
@@ -239,6 +241,7 @@ def first_attn_detector(cache: ActivationCache) -> List[str]:
 	return attn_heads
 
 
+
 if MAIN:
 	print("Heads attending to current token  = ", ", ".join(current_attn_detector(cache)))
 	print("Heads attending to previous token = ", ", ".join(prev_attn_detector(cache)))
@@ -246,7 +249,9 @@ if MAIN:
 
 # %%
 
-def generate_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> t.Tensor:
+def generate_repeated_tokens(
+	model: HookedTransformer, seq_len: int, batch: int = 1
+) -> Int[Tensor, "batch full_seq_len"]:
 	'''
 	Generates a sequence of repeated random tokens
 
@@ -255,7 +260,7 @@ def generate_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int 
 	'''
 	prefix = (t.ones(batch, 1) * model.tokenizer.bos_token_id).long()
 	rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
-	rep_tokens = t.cat([prefix, rep_tokens_half, rep_tokens_half], dim=-1).cuda()
+	rep_tokens = t.cat([prefix, rep_tokens_half, rep_tokens_half], dim=-1).to(device)
 	return rep_tokens
 
 
@@ -289,14 +294,7 @@ if MAIN:
 	print(f"Performance on the first half: {log_probs[:seq_len].mean():.3f}")
 	print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
 	
-	fig = px.line(
-		utils.to_numpy(log_probs), hover_name=rep_str[1:],
-		title=f"Per token log-prob on correct token, for sequence of length {seq_len}*2 (repeated twice)",
-		labels={"index": "Sequence position", "value": "Loss"}
-	).update_layout(showlegend=False, hovermode="x unified")
-	fig.add_vrect(x0=0, x1=seq_len-.5, fillcolor="red", opacity=0.2, line_width=0)
-	fig.add_vrect(x0=seq_len-.5, x1=2*seq_len-1, fillcolor="green", opacity=0.2, line_width=0)
-	fig.show()
+	plot_loss_difference(log_probs, rep_str, seq_len)
 
 # %%
 
@@ -334,7 +332,8 @@ if MAIN:
 	batch = 10
 	rep_tokens_10 = generate_repeated_tokens(model, seq_len, batch)
 	
-	# We make a tensor to store the induction score for each head. We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
+	# We make a tensor to store the induction score for each head.
+	# We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
 	induction_score_store = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
 	
 def induction_score_hook(
@@ -344,7 +343,7 @@ def induction_score_hook(
 	'''
 	Calculates the induction score, and stores it in the [layer, head] position of the `induction_score_store` tensor.
 	'''
-	# We take the diagonal of attention paid from each destination position to source positions seq_len-1 tokens back
+	# Take the diagonal of attn paid from each dest posn to src posns (seq_len-1) tokens back
 	# (This only has entries for tokens with index>=seq_len)
 	induction_stripe = pattern.diagonal(dim1=-2, dim2=-1, offset=1-seq_len)
 	# Get an average score per head
@@ -352,7 +351,7 @@ def induction_score_hook(
 	# Store the result.
 	induction_score_store[hook.layer(), :] = induction_score
 
-# We make a boolean filter on activation names, that's true only on attention pattern names.
+# We make a boolean filter on activation names, that's true only on attention pattern names
 
 if MAIN:
 	pattern_hook_names_filter = lambda name: name.endswith("pattern")
@@ -390,64 +389,75 @@ def visualize_pattern_hook(
 		)
 	)
 
-# FLAT SOLUTION
-# YOUR CODE HERE - find induction heads in gpt2_small
-seq_len = 50
-batch = 10
-rep_tokens_10 = generate_repeated_tokens(gpt2_small, seq_len, batch)
 
-induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads), device=gpt2_small.cfg.device)
-
-gpt2_small.run_with_hooks(
-	rep_tokens_10, 
-	return_type=None, # For efficiency, we don't need to calculate the logits
-	fwd_hooks=[(
-		pattern_hook_names_filter,
-		induction_score_hook
-	)]
-)
-
-imshow(
-	induction_score_store, 
-	labels={"x": "Head", "y": "Layer"},
-	title="Induction Score by Head", 
-	text_auto=".1f",
-	width=800
-)
-
-# Observation: heads 5.1, 5.5, 6.9, 7.2, 7.10 are all strongly induction-y.
-# Confirm observation by visualizing attn patterns for layers 5 through 7:
-
-for induction_head_layer in [5, 6, 7]:
+if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - find induction heads in gpt2_small
+	seq_len = 50
+	batch = 10
+	rep_tokens_10 = generate_repeated_tokens(gpt2_small, seq_len, batch)
+	
+	induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads), device=gpt2_small.cfg.device)
+	
 	gpt2_small.run_with_hooks(
-		rep_tokens, 
+		rep_tokens_10, 
 		return_type=None, # For efficiency, we don't need to calculate the logits
-		fwd_hooks=[
-			(utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
-		]
+		fwd_hooks=[(
+			pattern_hook_names_filter,
+			induction_score_hook
+		)]
 	)
-# FLAT SOLUTION END
+	
+	imshow(
+		induction_score_store, 
+		labels={"x": "Head", "y": "Layer"},
+		title="Induction Score by Head", 
+		text_auto=".1f",
+		width=800
+	)
+	
+	# Observation: heads 5.1, 5.5, 6.9, 7.2, 7.10 are all strongly induction-y.
+	# Confirm observation by visualizing attn patterns for layers 5 through 7:
+	
+	for induction_head_layer in [5, 6, 7]:
+		gpt2_small.run_with_hooks(
+			rep_tokens, 
+			return_type=None, # For efficiency, we don't need to calculate the logits
+			fwd_hooks=[
+				(utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
+			]
+		)
+	# FLAT SOLUTION END
 
 # %%
 
-def logit_attribution(embed, l1_results, l2_results, W_U, tokens) -> t.Tensor:
+def logit_attribution(
+	embed: Float[Tensor, "seq d_model"],
+	l1_results: Float[Tensor, "seq nheads d_model"],
+	l2_results: Float[Tensor, "seq nheads d_model"],
+	W_U: Float[Tensor, "d_model d_vocab"],
+	tokens: Float[Tensor, "seq"]
+) -> Float[Tensor, "seq-1 n_components"]:
 	'''
 	Inputs:
-		embed (seq_len, d_model): the embeddings of the tokens (i.e. token + position embeddings)
-		l1_results (seq_len, n_heads, d_model): the outputs of the attention heads at layer 1 (with head as one of the dimensions)
-		l2_results (seq_len, n_heads, d_model): the outputs of the attention heads at layer 2 (with head as one of the dimensions)
-		W_U (d_model, d_vocab): the unembedding matrix
+		embed: the embeddings of the tokens (i.e. token + position embeddings)
+		l1_results: the outputs of the attention heads at layer 1 (with head as one of the dimensions)
+		l2_results: the outputs of the attention heads at layer 2 (with head as one of the dimensions)
+		W_U: the unembedding matrix
+		tokens: the token ids of the sequence
+
 	Returns:
 		Tensor of shape (seq_len-1, n_components)
 		represents the concatenation (along dim=-1) of logit attributions from:
-			the direct path (position-1,1)
-			layer 0 logits (position-1, n_heads)
-			and layer 1 logits (position-1, n_heads)
+			the direct path (seq-1,1)
+			layer 0 logits (seq-1, n_heads)
+			layer 1 logits (seq-1, n_heads)
+		so n_components = 1 + 2*n_heads
 	'''
 	W_U_correct_tokens = W_U[:, tokens[1:]]
-	direct_attributions = einsum("emb seq, seq emb -> seq", W_U_correct_tokens, embed[:-1])
-	l1_attributions = einsum("emb seq, seq nhead emb -> seq nhead", W_U_correct_tokens, l1_results[:-1])
-	l2_attributions = einsum("emb seq, seq nhead emb -> seq nhead", W_U_correct_tokens, l2_results[:-1])
+	direct_attributions = einops.einsum(W_U_correct_tokens, embed[:-1], "emb seq, seq emb -> seq")
+	l1_attributions = einops.einsum(W_U_correct_tokens, l1_results[:-1], "emb seq, seq nhead emb -> seq nhead")
+	l2_attributions = einops.einsum(W_U_correct_tokens, l2_results[:-1], "emb seq, seq nhead emb -> seq nhead")
 	return t.concat([direct_attributions.unsqueeze(-1), l1_attributions, l2_attributions], dim=-1)
 
 
@@ -476,7 +486,8 @@ if MAIN:
 	l1_results = cache["result", 0]
 	l2_results = cache["result", 1]
 	logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
-	plot_logit_attribution(logit_attr, tokens)
+	
+	plot_logit_attribution(model, logit_attr, tokens)
 
 # %%
 
@@ -500,8 +511,8 @@ if MAIN:
 	assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
 	assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
 	
-	plot_logit_attribution(first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
-	plot_logit_attribution(second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+	plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+	plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
 
 # %%
 
@@ -522,6 +533,7 @@ def cross_entropy_loss(logits, tokens):
 	log_probs = F.log_softmax(logits, dim=-1)
 	pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
 	return -pred_log_probs.mean()
+
 
 
 def get_ablation_scores(
@@ -637,14 +649,14 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION
-# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
-indices = t.randint(0, model.cfg.d_vocab, (200,))
-full_OV_circuit_sample = full_OV_circuit[indices, indices].AB
-# FLAT SOLUTION END
-
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
+	indices = t.randint(0, model.cfg.d_vocab, (200,))
+	full_OV_circuit_sample = full_OV_circuit[indices, indices].AB
+	# FLAT SOLUTION END
+	
 	imshow(
 		full_OV_circuit_sample,
 		labels={"x": "Input token", "y": "Logits on output token"},
@@ -660,49 +672,42 @@ def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
 	'''
 	AB = full_OV_circuit.AB
 
-	return (t.argmax(AB, dim=1) == t.arange(AB.shape[0]).cuda()).float().mean().item()
+	return (t.argmax(AB, dim=1) == t.arange(AB.shape[0]).to(device)).float().mean().item()
 
 
 
-if MAIN:
-	print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit):.4f}")
+# if MAIN:
+# 	print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit):.4f}")
 
 # %%
 
-
-if MAIN:
-	W_O_both = einops.rearrange(model.W_O[1, [4, 10]], "head d_head d_model -> (head d_head) d_model")
-	W_V_both = einops.rearrange(model.W_V[1, [4, 10]], "head d_model d_head -> d_model (head d_head)")
-	
-	W_OV_eff = W_E @ FactoredMatrix(W_V_both, W_O_both) @ W_U
-	
-	print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(W_OV_eff):.4f}")
+# YOUR CODE HERE - compute the effective OV circuit, and run `top_1_acc` on it
 
 # %%
 
 def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
 	'''Mask the attention scores so that tokens don't attend to previous tokens.'''
-	assert attn_scores.shape == (model.cfg.n_ctx, model.cfg.n_ctx)
+	# assert attn_scores.shape == (model.cfg.n_ctx, model.cfg.n_ctx)
 	mask = t.tril(t.ones_like(attn_scores)).bool()
 	neg_inf = t.tensor(-1.0e6).to(attn_scores.device)
 	masked_attn_scores = t.where(mask, attn_scores, neg_inf)
 	return masked_attn_scores
 
 
-# FLAT SOLUTION
-# YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
-layer = 0
-head_index = 7
-
-W_pos = model.W_pos
-W_QK = model.W_Q[layer, head_index] @ model.W_K[layer, head_index].T
-pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
-masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
-pos_by_pos_pattern = t.softmax(masked_scaled, dim=-1)
-# FLAT SOLUTION END
-
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
+	layer = 0
+	head_index = 7
+	
+	W_pos = model.W_pos
+	W_QK = model.W_Q[layer, head_index] @ model.W_K[layer, head_index].T
+	pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
+	masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
+	pos_by_pos_pattern = t.softmax(masked_scaled, dim=-1)
+	# FLAT SOLUTION END
+	
 	tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
 
 # %%
@@ -710,6 +715,7 @@ if MAIN:
 
 if MAIN:
 	print(f"Avg lower-diagonal value: {pos_by_pos_pattern.diag(-1).mean():.4f}")
+	
 	imshow(
 		utils.to_numpy(pos_by_pos_pattern[:100, :100]), 
 		labels={"x": "Key", "y": "Query"}, 
@@ -740,9 +746,9 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
 	'''
 	W_Q = model.W_Q[1, ind_head_index]
 
-	return einsum(
-		"n seq d_head, d_head d_model -> n seq d_model",
-		decomposed_qk_input, W_Q
+	return einops.einsum(
+		decomposed_qk_input, W_Q,
+		"n seq d_head, d_head d_model -> n seq d_model"
 	)
 
 
@@ -754,9 +760,9 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
 	'''
 	W_K = model.W_K[1, ind_head_index]
 
-	return einsum(
-		"n seq d_head, d_head d_model -> n seq d_model",
-		decomposed_qk_input, W_K
+	return einops.einsum(
+		decomposed_qk_input, W_K,
+		"n seq d_head, d_head d_model -> n seq d_model"
 	)
 
 
@@ -789,9 +795,9 @@ def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.T
 	
 	The [i, j, 0, 0]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
 	'''
-	return einsum(
+	return einops.einsum(
+		decomposed_q, decomposed_k,
 		"q_comp q_pos d_model, k_comp k_pos d_model -> q_comp k_comp q_pos k_pos",
-		decomposed_q, decomposed_k
 	)
 
 
@@ -854,7 +860,7 @@ if MAIN:
 	
 	tests.test_find_K_comp_full_circuit(find_K_comp_full_circuit, model)
 	
-	print(f"Fraction of tokens where the highest activating key is the same token: {top_1_acc(K_comp_circuit.T):.4f}")
+	# print(f"Fraction of tokens where the highest activating key is the same token: {top_1_acc(K_comp_circuit.T):.4f}")
 
 # %%
 
