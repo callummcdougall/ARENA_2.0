@@ -29,6 +29,8 @@ def test_logits_to_ave_logit_diff(logits_to_ave_logit_diff: Callable):
     t.testing.assert_close(actual, expected)
 
     actual = logits_to_ave_logit_diff(logits, answer_tokens)
-    expected = solutions.logits_to_ave_logit_diff(logits, answer_tokens)
-    t.testing.assert_close(actual, expected)
+    # expected = solutions.logits_to_ave_logit_diff(logits, answer_tokens)
+    t.testing.assert_close(actual, expected.mean())
+
+    print("All tests in `test_logits_to_ave_logit_diff` passed!")
 
