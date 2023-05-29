@@ -460,3 +460,383 @@ if MAIN:
 
     print(test_string)
 # %%
+if MAIN:
+    model_cfg = Config(
+        debug=False, 
+        d_model=256, 
+        n_heads=4, 
+        d_head=64, 
+        d_mlp=1024, 
+        n_layers=2, 
+        n_ctx=256, 
+        d_vocab=reference_gpt2.cfg.d_vocab
+    )
+    model = DemoTransformer(model_cfg)
+
+#%%
+@dataclass
+class TransformerTrainingArgs():
+    batch_size = 8
+    max_epochs = 1
+    max_steps = 250
+    log_every = 10
+    lr = 1e-3
+    weight_decay = 1e-2
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day1-transformer"
+    run_name: Optional[str] = None
+    log_every_n_steps: int = 1
+
+
+if MAIN:
+    args = TransformerTrainingArgs()
+
+#%%
+if MAIN:
+    dataset = datasets.load_dataset("NeelNanda/pile-10k", split="train").remove_columns("meta")
+    print(dataset)
+    print(dataset[0]['text'][:100])
+
+#%%
+if MAIN:
+    tokenized_dataset = tokenize_and_concatenate(
+        dataset.train_test_split(1000)["test"],
+        # dataset,
+        reference_gpt2.tokenizer,
+        streaming=False,
+        max_length=model.cfg.n_ctx,
+        column_name="text",
+        add_bos_token=True,
+        num_proc=4,
+    )
+    data_loader = DataLoader(
+        tokenized_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+    )
+
+#%%
+if MAIN:
+    first_batch = data_loader.dataset[:args.batch_size]
+
+    print(first_batch.keys())
+    print(first_batch['tokens'].shape)
+
+#%%
+class LitTransformer(pl.LightningModule):
+    def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
+        super().__init__()
+        self.model = model
+        self.cfg = model.cfg
+        self.args = args
+        self.data_loader = data_loader
+
+    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+        logits = self.model(tokens)
+        return logits
+
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Float[Tensor, ""]:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        tokens = batch["tokens"].to(device)
+        logits = self.model(tokens)
+        loss = -get_log_probs(logits, tokens).mean()
+        self.log("train_loss", loss)
+
+        return loss
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        optimizer = t.optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
+        return optimizer
+
+    def train_dataloader(self):
+        return self.data_loader
+
+
+#%%
+if MAIN:
+    litmodel = LitTransformer(args, model, data_loader)
+    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        logger=logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
+    wandb.finish()
+
+
+#%%
+if MAIN:
+    d_vocab = model.cfg.d_vocab
+
+    print(f"d_vocab = {d_vocab}")
+    print(f"Cross entropy loss on uniform distribution = {math.log(d_vocab)}")
+
+
+#%%
+if MAIN:
+    toks = tokenized_dataset[:]["tokens"].flatten()
+
+    d_vocab = model.cfg.d_vocab
+    freqs = t.bincount(toks, minlength=d_vocab)
+    probs = freqs.float() / freqs.sum()
+
+    distn = t.distributions.categorical.Categorical(probs=probs)
+    entropy = distn.entropy()
+
+    print(f"Entropy of training data = {entropy}")
+
+
+#%%
+if MAIN:
+    model_cfg = Config()
+    model = DemoTransformer(model_cfg).to(device)
+    model.load_state_dict(reference_gpt2.state_dict(), strict=False)
+
+    tokenizer = reference_gpt2.tokenizer
+
+
+#%%
+class TransformerSampler:
+
+    def __init__(self, model: DemoTransformer, tokenizer: GPT2TokenizerFast):
+        self.model = model
+        self.cfg = model.cfg
+        self.tokenizer = tokenizer
+
+    @t.inference_mode()
+    def sample(self, prompt: str, max_tokens_generated=100, verbose=False, **kwargs):
+        '''
+        Returns a string of autoregressively generated text, starting from the prompt.
+
+        Sampling terminates at max_tokens_generated, or when the model generates an
+        end-of-sequence token.
+
+        kwargs are passed to sample_next_token, to give detailed instructions on how 
+        new tokens are chosen.
+        '''
+        tokens_generated = 0
+        not_eos = True
+        token_ids = self.tokenizer(prompt, return_tensors="pt").to(device)["input_ids"]
+        while tokens_generated < max_tokens_generated and not_eos:
+            logits = self.model(token_ids)
+            next_token_id = logits.argmax(dim=-1)[:, -1]
+            token_ids = t.concat([token_ids, next_token_id.unsqueeze(0)], dim=-1)
+
+            # Check for termination
+            tokens_generated += 1
+            not_eos = self.tokenizer.eos_token_id != next_token_id
+
+        return tokenizer.batch_decode(token_ids)[0]
+
+    @t.inference_mode()
+    def beam_search(
+        self,
+        prompt: str, 
+        num_return_sequences: int, 
+        num_beams: int, 
+        max_new_tokens: int, 
+        no_repeat_ngram_size: int = 0,
+        verbose=False
+    ) -> List[Tuple[float, t.Tensor]]:
+        '''
+        Returns a string of autoregressively generated text, starting from the prompt.
+
+        Sampling terminates at max_tokens_generated, or when the model generates an
+        end-of-sequence token.
+
+        kwargs are passed to sample_next_token, to give detailed instructions on how 
+        new tokens are chosen.
+        '''
+        pass
+
+
+    @staticmethod
+    def sample_next_token(
+        input_ids: Int[Tensor, "d_vocab"], 
+        logits: Float[Tensor, "d_vocab"], 
+        temperature=1.0, 
+        top_k=0, 
+        top_p=0.0, 
+        frequency_penalty=0.0,
+        seed=None
+    ):
+        assert input_ids.ndim == 1, "input_ids should be a 1D sequence of token ids"
+        assert temperature >= 0, "Temperature should be non-negative"
+        assert 0 <= top_p <= 1.0, "Top-p must be a probability"
+        assert 0 <= top_k, "Top-k must be non-negative"
+        assert not (top_p != 0 and top_k != 0), "At most one of top-p and top-k supported"
+
+        # Set random seeds for reproducibility
+        if seed is not None:
+            t.manual_seed(seed)
+            np.random.seed(seed)
+
+        # Apply all the specialized sampling methods
+        if temperature == 0:
+            return TransformerSampler.greedy_search(logits)
+        elif temperature != 1.0:
+            logits = TransformerSampler.apply_temperature(logits, temperature)
+        if frequency_penalty != 0.0:
+            logits = TransformerSampler.apply_frequency_penalty(input_ids, logits, frequency_penalty)
+        if top_k > 0:
+            return TransformerSampler.sample_top_k(logits, top_k)
+        if top_p > 0.0:
+            return TransformerSampler.sample_top_p(logits, top_p)
+        return TransformerSampler.sample_basic(logits)
+
+
+    @staticmethod
+    def greedy_search(logits: Float[Tensor, "d_vocab"]) -> int:
+        '''
+        Returns the most likely token (as an int).
+        '''
+        out = logits.argmax().item()
+        return out
+
+
+    @staticmethod
+    def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
+        '''
+        Applies temperature scaling to the logits.
+        '''
+        return logits / temperature
+
+    @staticmethod
+    def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
+        '''
+        Applies a frequency penalty to the logits.
+        '''
+        counts = t.bincount(input_ids, minlength=logits.shape[-1])
+        logits -= counts * freq_penalty
+        return logits
+
+    @staticmethod
+    def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
+        '''
+        Samples from the distribution defined by the logits.
+        '''
+        categorical = t.distributions.categorical.Categorical
+        # probs = logits.softmax(dim=-1)
+        next_token_id = categorical(logits=logits).sample().item()
+        return next_token_id
+
+    @staticmethod
+    def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
+        '''
+        Samples from the top k most likely tokens.
+        '''
+        pass
+
+    @staticmethod
+    def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
+        '''
+        Samples from the most likely tokens which make up at least p cumulative probability.
+        '''
+        pass
+
+
+#%%
+if MAIN:
+    sampler = TransformerSampler(model, tokenizer)
+
+    prompt = "Jingle bells, jingle bells, jingle all the way"
+    print(f"Greedy decoding with prompt: {prompt!r}\n")
+
+    output = sampler.sample(prompt, max_tokens_generated=8, temperature=0.0)
+    print(f"Your model said: {output!r}\n")
+
+    expected = "Jingle bells, jingle bells, jingle all the way up to the top of the mountain."
+    assert output == expected
+
+    print("Tests passed!")
+
+
+#%%
+if MAIN:
+    prompt = "John and Mary went to the"
+    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+    logits = model(input_ids)[0, -1]
+
+    expected_top_5 = {
+        " church": 0.0648,
+        " house": 0.0367,
+        " temple": 0.0145,
+        " same": 0.0104,
+        " Church": 0.0097
+    }
+    frequency_of_top_5 = defaultdict(int)
+
+    N = 10_000
+    for _ in tqdm(range(N)):
+        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
+        frequency_of_top_5[tokenizer.decode(token)] += 1
+
+    for word in expected_top_5:
+        expected_freq = expected_top_5[word]
+        observed_freq = frequency_of_top_5[word] / N
+        print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
+        assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
+
+    print("Tests passed!")
+
+#%%
+if MAIN:
+    logits = t.tensor([1, 2]).log()
+
+    cold_logits = TransformerSampler.apply_temperature(logits, temperature=0.001)
+    print('A low temperature "sharpens" or "peaks" the distribution: ', cold_logits)
+    t.testing.assert_close(cold_logits, 1000.0 * logits)
+
+    hot_logits = TransformerSampler.apply_temperature(logits, temperature=1000.0)
+    print("A high temperature flattens the distribution: ", hot_logits)
+    t.testing.assert_close(hot_logits, 0.001 * logits)
+
+    print("Tests passed!")
+
+
+#%%
+if MAIN:
+    bieber_prompt = "And I was like Baby, baby, baby, oh Like, Baby, baby, baby, no Like, Baby, baby, baby, oh I thought you'd always be mine, mine"
+    input_ids = tokenizer.encode(bieber_prompt, return_tensors="pt")
+    logits = t.ones(tokenizer.vocab_size)
+    penalized_logits = TransformerSampler.apply_frequency_penalty(input_ids.squeeze(), logits, 2.0)
+
+    assert penalized_logits[5156].item() == -11, "Expected 6 occurrences of ' baby' with leading space, 1-2*6=-11"
+    assert penalized_logits[14801].item() == -5, "Expected 3 occurrences of ' Baby' with leading space, 1-2*3=-5"
+
+    print("Tests passed!")
+
+
+#%%
+if MAIN:
+    sampler = TransformerSampler(model, tokenizer)
+
+    N_RUNS = 1
+    your_prompt = "Jingle bells, jingle bells, jingle all the way"
+    cases = [
+        ("High freq penalty", dict(frequency_penalty=100.0)),
+        ("Negative freq penalty", dict(frequency_penalty=-3.0)),
+        ("Too hot!", dict(temperature=2.0)),
+        ("Pleasantly cool", dict(temperature=0.7)),
+        ("Pleasantly warm", dict(temperature=0.9)),
+        ("Too cold!", dict(temperature=0.01)),
+    ]
+
+    table = Table("Name", "Kwargs", "Output", title="Sampling - Manual Testing")
+
+    for (name, kwargs) in cases:
+        for i in range(N_RUNS):
+            output = sampler.sample(your_prompt, max_tokens_generated=24, **kwargs)
+            table.add_row(name, repr(kwargs), repr(output) + "\n")
+
+    rprint(table)
