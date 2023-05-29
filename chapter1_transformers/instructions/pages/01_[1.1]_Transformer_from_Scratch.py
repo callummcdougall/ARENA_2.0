@@ -23,7 +23,7 @@ def section_0():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
     <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
-    <li class='margtop'><a class='contents-el' href='#setup-don't-read-just-run'>Setup (don't read, just run)</a></li>
+    <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -44,10 +44,11 @@ You can toggle dark mode from the buttons on the top-right of this page.
 ## Introduction
 
 
-
 This is a clean, first principles implementation of GPT-2 in PyTorch. The architectural choices closely follow those used by the TransformerLens library (which you'll be using a lot more in later exercises).
 
 The exercises are written to accompany Neel Nanda's [TransformerLens library](https://github.com/neelnanda-io/TransformerLens) for doing mechanistic interpretability research on GPT-2 style language models. We'll be working with this library extensively in this chapter of the course.
+
+Each exercise will have a difficulty and importance rating out of 5, as well as an estimated maximum time you should spend on these exercises and sometimes a short annotation. You should interpret the ratings & time estimates relatively (e.g. if you find yourself spending about 50% longer on the exercises than the time estimates, adjust accordingly). Please do skip exercises / look at solutions if you don't feel like they're important enough to be worth doing, and you'd rather get to the good stuff!
 
 
 ## Content & Learning Objectives
@@ -104,7 +105,7 @@ Lastly, you'll learn how to sample from a transformer. This will involve impleme
 >     * Optionally, rewrite your sampling functions to make use of your caching methods
 
 
-## Setup (don't read, just run)
+## Setup
 
 
 ```python
@@ -760,8 +761,8 @@ position = 35
 d_model = 768
 n_heads = 12
 n_layers = 12
-d_mlp = 3072 (4 * d_model)
-d_head = 64 (d_model / n_heads)
+d_mlp = 3072 (= 4 * d_model)
+d_head = 64 (= d_model / n_heads)
 ```
 
 
@@ -776,8 +777,6 @@ It's important to distinguish between parameters and activations in the model.
     * We can think of these values as only existing for the duration of a single forward pass, and disappearing afterwards.
     * We can use hooks to access these values during a forward pass (more on hooks later), but it doesn't make sense to talk about a model's activations outside the context of some particular input.
     * Attention scores and patterns are activations (this is slightly non-intuitve because they're used in a matrix multiplication with another activation).
-
-The dropdown below contains a diagram of a single layer (called a `TransformerBlock`) for an attention-only model with no biases. Each box corresponds to an **activation** (and also tells you the name of the corresponding hook point, which we will eventually use to access those activations). The red text below each box tells you the shape of the activation (ignoring the batch dimension). Each arrow corresponds to an operation on an activation; where there are **parameters** involved these are labelled on the arrows.
 
 #### Print All Activation Shapes of Reference Model
 
@@ -1077,7 +1076,7 @@ class PosEmbed(nn.Module):
 Difficulty: 🟠🟠🟠🟠⚪
 Importance: 🟠🟠🟠🟠🟠
 
-You should spend up to 25-35 minutes on this exercise.
+You should spend up to 30-40 minutes on this exercise.
 ```
 
 * **Step 1:** Produce an attention pattern - for each destination token, probability distribution over previous tokens (including current token)
@@ -3039,7 +3038,6 @@ class Beams:
         '''
         pass
 
-        
     def filter(self, num_beams: int) -> Tuple["Beams", "Beams"]:
         '''
         Returns:
@@ -3052,7 +3050,6 @@ class Beams:
         '''
         pass
 
-        
     def print(self, title="Best completions", max_print_chars=80) -> None:
         '''
         Prints out a set of sequences with their corresponding logitsums.
@@ -3088,6 +3085,7 @@ def beam_search(
     To modularize this function, most of the actual complexity is in the Beams class,
     in the `generate` and `filter` methods.
     '''
+
     assert num_return_sequences <= num_beams
     self.model.eval()
 
