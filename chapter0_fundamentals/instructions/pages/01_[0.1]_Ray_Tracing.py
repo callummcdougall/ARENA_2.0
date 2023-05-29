@@ -539,7 +539,7 @@ Jaxtyping has many other useful features, for example:
 * Dimensions can be named *and* fixed, e.g. `x: Float[Tensor, "b=3"], y: Float[Tensor, "b"]` will raise an error if `x` and `y` don't *both* have shape `(3,)`
 * You can even use these objects for inline assert statements, e.g. `assert isinstance(x, Float[Tensor, "3 b"])` asserts that `x` is a 2D tensor of type float, with first dimension `3`.
 
-You can find more features of jaxtyping [here](https://github.com/google/jaxtyping/blob/main/API.md).
+You can find more features of jaxtyping [here](https://docs.kidger.site/jaxtyping/).
 
 Overall, type-checking is a really useful tool to have at your disposal, because it can help you quickly catch bugs in your code (and it helps your code be explicit and readable, both to possible collaborators / pair programming partners, and to your future self!). 
 
