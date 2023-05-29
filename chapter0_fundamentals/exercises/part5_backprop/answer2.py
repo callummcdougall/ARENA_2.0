@@ -980,6 +980,8 @@ class Parameter(Tensor):
         '''Share the array with the provided tensor.'''
         self.array = tensor.array
         self.requires_grad = requires_grad
+        self.grad = None
+        self.recipe = None
 
     def __repr__(self):
         return f'Parameter containing:\n{super().__repr__()}'
@@ -1029,7 +1031,7 @@ class Module:
         If val is a Parameter or Module, store it in the appropriate _parameters or _modules dict.
         Otherwise, call __setattr__ from the superclass.
         '''
-        print(self.__dict__, key)
+        # print(self.__dict__, key)
         if isinstance(val, Module):
             self.__dict__['_modules'][key] = val
         elif isinstance(val, Parameter):
@@ -1087,4 +1089,204 @@ if MAIN:
     print("Manually verify that the repr looks reasonable:")
     print(mod)
 
+# %%
+class Linear(Module):
+    weight: Parameter
+    bias: Optional[Parameter]
+
+    def __init__(self, in_features: int, out_features: int, bias=True):
+        '''
+        A simple linear (technically, affine) transformation.
+
+        The fields should be named `weight` and `bias` for compatibility with PyTorch.
+        If `bias` is False, set `self.bias` to None.
+        '''
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+
+        sf = 1 / (in_features ** 0.5)
+        weight = Tensor(2 * np.random.rand(out_features, in_features) * sf - sf)
+        self.weight = Parameter(weight)
+
+        if bias:
+            bias = Tensor(2 * np.random.rand(out_features) * sf - sf)
+            self.bias = Parameter(bias)
+        else:
+            self.bias = None
+
+    # def forward(self, x: Tensor) -> Tensor:
+    #     '''
+    #     x: shape (*, in_features)
+    #     Return: shape (*, out_features)
+    #     '''
+    #     x = matmul(self.weight, x)
+    #     if self.bias is not None:
+    #         x = add_(x, self.bias)
+    #     return x
+
+    def forward(self, x: Tensor) -> Tensor:
+        '''
+        x: shape (*, in_features)
+        Return: shape (*, out_features)
+        '''
+        # SOLUTION
+        out = x @ self.weight.permute((1, 0))
+        if self.bias is not None: 
+            out = out + self.bias
+        return out
+		
+    def extra_repr(self) -> str:
+        # note, we need to use `self.bias is not None`, because `self.bias` is either a tensor or None, not bool
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
+
+
+
+if MAIN:
+    linear = Linear(3, 4)
+    assert isinstance(linear.weight, Tensor)
+    assert linear.weight.requires_grad
+
+    input = Tensor([1.0, 2.0, 3.0])
+    output = linear(input)
+    assert output.requires_grad
+
+    expected_output = linear.weight @ input + linear.bias
+    np.testing.assert_allclose(output.array, expected_output.array)
+
+    print("All tests for `Linear` passed!")
+# %%
+class ReLU(Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return relu(x)
+# %%
+class MLP(Module):
+    def __init__(self):
+        super().__init__()
+        self.linear1 = Linear(28 * 28, 64)
+        self.linear2 = Linear(64, 64)
+        self.relu1 = ReLU()
+        self.relu2 = ReLU()
+        self.output = Linear(64, 10)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.reshape((x.shape[0], 28 * 28))
+        x = self.relu1(self.linear1(x))
+        x = self.relu2(self.linear2(x))
+        x = self.output(x)
+        return x
+# %%
+def cross_entropy(logits: Tensor, true_labels: Tensor) -> Tensor:
+    '''Like torch.nn.functional.cross_entropy with reduction='none'.
+
+    logits: shape (batch, classes)
+    true_labels: shape (batch,). Each element is the index of the correct label in the logits.
+
+    Return: shape (batch, ) containing the per-example loss.
+    '''
+    nbatch, nclass = logits.shape
+    log_sum_exp = logits.exp().sum(dim=-1).log()
+    logit_true_label = logits[arange(0, nbatch), true_labels]
+    return -(logit_true_label - log_sum_exp)
+
+
+if MAIN:
+    tests.test_cross_entropy(Tensor, cross_entropy)
+# %%
+class NoGrad:
+    '''Context manager that disables grad inside the block. Like torch.no_grad.'''
+
+    was_enabled: bool
+
+    def __enter__(self):
+        '''
+        Method which is called whenever the context manager is entered, i.e. at the 
+        start of the `with NoGrad():` block.
+        '''
+        global grad_tracking_enabled
+        self.was_enabled = grad_tracking_enabled
+        grad_tracking_enabled = False
+
+    def __exit__(self, type, value, traceback):
+        '''
+        Method which is called whenever we exit the context manager.
+        '''
+        global grad_tracking_enabled
+        grad_tracking_enabled = self.was_enabled
+# %%
+if MAIN:
+    train_loader, test_loader = get_mnist()
+    visualize(train_loader)
+# %%
+class SGD:
+    def __init__(self, params: Iterable[Parameter], lr: float):
+        '''Vanilla SGD with no additional features.'''
+        self.params = list(params)
+        self.lr = lr
+        self.b = [None for _ in self.params]
+
+    def zero_grad(self) -> None:
+        for p in self.params:
+            p.grad = None
+
+    def step(self) -> None:
+        with NoGrad():
+            for (i, p) in enumerate(self.params):
+                assert isinstance(p.grad, Tensor)
+                p.add_(p.grad, -self.lr)
+
+
+def train(model: MLP, train_loader: DataLoader, optimizer: SGD, epoch: int, train_loss_list: Optional[list] = None):
+    print(f"Epoch: {epoch}")
+    progress_bar = tqdm(enumerate(train_loader))
+    for (batch_idx, (data, target)) in progress_bar:
+        data = Tensor(data.numpy())
+        target = Tensor(target.numpy())
+        optimizer.zero_grad()
+        output = model(data)
+        loss = cross_entropy(output, target).sum() / len(output)
+        loss.backward()
+        progress_bar.set_description(f"Train set: Avg loss: {loss.item():.3f}")
+        optimizer.step()
+        if train_loss_list is not None: train_loss_list.append(loss.item())
+
+
+def test(model: MLP, test_loader: DataLoader, test_loss_list: Optional[list] = None):
+    test_loss = 0
+    correct = 0
+    with NoGrad():
+        for (data, target) in test_loader:
+            data = Tensor(data.numpy())
+            target = Tensor(target.numpy())
+            output: Tensor = model(data)
+            test_loss += cross_entropy(output, target).sum().item()
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += (pred == target.reshape(pred.shape)).sum().item()
+    test_loss /= len(test_loader.dataset)
+    print(f"Test set:  Avg loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({correct / len(test_loader.dataset):.1%})")
+    if test_loss_list is not None: test_loss_list.append(test_loss)
+# %%
+if MAIN:
+    num_epochs = 5
+    model = MLP()
+    start = time.time()
+    train_loss_list = []
+    test_loss_list = []
+    optimizer = SGD(model.parameters(), 0.01)
+    for epoch in range(num_epochs):
+        train(model, train_loader, optimizer, epoch, train_loss_list)
+        test(model, test_loader, test_loss_list)
+        optimizer.step()
+    print(f"\nCompleted in {time.time() - start: .2f}s")
+# %%
+if MAIN:
+    line(
+        train_loss_list,
+        yaxis_range=[0, max(train_loss_list) + 0.1],
+        labels={"x": "Batches seen", "y": "Cross entropy loss"},
+        title="ConvNet training on MNIST",
+        width=800,
+        hovermode="x unified",
+        template="ggplot2", # alternative aesthetic for your plots (-:
+    )
 # %%
