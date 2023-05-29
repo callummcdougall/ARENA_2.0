@@ -330,7 +330,7 @@ As you get to the end of the vocabulary, you'll be producing some pretty weird-l
 ```python
 
 if MAIN:
-    sorted_vocab[-20:]
+    print(sorted_vocab[-20:])
 
 ```
 
@@ -380,7 +380,7 @@ Length is inconsistent, common numbers bundle together.
 ```python
 
 if MAIN:
-    reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000")
+    print(reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000"))
 
 ```
 
@@ -451,7 +451,7 @@ if MAIN:
 if MAIN:
     most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(logits.argmax(dim=-1)[0])
     
-    list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens))
+    print(list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens)))
 
 ```
 
@@ -907,7 +907,7 @@ Your LayerNorm should do the following:
 * Scale with learned weights
 * Translate with learned bias
 
-You can use the PyTorch [LayerNorm documentation](https://pytorch.org/docs/stable/generated/t.nn.LayerNorm.html) as a reference. A few more notes:
+You can use the PyTorch [LayerNorm documentation](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html) as a reference. A few more notes:
 
 * Your layernorm implementation always has `affine=True`, i.e. you do learn parameters `w` and `b` (which are represented as $\gamma$ and $\beta$ respectively in the PyTorch documentation).
 * Remember that, after the centering and normalization, each vector of length `d_model` in your input should have mean 0 and variance 1.
