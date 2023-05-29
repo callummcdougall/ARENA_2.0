@@ -81,7 +81,7 @@ At a surface level, these exercises are designed to guide you through a partial 
 
 Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/brackets-map-new.png" width="750">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/brackets-map-newer2.png" width="750">
 
 
 ## Content & Learning Objectives
