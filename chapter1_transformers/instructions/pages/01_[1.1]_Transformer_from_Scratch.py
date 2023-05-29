@@ -1,7 +1,7 @@
 
 import os, sys
 from pathlib import Path
-chapter = r"chapter0_fundamentals"
+chapter = r"chapter1_fundamentals"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
