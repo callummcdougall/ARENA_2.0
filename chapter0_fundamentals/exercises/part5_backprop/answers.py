@@ -967,8 +967,8 @@ class Module:
         '''
         all_params = [self._parameters[name] for name in self._parameters]
         if recurse:
-            for module in self._modules:
-                all_params += list(module.parameters(recurse=recurse))
+            for module in self._modules.values()):
+                all_params += list(module.parameters(recurse=True))
         return iter(all_params)
 
     def __setattr__(self, key: str, val: Any) -> None:
@@ -976,14 +976,25 @@ class Module:
         If val is a Parameter or Module, store it in the appropriate _parameters or _modules dict.
         Otherwise, call __setattr__ from the superclass.
         '''
-        pass
+        if isinstance(val, Parameter):
+            self._parameters[key] = val
+        elif isinstance(val, Module):
+            self._modules[key] = val
+        else:
+            super().__setattr__(key, val)
+
 
     def __getattr__(self, key: str) -> Union[Parameter, "Module"]:
         '''
         If key is in _parameters or _modules, return the corresponding value.
         Otherwise, raise KeyError.
         '''
-        pass
+        if key in self._parameters:
+            return self._parameters[key]
+        elif key in self._modules:
+            return self._modules[key]
+        raise KeyError("Key not in parameters or modules")
+        
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
@@ -1024,3 +1035,94 @@ if MAIN:
     ], "parameters should come before submodule parameters"
     print("Manually verify that the repr looks reasonable:")
     print(mod)
+
+# %%
+
+
+class Linear(Module):
+    weight: Parameter
+    bias: Optional[Parameter]
+
+    def __init__(self, in_features: int, out_features: int, bias=True):
+        '''
+        A simple linear (technically, affine) transformation.
+
+        The fields should be named `weight` and `bias` for compatibility with PyTorch.
+        If `bias` is False, set `self.bias` to None.
+        '''
+        super().__init__()
+        self.weight = Tensor(np.random.rand(in_features, out_features), requires_grad=True)
+        self.bias = Tensor(np.zeros(shape=(out_features,)), requires_grad=True) if bias else None
+
+
+    def forward(self, x: Tensor) -> Tensor:
+        '''
+        x: shape (*, in_features)
+        Return: shape (*, out_features)
+        '''
+        return x @ self.weight + self.bias
+
+    def extra_repr(self) -> str:
+        # note, we need to use `self.bias is not None`, because `self.bias` is either a tensor or None, not bool
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
+
+
+
+if MAIN:
+    linear = Linear(3, 4)
+    assert isinstance(linear.weight, Tensor)
+    assert linear.weight.requires_grad
+
+    input = Tensor([1.0, 2.0, 3.0])
+    output = linear(input)
+    assert output.requires_grad
+
+    expected_output = input @ linear.weight + linear.bias
+    np.testing.assert_allclose(output.array, expected_output.array)
+
+    print("All tests for `Linear` passed!")
+
+#%%
+class ReLU(Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return relu(x)
+
+#%%
+class MLP(Module):
+    def __init__(self):
+        super().__init__()
+        self.linear1 = Linear(28 * 28, 64)
+        self.linear2 = Linear(64, 64)
+        self.relu1 = ReLU()
+        self.relu2 = ReLU()
+        self.output = Linear(64, 10)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.reshape((x.shape[0], 28 * 28))
+        x = self.relu1(self.linear1(x))
+        x = self.relu2(self.linear2(x))
+        x = self.output(x)
+        return x
+
+#%%
+
+def cross_entropy(logits: Tensor, true_labels: Tensor) -> Tensor:
+    '''Like torch.nn.functional.cross_entropy with reduction='none'.
+
+    logits: shape (batch, classes)
+    true_labels: shape (batch,). Each element is the index of the correct label in the logits.
+
+    Return: shape (batch, ) containing the per-example loss.
+    '''
+    exp_logits = logits.exp()
+    denom = exp_logits.sum(dim=1)
+    
+    fracs = exp_logits / denom
+    log_fracs = fracs.log()
+
+    losses = true_labels * log_fracs[arange(0, true_labels.shape[0]), true_labels]
+    return losses
+
+if MAIN:
+    tests.test_cross_entropy(Tensor, cross_entropy)
+

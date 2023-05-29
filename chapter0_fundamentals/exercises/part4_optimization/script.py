@@ -184,7 +184,6 @@ def train() -> None:
 
 # %%
 if MAIN:
-    wandb.init()
     sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
     wandb.agent(sweep_id=sweep_id, function=train, count=3)
 # %%
