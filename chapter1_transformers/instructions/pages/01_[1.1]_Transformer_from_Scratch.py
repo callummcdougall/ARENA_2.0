@@ -1,7 +1,7 @@
 
 import os, sys
 from pathlib import Path
-chapter = r"chapter1_transformers"
+chapter = r"chapter0_fundamentals"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
@@ -1083,12 +1083,14 @@ You should spend up to 30-45 minutes on this exercise.
 * **Step 1:** Produce an attention pattern - for each destination token, probability distribution over previous tokens (including current token)
     * Linear map from input -> query, key shape `[batch, seq_posn, head_index, d_head]`
     * Dot product every *pair* of queries and keys to get attn_scores `[batch, head_index, query_pos, key_pos]` (query = dest, key = source)
-    * Scale and mask `attn_scores` to make it lower triangular, i.e. causal
+    * **Scale** and mask `attn_scores` to make it lower triangular, i.e. causal
     * Softmax along the `key_pos` dimension, to get a probability distribution for each query (destination) token - this is our attention pattern!
 * **Step 2:** Move information from source tokens to destination token using attention pattern (move = apply linear map)
     * Linear map from input -> value `[batch, key_pos, head_index, d_head]`
     * Mix along the `key_pos` with attn pattern to get `z`, which is a weighted average of the value vectors `[batch, query_pos, head_index, d_head]`
     * Map to output, `[batch, position, d_model]` (position = query_pos, we've summed over all heads)
+
+Note - when we say **scale**, we mean dividing by `sqrt(d_head)`. The purpose of this is to avoid vanishing gradients (which is a big problem when we're dealing with a function like softmax - if one of the values is much larger than all the others, the probabilities will be close to 0 or 1, and the gradients will be close to 0).
 
 Below is a much larger, more detailed version of the attention head diagram from earlier. This should give you an idea of the actual tensor operations involved. A few clarifications on this diagram:
 
@@ -1703,7 +1705,6 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#learning-objectives'>Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#create-model'>Create Model</a></li>
     <li class='margtop'><a class='contents-el' href='#training-args'>Training Args</a></li>
     <li class='margtop'><a class='contents-el' href='#create-data'>Create Data</a></li>
@@ -1725,20 +1726,11 @@ def section_3():
 > * Interpret the transformer's falling cross entropy loss with reference to features of the training data (e.g. bigram frequencies)
 
 
-
 Now that we've built our transformer, and verified that it performs as expected when we load in weights, let's try training it from scratch!
-
 
 This is a lightweight demonstration of how you can actually train your own GPT-2 with this code! Here we train a tiny model on a tiny dataset, but it's fundamentally the same code for training a larger/more real model (though you'll need beefier GPUs and data parallelism to do it remotely efficiently, and fancier parallelism for much bigger ones).
 
 For our purposes, we'll train 2L 4 heads per layer model, with context length 256, for 1000 steps of batch size 8, just to show what it looks like (and so the notebook doesn't melt your colab lol).
-
-## Learning Objectives 
-
-* Use the `Adam` optimizer to train your transformer
-* Run a training loop on a very small dataset, and verify that your model's loss is going down
-
-
 
 
 ## Create Model
