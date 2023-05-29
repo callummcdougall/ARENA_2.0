@@ -143,9 +143,6 @@ if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 from plotly_utils import imshow
 # import part1_transformer_from_scratch.solutions as solutions
 
-# Add this to your workspace settings, so typechecker sees these modules:
-# "python.analysis.extraPaths": ["${workspaceFolder}/chapter1_transformers/exercises"]
-
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == '__main__'
@@ -2954,16 +2951,55 @@ You should spend up to 30-40 minutes on this exercise.
 
 You should now complete the `beam_search` method in your `TransformerSampler` class.
 
-We've provided you with a dataclass `Beams`, which you are recommended to use. This class has two important methods for you to fill in: `generate` and `filter` (which correspond to the two stages in the diagram above). There are also a few of helper functions in this class:
+We've provided one possible template for you to use: the class `Beams`, with important methods `generate` and `filter` for you to fit in (which correspond to the two stages in the diagram above). There are also a few of helper functions in this class:
 
 * `new_beams`, which creates a new `Beams` object from an old one.
 * `__getitem__`, which allows you to index into a `Beams` object to get a specific batch of beams.
 * `logprobs_and_completions`, which turns a `Beams` object into a list of (logprob sum, string completion) tuples (useful for getting your final output).
 * `print`, which prints out the current state of the beams (useful for debugging, if you run `beam_search` with `verbose=True`).
 
-Note that not all of these are necessary for you to complete the exercise, they are just designed to reduce friction if you want to use them.
+You can then fill in the `beam_search` function, using this class and its methods.
 
-Why have we chosen to use classes here, rather than e.g. keeping everything in the form of a list of (logprob sum, string completion) tuples? Like we've encountered before, there is significant advantage that comes with writing modular code: it's flexible, legible, and easily extensible. There are bonus exercises below where you'll implement caching in your transformer, and you should find code like this much easier to extend to cover caching than if you'd written everything in one big function.
+We've provided unit tests for the `generate` and `filter` functions, so you can verify that these are correct before moving on to the full `beam_search` function.
+
+**Note that using the `Beams` class is not strictly necessary, you could fill in the `beam_search` function directly if you prefer.** The `Beams` class is just meant to provide one example way you might implement this function. Often, modular code like this is easier to write and debug, and easier to extend to cover new use cases (e.g. when we use caching in the bonus exercises).
+
+#### Why all the n-gram repetition?
+
+You should observe that, while the output of beam search is sometimes more fluent than some of the other sampling methods you implement, it also has an unfortunate tendency to repeat sentences or sequences. This makes sense - if the model produces a sentence with a relatively high logit sum, then it will want to produce the same sentence again even if it doesn't make a lot of sense in context.
+
+A common solution is to ban repetition of n-grams. We've provided the argument `no_repeat_ngram_size` in the `generate` method for this purpose. Using this argument should prevent the model from repeating any n-grams of that size. Good values of this parameter to try are 2 or 3.
+
+However, first you should focus on getting a working version of beam search *without* using this argument.
+
+<details>
+<summary>Hint (for <code>no_repeat_ngram_size</code>)</summary>
+
+It might be helpful to implement the following method first. You can use this rather than `torch.topk` in your `generate` method.
+
+```python
+def get_topk_non_repeating(
+    self,
+    logprobs: Float[Tensor, "batch d_vocab"], 
+    no_repeat_ngram_size: int,
+    k: int, 
+) -> Tuple[Float[Tensor, "k"], Int[Tensor, "k"]]:
+    '''
+    logprobs: 
+        tensor of the log-probs for the next token
+    no_repeat_ngram_size:
+        size of ngram to avoid repeating
+    k:
+        number of top logits to return, for each beam in our collection
+
+    Returns:
+        equivalent to the output of `logprobs.topk(dim=-1)`, but makes sure
+        that no returned tokens would produce an ngram of size  `no_repeat_ngram_size`
+        which has already appeared in `self.tokens`.
+    '''
+    pass
+```
+</details>
 
 
 ```python
@@ -3059,7 +3095,7 @@ def beam_search(
 
 ```
 
-Example usage of the `Beams` class, and the `print` method:
+Example usage of the `Beams` class, and the `print` method (not the logitsums aren't necessarily accurate, this example is just an illustration):
 
 
 ```python
@@ -3086,10 +3122,38 @@ And here are some unit tests for your `generate` and `filter` methods:
 ```python
 
 if MAIN:
+    print("Testing generate, without no_repeat_ngram_size argument:")
     new_beams = beams.generate(2)
     new_beams.print()
+    assert new_beams.logprobs_and_completions[0][1] == "this is the third time"
+
+```
+
+```python
+
+if MAIN:
+    print("Testing generate, with no_repeat_ngram_size argument:")
     
-    # Should get first row as [ -11.829 │ 'this is the third time' ]
+    bigram_beams = Beams(
+        model, 
+        tokenizer,
+        logprob_sums = t.tensor([-0.0]).to(device),
+        tokens = t.tensor([[530, 734, 530, 734]]).to(device)
+        # tokens are " one two one two"
+    )
+    
+    # With no_repeat_ngram_size=1, should not generate the token " one" or " two"
+    new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=1)
+    new_bigram_beams.print()
+    assert all([not (completion[1].endswith(" one") or completion[1].endswith(" two")) for completion in new_bigram_beams.logprobs_and_completions])
+    
+    # With no_repeat_ngram_size=2, it can generate " two" (which it should), but not " one"
+    new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=2)
+    new_bigram_beams.print()
+    assert all([not completion[1].endswith(" one") for completion in new_bigram_beams.logprobs_and_completions])
+    assert any([not completion[1].endswith(" two") for completion in new_bigram_beams.logprobs_and_completions])
+    
+    print("All tests for `generate` passed!")
 
 ```
 
@@ -3109,14 +3173,13 @@ if MAIN:
     t.testing.assert_close(best_beams.tokens, tokens[[0]])
     
     assert early_terminations.logprobs_and_completions == [(-2.0, "Stop" + tokenizer.eos_token)]
+    
+    print("All tests for `filter` passed!")
 
 ```
 
-If you're stuck on these methods, see the solutions for `filter` and `generate` below.
-
-
 <details>
-<summary>Solutions (generate and filter)</summary>
+<summary>Solutions (for <code>generate</code> and <code>filter</code>)</summary>
 
 ```python
 def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
@@ -3212,107 +3275,9 @@ if MAIN:
 ```
 
 <details>
-<summary>Solution (beam search)</summary>
+<summary>Solution (full)</summary>
 
-```python
-@t.inference_mode()
-def beam_search(
-    self: TransformerSampler,
-    prompt: str, 
-    num_return_sequences: int, 
-    num_beams: int, 
-    max_new_tokens: int, 
-    no_repeat_ngram_size: Optional[int] = None,
-    verbose=False
-) -> List[Tuple[float, Tensor]]:
-    '''
-    Implements a beam search, by repeatedly performing the `generate` and `filter` steps (starting
-    from the initial prompt) until either of the two stopping criteria are met:
-
-        (1) we've generated `max_new_tokens` tokens, or
-        (2) we've generated `num_returns_sequences` terminating sequences.
-
-    To modularize this function, most of the actual complexity is in the Beams class,
-    in the `generate` and `filter` methods.
-
-    Optional argument `no_repeat_ngram_size` means your model won't generate any sequences with
-    a repeating n-gram of this length (don't worry about implementing this until later).
-    '''
-
-    assert num_return_sequences <= num_beams
-    self.model.eval()
-
-    # SOLUTION
-    tokens = self.tokenizer.encode(prompt, return_tensors="pt").to(device)
-
-    # List for final beams to return (and early terminations)
-    final_logprobs_and_completions: List[Tuple[float, str]] = []
-    # Keep track of all best beams after each step
-    best_beams = Beams(self.model, self.tokenizer, t.tensor([0.0]).to(device), tokens)
-
-    for n in tqdm(range(max_new_tokens)):
-
-        # Generation step
-        best_beams = best_beams.generate(num_beams)
-
-        # Filtering step
-        best_beams, best_beams_terminated = best_beams.filter(num_beams)
-        final_logprobs_and_completions.extend(best_beams_terminated.logprobs_and_completions)
-
-        # Print output
-        if verbose:
-            best_beams.print()
-
-        # Check stopping condition
-        if len(final_logprobs_and_completions) >= num_return_sequences:
-            return final_logprobs_and_completions[:num_return_sequences]
-
-    final_logprobs_and_completions.extend(best_beams.logprobs_and_completions)
-    final_logprobs_and_completions = final_logprobs_and_completions[:num_return_sequences]
-    return final_logprobs_and_completions
-```
-</details>
-
-
-You should observe that, while the output of beam search is sometimes more fluent than some of the other sampling methods you implement, it also has an unfortunate tendency to repeat sentences or sequences. This makes sense - if the model produces a sentence with a relatively high logit sum, then it will want to produce the same sentence again even if it doesn't make a lot of sense in context.
-
-A common solution is to ban repetition of n-grams. Try to rewrite your function above to make use of the the argument `no_repeat_ngram_size`, which should prevent the model from repeating any n-grams of that size. Good values of this parameter to try are 2 or 3.
-
-
-<details>
-<summary>Hint (if you're not sure where to start)</summary>
-
-It might be helpful to implement the following function first. You can use this function rather than `torch.topk` in your `generate` method.
-
-```python
-def get_topk_non_repeating(
-    self,
-    logprobs: Float[Tensor, "batch d_vocab"], 
-    no_repeat_ngram_size: int,
-    k: int, 
-) -> Tuple[Float[Tensor, "k"], Int[Tensor, "k"]]:
-    '''
-    logprobs: 
-        tensor of the log-probs for the next token
-    no_repeat_ngram_size:
-        size of ngram to avoid repeating
-    k:
-        number of top logits to return, for each beam in our collection
-
-    Returns:
-        equivalent to the output of `logprobs.topk(dim=-1)`, but makes sure
-        that no returned tokens would produce an ngram of size  `no_repeat_ngram_size`
-        which has already appeared in `self.tokens`.
-    '''
-    pass
-```
-
-</details>
-
-<details>
-<summary>Solution </summary>
-
-We replace the `topk` call in the `generate` method with the following function:
+A solution for the class method `get_topk_non_repeating`:
 
 ```python
 def get_topk_non_repeating(
@@ -3356,6 +3321,63 @@ def get_topk_non_repeating(
 
     # Finally, get our actual tokens
     return logprobs.topk(k=k, dim=-1)
+```
+
+and for the main function:
+
+```python
+@t.inference_mode()
+def beam_search(
+    self: TransformerSampler,
+    prompt: str, 
+    num_return_sequences: int, 
+    num_beams: int, 
+    max_new_tokens: int, 
+    no_repeat_ngram_size: Optional[int] = None,
+    verbose=False
+) -> List[Tuple[float, Tensor]]:
+    '''
+    Implements a beam search, by repeatedly performing the `generate` and `filter` steps (starting
+    from the initial prompt) until either of the two stopping criteria are met:
+
+        (1) we've generated `max_new_tokens` tokens, or
+        (2) we've generated `num_returns_sequences` terminating sequences.
+
+    To modularize this function, most of the actual complexity is in the Beams class,
+    in the `generate` and `filter` methods.
+    '''
+
+    assert num_return_sequences <= num_beams
+    self.model.eval()
+
+    # SOLUTION
+    tokens = self.tokenizer.encode(prompt, return_tensors="pt").to(device)
+
+    # List for final beams to return (and early terminations)
+    final_logprobs_and_completions: List[Tuple[float, str]] = []
+    # Keep track of all best beams after each step
+    best_beams = Beams(self.model, self.tokenizer, t.tensor([0.0]).to(device), tokens)
+
+    for n in tqdm(range(max_new_tokens)):
+
+        # Generation step
+        best_beams = best_beams.generate(num_beams, no_repeat_ngram_size)
+
+        # Filtering step
+        best_beams, best_beams_terminated = best_beams.filter(num_beams)
+        final_logprobs_and_completions.extend(best_beams_terminated.logprobs_and_completions)
+
+        # Print output
+        if verbose:
+            best_beams.print()
+
+        # Check stopping condition
+        if len(final_logprobs_and_completions) >= num_return_sequences:
+            return final_logprobs_and_completions[:num_return_sequences]
+
+    final_logprobs_and_completions.extend(best_beams.logprobs_and_completions)
+    final_logprobs_and_completions = final_logprobs_and_completions[:num_return_sequences]
+    return final_logprobs_and_completions
 ```
 
 </details>
