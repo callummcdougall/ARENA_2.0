@@ -593,21 +593,36 @@ def backprop(end_node: Tensor, end_grad: Optional[Tensor] = None) -> None:
         Set to 1 if not specified and end_node has only one element.
     '''
     if end_grad is None:
-        end_grad = Tensor(np.array(1))
+        end_grad = Tensor(np.ones_like(end_node.array))
     if end_node.array.shape != end_grad.array.shape:
         raise ValueError("Shapes don't match")
     tensors = sorted_computational_graph(end_node)
     # probably wrong
     end_node.grad = end_grad
 
+    print(f"All tensors")
+    for t in tensors[::-1]:
+        print(f"\t {t.recipe}")
     for t in tensors[::-1]:
         # assert t.grad is not None
         #  = [(arg_pos, parent) for arg_pos, parent in t.recipe.parents.items()]
+        if not t.recipe:
+            continue
         fwd_fn = t.recipe.func
+        print(f"back prop on {fwd_fn}")
         for i, p in t.recipe.parents.items():
+            print(f"\tParent {i } {p} recipe: {p.recipe}")
             back_fnc = BACK_FUNCS.get_back_func(fwd_fn, i)
-            p.grad = back_fnc(t.grad, t.array, *p.recipe.args, **p.recipe.kwargs)
-
+            if not p.recipe:
+                continue
+            grad = back_fnc(t.grad.array, t.array, *p.recipe.args, **p.recipe.kwargs)
+            p.grad = Tensor(grad, requires_grad=False)
+    for t in tensors:
+        if t.recipe:
+            if not t.requires_grad or not t.is_leaf:
+                print(f"Removing grad from: {t.recipe}")
+                # t.grad = None
+ 
 
         
 
