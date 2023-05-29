@@ -3188,10 +3188,10 @@ if MAIN:
 <summary>Solutions (for <code>generate</code> and <code>filter</code>)</summary>
 
 ```python
-def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
+def generate(self, toks_per_beam: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
     '''
     Starting from the current set of beams (which has length `num_beams`), returns a new
-    set of `num_beams * new_beams`, containing the best `new_beams` continuations for each
+    set of `num_beams * toks_per_beam`, containing the best `toks_per_beam` continuations for each
     of the original beams.
 
     Optional argument `no_repeat_ngram_size` means your model won't generate any sequences with
@@ -3202,18 +3202,18 @@ def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -
     # Get the output logprobs for the next token (for every sequence in current beams)
     logprobs: Tensor = self.model(self.tokens)[:, -1, :].log_softmax(-1)
 
-    # Get the top `new_beams` tokens for each sequence
-    topk_logprobs, topk_tokenIDs = logprobs.topk(k=new_beams)
+    # Get the top `toks_per_beam` tokens for each sequence
+    topk_logprobs, topk_tokenIDs = logprobs.topk(k=toks_per_beam)
 
     # Get all of the new possible beams, via einops operations
     #   Here, we're effectively flattening out the batch dimension and k dimension, to give us tensors
     #   with every possible combination of (original sequence, new token) pairs.)
     new_logprob_sums = sum([
-        einops.repeat(self.logprob_sums, "batch -> batch k", k=new_beams),
+        einops.repeat(self.logprob_sums, "batch -> batch k", k=toks_per_beam),
         einops.rearrange(topk_logprobs, "batch k -> (batch k)")
     ])
     new_tokens = t.concat([
-        einops.repeat(self.tokens, "batch seq -> (batch k) seq", k=new_beams),
+        einops.repeat(self.tokens, "batch seq -> (batch k) seq", k=toks_per_beam),
         einops.rearrange(topk_tokenIDs, "batch k -> (batch k) 1")
     ], dim=-1)
     return self.new_beams(new_logprob_sums, new_tokens)
