@@ -2138,8 +2138,8 @@ class TransformerSampler:
 
     @staticmethod
     def sample_next_token(
-        input_ids: Int[Tensor, "d_vocab"], 
-        logits: Float[Tensor, "d_vocab"], 
+        input_ids: Int[Tensor, "seq_len d_vocab"], 
+        logits: Float[Tensor, "seq_len d_vocab"], 
         temperature=1.0, 
         top_k=0, 
         top_p=0.0, 
@@ -2377,8 +2377,8 @@ class TransformerSampler:
 
     @staticmethod
     def sample_next_token(
-        input_ids: Int[Tensor, "d_vocab"], 
-        logits: Float[Tensor, "d_vocab"], 
+        input_ids: Int[Tensor, "seq_len"], 
+        logits: Float[Tensor, "seq_len d_vocab"], 
         temperature=1.0, 
         top_k=0, 
         top_p=0.0, 
