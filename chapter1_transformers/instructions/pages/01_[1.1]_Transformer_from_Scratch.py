@@ -3039,6 +3039,7 @@ class Beams:
         '''
         pass
 
+        
     def filter(self, num_beams: int) -> Tuple["Beams", "Beams"]:
         '''
         Returns:
@@ -3051,6 +3052,7 @@ class Beams:
         '''
         pass
 
+        
     def print(self, title="Best completions", max_print_chars=80) -> None:
         '''
         Prints out a set of sequences with their corresponding logitsums.
@@ -3086,11 +3088,10 @@ def beam_search(
     To modularize this function, most of the actual complexity is in the Beams class,
     in the `generate` and `filter` methods.
     '''
-
     assert num_return_sequences <= num_beams
     self.model.eval()
 
-        pass
+    pass
 
 
 ```

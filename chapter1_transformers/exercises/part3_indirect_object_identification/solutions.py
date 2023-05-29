@@ -223,8 +223,9 @@ if MAIN:
 		) / batch_size
 
 
-	# Test function by checking that it gives the same result as the original logit difference
+# Test function by checking that it gives the same result as the original logit difference
 
+if MAIN:
 	t.testing.assert_close(
 		residual_stack_to_logit_diff(final_token_residual_stream, cache),
 		original_average_logit_diff
@@ -1532,7 +1533,7 @@ if MAIN:
 		model.add_hook(lambda name: name.endswith("z"), hook_fn, is_permanent=is_permanent)
 
 		return model
-	# FLAT SOLUTION END
+# FLAT SOLUTION END
 
 # %%
 
@@ -1642,7 +1643,6 @@ def get_score(
 	score = logits_to_ave_logit_diff_2(logits, ioi_dataset).item()
 
 	return score
-
 
 if MAIN:
 	def get_minimality_score(
