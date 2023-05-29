@@ -1,6 +1,7 @@
 # %%
 
-import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"
+# os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import sys
 import einops
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ import torch.nn as nn
 import numpy as np
 import math
 from tqdm.notebook import tqdm
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from jaxtyping import Float, Int
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 from collections import defaultdict
@@ -59,7 +60,7 @@ if MAIN:
 
 
 if MAIN:
-	sorted_vocab[-20:]
+	print(sorted_vocab[-20:])
 
 # %%
 
@@ -74,7 +75,7 @@ if MAIN:
 
 
 if MAIN:
-	reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000")
+	print(reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000"))
 
 # %%
 
@@ -106,7 +107,7 @@ if MAIN:
 if MAIN:
 	most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(logits.argmax(dim=-1)[0])
 	
-	list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens))
+	print(list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens)))
 
 # %%
 
@@ -273,13 +274,15 @@ if MAIN:
 # %%
 
 import circuitsvis as cv
+from IPython.display import display
 
 
 if MAIN:
-	cv.attention.attention_patterns(
+	html = cv.attention.attention_patterns(
 		tokens=reference_gpt2.to_str_tokens(reference_text), 
 		attention=cache["pattern", 0][0]
 	)
+	display(html)
 
 # %%
 
@@ -486,9 +489,9 @@ def get_log_probs(
 	
 	log_probs = logits.log_softmax(dim=-1)
 	# Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
-	log_probs_for_predicted_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
+	log_probs_for_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
 
-	return log_probs_for_predicted_tokens
+	return log_probs_for_tokens
 
 
 
@@ -583,7 +586,7 @@ class LitTransformer(pl.LightningModule):
 		logits = self.model(tokens)
 		return logits
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+	def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
 		'''
 		Here you compute and return the training loss and some additional metrics for e.g. 
 		the progress bar or logger.
@@ -720,8 +723,8 @@ class TransformerSampler:
 
 	@staticmethod
 	def sample_next_token(
-		input_ids: Int[Tensor, "d_vocab"], 
-		logits: Float[Tensor, "d_vocab"], 
+		input_ids: Int[Tensor, "seq_len"], 
+		logits: Float[Tensor, "seq_len d_vocab"], 
 		temperature=1.0, 
 		top_k=0, 
 		top_p=0.0, 
@@ -1029,31 +1032,31 @@ class Beams:
 		]
 
 
-	def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
+	def generate(self, toks_per_beam: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
 		'''
 		Starting from the current set of beams (which has length `num_beams`), returns a new
-		set of `num_beams * new_beams`, containing the best `new_beams` continuations for each
+		set of `num_beams * toks_per_beam`, containing the best `toks_per_beam` continuations for each
 		of the original beams.
 
 		Optional argument `no_repeat_ngram_size` means your model won't generate any sequences with
-		a repeating n-gram of this length (don't worry about implementing this until later).
+		a repeating n-gram of this length.
 		'''
 		# Get the output logprobs for the next token (for every sequence in current beams)
 		logprobs: Tensor = self.model(self.tokens)[:, -1, :].log_softmax(-1)
 
-		# Get the top `new_beams` tokens for each sequence
-		# topk_logprobs, topk_tokenIDs = logprobs.topk(k=new_beams)
-		topk_logprobs, topk_tokenIDs = self.get_topk_non_repeating(logprobs, no_repeat_ngram_size, k=new_beams)
+		# Get the top `toks_per_beam` tokens for each sequence
+		# topk_logprobs, topk_tokenIDs = logprobs.topk(k=toks_per_beam)
+		topk_logprobs, topk_tokenIDs = self.get_topk_non_repeating(logprobs, no_repeat_ngram_size, k=toks_per_beam)
 
 		# Get all of the new possible beams, via einops operations
 		#   Here, we're effectively flattening out the batch dimension and k dimension, to give us tensors
 		#   with every possible combination of (original sequence, new token) pairs.)
 		new_logprob_sums = sum([
-			einops.repeat(self.logprob_sums, "batch -> (batch k)", k=new_beams),
+			einops.repeat(self.logprob_sums, "batch -> (batch k)", k=toks_per_beam),
 			einops.rearrange(topk_logprobs, "batch k -> (batch k)")
 		])
 		new_tokens = t.concat([
-			einops.repeat(self.tokens, "batch seq -> (batch k) seq", k=new_beams),
+			einops.repeat(self.tokens, "batch seq -> (batch k) seq", k=toks_per_beam),
 			einops.rearrange(topk_tokenIDs, "batch k -> (batch k) 1")
 		], dim=-1)
 		return self.new_beams(new_logprob_sums, new_tokens)
@@ -1175,10 +1178,10 @@ def beam_search(
 	for n in tqdm(range(max_new_tokens)):
 
 		# Generation step
-		best_beams = best_beams.generate(num_beams, no_repeat_ngram_size)
+		best_beams = best_beams.generate(toks_per_beam=num_beams, no_repeat_ngram_size=no_repeat_ngram_size)
 
 		# Filtering step
-		best_beams, best_beams_terminated = best_beams.filter(num_beams)
+		best_beams, best_beams_terminated = best_beams.filter(num_beams=num_beams)
 		final_logprobs_and_completions.extend(best_beams_terminated.logprobs_and_completions)
 
 		# Print output
@@ -1215,7 +1218,7 @@ if MAIN:
 
 if MAIN:
 	print("Testing generate, without no_repeat_ngram_size argument:")
-	new_beams = beams.generate(2)
+	new_beams = beams.generate(toks_per_beam=2)
 	new_beams.print()
 	assert new_beams.logprobs_and_completions[0][1] == "this is the third time"
 
@@ -1234,12 +1237,12 @@ if MAIN:
 	)
 	
 	# With no_repeat_ngram_size=1, should not generate the token " one" or " two"
-	new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=1)
+	new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=1)
 	new_bigram_beams.print()
 	assert all([not (completion[1].endswith(" one") or completion[1].endswith(" two")) for completion in new_bigram_beams.logprobs_and_completions])
 	
 	# With no_repeat_ngram_size=2, it can generate " two" (which it should), but not " one"
-	new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=2)
+	new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=2)
 	new_bigram_beams.print()
 	assert all([not completion[1].endswith(" one") for completion in new_bigram_beams.logprobs_and_completions])
 	assert any([not completion[1].endswith(" two") for completion in new_bigram_beams.logprobs_and_completions])
@@ -1280,7 +1283,7 @@ if MAIN:
 	final_logitsums_and_completions = sampler.beam_search(
 		prompt=prompt, 
 		num_return_sequences=3,
-		num_beams=40,
+		toks_per_beam=40,
 		max_new_tokens=60, 
 		no_repeat_ngram_size=2,
 		verbose=False
