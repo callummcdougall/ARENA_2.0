@@ -665,9 +665,11 @@ We can view the vectors $W^{in}_{[:, i]}$ as the **input directions**, and $W^{o
 
 Terminology note - sometimes we refer to each of these $d_{mlp}$ input-output pairs as **neurons**.
 
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/mlp-neurons.png" width="900">
+
 ---
 
-If you're having trouble visualizing the linear algebra going into this, we've broken it down step by step below. We have:
+Here's a step-by-step breakdown of the linear algebra, if it was too fast above. We have:
 
 $$
 \begin{aligned}
