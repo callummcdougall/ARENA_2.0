@@ -1083,12 +1083,14 @@ You should spend up to 30-40 minutes on this exercise.
 * **Step 1:** Produce an attention pattern - for each destination token, probability distribution over previous tokens (including current token)
     * Linear map from input -> query, key shape `[batch, seq_posn, head_index, d_head]`
     * Dot product every *pair* of queries and keys to get attn_scores `[batch, head_index, query_pos, key_pos]` (query = dest, key = source)
-    * Scale and mask `attn_scores` to make it lower triangular, i.e. causal
+    * **Scale** and mask `attn_scores` to make it lower triangular, i.e. causal
     * Softmax along the `key_pos` dimension, to get a probability distribution for each query (destination) token - this is our attention pattern!
 * **Step 2:** Move information from source tokens to destination token using attention pattern (move = apply linear map)
     * Linear map from input -> value `[batch, key_pos, head_index, d_head]`
     * Mix along the `key_pos` with attn pattern to get `z`, which is a weighted average of the value vectors `[batch, query_pos, head_index, d_head]`
     * Map to output, `[batch, position, d_model]` (position = query_pos, we've summed over all heads)
+
+Note - when we say **scale**, we mean dividing by `sqrt(d_head)`. The purpose of this is to avoid vanishing gradients (which is a big problem when we're dealing with a function like softmax - if one of the values is much larger than all the others, the probabilities will be close to 0 or 1, and the gradients will be close to 0).
 
 Below is a much larger, more detailed version of the attention head diagram from earlier. This should give you an idea of the actual tensor operations involved. A few clarifications on this diagram:
 
