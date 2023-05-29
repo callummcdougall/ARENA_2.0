@@ -40,11 +40,10 @@ Please send any problems / bugs on the `#errata` channel in the [Slack group](ht
 You can toggle dark mode from the buttons on the top-right of this page.
 
 
-# Interpretability on an Algorithmic Model
+# [1.4] Interpretability on an Algorithmic Model
 
 
 ## Introduction
-
 
 
 When models are trained on synthetic, algorithmic tasks, they often learn to do some clean, interpretable computation inside. Choosing a suitable task and trying to reverse engineer a model can be a rich area of interesting circuits to interpret! In some sense, this is interpretability on easy mode - the model is normally trained on a single task (unlike language models, which need to learn everything about language!), we know the exact ground truth about the data and optimal solution, and the models are tiny. So why care?
@@ -58,7 +57,7 @@ Working on algorithmic problems gives us the opportunity to:
 
 The algorithmic problem we'll work on in these exercises is **bracket classification**, i.e. taking a string of parentheses like `"(())()"` and trying to output a prediction of "balanced" or "unbalanced". We will find an algorithmic solution for solving this problem, and reverse-engineer one of the circuits in our model that is responsible for implementing one part of this algorithm.
 
-
+This page contains a large number of exercise. Each exercise will have a difficulty and importance rating out of 5, as well as an estimated maximum time you should spend on these exercises and sometimes a short annotation. You should interpret the ratings & time estimates relatively (e.g. if you find yourself spending about 50% longer on the exercises than the time estimates, adjust accordingly). Please do skip exercises / look at solutions if you don't feel like they're important enough to be worth doing, and you'd rather get to the good stuff!
 
 
 ## Motivation
@@ -81,7 +80,7 @@ At a surface level, these exercises are designed to guide you through a partial 
 
 Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/brackets-map-newer2.png" width="750">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/brackets-map-simpler.png" width="750">
 
 
 ## Content & Learning Objectives
@@ -162,6 +161,7 @@ from pathlib import Path
 import pandas as pd
 import circuitsvis as cv
 import webbrowser
+from IPython.display import display
 from transformer_lens import utils, ActivationCache, HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookPoint
 from transformer_lens.components import LayerNorm
@@ -407,7 +407,7 @@ Now that we have the tokenizer, we can use it to write hooks that mask the paddi
 <details>
 <summary>Click to see a diagram explaining how this masking works (should help explain the code below)</summary>
 
-![masking-pad](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/masking-padding-tokens.png)
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/masking-padding-tokens.png" width="840">
 
 </details>
 
@@ -1217,7 +1217,7 @@ It's very important to conceptually understand what object you are computing her
 
 In the code block below, you should compute a `(10, batch)`-size tensor called `out_by_component_in_unbalanced_dir`. The `[i, j]`th element of this tensor should be the dot product of the `i`th component's output with the unbalanced direction, for the `j`th sequence in your dataset. 
 
-You should normalize it by subtracting the mean of the dot product of this component's output with the unbalanced direction on balanced samples - this will make sure the histogram corresponding to the balanced samples is centered at 0 (like in the figure above), which will make it easier to interpret. Remember, it's only the **difference between the dot product on unbalanced and balanced samples** that we care about (since adding a constant to both logits doesn't change the model's probabilistic output).
+You should normalize it by **subtracting the mean** of the dot product of this component's output with the unbalanced direction on balanced samples - this will make sure the histogram corresponding to the balanced samples is centered at 0 (like in the figure above), which will make it easier to interpret. Remember, it's only the **difference between the dot product on unbalanced and balanced samples** that we care about (since adding a constant to both logits doesn't change the model's probabilistic output).
 
 We've given you a `hists_per_comp` function which will plot these histograms for you - all you need to do is calculate the `out_by_component_in_unbalanced_dir` object and supply it to that function.
 
@@ -1228,7 +1228,10 @@ if MAIN:
     # YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
     tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
     
-    plotly_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
+    plotly_utils.hists_per_comp(
+        out_by_component_in_unbalanced_dir, 
+        data, xaxis_range=[-10, 20]
+    )
 
 ```
 
@@ -1250,7 +1253,6 @@ Don't forget to subtract the mean for each component across all the balanced sam
 
 
 ```python
-# remember to subtract the mean per component on balanced samples
 # Get output by components, at sequence position 0 (which is used for classification)
 out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[:, :, 0, :]
 # Get the unbalanced direction for tensors being fed into the final layernorm
@@ -1315,7 +1317,9 @@ You can get the last two of these by directly indexing from your `out_by_compone
 
 
 ```python
-def is_balanced_vectorized_return_both(toks: Float[Tensor, "batch seq"]) -> Tuple[Bool[Tensor, "batch"], Bool[Tensor, "batch"]]:
+def is_balanced_vectorized_return_both(
+        toks: Float[Tensor, "batch seq"]
+) -> Tuple[Bool[Tensor, "batch"], Bool[Tensor, "batch"]]:
     pass
 
 
@@ -1334,7 +1338,9 @@ if MAIN:
 
 
 ```python
-def is_balanced_vectorized_return_both(toks: Float[Tensor, "batch seq"]) -> Tuple[Bool[Tensor, "batch"], Bool[Tensor, "batch"]]:
+def is_balanced_vectorized_return_both(
+        toks: Float[Tensor, "batch seq"]
+) -> Tuple[Bool[Tensor, "batch"], Bool[Tensor, "batch"]]:
     # SOLUTION
     table = t.tensor([0, 0, 0, 1, -1]).to(device)
     change = table[toks.to(device)].flip(-1)
@@ -1566,7 +1572,8 @@ def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d
 
 def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
     '''
-    Returns the direction propagated back through the OV matrix of 2.0 and then through the layernorm before the layer 2 attention heads.
+    Returns the direction propagated back through the OV matrix of 2.0 
+    and then through the layernorm before the layer 2 attention heads.
     '''
     pass
 
@@ -1590,7 +1597,8 @@ def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d
 
 def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
     '''
-    Returns the direction propagated back through the OV matrix of 2.0 and then through the layernorm before the layer 2 attention heads.
+    Returns the direction propagated back through the OV matrix of 2.0 
+    and then through the layernorm before the layer 2 attention heads.
     '''
     # SOLUTION
     W_OV = get_WOV(model, 2, 0)
@@ -1616,14 +1624,19 @@ You shouldn't spend more than 10-15 minutes on these exercises.
 This exercise should be somewhat similar to the last time you computed component magnitudes.
 ```
 
-Now that you've got the `pre_20_dir`, you can calculate magnitudes for each of the components that came before. You can refer back to the diagram above if you're confused.
+Now that you've got the `pre_20_dir`, you can calculate magnitudes for each of the components that came before. You can refer back to the diagram above if you're confused. **Remember to subtract the mean for each component for balanced inputs.**
 
 
 ```python
 
 if MAIN:
     # YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
-    plotly_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
+    tests.test_out_by_component_in_pre_20_unbalanced_dir(out_by_component_in_pre_20_unbalanced_dir, model, data)
+    
+    plotly_utils.hists_per_comp(
+        out_by_component_in_pre_20_unbalanced_dir, 
+        data, xaxis_range=(-5, 12)
+    )
 
 ```
 
@@ -1632,7 +1645,6 @@ if MAIN:
 
 
 ```python
-# Remember to subtract the mean for each component for balanced inputs
 pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
 out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
     pre_layer2_outputs_seqpos1,
@@ -1693,6 +1705,10 @@ Including biases, the full version of this formula is:
 $$
 MLP(x) = \sum_{i=1}^{d_{mlp}}f(x^T W^{in}_{[:, i]} + b^{in}_i) W^{out}_{[i,:]} + b^{out}
 $$
+
+Diagram illustrating this (without biases):
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/mlp-neurons.png" width="850">
 
 
 ### Exercise - get output by neuron
@@ -2245,7 +2261,6 @@ def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -
     return model.W_E[idx]
 
 
-
 if MAIN:
     # YOUR CODE HERE - define v_L and v_R, as described above.
     print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
@@ -2494,17 +2509,10 @@ example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
 
 
 ```python
-# FLAT SOLUTION NOINDENT
 # YOUR CODE HERE - update the examples list below, to find adversarial examples!
-def tallest_balanced_bracket(length: int) -> str:
-    return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
 
 
 if MAIN:
-    example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
-    examples.append(example)
-    # FLAT SOLUTION END
-    
     examples = ["()", "(())", "))"]
     m = max(len(ex) for ex in examples)
     toks = tokenizer.tokenize(examples)
@@ -2517,6 +2525,12 @@ if MAIN:
 <summary>Solution</summary>
 
 
+```python
+    return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
+example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
+examples.append(example)
+
+```
 </details>
 
 

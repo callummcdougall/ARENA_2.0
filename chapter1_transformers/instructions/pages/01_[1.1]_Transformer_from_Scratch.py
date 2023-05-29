@@ -69,8 +69,6 @@ In this section, we'll take a first look at transformers - what their function i
 
 Here, we'll implement a transformer from scratch, using only PyTorch's tensor operations. This will give us a good understanding of how transformers work, and how to use them. We do this by going module-by-module, in an experience which should feel somewhat similar to last week's ResNet exercises. Much like with ResNets, you'll conclude by loading in pretrained weights and verifying that your model works as expected.
 
-*You should aim to get at least as far as the end of this section on the first day.*
-
 > ##### Learning objectives
 > 
 > * Understand that a transformer is composed of attention heads and MLPs, with each one performing operations on the residual stream
@@ -97,6 +95,8 @@ Next, you'll learn how to train your transformer from scratch. This will be quit
 
 Lastly, you'll learn how to sample from a transformer. This will involve implementing a few different sampling methods, and writing a caching system which can reuse computations from previous forward passes to improve your model's text generation speed.
 
+*The second half of this section is less important, and you can skip it if you want.*
+
 > ##### Learning objectives
 >
 > * Learn how to sample from a transformer
@@ -109,7 +109,8 @@ Lastly, you'll learn how to sample from a transformer. This will involve impleme
 
 
 ```python
-import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"
+# os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import sys
 import einops
 from dataclasses import dataclass
@@ -1099,7 +1100,7 @@ Below is a much larger, more detailed version of the attention head diagram from
 * We arrange the keys, queries and values as `(batch, seq_pos, head_idx, d_head)`, because the biases have shape `(head_idx, d_head)`, so this makes it convenient to add the biases (recall the rules of array broadcasting!).
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-attn-2.png" width="1400">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-attn-21.png" width="1400">
 
 
 <details>
@@ -1880,7 +1881,7 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: dict, batch_idx: int) -> Float[Tensor, ""]:
+    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
@@ -1915,7 +1916,7 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: dict, batch_idx: int) -> Float[Tensor, ""]:
+    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
@@ -2138,7 +2139,7 @@ class TransformerSampler:
 
     @staticmethod
     def sample_next_token(
-        input_ids: Int[Tensor, "seq_len d_vocab"], 
+        input_ids: Int[Tensor, "seq_len"], 
         logits: Float[Tensor, "seq_len d_vocab"], 
         temperature=1.0, 
         top_k=0, 
@@ -3071,7 +3072,6 @@ class Beams:
         rprint(table)
 
 
-
 @t.inference_mode()
 def beam_search(
     self: TransformerSampler,
@@ -3266,7 +3266,7 @@ if MAIN:
     final_logitsums_and_completions = sampler.beam_search(
         prompt=prompt, 
         num_return_sequences=3,
-        toks_per_beam=40,
+        num_beams=40,
         max_new_tokens=60, 
         no_repeat_ngram_size=2,
         verbose=False
