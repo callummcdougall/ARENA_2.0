@@ -3033,14 +3033,14 @@ class Beams:
         ]
 
 
-    def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
+    def generate(self, toks_per_beam: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
         '''
         Starting from the current set of beams (which has length `num_beams`), returns a new
-        set of `num_beams * new_beams`, containing the best `new_beams` continuations for each
+        set of `num_beams * toks_per_beam`, containing the best `toks_per_beam` continuations for each
         of the original beams.
 
         Optional argument `no_repeat_ngram_size` means your model won't generate any sequences with
-        a repeating n-gram of this length (don't worry about implementing this until later).
+        a repeating n-gram of this length.
         '''
         pass
 
@@ -3069,6 +3069,7 @@ class Beams:
                 text = text[:int(0.3 * max_print_chars)] + " ... " + text[-int(0.7 * max_print_chars):]
             table.add_row(f"{logprob_sum:>8.3f}", repr(text))
         rprint(table)
+
 
 
 @t.inference_mode()
@@ -3128,7 +3129,7 @@ And here are some unit tests for your `generate` and `filter` methods:
 
 if MAIN:
     print("Testing generate, without no_repeat_ngram_size argument:")
-    new_beams = beams.generate(2)
+    new_beams = beams.generate(toks_per_beam=2)
     new_beams.print()
     assert new_beams.logprobs_and_completions[0][1] == "this is the third time"
 
@@ -3148,12 +3149,12 @@ if MAIN:
     )
     
     # With no_repeat_ngram_size=1, should not generate the token " one" or " two"
-    new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=1)
+    new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=1)
     new_bigram_beams.print()
     assert all([not (completion[1].endswith(" one") or completion[1].endswith(" two")) for completion in new_bigram_beams.logprobs_and_completions])
     
     # With no_repeat_ngram_size=2, it can generate " two" (which it should), but not " one"
-    new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=2)
+    new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=2)
     new_bigram_beams.print()
     assert all([not completion[1].endswith(" one") for completion in new_bigram_beams.logprobs_and_completions])
     assert any([not completion[1].endswith(" two") for completion in new_bigram_beams.logprobs_and_completions])
@@ -3265,7 +3266,7 @@ if MAIN:
     final_logitsums_and_completions = sampler.beam_search(
         prompt=prompt, 
         num_return_sequences=3,
-        num_beams=40,
+        toks_per_beam=40,
         max_new_tokens=60, 
         no_repeat_ngram_size=2,
         verbose=False
@@ -3366,10 +3367,10 @@ def beam_search(
     for n in tqdm(range(max_new_tokens)):
 
         # Generation step
-        best_beams = best_beams.generate(num_beams, no_repeat_ngram_size)
+        best_beams = best_beams.generate(toks_per_beam=num_beams, no_repeat_ngram_size=no_repeat_ngram_size)
 
         # Filtering step
-        best_beams, best_beams_terminated = best_beams.filter(num_beams)
+        best_beams, best_beams_terminated = best_beams.filter(num_beams=num_beams)
         final_logprobs_and_completions.extend(best_beams_terminated.logprobs_and_completions)
 
         # Print output
