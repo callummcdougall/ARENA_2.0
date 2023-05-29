@@ -2777,36 +2777,6 @@ if MAIN:
 
 ```
 
-```python
-
-if MAIN:
-    path_patch_head_to_final_resid_post = patching.path_patch(
-        model,
-        clean_tokens=ioi_dataset.toks,
-        corrupted_tokens=abc_dataset.toks,
-        clean_cache=ioi_cache,
-        corrupted_cache=abc_cache,
-        patching_metric=ioi_metric_2,
-    
-        sender_components="z",
-        sender_seq_pos="all",
-        receiver_components=[(8, 6, "v"), (8, 10, "v"), (7, 9, "v"), (7, 3, "v")],
-        receiver_seq_pos="all",
-    
-        verbose=True,
-    )
-    
-    
-    imshow(
-        100 * path_patch_head_to_final_resid_post[:8],
-        title="Direct effect on S-Inhibition Heads' values", 
-        labels={"x": "Head", "y": "Layer", "color": "Logit diff.<br>variation"},
-        width=600,
-        coloraxis=dict(colorbar_ticksuffix = "%"),
-    )
-
-```
-
 <details>
 <summary>Question - what is the interpretation of this plot? </summary>
 

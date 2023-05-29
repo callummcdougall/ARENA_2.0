@@ -1825,17 +1825,6 @@ if MAIN:
 
 
 if MAIN:
-	make_table(
-		cols = [
-			"Original logit diff", "Direct Logit Attribution of top name mover head", "Naive prediction of post ablation logit diff", f"Logit diff after ablating L{top_layer}H{top_head}",
-			original_average_logit_diff, per_head_logit_diffs[top_layer, top_head]
-		]
-	)
-
-# %%
-
-
-if MAIN:
 	per_head_ablated_residual, labels = ablated_cache.stack_head_results(layer=-1, return_labels=True)
 	per_head_ablated_residual = einops.rearrange(
 		per_head_ablated_residual[:, t.arange(len(ioi_dataset)).to(device), ioi_dataset.word_idx["end"].to(device)], 
