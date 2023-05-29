@@ -475,9 +475,20 @@ class DemoTransformer(nn.Module):
         self.unembed = Unembed(cfg)
 
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
-        pass
+        embed = self.embed(tokens)
+        pos_emb = self.pos_embed(tokens)
+        resid = embed +  pos_emb
+        for b in self.blocks:
+            resid = b(resid)
+        resid = self.ln_final(resid)
+        unemb = self.unembed(resid)
+        return unemb
+
 
 
 if MAIN:
     rand_int_test(DemoTransformer, [2, 4])
     load_gpt2_test(DemoTransformer, reference_gpt2, tokens)
+
+
+# %%
