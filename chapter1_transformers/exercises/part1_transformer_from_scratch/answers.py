@@ -227,8 +227,6 @@ class LayerNorm(nn.Module):
     def forward(
         self, residual: Float[Tensor, "batch posn d_model"]
     ) -> Float[Tensor, "batch posn d_model"]:
-        if cfg.debug:
-            print(f"LayerNorm {residual.shape=}")
         dims = -1
         mean = residual.mean(dim=dims, keepdim=True)
         var = residual.var(dim=dims, unbiased=False, keepdim=True)
@@ -420,6 +418,7 @@ if MAIN:
     rand_float_test(MLP, [2, 4, 768])
     load_gpt2_test(MLP, reference_gpt2.blocks[0].mlp, cache["normalized", 0, "ln2"])
 
+
 # %%
 class TransformerBlock(nn.Module):
     def __init__(self, cfg: Config):
@@ -433,18 +432,20 @@ class TransformerBlock(nn.Module):
     def forward(
         self, resid_pre: Float[Tensor, "batch position d_model"]
     ) -> Float[Tensor, "batch position d_model"]:
-       attn_out = self.attn(self.ln1(resid_pre)) 
-       resid_mid = resid_pre + attn_out
+        attn_out = self.attn(self.ln1(resid_pre))
+        resid_mid = resid_pre + attn_out
 
-       mlp_out = self.mlp(self.ln2(resid_mid))
-       resid_post = resid_mid + mlp_out
+        mlp_out = self.mlp(self.ln2(resid_mid))
+        resid_post = resid_mid + mlp_out
 
-       return resid_post
+        return resid_post
 
 
 if MAIN:
     rand_float_test(TransformerBlock, [2, 4, 768])
     load_gpt2_test(TransformerBlock, reference_gpt2.blocks[0], cache["resid_pre", 0])
+
+
 # %%
 class Unembed(nn.Module):
     def __init__(self, cfg):
@@ -463,6 +464,8 @@ class Unembed(nn.Module):
 if MAIN:
     rand_float_test(Unembed, [2, 4, 768])
     load_gpt2_test(Unembed, reference_gpt2.unembed, cache["ln_final.hook_normalized"])
+
+
 # %%
 class DemoTransformer(nn.Module):
     def __init__(self, cfg: Config):
@@ -470,20 +473,23 @@ class DemoTransformer(nn.Module):
         self.cfg = cfg
         self.embed = Embed(cfg)
         self.pos_embed = PosEmbed(cfg)
-        self.blocks = nn.ModuleList([TransformerBlock(cfg) for _ in range(cfg.n_layers)])
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(cfg) for _ in range(cfg.n_layers)]
+        )
         self.ln_final = LayerNorm(cfg)
         self.unembed = Unembed(cfg)
 
-    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+    def forward(
+        self, tokens: Int[Tensor, "batch position"]
+    ) -> Float[Tensor, "batch position d_vocab"]:
         embed = self.embed(tokens)
         pos_emb = self.pos_embed(tokens)
-        resid = embed +  pos_emb
+        resid = embed + pos_emb
         for b in self.blocks:
             resid = b(resid)
         resid = self.ln_final(resid)
         unemb = self.unembed(resid)
         return unemb
-
 
 
 if MAIN:
@@ -492,3 +498,164 @@ if MAIN:
 
 
 # %%
+if MAIN:
+    demo_gpt2 = DemoTransformer(Config(debug=False)).to(device)
+    demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False)
+
+    demo_logits = demo_gpt2(tokens)
+# %%
+
+
+def get_log_probs(
+    logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tensor, "batch posn"]
+) -> Float[Tensor, "batch posn-1"]:
+    log_probs = logits.log_softmax(dim=-1)
+    # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
+    log_probs_for_tokens = (
+        log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
+    )
+
+    return log_probs_for_tokens
+
+
+if MAIN:
+    pred_log_probs = get_log_probs(demo_logits, tokens)
+    print(f"Avg cross entropy loss: {-pred_log_probs.mean():.4f}")
+    print(
+        f"Avg cross entropy loss for uniform distribution: {math.log(demo_gpt2.cfg.d_vocab):4f}"
+    )
+    print(
+        f"Avg probability assigned to correct token: {pred_log_probs.exp().mean():4f}"
+    )
+# %%
+
+if MAIN:
+    test_string = """The Total Perspective Vortex derives its picture of the whole Universe on the principle of"""
+    for i in tqdm(range(100)):
+        test_tokens = reference_gpt2.to_tokens(test_string).to(device)
+        demo_logits = demo_gpt2(test_tokens)
+        test_string += reference_gpt2.tokenizer.decode(demo_logits[-1, -1].argmax())
+
+    print(test_string)
+
+# %%
+
+if MAIN:
+    model_cfg = Config(
+        debug=False,
+        d_model=256,
+        n_heads=4,
+        d_head=64,
+        d_mlp=1024,
+        n_layers=2,
+        n_ctx=256,
+        d_vocab=reference_gpt2.cfg.d_vocab,
+    )
+    model = DemoTransformer(model_cfg)
+
+# %%
+
+
+@dataclass
+class TransformerTrainingArgs:
+    batch_size = 8
+    max_epochs = 1
+    max_steps = 1000
+    log_every = 10
+    lr = 1e-3
+    weight_decay = 1e-2
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day1-transformer"
+    run_name: Optional[str] = None
+    log_every_n_steps: int = 1
+
+
+if MAIN:
+    args = TransformerTrainingArgs()
+
+# %
+# %%
+
+if MAIN:
+    dataset = datasets.load_dataset("NeelNanda/pile-10k", split="train").remove_columns(
+        "meta"
+    )
+    print(dataset)
+    print(dataset[0]["text"][:100])
+
+# %%
+if MAIN:
+    tokenized_dataset = tokenize_and_concatenate(
+        dataset,
+        reference_gpt2.tokenizer,
+        streaming=False,
+        max_length=model.cfg.n_ctx,
+        column_name="text",
+        add_bos_token=True,
+        num_proc=4,
+    )
+    data_loader = DataLoader(
+        tokenized_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+    )
+# %%
+if MAIN:
+    first_batch = data_loader.dataset[: args.batch_size]
+
+    print(first_batch.keys())
+    print(first_batch["tokens"].shape)
+# %%
+
+
+class LitTransformer(pl.LightningModule):
+    def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
+        super().__init__()
+        self.model = model
+        self.cfg = model.cfg
+        self.args = args
+        self.data_loader = data_loader
+
+    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+        logits = self.model(tokens)
+        return logits
+
+    def training_step(self, batch: dict, batch_idx: int) -> Float[Tensor, ""]:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        tokens = batch['tokens'].to(device)
+        logits: Float[Tensor, "batch position d_vocab"] = self(tokens)
+        log_probs: Float[Tensor, "batch posn-1"] = get_log_probs(logits=logits, tokens=tokens)
+        loss = -log_probs.mean()
+        self.log("train_loss", loss)
+        return loss
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        return t.optim.AdamW(
+            self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay
+        )
+
+    def train_dataloader(self):
+        return self.data_loader
+
+
+# %%
+
+if MAIN:
+    litmodel = LitTransformer(args, model, data_loader)
+    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
+
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        logger=logger,
+        log_every_n_steps=args.log_every_n_steps
+    )
+    trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
+    wandb.finish()
