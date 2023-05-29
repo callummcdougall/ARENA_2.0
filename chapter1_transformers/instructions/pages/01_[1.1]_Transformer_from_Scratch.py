@@ -121,7 +121,7 @@ import torch.nn as nn
 import numpy as np
 import math
 from tqdm.notebook import tqdm
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from jaxtyping import Float, Int
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 from collections import defaultdict
@@ -1880,7 +1880,7 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Float[Tensor, ""]:
+    def training_step(self, batch: dict, batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
@@ -1915,7 +1915,7 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Float[Tensor, ""]:
+    def training_step(self, batch: dict, batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
