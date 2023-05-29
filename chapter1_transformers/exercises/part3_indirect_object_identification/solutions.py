@@ -29,7 +29,7 @@ t.set_grad_enabled(False)
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part3_indirect_object_identification"
+section_dir = (exercises_dir / "part3_indirect_object_identification").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line, scatter, bar
@@ -139,7 +139,9 @@ if MAIN:
 		return answer_logit_diff if per_prompt else answer_logit_diff.mean()
 
 
-# tests.test_logits_to_ave_logit_diff(logits_to_ave_logit_diff)
+
+if MAIN:
+	tests.test_logits_to_ave_logit_diff(logits_to_ave_logit_diff)
 
 # %%
 
@@ -352,7 +354,6 @@ if MAIN:
 
 # %%
 
-
 if MAIN:
 	def ioi_metric(
 		logits: Float[Tensor, "batch seq d_vocab"], 
@@ -366,8 +367,10 @@ if MAIN:
 		'''
 		patched_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
 		return (patched_logit_diff - corrupted_logit_diff) / (clean_logit_diff  - corrupted_logit_diff)
-	
-	
+
+
+
+if MAIN:
 	t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
 	t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
 	t.testing.assert_close(ioi_metric((clean_logits + corrupted_logits) / 2).item(), 0.5)
@@ -762,12 +765,11 @@ if MAIN:
 
 # %%
 
-
 if MAIN:
 	def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
 		'''
 		Returns logit difference between the correct and incorrect answer.
-	
+
 		If per_prompt=True, return the array of differences rather than the average.
 		'''
 		
@@ -778,8 +780,10 @@ if MAIN:
 		# Find logit difference
 		answer_logit_diff = io_logits - s_logits
 		return answer_logit_diff if per_prompt else answer_logit_diff.mean()
-	
-	
+
+
+
+if MAIN:
 	model.reset_hooks(including_permanent=True)
 	
 	ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
@@ -811,7 +815,6 @@ if MAIN:
 
 # %%
 
-
 if MAIN:
 	def ioi_metric_2(
 		logits: Float[Tensor, "batch seq d_vocab"],
@@ -825,8 +828,10 @@ if MAIN:
 		'''
 		patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
 		return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
-	
-	
+
+
+
+if MAIN:
 	print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
 	print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
 
@@ -972,7 +977,6 @@ def patch_head_input(
 	return orig_activation
 # FLAT SOLUTION END
 
-
 if MAIN:
 	def get_path_patch_head_to_heads(
 		receiver_heads: List[Tuple[int, int]],
@@ -1095,31 +1099,31 @@ if MAIN:
 # %%
 
 
-if MAIN:
-	path_patch_head_to_final_resid_post = patching.path_patch(
-		model,
-		clean_tokens=ioi_dataset.toks,
-		corrupted_tokens=abc_dataset.toks,
-		clean_cache=ioi_cache,
-		corrupted_cache=abc_cache,
-		patching_metric=ioi_metric_2,
+# if MAIN:
+# 	path_patch_head_to_final_resid_post = patching.path_patch(
+# 		model,
+# 		clean_tokens=ioi_dataset.toks,
+# 		corrupted_tokens=abc_dataset.toks,
+# 		clean_cache=ioi_cache,
+# 		corrupted_cache=abc_cache,
+# 		patching_metric=ioi_metric_2,
 	
-		sender_components="z",
-		sender_seq_pos="all",
-		receiver_components=[(8, 6, "v"), (8, 10, "v"), (7, 9, "v"), (7, 3, "v")],
-		receiver_seq_pos="all",
+# 		sender_components="z",
+# 		sender_seq_pos="all",
+# 		receiver_components=[(8, 6, "v"), (8, 10, "v"), (7, 9, "v"), (7, 3, "v")],
+# 		receiver_seq_pos="all",
 	
-		verbose=True,
-	)
+# 		verbose=True,
+# 	)
 	
 	
-	imshow(
-		100 * path_patch_head_to_final_resid_post[:8],
-		title="Direct effect on S-Inhibition Heads' values", 
-		labels={"x": "Head", "y": "Layer", "color": "Logit diff.<br>variation"},
-		width=600,
-		coloraxis=dict(colorbar_ticksuffix = "%"),
-	)
+# 	imshow(
+# 		100 * path_patch_head_to_final_resid_post[:8],
+# 		title="Direct effect on S-Inhibition Heads' values", 
+# 		labels={"x": "Head", "y": "Layer", "color": "Logit diff.<br>variation"},
+# 		width=600,
+# 		coloraxis=dict(colorbar_ticksuffix = "%"),
+# 	)
 
 # %% 5️⃣ PAPER REPLICATION
 
@@ -1640,7 +1644,6 @@ def get_score(
 
 	return score
 
-
 if MAIN:
 	def get_minimality_score(
 		model: HookedTransformer,
@@ -1817,17 +1820,6 @@ if MAIN:
 		f"   Naive prediction of post ablation logit diff: {original_average_logit_diff - per_head_logit_diffs[top_layer, top_head]:.4f}",
 		f"      Logit diff after ablating L{top_layer}H{top_head}: {logits_to_ave_logit_diff_2(ablated_logits):.4f}",
 	]))
-
-# %%
-
-
-if MAIN:
-	make_table(
-		cols = [
-			"Original logit diff", "Direct Logit Attribution of top name mover head", "Naive prediction of post ablation logit diff", f"Logit diff after ablating L{top_layer}H{top_head}",
-			original_average_logit_diff, per_head_logit_diffs[top_layer, top_head]
-		]
-	)
 
 # %%
 

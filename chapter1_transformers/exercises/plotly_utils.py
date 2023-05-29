@@ -226,7 +226,7 @@ def plot_contribution_vs_open_proportion(unbalanced_component: Float[Tensor, "ba
         failure_types = np.where(utils.to_numpy(mask), name, failure_types)
     fig = px.scatter(
         x=utils.to_numpy(data.open_proportion), y=utils.to_numpy(unbalanced_component), color=failure_types, color_discrete_map=color_discrete_map,
-        title=f"Head {title} contribution vs proportion of open brackets '('", template="simple_white", height=500, width=800,
+        title=title, template="simple_white", height=500, width=800,
         labels={"x": "Open-proportion", "y": f"Head {title} contribution"}
     ).update_traces(marker_size=4, opacity=0.5).update_layout(legend_title_text='Failure type')
     fig.show()
@@ -313,4 +313,15 @@ def hists_per_comp(out_by_component_in_unbalanced_dir: Float[Tensor, "component 
         fig.add_trace(go.Histogram(x=utils.to_numpy(in_dir[~data.isbal]), name="Unbalanced", marker_color="red", opacity=0.5, legendgroup = '2', showlegend=title=="embeddings"), row=row, col=col)
         fig.update_xaxes(title_text=title, row=row, col=col, range=xaxis_range)
     fig.update_layout(width=1200, height=250*(n_layers+1), barmode="overlay", legend=dict(yanchor="top", y=0.92, xanchor="left", x=0.4), title="Histograms of component significance")
+    fig.show()
+
+
+def plot_loss_difference(log_probs, rep_str, seq_len):
+    fig = px.line(
+        utils.to_numpy(log_probs), hover_name=rep_str[1:],
+        title=f"Per token log-prob on correct token, for sequence of length {seq_len}*2 (repeated twice)",
+        labels={"index": "Sequence position", "value": "Loss"}
+    ).update_layout(showlegend=False, hovermode="x unified")
+    fig.add_vrect(x0=0, x1=seq_len-.5, fillcolor="red", opacity=0.2, line_width=0)
+    fig.add_vrect(x0=seq_len-.5, x1=2*seq_len-1, fillcolor="green", opacity=0.2, line_width=0)
     fig.show()

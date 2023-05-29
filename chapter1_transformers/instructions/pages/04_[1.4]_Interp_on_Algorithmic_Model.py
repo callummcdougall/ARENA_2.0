@@ -22,13 +22,9 @@ def section_0():
 
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
-    <li class='margtop'><a class='contents-el' href='#content-&-learning-objectives'>Content & Learning Objectives</a></li>
-    <li><ul class="contents">
-        <li><a class='contents-el' href='#110125-bracket-classifier'>1️⃣ Bracket classifier</a></li>
-        <li><a class='contents-el' href='#1010125-moving-backwards'>2️⃣ Moving backwards</a></li>
-        <li><a class='contents-el' href='#12510125-total-elevation-circuit'>3️⃣ Total elevation circuit</a></li>
-        <li><a class='contents-el' href='#1010125-bonus-exercises'>4️⃣ Bonus exercises</a></li>
-    </ul></li>
+    <li class='margtop'><a class='contents-el' href='#motivation'>Motivation</a></li>
+    <li class='margtop'><a class='contents-el' href='#have-some-sense-of-proportion'>Have some sense of proportion</a></li>
+    <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -37,7 +33,11 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/gears2.png" width="350">
 
 
-If you have any feedback on this course (e.g. bugs, confusing explanations, parts that you feel could be structured better), please let me know using [this Google Form](https://forms.gle/2ZhdHa87wWsrATjh9).
+Colab: [**exercises**](https://colab.research.google.com/drive/1BYarO508z7stRFXZ3T92rI6OtMqP3w7E) | [**solutions**](https://colab.research.google.com/drive/1yILyi5dD3wc4o3vHc1MfbpAlWljyXU-U)
+
+Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
+
+You can toggle dark mode from the buttons on the top-right of this page.
 
 
 # Interpretability on an Algorithmic Model
@@ -61,10 +61,33 @@ The algorithmic problem we'll work on in these exercises is **bracket classifica
 
 
 
+## Motivation
+
+In A [Mathematical Framework for Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html), we got a lot of traction interpreting toy language models - that is, transformers trained in exactly the same way as larger models, but with only 1 or 2 layers. It seems likely that there’s a lot of low-hanging fruit left to pluck when studying toy language models!
+
+So, why care about studying toy language models? The obvious reason is that **it’s way easier to get traction**. In particular, the [inputs and outputs](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=UriJZK6E8dnL8NDY-fGl_eFX) of a model are intrinsically interpretable, and in a toy model there’s just not as much space between the inputs and outputs for weird complexity to build up. But the obvious objection to the above is that, ultimately, we care about understanding real models (and ideally extremely large ones like GPT-3), and learning to interpret toy models is not the actual goal. This is a pretty valid objection, but there are two natural ways that studying toy models can be valuable:
+
+The first is by finding fundamental circuits that recur in larger models, and [motifs](https://distill.pub/2020/circuits/zoom-in/#claim-2-motifs) that allow us to easily identify these circuits in larger models. A key underlying question here is that of [universality](https://distill.pub/2020/circuits/zoom-in/#claim-3): does each model learn its own weird way of completing its task, or are there some fundamental principles and algorithms that all models converge on?
+
+The second is by forming a better understanding of how to reverse engineer models - what are the right intuitions and conceptual frameworks, what tooling and techniques do and do not work, and what weird limitations we might be faced with. For instance, the work in A Mathematical Framework presents ideas like [the residual stream as the central object](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=DHp9vZ0h9lA9OCrzG2Y3rrzH), and the significance of the [QK-Circuits](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=n_Lc0Z5N9HMhAYcycDda-UEB) and [OV-Circuits](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=n_Lc0Z5N9HMhAYcycDda-UEB), which seem to generalise to many different models. We'll also see an example later in these exercises which illustrates how MLPs can be thought of as a collection of neurons which activate on different features, just like many seem to in language models. But there’s also ways it can be misleading, and some techniques that work well in toy models seem to generalise less well. 
+
+
+## Have some sense of proportion
+
+At a surface level, these exercises are designed to guide you through a partial interpretation of the bidirectional model trained on bracket classification. But it's also designed to make you a better interpretability researcher! As a result, most exercises will be doing a combination of:
+
+1. Showing you some new feature/component of the circuit, and
+2. Teaching you how to use tools and interpret results in a broader mech interp context.
+
+Here is a rough conceptual graph showing all the different things you should be thinking about when going through these exercises, and how they relate to both of these goals, as well all the `transformerlens` tools which will help you.
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/brackets-map-newer2.png" width="750">
+
+
 ## Content & Learning Objectives
 
 
-### 1️⃣ Bracket classifier
+#### 1️⃣ Bracket classifier
 
 This section describes how transformers can be used for classification, and the details of how this works in TransformerLens (using permanent hooks). It also takes you through the exercise of hand-writing a solution to the balanced brackets problem.
 
@@ -76,7 +99,7 @@ This section describes how transformers can be used for classification, and the 
 > * Understand how to implement specific kinds of transformer behaviour (e.g. masking of padding tokens) via permanent hooks in TransformerLens.
 > * Start thinking about the kinds of algorithmic solutions a transformer is likely to find for problems such as these, given its inductive biases.
 
-### 2️⃣ Moving backwards
+#### 2️⃣ Moving backwards
 
 Here, you'll perform logit attribution, and learn how to work backwards through particular paths of a model to figure out which components matter most for the final classification probabilities.
 
@@ -90,7 +113,7 @@ This is the first time you'll have to deal with LayerNorm in your models.
 > * Understand how to work backwards through a model to identify which components matter most for the final classification probabilities.
 > * Understand how LayerNorm works, and look at some ways to deal with it in your models.
 
-### 3️⃣ Total elevation circuit
+#### 3️⃣ Total elevation circuit
 
 *This section is quite challenging both from a coding and conceptual perspective, because you need to link the results of your observations and interventions to concrete hypotheses about how the model works.*
 
@@ -104,7 +127,7 @@ This is the first time you'll have to deal with MLPs in your models.
 > * Understand how MLPs can be viewed as a collection of neurons.
 > * Build up to a full picture of the total elevation circuit and how it works.
 
-### 4️⃣ Bonus exercises
+#### 4️⃣ Bonus exercises
 
 Lastly, there are a few optional bonus exercises which build on the previous content (e.g. having you examine different parts of the model, or use your understanding of how the model works to generate adversarial examples).
 
@@ -122,7 +145,7 @@ Lastly, there are a few optional bonus exercises which build on the previous con
 ```python
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
-import functools
+from functools import partial
 import json
 from typing import List, Tuple, Union, Optional, Callable, Dict
 import torch as t
@@ -137,6 +160,8 @@ from tqdm import tqdm
 from jaxtyping import Float, Int, Bool
 from pathlib import Path
 import pandas as pd
+import circuitsvis as cv
+import webbrowser
 from transformer_lens import utils, ActivationCache, HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookPoint
 from transformer_lens.components import LayerNorm
@@ -170,7 +195,6 @@ def section_1():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#life-on-the-frontier'>Life On The Frontier</a></li>
     <li class='margtop'><a class='contents-el' href='#today's-toy-model'>Today's Toy Model</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#causal-vs-bidirectional-attention'>Causal vs bidirectional attention</a></li>
@@ -189,7 +213,7 @@ def section_1():
     <li class='margtop'><a class='contents-el' href='#algorithmic-solutions'>Algorithmic Solutions</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-handwritten-solution-for-loop'><b>Exercise</b> - handwritten solution (for loop)</a></li>
-        <li><a class='contents-el' href='#exercise--handwritten-solution-vectorized'><b>Exercise</b> -  handwritten solution (vectorized)</a></li>
+        <li><a class='contents-el' href='#exercise-handwritten-solution-vectorized'><b>Exercise</b> -  handwritten solution (vectorized)</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#the-model's-solution'>The Model's Solution</a></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -221,12 +245,6 @@ Some questions we'd like to be able to answer are:
 
 If we treat the model as a black box function and only consider the input/output pairs that it produces, then we're very limited in what we can guarantee about the behavior, even if we use a lot of compute to check many inputs. This motivates interpretibility: by digging into the internals, can we obtain insight into these questions? If the model is not robust, can we directly find adversarial examples that cause it to confidently predict the wrong thing? Let's find out!
 
-
-## Life On The Frontier
-
-Unlike many of the days in the curriculum which cover classic papers and well-trodden topics, today you're at the research frontier. This is pretty cool, but also means you should expect that things will be more confusing and complicated than other days. TAs might not know answers because in fact nobody knows the answer yet, or might be hard to explain because nobody knows how to explain it properly yet.
-
-Feel free to go "off-road" and follow your curiosity - you might discover uncharted lands 🙂
 
 ## Today's Toy Model
 
@@ -499,7 +517,7 @@ if MAIN:
     prob_balanced = logits.softmax(-1)[:, 1]
     
     # Display output
-    print("Model confidence:\n" + "\n".join([f"{ex:18} : {prob:.4%}" for ex, prob in zip(examples, prob_balanced)]))
+    print("Model confidence:\n" + "\n".join([f"{ex:18} : {prob:<8.4%} : label={int(label)}" for ex, prob, label in zip(examples, prob_balanced, labels)]))
 
 ```
 
@@ -531,7 +549,14 @@ if MAIN:
 
 ### Exercise - handwritten solution (for loop)
 
-*This exercise and the next one should both be relatively easy (especially if you've already solved this problem on LeetCode before!), and they're very important for the rest of the exercises.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than ~10 minutes on this exercise.
+
+This exercise and the next one should both be relatively easy (especially if you've already solved this problem on LeetCode before!), and they're very important for the rest of the exercises.
+```
 
 A nice property of using such a simple problem is we can write a correct solution by hand. Take a minute to implement this using a for loop and if statements.
 
@@ -578,6 +603,13 @@ def is_balanced_forloop(parens: str) -> bool:
 
 
 ### Exercise -  handwritten solution (vectorized)
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than ~10 minutes on this exercise.
+```
 
 A transformer has an **inductive bias** towards vectorized operations, because at each sequence position the same weights "execute", just on different data. So if we want to "think like a transformer", we want to get away from procedural for/if statements and think about what sorts of solutions can be represented in a small number of transformer weights.
 
@@ -667,17 +699,21 @@ def section_2():
 ## Table of Contents
 
 <ul class="contents">
+    <li class='margtop'><a class='contents-el' href='#moving-back-to-the-residual-stream'>Moving back to the residual stream</a></li>
+    <li><ul class="contents">
         <li><a class='contents-el' href='#stage-1:-translating-through-softmax'>Stage 1: Translating through softmax</a></li>
+        <li><a class='contents-el' href='#stage-10:-translating-through-linear'>Stage 2: Translating through linear</a></li>
         <li><a class='contents-el' href='#exercise-get-the-post-final-ln-dir'><b>Exercise</b> - get the <code>post_final_ln_dir</code></a></li>
-        <li><a class='contents-el' href='#step-125:-translating-through-layernorm'>Step 3: Translating through LayerNorm</a></li>
+        <li><a class='contents-el' href='#stage-125:-translating-through-layernorm'>Stage 3: Translating through LayerNorm</a></li>
         <li><a class='contents-el' href='#exercise-get-the-pre-final-ln-dir'><b>Exercise</b> - get the <code>pre_final_ln_dir</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#writing-the-residual-stream-as-a-sum-of-terms'>Writing the residual stream as a sum of terms</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-breaking-down-the-residual-stream-by-component'><b>Exercise</b> - breaking down the residual stream by component</a></li>
-        <li><a class='contents-el' href='#which-components-matter?'>Which components matter?</a></li>
+        <li><a class='contents-el' href='#which-components-matter'>Which components matter?</a></li>
         <li><a class='contents-el' href='#exercise-compute-output-in-unbalanced-direction-for-each-component'><b>Exercise</b> - compute output in unbalanced direction for each component</a></li>
         <li><a class='contents-el' href='#head-influence-by-type-of-failures'>Head influence by type of failures</a></li>
+        <li><a class='contents-el' href='#exercise-classify-bracket-strings-by-failure-type'><b>Exercise</b> - classify bracket strings by failure type</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -710,6 +746,9 @@ We now want some way to tell which parts of the model are doing something meanin
 
 We'll do this by starting from the model outputs and working backwards, finding the unbalanced direction at each stage.
 
+
+## Moving back to the residual stream
+
 The final part of the model is the classification head, which has three stages - the final layernorm, the unembedding, and softmax, at the end of which we get our probabilities.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bracket-transformer-first-attr-0.png" width="500">
@@ -735,7 +774,7 @@ $$
 Since sigmoid is monotonic, a large value of $\hat{y}_0$ follows from logits with a large $\text{logit}_0 - \text{logit}_1$. From now on, we'll only ask "What leads to a large difference in logits?"
 
 
- Stage 2: Translating through linear
+### Stage 2: Translating through linear
 
 The next step we encounter is the decoder: `logits = final_LN_output @ W_U`, where
 
@@ -752,10 +791,17 @@ logit_diff = (final_LN_output @ W_U)[0, 0] - (final_LN_output @ W_U)[0, 1]
 
 (recall that the `(i, j)`th element of matrix `AB` is `A[i, :] @ B[:, j]`)
 
-So a high difference in the logits follows from a high dot product of the output of the LayerNorm with the vector `W_U[0, :] - W_U[1, :]`. We can call this the **unbalanced direction** for inputs to the unembedding matrix. We can now ask, "What leads to LayerNorm's output having high dot product with this vector?".
+So a high difference in the logits follows from a high dot product of the output of the LayerNorm with the corresponding unembedding vector. We'll call this the `post_final_ln_dir`, i.e. the **unbalanced direction** for values in the residual stream *after* the final layernorm.
 
 
 ### Exercise - get the `post_final_ln_dir`
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than ~5 minutes on this exercise.
+```
 
 In the function below, you should compute this vector (this should just be a one-line function).
 
@@ -788,7 +834,7 @@ def get_post_final_ln_dir(model: HookedTransformer) -> Float[Tensor, "d_model"]:
 </details>
 
 
-### Step 3: Translating through LayerNorm
+### Stage 3: Translating through LayerNorm
 
 We want to find the unbalanced direction before the final layer norm, since this is where we can write the residual stream as a sum of terms. LayerNorm messes with this sort of direction analysis, since it is nonlinear. For today, however, we will approximate it with a linear fit. This is good enough to allow for interesting analysis (see for yourself that the $R^2$ values are very high for the fit)!
 
@@ -813,12 +859,19 @@ When applying this kind of analysis to LLMs, it's sometimes harder to abstract a
 
 Now, we can ask 'What leads to the _input_ to the LayerNorm having a high dot-product with this new vector?'
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bracket-transformer-first-attr.png" width="500">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bracket-transformer-first-attr.png" width="450">
 
 
 ### Exercise - get the `pre_final_ln_dir`
 
-*These exercises have quite a few moving parts (e.g. getting the data for & fitting a linear regression). The most important thing is to conceptually understand the idea of moving backwards through the model, and finding an "unbalanced direction" in the residual stream. You should be willing to spend up to 20-30 minutes on these exercises. They are quite conceptually important.*
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 25-35 minutes on the following set of exercises.
+
+There are several moving parts in the following exercises. The most important thing is to conceptually understand the idea of moving backwards through the model, and finding an "unbalanced direction" in the residual stream.
+```
 
 Ideally, we would calculate `pre_final_ln_dir` directly from the model's weights, like we did for `post_final_ln_dir`. Unfortunately, it's not so easy in this case, because in order to get our linear approximation `L_final`, we need to fit a linear regression with actual data that gets passed through the model.
 
@@ -831,14 +884,9 @@ These exercises are split into three parts:
 
 #### 1. Getting activations
 
-First, we'll deal with getting activations from our model. Note that we could just use a cache (particularly as this is a very small model), but it's good practice to use hooks, because for larger models they're usually much more efficient (since they waste much less memory).
+First, we'll deal with how to get activations from our model. For this purpose, we've given you the helper function `get_activations` below. This uses `model.run_with_cache` to get activations for the data given by `toks`. It returns this in the form of a single tensor if `names` is a string, or a cache if `names` is a list.
 
-You should implement the helper function `get_activations` below. This should use `model.run_with_cache` to get activations for the data given by `toks`.
-
-You can use the argument `names_filter` in the `model.run_with_cache`. This argument is a function from `str -> bool`, and it should return `True` for the names of the activations you want to get. For instance, if you want to get the activations of the final layernorm, you can use `names_filter=lambda name: 'final_ln' in name`.
-
-* If `activation_names` is a string, return the tensor of those activations.
-* If `activation_names` is a list of strings, return a dictionary mapping hook names to activations.
+Note the use of the `names_filter` argument in `model.run_with_cache`. This is a function mapping activation names to booleans, and the cache we get only contains activations where this function returns True.
 
 
 ```python
@@ -853,8 +901,6 @@ def get_activations(
     If names is a string, returns the activations for that hook name.
     If names is a list of strings, returns a dictionary mapping hook names to tensors of activations.
     '''
-    model.reset_hooks()
-
     names_list = [names] if isinstance(names, str) else names
     _, cache = model.run_with_cache(
         toks,
@@ -864,40 +910,13 @@ def get_activations(
 
     return cache[names] if isinstance(names, str) else cache
 
-
-if MAIN:
-    tests.test_get_activations(get_activations, model, data_mini)
-
 ```
-
-<details>
-<summary>Hint</summary>
-
-To record the activations, define an empty dictionary `activations_dict`, and use the hook functions:
-
-```python
-def hook_fn(value, hook):
-    activations_dict[hook.name] = value
-```
-
-The `fwd_hooks` argument of `run_with_hooks` can be a function which takes `hook_name` and returns `True` if the hook is in hook names, else `False`.
-</details>
-
-<details>
-<summary>Solution</summary>
-
-
-</details>
-
 
 #### 2. Fitting a linear regression
 
 Now, use these functions and the [sklearn LinearRegression class](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html) to find a linear fit to the inputs and outputs of your model's layernorms.
 
-A few notes:
-
-* We've provided you with the helper function `LN_hook_names` (it was defined in one of the setup cells).
-    * This takes one of the layernorms of your model, and outputs the full names of the hooks immediately before and after that layer. Run this code to see how it works:
+Note - we've provided you with another helper function `LN_hook_names`. This takes one of the layernorms of your model, and outputs the full names of the hooks immediately before and after that layer. Run this code to see how it works:
 
 
 ```python
@@ -938,6 +957,7 @@ def get_ln_fit(
 
     Returns: A tuple of a (fitted) sklearn LinearRegression object and the r^2 of the fit
     '''
+    input_hook_name, output_hook_name = LN_hook_names(layernorm)
     pass
 
 
@@ -981,8 +1001,8 @@ def get_ln_fit(
 
     Returns: A tuple of a (fitted) sklearn LinearRegression object and the r^2 of the fit
     '''
-    # SOLUTION
     input_hook_name, output_hook_name = LN_hook_names(layernorm)
+    # SOLUTION
 
     activations_dict = get_activations(model, data.toks, [input_hook_name, output_hook_name])
     inputs = utils.to_numpy(activations_dict[input_hook_name])
@@ -1035,20 +1055,7 @@ The diagram below should help explain the steps of the computation. The key is t
 <details>
 <summary>Solution</summary>
 
-```python
-def get_pre_final_ln_dir(model: HookedTransformer, data: BracketsDataset) -> Float[Tensor, "d_model"]:
-    '''
-    Returns the direction in residual stream (pre ln_final, at sequence position 0) which
-    most points in the direction of making an unbalanced classification.
-    '''
-    
-    post_final_ln_dir = get_post_final_ln_dir(model)
 
-    final_ln_fit = get_ln_fit(model, data, layernorm=model.ln_final, seq_pos=0)[0]
-    final_ln_coefs = t.from_numpy(final_ln_fit.coef_).cuda()
-
-    return final_ln_coefs.T @ post_final_ln_dir
-```
 ```python
 def get_pre_final_ln_dir(model: HookedTransformer, data: BracketsDataset) -> Float[Tensor, "d_model"]:
     '''
@@ -1072,20 +1079,23 @@ As we've seen in previous exercises, it's much more natural to think about the r
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/attribution.png" width="900">
 
-<!-- ![attribution](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/attribution-dark.png) -->
-
 Once we do this, we can narrow in on the components who are making direct contributions to the classification, i.e. which are writing vectors to the residual stream which have a high dot produce with the `pre_final_ln_dir` for unbalanced brackets relative to balanced brackets.
 
 In order to answer this question, we need the following tools:
- - A way to break down the input to the LN by component.
- - A tool to identify a direction in the embedding space that causes the network to output 'unbalanced' (we already have this)
-
-
+- A way to break down the input to the LN by component.
+- A tool to identify a direction in the embedding space that causes the network to output 'unbalanced' (we already have this)
 
 
 ### Exercise - breaking down the residual stream by component
 
-*This exercise isn't very conceptually important; the hardest part is getting all the right activation names & rearranging / stacking the tensors in the correct way. You should look at the solution if you're still stuck after ~10-15 minutes.*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than 15-20 minutes on this exercise.
+
+It isn't very conceptually important; the hardest part is getting all the right activation names & rearranging / stacking the tensors in the correct way.
+```
 
 Use your `get_activations` function to create a tensor of shape `[num_components, dataset_size, seq_pos]`, where the number of components = 10.
 
@@ -1196,7 +1206,14 @@ This would be **strong evidence that this component is important for the model's
 
 ### Exercise - compute output in unbalanced direction for each component
 
-*It's very important to conceptually understand what object you're computing here. The actual computation is just a few lines of code involving indexing and einsums. You should use the hint if you haven't got anywhere after 5-10 mins.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 10-15 minutes on this exercise.
+
+It's very important to conceptually understand what object you are computing here. The actual computation is just a few lines of code involving indexing and einsums.
+```
 
 In the code block below, you should compute a `(10, batch)`-size tensor called `out_by_component_in_unbalanced_dir`. The `[i, j]`th element of this tensor should be the dot product of the `i`th component's output with the unbalanced direction, for the `j`th sequence in your dataset. 
 
@@ -1206,9 +1223,9 @@ We've given you a `hists_per_comp` function which will plot these histograms for
 
 
 ```python
-# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
 
 if MAIN:
+    # YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
     tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
     
     plotly_utils.hists_per_comp(out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20])
@@ -1270,11 +1287,18 @@ We'll also ignore sentences that start with a close paren, as the behaviour is s
 
 
 
-#### Exercise - classify bracket strings by failure type
+### Exercise - classify bracket strings by failure type
 
-*These exercises should be pretty straightforward; you'll be able to use much of your code from previous exercises. If you're still not getting the correct answer after ~10 minutes, you should look at the solutions (because there are quite a few annoying subtle ways that this exercise can go wrong!).*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
 
-Define, so that the plotting works:
+You shouldn't spend more than 15-20 minutes on this exercise.
+
+These exercises should be pretty straightforward; you'll be able to use much of your code from previous exercises. They are also quite fiddly, so you should look at the solutions if you are stuck.
+```
+
+Define, so that the plotting works, the following objects:
 
 * **`negative_failure`**
   * This is an `(N_SAMPLES,)` boolean vector that is true for sequences whose elevation (when reading from right to left) ever dips negative, i.e. there's an open paren that is never closed.                                                         |
@@ -1362,17 +1386,27 @@ In most of the rest of these exercises, we'll focus on the overall elevation cir
 ```python
 
 if MAIN:
-    plotly_utils.plot_contribution_vs_open_proportion(h20_in_unbalanced_dir, "2.0", failure_types_dict, data)
+    plotly_utils.plot_contribution_vs_open_proportion(
+        h20_in_unbalanced_dir, 
+        "Head 2.0 contribution vs proportion of open brackets '('",
+        failure_types_dict, 
+        data
+    )
 
 ```
 
-Compare this to the plot for head 2.1:
+You can also compare this to head 2.1:
 
 
 ```python
 
 if MAIN:
-    plotly_utils.plot_contribution_vs_open_proportion(h21_in_unbalanced_dir, "2.1", failure_types_dict, data)
+    plotly_utils.plot_contribution_vs_open_proportion(
+        h21_in_unbalanced_dir, 
+        "Head 2.1 contribution vs proportion of open brackets '('",
+        failure_types_dict,
+        data
+    )
 
 ```
 
@@ -1392,15 +1426,20 @@ def section_3():
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-get-attention-probabilities'><b>Exercise</b> - get attention probabilities</a></li>
         <li><a class='contents-el' href='#identifying-meaningful-direction-before-this-head'>Identifying meaningful direction before this head</a></li>
-        <li><a class='contents-el' href='#exercise-implement-the-same-function,-using-less-memory-optional'><b>Exercise</b> - implement the same function, using less memory (optional)</a></li>
+        <li><a class='contents-el' href='#exercise-compute-component-magnitudes'><b>Exercise</b> - compute component magnitudes</a></li>
+        <li><a class='contents-el' href='#mlps-as-key-value-pairs'>MLPs as key-value pairs</a></li>
+        <li><a class='contents-el' href='#exercise-get-output-by-neuron'><b>Exercise</b> - get output by neuron</a></li>
+        <li><a class='contents-el' href='#exercise-implement-the-same-function-using-less-memory'><b>Exercise</b> - implement the same function, using less memory</a></li>
+        <li><a class='contents-el' href='#interpreting-the-neurons'>Interpreting the neurons</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#understanding-how-the-open-proportion-is-calculated-head-0-0'>Understanding how the open-proportion is calculated - Head 0.0</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#0-0-attention-pattern'>0.0 Attention Pattern</a></li>
         <li><a class='contents-el' href='#exercise-extracting-queries-and-keys-using-hooks'><b>Exercise</b> - extracting queries and keys using hooks</a></li>
+        <li><a class='contents-el' href='#activation-patching'>Activation Patching</a></li>
         <li><a class='contents-el' href='#proposing-a-hypothesis'>Proposing a hypothesis</a></li>
         <li><a class='contents-el' href='#the-0-0-ov-circuit'>The 0.0 OV circuit</a></li>
-        <li><a class='contents-el' href='#exercise-show-that-$\color{orange}{\vec-v-l}$-and-$\color{orange}{\vec-v-r}$-do-indeed-have-opposite-directions'><b>Exercise</b> - show that $\color{orange}{\vec v_L}$ and $\color{orange}{\vec v_R}$ do indeed have opposite directions</a></li>
+        <li><a class='contents-el' href='#exercise-validate-the-hypothesis'><b>Exercise</b> - validate the hypothesis</a></li>
         <li><a class='contents-el' href='#exercise-cosine-similarity-of-input-directions-optional'><b>Exercise</b> - cosine similarity of input directions (optional)</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#summary'>Summary</a></li>
@@ -1435,7 +1474,16 @@ Which tokens is 2.0 paying attention to when the query is an open paren at token
 
 ### Exercise - get attention probabilities
 
-Write a function that extracts the attention patterns for a given head when run on a batch of inputs. (You can use your previously written `get_activations` function, and the appropriate hook name for attention probabilities.)
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than 5-10 minutes on this exercise.
+
+This exercise just involves the `get_activations` helper func, and some indexing.
+```
+
+Write a function that extracts the attention patterns for a given head when run on a batch of inputs.
 
 
 ```python
@@ -1495,6 +1543,15 @@ Here is an annotated diagram to help better explain exactly what we're doing.
 
 #### Exercise - calculate the pre-head 2.0 unbalanced direction
 
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 15-20 minutes on these exercises.
+
+The second function should be conceptually similar to `get_pre_final_ln_dir` from earlier.
+```
+
 Below, you'll be asked to calculate this `pre_20_dir`, which is the unbalanced direction for inputs into head 2.0 at sequence position 1 (based on the fact that vectors at this sequence position are copied to position 0 by head `2.0`, and then used in prediction).
 
 First, you'll implement the function `get_WOV`, to get the OV matrix for a particular layer and head. Recall that this is the product of the `W_O` and `W_V` matrices. Then, you'll use this function to write `get_pre_20_dir`.
@@ -1505,22 +1562,13 @@ def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d
     '''
     Returns the W_OV matrix for a particular layer and head.
     '''
-    return model.W_V[layer, head] @ model.W_O[layer, head]
-
+    pass
 
 def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
     '''
     Returns the direction propagated back through the OV matrix of 2.0 and then through the layernorm before the layer 2 attention heads.
     '''
-    W_OV = get_WOV(model, 2, 0)
-
-    layer2_ln_fit, r2 = get_ln_fit(model, data, layernorm=model.blocks[2].ln1, seq_pos=1)
-    layer2_ln_coefs = t.from_numpy(layer2_ln_fit.coef_).cuda()
-
-    pre_final_ln_dir = get_pre_final_ln_dir(model, data)
-
-    return layer2_ln_coefs.T @ W_OV @ pre_final_ln_dir
-
+    pass
 
 
 if MAIN:
@@ -1531,35 +1579,50 @@ if MAIN:
 <details>
 <summary>Solution</summary>
 
+
 ```python
-def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d_model", "d_model"]:
+def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d_model d_model"]:
     '''
     Returns the W_OV matrix for a particular layer and head.
     '''
+    # SOLUTION
     return model.W_V[layer, head] @ model.W_O[layer, head]
 
 def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
     '''
     Returns the direction propagated back through the OV matrix of 2.0 and then through the layernorm before the layer 2 attention heads.
     '''
+    # SOLUTION
     W_OV = get_WOV(model, 2, 0)
 
     layer2_ln_fit, r2 = get_ln_fit(model, data, layernorm=model.blocks[2].ln1, seq_pos=1)
-    layer2_ln_coefs = t.from_numpy(layer2_ln_fit.coef_).cuda()
+    layer2_ln_coefs = t.from_numpy(layer2_ln_fit.coef_).to(device)
+
     pre_final_ln_dir = get_pre_final_ln_dir(model, data)
 
     return layer2_ln_coefs.T @ W_OV @ pre_final_ln_dir
 ```
-
 </details>
+
+
+### Exercise - compute component magnitudes
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You shouldn't spend more than 10-15 minutes on these exercises.
+
+This exercise should be somewhat similar to the last time you computed component magnitudes.
+```
 
 Now that you've got the `pre_20_dir`, you can calculate magnitudes for each of the components that came before. You can refer back to the diagram above if you're confused.
 
 
 ```python
-# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
 
 if MAIN:
+    # YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
     plotly_utils.hists_per_comp(out_by_component_in_pre_20_unbalanced_dir, data, xaxis_range=(-5, 12))
 
 ```
@@ -1613,9 +1676,9 @@ if MAIN:
 
 ```
 
+### MLPs as key-value pairs
+
 When we implemented transformers from scratch, we observed that MLPs can be thought of as key-value pairs. To recap this briefly:
-
-
 
 > We can write the MLP's output as $f(x^T W^{in})W^{out}$, where $W^{in}$ and $W^{out}$ are the different weights of the MLP (ignoring biases), $f$ is the activation function, and $x$ is a vector in the residual stream. This can be rewritten as:
 > 
@@ -1625,13 +1688,23 @@ When we implemented transformers from scratch, we observed that MLPs can be thou
 > 
 > We can view the vectors $W^{in}_{[:, i]}$ as the **input directions**, and $W^{out}_{[i, :]}$ as the **output directions**. We say the input directions are **activated** by certain textual features, and when they are activated, vectors are written in the corresponding output direction. This is very similar to the concept of keys and values in attention layers, which is why these vectors are also sometimes called keys and values (e.g. see the paper [Transformer Feed-Forward Layers Are Key-Value Memories](https://arxiv.org/pdf/2012.14913.pdf)).
 
-
 Including biases, the full version of this formula is:
 
 $$
 MLP(x) = \sum_{i=1}^{d_{mlp}}f(x^T W^{in}_{[:, i]} + b^{in}_i) W^{out}_{[i,:]} + b^{out}
 $$
 
+
+### Exercise - get output by neuron
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You shouldn't spend more than 25-35 minutes on these exercises.
+
+It's important to understand exactly what the MLP is doing, and how to work with it.
+```
 
 The function `get_out_by_neuron` should return the given MLP's output per neuron. In other words, the output has shape `[batch, seq, neurons, d_model]`, where `out[b, s, i]` is the vector $f(\vec x^T W^{in}_{[:,i]} + b^{in}_i)W^{out}_{[i,:]}$ (and summing over `i` would give you the actual output of the MLP). We ignore $b^{out}$ here, because it isn't attributable to any specific neuron.
 
@@ -1644,10 +1717,15 @@ def get_out_by_neuron(
     data: BracketsDataset, 
     layer: int, 
     seq: Optional[int] = None
-) -> Float[Tensor, "batch seq neurons d_model"]:
+) -> Float[Tensor, "batch *seq neuron d_model"]:
     '''
-    [b, s, i]th element is the vector f(x.T @ W_in[:, i]) @ W_out[i, :] which is written to the residual stream by 
-    the ith neuron (where x is the input to the MLP for the b-th element in the batch, and the s-th sequence position).
+    If seq is not None, then out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :],
+    i.e. the vector which is written to the residual stream by the ith neuron (where x
+    is the input to the residual stream (i.e. shape (batch, seq, d_model)).
+
+    If seq is None, then out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+    (Note, using * in jaxtyping indicates an optional dimension)
     '''
     pass
 
@@ -1686,27 +1764,32 @@ def get_out_by_neuron(
     data: BracketsDataset, 
     layer: int, 
     seq: Optional[int] = None
-) -> Float[Tensor, "batch seq neurons d_model"]:
+) -> Float[Tensor, "batch *seq neuron d_model"]:
     '''
-    [b, s, i]th element is the vector f(x.T @ W_in[:, i]) @ W_out[i, :] which is written to the residual stream by 
-    the ith neuron (where x is the input to the MLP for the b-th element in the batch, and the s-th sequence position).
+    If seq is not None, then out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :],
+    i.e. the vector which is written to the residual stream by the ith neuron (where x
+    is the input to the residual stream (i.e. shape (batch, seq, d_model)).
+
+    If seq is None, then out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+    (Note, using * in jaxtyping indicates an optional dimension)
     '''
     # SOLUTION
     # Get the W_out matrix for this MLP
-    W_out: Float[Tensor, "neurons d_model"] = model.W_out[layer]
+    W_out: Float[Tensor, "neuron d_model"] = model.W_out[layer]
 
     # Get activations of the layer just after the activation function, i.e. this is f(x.T @ W_in)
-    f_x_W_in: Float[Tensor, "batch seq neurons"] = get_activations(model, data.toks, utils.get_act_name('post', layer))
+    f_x_W_in: Float[Tensor, "batch seq neuron"] = get_activations(model, data.toks, utils.get_act_name('post', layer))
 
     # f_x_W_in are activations, so they have batch and seq dimensions - this is where we index by seq if necessary
     if seq is not None:
-        f_x_W_in: Float[Tensor, "batch neurons"] = f_x_W_in[:, seq, :]
+        f_x_W_in: Float[Tensor, "batch neuron"] = f_x_W_in[:, seq, :]
 
     # Calculate the output by neuron (i.e. so summing over the `neurons` dimension gives the output of the MLP)
     out = einops.einsum(
         f_x_W_in, 
         W_out,
-        "... neurons, neurons d_model -> ... neurons d_model",
+        "... neuron, neuron d_model -> ... neuron d_model",
     )
     return out
 
@@ -1719,19 +1802,30 @@ def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset,
     unbalanced direction for head 2.0 (at seq pos = 1).
     '''
     # SOLUTION
+    # Get neuron output at sequence position 1
     out_by_neuron_seqpos1 = get_out_by_neuron(model, data, layer, seq=1)
+    
 
     # For each neuron, project the vector it writes to residual stream along the pre-2.0 unbalanced direction
     return einops.einsum(
-        get_pre_20_dir(model, data),
         out_by_neuron_seqpos1,
-        "batch neurons d_model, d_model -> batch neurons",
+        get_pre_20_dir(model, data),
+        "batch neuron d_model, d_model -> batch neuron"
     )
 ```
 </details>
 
 
-### Exercise - implement the same function, using less memory (optional)
+### Exercise - implement the same function, using less memory
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than 10-15 minutes on this exercise.
+
+Understanding the solution is more important than doing this exercise, so you should look at the solution rather than doing the exercise if you feel like it.
+```
 
 *This exercise isn't as important as the previous one, and you can skip it if you don't find this interesting (although you're still recommended to look at the solutions, so you understand what's going on here.)*
 
@@ -1788,7 +1882,7 @@ def get_out_by_neuron_in_20_dir_less_memory(model: HookedTransformer, data: Brac
 </details>
 
 
-#### Interpreting the neurons
+### Interpreting the neurons
 
 Now, try to identify several individual neurons that are especially important to `2.0`.
 
@@ -1798,7 +1892,7 @@ Use the `plot_neurons` function to get a sense of what an individual neuron does
 
 One note: now that we are deep in the internals of the network, our assumption that a single direction captures most of the meaningful things going on in this overall-elevation circuit is highly questionable. This is especially true for using our `2.0` direction to analyize the output of `mlp0`, as one of the main ways this mlp has influence is through more indirect paths (such as `mlp0 -> mlp1 -> 2.0`) which are not the ones we chose our direction to capture. Thus, it is good to be aware that the intuitions you get about what different layers or neurons are doing are likely to be incomplete.
 
-*Note - we've supplied the default argument `renderer="browser"`, which causes the plots to open in a browser rather than in VSCode. This often works better, with less lag.*
+*Note - we've supplied the default argument `renderer="browser"`, which causes the plots to open in a browser rather than in VSCode. This often works better, with less lag (especially in notebooks), but you can remove this if you prefer.*
 
 
 ```python
@@ -1806,7 +1900,7 @@ One note: now that we are deep in the internals of the network, our assumption t
 if MAIN:
     for layer in range(2):
         # Get neuron significances for head 2.0, sequence position #1 output
-        neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir(model, data, layer)[utils.to_numpy(data.starts_open), :]
+        neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[utils.to_numpy(data.starts_open), :]
         # Plot neurons' activations
         plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer, renderer="browser")
 
@@ -1850,7 +1944,14 @@ We want to play around with the attention patterns in our heads. For instance, w
 
 ### Exercise - extracting queries and keys using hooks
 
-*This exercise isn't very difficult (it just involves using your `get_activations` function from before), but it's also not very conceptually valuable so don't spend more than 10 mins on it.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than ~10 minutes on this exercise.
+
+Again, this exercise just involves using your `get_activations` function.
+```
 
 
 ```python
@@ -1859,7 +1960,6 @@ def get_q_and_k_for_given_input(
     tokenizer: SimpleTokenizer,
     parens: str, 
     layer: int, 
-    head: int
 ) -> Tuple[Float[Tensor, "seq_d_model"], Float[Tensor,  "seq_d_model"]]:
     '''
     Returns the queries and keys (both of shape [seq, d_model]) for the given parns input, in the attention head `layer.head`.
@@ -1882,7 +1982,6 @@ def get_q_and_k_for_given_input(
     tokenizer: SimpleTokenizer,
     parens: str, 
     layer: int, 
-    head: int
 ) -> Tuple[Float[Tensor, "seq_d_model"], Float[Tensor,  "seq_d_model"]]:
     '''
     Returns the queries and keys (both of shape [seq, d_model]) for the given parns input, in the attention head `layer.head`.
@@ -1897,32 +1996,49 @@ def get_q_and_k_for_given_input(
         [q_name, k_name]
     )
 
-    return activations[q_name][0, :, head, :], activations[k_name][0, :, head, :]
+    return activations[q_name][0], activations[k_name][0]
 ```
 </details>
 
 
-Now that we have this function, we will use it to find the attention pattern in head `0.0` when `q` is supplied by a sequence of all left-parens, and `k` is the average of its value with all left parens and all right parens. Note that in some sense this is dishonest, since `q` and `k` will always be determined by the same input sequence. But what we're doing here should serve as a reasonably good indicator for how left-parens attend to other parens in the sequence in head `0.0`.
+### Activation Patching
+
+Now, we'll introduce the valuable tool of **activation patching**. This was first introduced in [David Bau and Kevin Meng's excellent ROME paper](https://rome.baulab.info/), there called causal tracing.
+
+The setup of activation patching is to take two runs of the model on two different inputs, the clean run and the corrupted run. The clean run outputs the correct answer and the corrupted run does not. The key idea is that we give the model the corrupted input, but then **intervene** on a specific activation and **patch** in the corresponding activation from the clean run (i.e. replace the corrupted activation with the clean activation), and then continue the run. 
+
+One of the common use-cases for activation patching is to compare the model's performance in clean vs patched runs. If the performance degrades with patching, this is a strong signal that the place you patched in is important for the model's computation. The ability to localise is a key move in mechanistic interpretability - if the computation is diffuse and spread across the entire model, it is likely much harder to form a clean mechanistic story for what's going on. But if we can identify precisely which parts of the model matter, we can then zoom in and determine what they represent and how they connect up with each other, and ultimately reverse engineer the underlying circuit that they represent.
+
+However, here our path patching serves a much simpler purpose - we'll be patching at the **query vectors** of head `0.0` with values from a sequence of all left-parens, and at the **key vectors** with the average values from all left and all right parens. This allows us to get a sense for the average attention patterns paid by left-brackets to the rest of the sequence.
+
+We'll write functions to do this for both heads in layer 0, because it will be informative to compare the two.
 
 
 ```python
 
 if MAIN:
+    layer = 0
     all_left_parens = "".join(["(" * 40])
     all_right_parens = "".join([")" * 40])
+    
     model.reset_hooks()
-    q00_all_left, k00_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, 0, 0)
-    q00_all_right, k00_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, 0, 0)
-    k00_avg = (k00_all_left + k00_all_right) / 2
+    q0_all_left, k0_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, layer)
+    q0_all_right, k0_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, layer)
+    k0_avg = (k0_all_left + k0_all_right) / 2
+    
     
     # Define hook function to patch in q or k vectors
 def hook_fn_patch_qk(
     value: Float[Tensor, "batch seq head d_head"], 
     hook: HookPoint, 
     new_value: Float[Tensor, "... seq d_head"],
-    head_idx: int = 0
+    head_idx: Optional[int] = None
 ) -> None:
-    value[..., head_idx, :] = new_value
+    if head_idx is not None:
+        value[..., head_idx, :] = new_value[..., head_idx, :]
+    else:
+        value[...] = new_value[...]
+
 
 # Define hook function to display attention patterns (using plotly)
 def hook_fn_display_attn_patterns(
@@ -1930,30 +2046,62 @@ def hook_fn_display_attn_patterns(
     hook: HookPoint,
     head_idx: int = 0
 ) -> None:
-    avg_head_attn_pattern = pattern[:, head_idx].mean(0)
-    plotly_utils.plot_attn_pattern(utils.to_numpy(avg_head_attn_pattern))
+    avg_head_attn_pattern = pattern.mean(0)
+    labels = ["[start]", *[f"{i+1}" for i in range(40)], "[end]"]
+    display(cv.attention.attention_heads(
+        tokens=labels, 
+        attention=avg_head_attn_pattern,
+        attention_head_names=["0.0", "0.1"],
+        max_value=avg_head_attn_pattern.max()
+    ))
+
 
 # Run our model on left parens, but patch in the average key values for left vs right parens
 # This is to give us a rough idea how the model behaves on average when the query is a left paren
 
 if MAIN:
     model.run_with_hooks(
-        tokenizer.tokenize(all_left_parens).cuda(),
+        tokenizer.tokenize(all_left_parens).to(device),
         return_type=None,
         fwd_hooks=[
-            (utils.get_act_name("k", 0), functools.partial(hook_fn_patch_qk, new_value=k00_avg)),
-            (utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns),
+            (utils.get_act_name("k", layer), partial(hook_fn_patch_qk, new_value=k0_avg)),
+            (utils.get_act_name("pattern", layer), hook_fn_display_attn_patterns),
         ]
     )
 
 ```
 
 <details>
-<summary>Question - what are the noteworthy features of this plot?</summary>
+<summary>Help - my <code>attention_heads</code> plots are behaving weirdly (e.g. they continually shrink after I plot them).</summary>
+
+This seems to be a bug in `circuitsvis` - on VSCode, the attention head plots continually shrink in size.
+
+Until this is fixed, one way to get around it is to open the plots in your browser. You can do this inline with the `webbrowser` library:
+
+```python
+attn_heads = cv.attention.attention_heads(
+    tokens=labels, 
+    attention=avg_head_attn_pattern,
+    attention_head_names=["0.0"],
+)
+
+path = "attn_heads.html"
+
+with open(path, "w") as f:
+    f.write(str(attn_heads))
+
+webbrowser.open(path)
+```
+
+To check exactly where this is getting saved, you can print your current working directory with `os.getcwd()`.
+</details>
+
+<details>
+<summary>Question - what are the noteworthy features of head <code>0.0</code> in this plot?</summary>
 
 The most noteworthy feature is the diagonal pattern - most query tokens pay almost zero attention to all the tokens that come before it, but much greater attention to those that come after it. For most query token positions, this attention paid to tokens after itself is roughly uniform. However, there are a few patches (especially for later query positions) where the attention paid to tokens after itself is not uniform. We will see that these patches are important for generating adversarial examples.
 
-We can also observe roughly the same pattern when the query is a right paren (try running the last bit of code above, but using `all_right_parens` instead of `all_left_parens`), but the pattern is less pronounced.
+We can also observe roughly the same pattern when the query is a right paren (try running the last bit of code above, but using `all_right_parens` instead of `all_left_parens`), although the pattern is less pronounced.
 </details>
 
 We are most interested in the attention pattern at query position 1, because this is the position we move information to that is eventually fed into attention head `2.0`, then moved to position 0 and used for prediction.
@@ -1986,7 +2134,7 @@ if MAIN:
         data_len_40.toks[data_len_40.isbal],
         return_type=None,
         fwd_hooks=[
-            (utils.get_act_name("q", 0), functools.partial(hook_fn_patch_qk, new_value=q00_all_left)),
+            (utils.get_act_name("q", 0), partial(hook_fn_patch_qk, new_value=q0_all_left)),
             (utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns_for_single_query),
         ]
     )
@@ -2074,9 +2222,16 @@ Finally, we have an ability to formulate a test for our hypothesis in terms of t
 > If head `0.0` is performing some kind of aggregation, then **we should see that $\color{orange}{\vec v_L}$ and $\color{orange}{\vec v_R}$ are vectors pointing in opposite directions.** In other words, head `0.0` writes some scalar multiple of vector $v$ to the residual stream, and we can extract the information $n_L - n_R$ by projecting in the direction of this vector. The MLP can then take this information and process it in a nonlinear way, writing information about whether the sequence is balanced to the residual stream.
 
 
-### Exercise - show that $\color{orange}{\vec v_L}$ and $\color{orange}{\vec v_R}$ do indeed have opposite directions
+### Exercise - validate the hypothesis
 
-*If you understand what these vectors represent, these exercises should be pretty straightforward (~5-10 mins).*
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You shouldn't spend more than 10-15 minutes on this exercise.
+
+If you understand what the vectors represent, these exercises should be pretty straightforward.
+```
 
 Here, you should show that the two vectors have cosine similarity close to -1, demonstrating that this head is "tallying" the open and close parens that come after it.
 
@@ -2090,9 +2245,9 @@ def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -
     return model.W_E[idx]
 
 
-# YOUR CODE HERE - define v_L and v_R, as described above.
 
 if MAIN:
+    # YOUR CODE HERE - define v_L and v_R, as described above.
     print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
 
 ```
@@ -2104,7 +2259,7 @@ if MAIN:
 ```python
 W_OV = model.W_V[0, 0] @ model.W_O[0, 0]
 layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
-layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).cuda()
+layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).to(device)
 v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
 v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
 
@@ -2114,14 +2269,19 @@ v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
 <details>
 <summary>Extra technicality about the two vectors (optional)</summary>
 
-Note - we don't actually require $\color{orange}{\vec v_L}$ and $\color{orange}{\vec v_R}$ to have the same magnitude for this idea to work. This is because, if we have $\color{orange}{\vec v_L} \approx - \alpha \color{orange}{\vec v_R}$ for some $\alpha > 0$, then when projecting along the $\color{orange}{\vec v_L}$ direction we will get $\|\color{orange}{\vec v_L}\| (n_L - \alpha n_R) / n$. This always equals $\|\color{orange}{\vec v_L}\| (1 - \alpha) / 2$ when the number of left and right brackets match, regardless of the sequence length. It doesn't matter that this value isn't zero; the MLPs' neurons can still learn to detect when the vector's component in this direction is more or less than this value by adding a bias term. The important thing is that (1) the two vectors are parallel and pointing in opposite directions, and (2) the projection in this direction *for balanced sequences* is always the same.
+Note - we don't actually require $\color{orange}{\vec v_L}$ and $\color{orange}{\vec v_R}$ to have the same magnitude for this idea to work. This is because, if we have ${\color{orange} \vec v_L} \approx - \alpha {\color{orange} \vec v_R}$ for some $\alpha > 0$, then when projecting along the $\color{orange}{\vec v_L}$ direction we will get $\|{\color{orange} \vec v_L}\| (n_L - \alpha n_R) / n$. This always equals $\|{\color{orange} \vec v_L}\| (1 - \alpha) / 2$ when the number of left and right brackets match, regardless of the sequence length. It doesn't matter that this value isn't zero; the MLPs' neurons can still learn to detect when the vector's component in this direction is more or less than this value by adding a bias term. The important thing is that (1) the two vectors are parallel and pointing in opposite directions, and (2) the projection in this direction *for balanced sequences* is always the same.
 
 </details>
 
 
 ### Exercise - cosine similarity of input directions (optional)
 
-*This exercise should take about 10-15 minutes. It's not essential to the experience of this notebook, so if it doesn't interest you then you can move on to the next section.*
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠⚪⚪⚪⚪
+
+You shouldn't spend more than 10-15 minutes on this exercise.
+```
 
 Another way we can get evidence for this hypothesis - recall in our discussion of MLP neurons that $W^{in}_{[:,i]}$ (the $i$th column of matrix $W^{in}$, where $W^{in}$ is the first linear layer of the MLP) is a vector representing the "in-direction" of the neuron. If these neurons are indeed measuring open/closed proportions in the way we think, then we should expect to see the vectors $v_R$, $v_L$ have high dot product with these vectors.
 
@@ -2186,7 +2346,7 @@ def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> f
     We can create random vectors from the standard N(0, I) distribution.
     '''
     # SOLUTION
-    v2 = t.randn(n_samples, v.shape[0]).cuda()
+    v2 = t.randn(n_samples, v.shape[0]).to(device)
     v2 /= v2.norm(dim=1, keepdim=True)
 
     v1 = v / v.norm()
@@ -2353,6 +2513,13 @@ if MAIN:
 
 ```
 
+<details>
+<summary>Solution</summary>
+
+
+</details>
+
+
 ## Dealing with early closing parens
 
 We mentioned that our model deals with early closing parens differently. One of our components in particular is responsible for classifying any sequence that starts with a closed paren as unbalnced - can you find the component that does this?
@@ -2393,7 +2560,7 @@ You can also get more ideas from Neel Nanda's [200 Concrete Open Problems in MI:
 
 
 func_page_list = [
-    (section_0, '🏠 Home'),     (section_1, '1️⃣ Bracket classifier'),     (section_2, '2️⃣ Moving backwards'),     (section_3, '3️⃣ Understanding the total elevation circuit'),     (section_4, '4️⃣ Bonus exercises'), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Bracket classifier"),     (section_2, "2️⃣ Moving backwards"),     (section_3, "3️⃣ Understanding the total elevation circuit"),     (section_4, "4️⃣ Bonus exercises"), 
 ]
 
 func_list = [func for func, page in func_page_list]
