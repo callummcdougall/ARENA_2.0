@@ -254,9 +254,9 @@ class Attention(nn.Module):
         K = einops.rearrange(K, "b s_k n h -> b n h s_k")
         Q = einops.rearrange(Q, "b s_q n h -> b n s_q h")
         attention_scores = Q @ K
-        attention_scores = attention_scores / t.sqrt(t.tensor([self.cfg.d_head]))
+        attention_scores = attention_scores / t.sqrt(t.tensor([self.cfg.d_head]).to(device))
         attention_scores = self.apply_causal_mask(attention_scores)
-        attention_probs = t.nn.f.softmax(attention_scores, dim=-1) # b n s_q s_k -> b s_q s_k n 1
+        attention_probs = t.nn.functional.softmax(attention_scores, dim=-1) # b n s_q s_k -> b s_q s_k n 1
                                                                    # b s_k n h   -> b  1  s_k n h
         attention_probs = einops.rearrange(attention_probs, "b n s_q s_k -> b s_q s_k n 1")
         V = einops.rearrange(V, "b s_k n h   -> b  1  s_k n h")
@@ -268,7 +268,7 @@ class Attention(nn.Module):
         z = einops.rearrange(z, "b s_q n_heads d_head -> b n_heads d_head s_q")
         W_O = einops.rearrange(self.W_O, "n_heads d_head d_model -> 1 n_heads d_model d_head")
         z = W_O @ z # b n_heads d_model s_q
-        z = einops.reduce("b n_heads d_model s_q -> b s_q d_model", "sum")
+        z = einops.reduce(z, "b n_heads d_model s_q -> b s_q d_model", "sum")
         z = z + self.b_O
         return z
 
@@ -297,3 +297,137 @@ class Attention(nn.Module):
 if MAIN:
     rand_float_test(Attention, [2, 4, 768])
     load_gpt2_test(Attention, reference_gpt2.blocks[0].attn, cache["normalized", 0, "ln1"])
+# %%
+class MLP(nn.Module):
+    def __init__(self, cfg: Config):
+        super().__init__()
+        self.cfg = cfg
+        self.W_in = nn.Parameter(t.empty((cfg.d_model, cfg.d_mlp)))
+        self.W_out = nn.Parameter(t.empty((cfg.d_mlp, cfg.d_model)))
+        self.b_in = nn.Parameter(t.zeros((cfg.d_mlp)))
+        self.b_out = nn.Parameter(t.zeros((cfg.d_model)))
+        nn.init.normal_(self.W_in, std=self.cfg.init_range)
+        nn.init.normal_(self.W_out, std=self.cfg.init_range)
+
+    def forward(
+        self, normalized_resid_mid: Float[Tensor, "batch posn d_model"]
+    ) -> Float[Tensor, "batch posn d_model"]:
+        x = normalized_resid_mid @ self.W_in
+        x = x + self.b_in
+        x = gelu_new(x)
+        x = x @ self.W_out
+        x = x + self.b_out
+        return x
+
+
+if MAIN:
+    rand_float_test(MLP, [2, 4, 768])
+    load_gpt2_test(MLP, reference_gpt2.blocks[0].mlp, cache["normalized", 0, "ln2"])
+# %%
+
+class TransformerBlock(nn.Module):
+    def __init__(self, cfg: Config):
+        super().__init__()
+        self.cfg = cfg
+        self.ln1 = LayerNorm(cfg)
+        self.attn = Attention(cfg)
+        self.ln2 = LayerNorm(cfg)
+        self.mlp = MLP(cfg)
+
+    def forward(
+        self, resid_pre: Float[Tensor, "batch position d_model"]
+    ) -> Float[Tensor, "batch position d_model"]:
+        x = self.ln1(resid_pre)
+        x = self.attn(x)
+    
+        new_resid = x + resid_pre
+        
+        x = self.ln2(new_resid)
+        x = self.mlp(x)
+        return x + new_resid
+
+if MAIN:
+    rand_float_test(TransformerBlock, [2, 4, 768])
+    load_gpt2_test(TransformerBlock, reference_gpt2.blocks[0], cache["resid_pre", 0])
+
+# %%
+class Unembed(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.cfg = cfg
+        self.W_U = nn.Parameter(t.empty((cfg.d_model, cfg.d_vocab)))
+        nn.init.normal_(self.W_U, std=self.cfg.init_range)
+        self.b_U = nn.Parameter(t.zeros((cfg.d_vocab), requires_grad=False))
+
+    def forward(
+        self, normalized_resid_final: Float[Tensor, "batch position d_model"]
+    ) -> Float[Tensor, "batch position d_vocab"]:
+        x = normalized_resid_final @ self.W_U
+        return x + self.b_U
+
+
+if MAIN:
+    rand_float_test(Unembed, [2, 4, 768])
+    load_gpt2_test(Unembed, reference_gpt2.unembed, cache["ln_final.hook_normalized"])
+# %%
+class DemoTransformer(nn.Module):
+    def __init__(self, cfg: Config):
+        super().__init__()
+        self.cfg = cfg
+        self.embed = Embed(cfg)
+        self.pos_embed = PosEmbed(cfg)
+        self.blocks = nn.ModuleList([TransformerBlock(cfg) for _ in range(cfg.n_layers)])
+        self.ln_final = LayerNorm(cfg)
+        self.unembed = Unembed(cfg)
+
+    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+        x = self.embed(tokens)
+        x = x + self.pos_embed(tokens)
+
+        for block in self.blocks:
+            x = block(x)
+
+        x = self.ln_final(x)
+        x = self.unembed(x)
+
+        return x
+
+
+if MAIN:
+    rand_int_test(DemoTransformer, [2, 4])
+    load_gpt2_test(DemoTransformer, reference_gpt2, tokens)
+# %%
+if MAIN:
+    demo_gpt2 = DemoTransformer(Config(debug=False)).to(device)
+    demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False)
+
+    demo_logits = demo_gpt2(tokens)
+# %%
+def get_log_probs(
+    logits: Float[Tensor, "batch posn d_vocab"], 
+    tokens: Int[Tensor, "batch posn"]
+) -> Float[Tensor, "batch posn-1"]:
+
+    log_probs = logits.log_softmax(dim=-1)
+    # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
+    log_probs_for_predicted_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
+
+    return log_probs_for_predicted_tokens
+
+
+
+if MAIN:
+    pred_log_probs = get_log_probs(demo_logits, tokens)
+    print(f"Avg cross entropy loss: {-pred_log_probs.mean():.4f}")
+    print(f"Avg cross entropy loss for uniform distribution: {math.log(demo_gpt2.cfg.d_vocab):4f}")
+    print(f"Avg probability assigned to correct token: {pred_log_probs.exp().mean():4f}")
+# %%
+if MAIN:
+    test_string = '''The Total Perspective Vortex derives its picture of the whole Universe on the principle of'''
+    for i in tqdm(range(100)):
+        test_tokens = reference_gpt2.to_tokens(test_string).to(device)
+        demo_logits = demo_gpt2(test_tokens)
+        test_string += reference_gpt2.tokenizer.decode(demo_logits[-1, -1].argmax())
+
+    print(test_string)
+# %%
