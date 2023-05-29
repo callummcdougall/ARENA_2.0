@@ -687,6 +687,18 @@ def coerce_index(index: Index) -> Union[int, Tuple[int, ...], Tuple[Arr]]:
         return tuple([i.array for i in index])
     else:
         return index
+    
+def _matmul2d(x: Arr, y: Arr) -> Arr:
+    '''Matrix multiply restricted to the case where both inputs are exactly 2D.'''
+    return x @ y
+
+
+
+matmul = wrap_forward_fn(_matmul2d)
+BACK_FUNCS.add_back_func(_matmul2d, 0, matmul2d_back0)
+BACK_FUNCS.add_back_func(_matmul2d, 1, matmul2d_back1)
+
+
 
 def _getitem(x: Arr, index: Index) -> Arr:
     '''Like x[index] when x is a torch.Tensor.'''
@@ -813,42 +825,46 @@ class Module:
 
         recurse: if True, the iterator includes parameters of submodules, recursively.
         '''
-        if not recurse:
-            return iter(self._parameters)
-        mods_iter = []
-        for child in self.modules():
-            mods_iter.append(child)
-            if not child.modules().empty():
-                mods_iter.append(child.parameters())
-        return iter(mods_iter)
+        # SOLUTION
+        parameters_list = list(self.__dict__["_parameters"].values())
+        if recurse:
+            for mod in self.modules():
+                parameters_list.extend(list(mod.parameters(recurse=True)))
+        return iter(parameters_list)
 
     def __setattr__(self, key: str, val: Any) -> None:
         '''
         If val is a Parameter or Module, store it in the appropriate _parameters or _modules dict.
         Otherwise, call __setattr__ from the superclass.
         '''
+        # SOLUTION
         if isinstance(val, Parameter):
-            self._modules[key] = val
-        if isinstance(val, "Module"):
-            self._parameters[key] = val
-        super().__setattr__(key, val)
+            self.__dict__["_parameters"][key] = val
+        elif isinstance(val, Module):
+            self.__dict__["_modules"][key] = val
+        else:
+            super().__setattr__(key, val)
 
     def __getattr__(self, key: str) -> Union[Parameter, "Module"]:
         '''
         If key is in _parameters or _modules, return the corresponding value.
         Otherwise, raise KeyError.
         '''
-        if key in self._parameters.keys():
-            return self._parameters[key]
-        if key in self._modules.keys():
-            return self._modules[key]
-        raise KeyError()
+        # SOLUTION
+        if key in self.__dict__["_parameters"]:
+            return self.__dict__["_parameters"][key]
+
+        if key in self.__dict__["_modules"]:
+            return self.__dict__["_modules"][key]
+
+        raise KeyError(key)
+
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
 
     def forward(self):
-        
+        raise NotImplementedError("Subclasses must implement forward!")
 
     def __repr__(self):
         def _indent(s_, numSpaces):
@@ -858,7 +874,6 @@ class Module:
             self.__class__.__name__ + "(",
             "\n  " + "\n  ".join(lines) + "\n" if lines else "", ")"
         ])
-
 
 class TestInnerModule(Module):
     def __init__(self):
@@ -883,3 +898,63 @@ if MAIN:
     ], "parameters should come before submodule parameters"
     print("Manually verify that the repr looks reasonable:")
     print(mod)
+
+# %%
+
+class Linear(Module):
+    weight: Parameter
+    bias: Optional[Parameter]
+
+    def __init__(self, in_features: int, out_features: int, bias=True):
+        '''
+        A simple linear (technically, affine) transformation.
+
+        The fields should be named `weight` and `bias` for compatibility with PyTorch.
+        If `bias` is False, set `self.bias` to None.
+        '''
+        super().__init__()
+        self.weight = Parameter(Tensor(np.zeros((in_features, out_features))))
+        #self.bias = None
+
+        self.weight.uniform_(0,1)
+        sf = 1/np.sqrt(in_features)
+        self.weight.array = (2*self.weight.array - 1)*sf
+
+        if bias:
+            self.bias = Parameter(Tensor(np.zeros((out_features,))))
+            print(self.bias)
+            self.bias.uniform_(0,1)
+            self.bias.array = sf * (2 * self.bias.array - 1)
+        else:
+            self.bias = None
+
+    def forward(self, x: Tensor) -> Tensor:
+        '''
+        x: shape (*, in_features)
+        Return: shape (*, out_features)
+        '''
+
+        out = np.matmul(x.array.T, self.weight.array)
+        if self.bias is not None:
+            out += self.bias.array
+        return Tensor(out, requires_grad=True)
+
+    def extra_repr(self) -> str:
+        # note, we need to use `self.bias is not None`, because `self.bias` is either a tensor or None, not bool
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
+
+
+
+if MAIN:
+    linear = Linear(3, 4)
+    assert isinstance(linear.weight, Tensor)
+    assert linear.weight.requires_grad
+
+    input = Tensor([1.0, 2.0, 3.0])
+    output = linear(input)
+    assert output.requires_grad
+
+    expected_output = linear.weight @ input + linear.bias
+    np.testing.assert_allclose(output.array, expected_output.array)
+
+    print("All tests for `Linear` passed!")
