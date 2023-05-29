@@ -213,10 +213,87 @@ class PosEmbed(nn.Module):
     def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
         batches, len_ = tokens.shape
         nums = einops.repeat(t.arange(len_), 'a -> batches a', batches=batches)
-
         return self.W_pos[nums]
 
 
 if MAIN:
     rand_int_test(PosEmbed, [2, 4])
     load_gpt2_test(PosEmbed, reference_gpt2.pos_embed, tokens)
+
+# %%
+
+class Attention(nn.Module):
+    IGNORE: Float[Tensor, ""]
+
+    def __init__(self, cfg: Config):
+        super().__init__()
+        self.cfg = cfg
+        self.W_Q = nn.Parameter(t.empty((cfg.n_heads, cfg.d_model, cfg.d_head)))
+        self.W_K = nn.Parameter(t.empty((cfg.n_heads, cfg.d_model, cfg.d_head)))
+        self.W_V = nn.Parameter(t.empty((cfg.n_heads, cfg.d_model, cfg.d_head)))
+        self.W_O = nn.Parameter(t.empty((cfg.n_heads, cfg.d_head, cfg.d_model)))
+        self.b_Q = nn.Parameter(t.zeros((cfg.n_heads, cfg.d_head)))
+        self.b_K = nn.Parameter(t.zeros((cfg.n_heads, cfg.d_head)))
+        self.b_V = nn.Parameter(t.zeros((cfg.n_heads, cfg.d_head)))
+        self.b_O = nn.Parameter(t.zeros((cfg.d_model)))
+        nn.init.normal_(self.W_Q, std=self.cfg.init_range)
+        nn.init.normal_(self.W_K, std=self.cfg.init_range)
+        nn.init.normal_(self.W_V, std=self.cfg.init_range)
+        nn.init.normal_(self.W_O, std=self.cfg.init_range)
+        self.register_buffer("IGNORE", t.tensor(-1e5, dtype=t.float32, device=device))
+
+    def forward(
+        self, normalized_resid_pre: Float[Tensor, "batch posn d_model"]
+    ) -> Float[Tensor, "batch posn d_model"]:
+        normalized_resid_pre = einops.rearrange(normalized_resid_pre, "batch posn d_model -> batch 1 d_model posn")
+
+        Q = self.compress_to_d_head(self.W_Q, self.b_Q, normalized_resid_pre)
+        K = self.compress_to_d_head(self.W_K, self.b_K, normalized_resid_pre)
+        V = self.compress_to_d_head(self.W_V, self.b_V, normalized_resid_pre)
+
+        K = einops.rearrange(K, "b s_k n h -> b n h s_k")
+        Q = einops.rearrange(Q, "b s_q n h -> b n s_q h")
+        attention_scores = Q @ K
+        attention_scores = attention_scores / t.sqrt(t.tensor([self.cfg.d_head]))
+        attention_scores = self.apply_causal_mask(attention_scores)
+        attention_probs = t.nn.f.softmax(attention_scores, dim=-1) # b n s_q s_k -> b s_q s_k n 1
+                                                                   # b s_k n h   -> b  1  s_k n h
+        attention_probs = einops.rearrange(attention_probs, "b n s_q s_k -> b s_q s_k n 1")
+        V = einops.rearrange(V, "b s_k n h   -> b  1  s_k n h")
+        z = attention_probs*V
+        z = einops.reduce(z, "b s_q s_k n h -> b s_q n h", 'sum')
+        
+        z        #b, s_q, n_heads, d_head
+        #try z @ W_O
+        z = einops.rearrange(z, "b s_q n_heads d_head -> b n_heads d_head s_q")
+        W_O = einops.rearrange(self.W_O, "n_heads d_head d_model -> 1 n_heads d_model d_head")
+        z = W_O @ z # b n_heads d_model s_q
+        z = einops.reduce("b n_heads d_model s_q -> b s_q d_model", "sum")
+        z = z + self.b_O
+        return z
+
+
+    def compress_to_d_head(self, W, b, x):
+        W = einops.rearrange(W, "n_heads d_model d_head -> 1 n_heads d_head d_model")
+        compressed = W @ x
+        # batch n_heads d_head posn
+        compressed = einops.rearrange(compressed, "batch n_heads d_head posn -> batch posn n_heads d_head")
+        compressed = compressed + b
+        return compressed # should have shape (batch posn n_heads d_head)
+
+
+    def apply_causal_mask(
+        self, attn_scores: Float[Tensor, "batch n_heads query_pos key_pos"]
+    ) -> Float[Tensor, "batch n_heads query_pos key_pos"]:
+        '''
+        Applies a causal mask to attention scores, and returns masked scores.
+        '''
+        mask = t.ones_like(attn_scores)*self.IGNORE
+        mask = mask.triu(diagonal=1)
+        return attn_scores.tril() + mask
+        
+
+
+if MAIN:
+    rand_float_test(Attention, [2, 4, 768])
+    load_gpt2_test(Attention, reference_gpt2.blocks[0].attn, cache["normalized", 0, "ln1"])
