@@ -1,6 +1,9 @@
 # %%
 
-import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import os
+
+os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 import sys
 import einops
 from dataclasses import dataclass
@@ -30,24 +33,30 @@ import webbrowser
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
 section_dir = (exercises_dir / "part1_transformer_from_scratch").resolve()
-if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+if str(exercises_dir) not in sys.path:
+    sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
+
 # import part1_transformer_from_scratch.solutions as solutions
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
-MAIN = __name__ == '__main__'
+MAIN = __name__ == "__main__"
 
 
 if MAIN:
-    reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
+    reference_gpt2 = HookedTransformer.from_pretrained(
+        "gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False
+    )
 
 
 # %%
 
 if MAIN:
-    sorted_vocab = sorted(list(reference_gpt2.tokenizer.vocab.items()), key=lambda n: n[1])
+    sorted_vocab = sorted(
+        list(reference_gpt2.tokenizer.vocab.items()), key=lambda n: n[1]
+    )
     print(sorted_vocab[:20])
     print()
     print(sorted_vocab[250:270])
@@ -89,7 +98,9 @@ if MAIN:
     print(probs.shape)
 
 if MAIN:
-    most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(logits.argmax(dim=-1)[0])
+    most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(
+        logits.argmax(dim=-1)[0]
+    )
 
     print(list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens)))
 
@@ -119,7 +130,7 @@ if MAIN:
         # Only print for first layer
         if ".0." in activation_name or "blocks" not in activation_name:
             print(f"{activation_name:30} {tuple(activation.shape)}")
-    print('\n\n\n')
+    print("\n\n\n")
 
 if MAIN:
     for name, param in reference_gpt2.named_parameters():
@@ -128,7 +139,7 @@ if MAIN:
             print(f"{name:18} {tuple(param.shape)}")
 
 
-#%%
+# %%
 # As a reference - note there's a lot of stuff we don't care about in here, to do with library internals or other architectures
 
 if MAIN:
@@ -147,6 +158,8 @@ class Config:
     d_mlp: int = 3072
     n_heads: int = 12
     n_layers: int = 12
+    cached: bool = False
+
 
 if MAIN:
     cfg = Config()
@@ -159,8 +172,10 @@ def rand_float_test(cls, shape):
     random_input = t.randn(shape).to(device)
     print("Input shape:", random_input.shape)
     output = layer(random_input)
-    if isinstance(output, tuple): output = output[0]
+    if isinstance(output, tuple):
+        output = output[0]
     print("Output shape:", output.shape, "\n")
+
 
 def rand_int_test(cls, shape):
     cfg = Config(debug=True)
@@ -168,8 +183,10 @@ def rand_int_test(cls, shape):
     random_input = t.randint(100, 1000, shape).to(device)
     print("Input shape:", random_input.shape)
     output = layer(random_input)
-    if isinstance(output, tuple): output = output[0]
+    if isinstance(output, tuple):
+        output = output[0]
     print("Output shape:", output.shape, "\n")
+
 
 def load_gpt2_test(cls, gpt2_layer, input):
     cfg = Config(debug=True)
@@ -177,16 +194,19 @@ def load_gpt2_test(cls, gpt2_layer, input):
     layer.load_state_dict(gpt2_layer.state_dict(), strict=False)
     print("Input shape:", input.shape)
     output = layer(input)
-    if isinstance(output, tuple): output = output[0]
+    if isinstance(output, tuple):
+        output = output[0]
     print("Output shape:", output.shape)
-    try: reference_output = gpt2_layer(input)
-    except: reference_output = gpt2_layer(input, input, input)
+    try:
+        reference_output = gpt2_layer(input)
+    except:
+        reference_output = gpt2_layer(input, input, input)
     print("Reference output shape:", reference_output.shape, "\n")
     comparison = t.isclose(output, reference_output, atol=1e-4, rtol=1e-3)
     print(f"{comparison.sum()/comparison.numel():.2%} of the values are correct\n")
 
 
-#%%
+# %%
 class LayerNorm(nn.Module):
     def __init__(self, cfg: Config):
         super().__init__()
@@ -194,13 +214,15 @@ class LayerNorm(nn.Module):
         self.w = nn.Parameter(t.ones(cfg.d_model))
         self.b = nn.Parameter(t.zeros(cfg.d_model))
 
-    def forward(self, residual: Float[Tensor, "batch posn d_model"]) -> Float[Tensor, "batch posn d_model"]:
+    def forward(
+        self, residual: Float[Tensor, "batch posn d_model"]
+    ) -> Float[Tensor, "batch posn d_model"]:
         means = residual.mean(dim=2, keepdim=True)
         vars = residual.var(dim=2, keepdim=True, unbiased=False)
         normalized = (residual - means) / t.sqrt(vars + self.cfg.layer_norm_eps)
 
-        if self.cfg.debug:
-            print(f"shape of normalized is {normalized.shape}")
+        # if self.cfg.debug:
+        #     print(f"shape of normalized is {normalized.shape}")
 
         return normalized * self.w + self.b
 
@@ -211,6 +233,7 @@ if MAIN:
 
 # %%
 
+
 class Embed(nn.Module):
     def __init__(self, cfg: Config):
         super().__init__()
@@ -218,13 +241,15 @@ class Embed(nn.Module):
         self.W_E = nn.Parameter(t.empty((cfg.d_vocab, cfg.d_model)))
         nn.init.normal_(self.W_E, std=self.cfg.init_range)
 
-    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
+    def forward(
+        self, tokens: Int[Tensor, "batch position"]
+    ) -> Float[Tensor, "batch position d_model"]:
         return self.W_E[tokens]
+
 
 if MAIN:
     rand_int_test(Embed, [2, 4])
     load_gpt2_test(Embed, reference_gpt2.embed, tokens)
-
 
 
 # %%
@@ -235,19 +260,26 @@ class PosEmbed(nn.Module):
         self.W_pos = nn.Parameter(t.empty((cfg.n_ctx, cfg.d_model)))
         nn.init.normal_(self.W_pos, std=self.cfg.init_range)
 
-    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_model"]:
-        return einops.repeat(self.W_pos[:tokens.shape[1]], "pos d_model -> batch pos d_model", batch=tokens.shape[0])
+    def forward(
+        self, tokens: Int[Tensor, "batch position"]
+    ) -> Float[Tensor, "batch position d_model"]:
+        return einops.repeat(
+            self.W_pos[: tokens.shape[1]],
+            "pos d_model -> batch pos d_model",
+            batch=tokens.shape[0],
+        )
 
 
 if MAIN:
     rand_int_test(PosEmbed, [2, 4])
     load_gpt2_test(PosEmbed, reference_gpt2.pos_embed, tokens)
 
+
 # %%
 class Attention(nn.Module):
     IGNORE: Float[Tensor, ""]
 
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, cached=False):
         super().__init__()
         self.cfg = cfg
         self.W_Q = nn.Parameter(t.empty((cfg.n_heads, cfg.d_model, cfg.d_head)))
@@ -263,46 +295,164 @@ class Attention(nn.Module):
         nn.init.normal_(self.W_V, std=self.cfg.init_range)
         nn.init.normal_(self.W_O, std=self.cfg.init_range)
         self.register_buffer("IGNORE", t.tensor(-1e5, dtype=t.float32, device=device))
+        self.cached = cfg.cached
+        if self.cached:
+            self.old_keys = None
+            self.old_values = None
+            self.old_res_stream = None
 
     def forward(
         self, normalized_resid_pre: Float[Tensor, "batch posn d_model"]
     ) -> Float[Tensor, "batch posn d_model"]:
-
         # calculate key query value matrices first, all can be done in parallel
-        keys = einops.einsum(self.W_K, normalized_resid_pre, "heads d_model d_head, \
-                             batch seq_len d_model -> batch seq_len heads d_head") + self.b_K
-        queries = einops.einsum(self.W_Q, normalized_resid_pre, "heads d_model d_head, \
-                             batch seq_len d_model -> batch seq_len heads d_head") + self.b_Q
-        values = einops.einsum(self.W_V, normalized_resid_pre, "heads d_model d_head, \
-                             batch seq_len d_model -> batch seq_len heads d_head") + self.b_V
-        
-        attn_scores = einops.einsum(keys, queries, "batch seq_len_k heads d_head, \
-                                    batch seq_len_q heads d_head -> batch heads seq_len_q seq_len_k")
+        print(self.cached)
+        if self.cached and self.old_keys is not None:
+            print("retrieving from cache")
+            new_query = einops.einsum(
+                    self.W_Q,
+                    normalized_resid_pre[:,-1:],
+                    "heads d_model d_head, \
+                                batch seq_len d_model -> batch seq_len heads d_head",
+            )
+            + self.b_Q
 
-        attn_scores /= math.sqrt(self.cfg.d_head)
+            new_key = (
+                einops.einsum(
+                    self.W_K,
+                    normalized_resid_pre[:, -1:],
+                    "heads d_model d_head, \
+                                batch seq_len d_model -> batch seq_len heads d_head",
+                )
+                + self.b_K
+            )
 
-        # mask attn_scores (before softmax) so tokens only look at previous tokens
-        attn_scores=self.apply_causal_mask(attn_scores)
+            keys = t.cat((self.old_keys, new_key), dim=1)
 
-        attn_probs = t.softmax(attn_scores, dim=-1) # want key rows to be prob distributions
-        # rows of attention matrix will add up to 1
+            new_attn_score_row = einops.einsum(
+                keys,
+                new_query,
+                "batch seq_len_k heads d_head, \
+                                        batch seq_len_q heads d_head -> batch heads seq_len_q seq_len_k",
+            ) / math.sqrt(self.cfg.d_head)
+            
+            new_attn_prob_row = t.softmax(new_attn_score_row, dim=-1)
 
-        z_values = einops.einsum(attn_probs, values, "batch heads seq_len_q seq_len_k, \
-                                 batch seq_len_k heads d_head -> batch seq_len_q heads d_head")
+            new_value = values = (
+                einops.einsum(
+                    self.W_V,
+                    normalized_resid_pre[:,-1:],
+                    "heads d_model d_head, \
+                                batch seq_len d_model -> batch seq_len heads d_head",
+                )
+                + self.b_V
+            )
 
-        return einops.einsum(z_values, self.W_O, "batch seq_len_q heads d_head, heads d_head d_model \
-                             -> batch seq_len_q d_model") + self.b_O # sum over heads, matmul over d_head
-    
+            values = t.cat((self.old_values, new_value), dim=1)
+
+            new_z = einops.einsum(
+                new_attn_prob_row, # seq_len_q = 1
+                values,
+                "batch heads seq_len_q seq_len_k, \
+                                    batch seq_len_k heads d_head -> batch seq_len_q heads d_head",
+            )
+
+            new_z = einops.einsum(
+                    new_z,
+                    self.W_O,
+                    "batch seq_len_q heads d_head, heads d_head d_model \
+                                -> batch seq_len_q d_model",
+                ) + self.b_O
+
+            new_res_stream = t.cat((self.old_res_stream, new_z), dim=1)
+
+            # update cache
+            self.old_keys = keys
+            self.old_values = values
+            self.old_res_stream = new_res_stream
+
+            return new_res_stream
+
+        else:
+            print("not caching")
+            keys = (
+                einops.einsum(
+                    self.W_K,
+                    normalized_resid_pre,
+                    "heads d_model d_head, \
+                                batch seq_len d_model -> batch seq_len heads d_head",
+                )
+                + self.b_K
+            )
+            queries = (
+                einops.einsum(
+                    self.W_Q,
+                    normalized_resid_pre,
+                    "heads d_model d_head, \
+                                batch seq_len d_model -> batch seq_len heads d_head",
+                )
+                + self.b_Q
+            )
+            values = (
+                einops.einsum(
+                    self.W_V,
+                    normalized_resid_pre,
+                    "heads d_model d_head, \
+                                batch seq_len d_model -> batch seq_len heads d_head",
+                )
+                + self.b_V
+            )
+
+            attn_scores = einops.einsum(
+                keys,
+                queries,
+                "batch seq_len_k heads d_head, \
+                                        batch seq_len_q heads d_head -> batch heads seq_len_q seq_len_k",
+            )
+
+            attn_scores /= math.sqrt(self.cfg.d_head)
+
+            # mask attn_scores (before softmax) so tokens only look at previous tokens
+            attn_scores = self.apply_causal_mask(attn_scores)
+
+            attn_probs = t.softmax(
+                attn_scores, dim=-1
+            )  # want key rows to be prob distributions
+            # rows of attention matrix will add up to 1
+
+            z_values = einops.einsum(
+                attn_probs,
+                values,
+                "batch heads seq_len_q seq_len_k, \
+                                    batch seq_len_k heads d_head -> batch seq_len_q heads d_head",
+            )
+
+            z_values = (
+                einops.einsum(
+                    z_values,
+                    self.W_O,
+                    "batch seq_len_q heads d_head, heads d_head d_model \
+                                -> batch seq_len_q d_model",
+                )
+                + self.b_O
+            )  # sum over heads, matmul over d_head
+
+            if self.cached:
+                print("making new cache")
+                self.old_keys = keys
+                self.old_values = values
+                self.old_res_stream = z_values
+
+            return z_values
 
     def apply_causal_mask(
         self, attn_scores: Float[Tensor, "batch n_heads query_pos key_pos"]
     ) -> Float[Tensor, "batch n_heads query_pos key_pos"]:
-        '''
+        """
         Applies a causal mask to attention scores, and returns masked scores.
-        '''
+        """
         # batch n_heads query_pos key_pos
-        # boolean_upper_triangular = einops.repeat(t.triu(attn_scores[0,0], ) != 0, 
-        #                                          "seq_q seq_k -> batch heads seq_q seq_k", 
+        # boolean_upper_triangular = einops.repeat(t.triu(attn_scores[0,0], ) != 0,
+        #                                          "seq_q seq_k -> batch heads seq_q seq_k",
         #                                          batch=attn_scores.shape[0], heads=attn_scores.shape[1])
         boolean_lower_triangular = t.tril(t.ones_like(attn_scores)) == 0
 
@@ -312,11 +462,13 @@ class Attention(nn.Module):
 
 
 if MAIN:
-    
     rand_float_test(Attention, [2, 4, 768])
-    load_gpt2_test(Attention, reference_gpt2.blocks[0].attn, cache["normalized", 0, "ln1"])
+    load_gpt2_test(
+        Attention, reference_gpt2.blocks[0].attn, cache["normalized", 0, "ln1"]
+    )
 
 # %%
+
 
 class MLP(nn.Module):
     def __init__(self, cfg: Config):
@@ -332,40 +484,57 @@ class MLP(nn.Module):
     def forward(
         self, normalized_resid_mid: Float[Tensor, "batch posn d_model"]
     ) -> Float[Tensor, "batch posn d_model"]:
-        hidden = einops.einsum(normalized_resid_mid, self.W_in, "batch seq_len d_model, d_model d_mlp \
-                               -> batch seq_len d_mlp") + self.b_in
+        hidden = (
+            einops.einsum(
+                normalized_resid_mid,
+                self.W_in,
+                "batch seq_len d_model, d_model d_mlp \
+                               -> batch seq_len d_mlp",
+            )
+            + self.b_in
+        )
         activated = gelu_new(hidden)
-        return einops.einsum(activated, self.W_out, "batch seq_len d_mlp, d_mlp d_model -> batch seq_len d_model") + self.b_out
+        return (
+            einops.einsum(
+                activated,
+                self.W_out,
+                "batch seq_len d_mlp, d_mlp d_model -> batch seq_len d_model",
+            )
+            + self.b_out
+        )
+
 
 if MAIN:
     rand_float_test(MLP, [2, 4, 768])
     load_gpt2_test(MLP, reference_gpt2.blocks[0].mlp, cache["normalized", 0, "ln2"])
 
+
 # %%
 class TransformerBlock(nn.Module):
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, cached=False):
         super().__init__()
         self.cfg = cfg
         self.ln1 = LayerNorm(cfg)
-        self.attn = Attention(cfg)
+        self.attn = Attention(cfg, cached=cached)
         self.ln2 = LayerNorm(cfg)
         self.mlp = MLP(cfg)
 
     def forward(
         self, resid_pre: Float[Tensor, "batch position d_model"]
     ) -> Float[Tensor, "batch position d_model"]:
-        
         norm_resid_1 = self.ln1(resid_pre)
         attended = self.attn(norm_resid_1) + resid_pre
-        
+
         norm_resid_2 = self.ln2(attended)
         resid_post = self.mlp(norm_resid_2) + attended
 
         return resid_post
 
+
 if MAIN:
     rand_float_test(TransformerBlock, [2, 4, 768])
     load_gpt2_test(TransformerBlock, reference_gpt2.blocks[0], cache["resid_pre", 0])
+
 
 # %%
 class Unembed(nn.Module):
@@ -387,19 +556,24 @@ if MAIN:
     load_gpt2_test(Unembed, reference_gpt2.unembed, cache["ln_final.hook_normalized"])
 # %%
 
+
 class DemoTransformer(nn.Module):
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, cached=False):
         super().__init__()
         self.cfg = cfg
         self.embed = Embed(cfg)
         self.pos_embed = PosEmbed(cfg)
-        self.blocks = nn.ModuleList([TransformerBlock(cfg) for _ in range(cfg.n_layers)])
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(cfg, cached=cached) for _ in range(cfg.n_layers)]
+        )
         self.ln_final = LayerNorm(cfg)
         self.unembed = Unembed(cfg)
 
-    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+    def forward(
+        self, tokens: Int[Tensor, "batch position"]
+    ) -> Float[Tensor, "batch position d_vocab"]:
         x = self.embed(tokens) + self.pos_embed(tokens)
-        
+
         for block in self.blocks:
             x = block(x)
 
@@ -418,28 +592,32 @@ if MAIN:
 
     demo_logits = demo_gpt2(tokens)
 
-def get_log_probs(
-    logits: Float[Tensor, "batch posn d_vocab"], 
-    tokens: Int[Tensor, "batch posn"]
-) -> Float[Tensor, "batch posn-1"]:
 
+def get_log_probs(
+    logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tensor, "batch posn"]
+) -> Float[Tensor, "batch posn-1"]:
     log_probs = logits.log_softmax(dim=-1)
     # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
-    log_probs_for_predicted_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
+    log_probs_for_predicted_tokens = (
+        log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
+    )
 
     return log_probs_for_predicted_tokens
-
 
 
 if MAIN:
     pred_log_probs = get_log_probs(demo_logits, tokens)
     print(f"Avg cross entropy loss: {-pred_log_probs.mean():.4f}")
-    print(f"Avg cross entropy loss for uniform distribution: {math.log(demo_gpt2.cfg.d_vocab):4f}")
-    print(f"Avg probability assigned to correct token: {pred_log_probs.exp().mean():4f}")
+    print(
+        f"Avg cross entropy loss for uniform distribution: {math.log(demo_gpt2.cfg.d_vocab):4f}"
+    )
+    print(
+        f"Avg probability assigned to correct token: {pred_log_probs.exp().mean():4f}"
+    )
 # %%
 
 if MAIN:
-    test_string = '''The Total Perspective Vortex derives its picture of the whole Universe on the principle of'''
+    test_string = """The Total Perspective Vortex derives its picture of the whole Universe on the principle of"""
     for i in tqdm(range(100)):
         test_tokens = reference_gpt2.to_tokens(test_string).to(device)
         demo_logits = demo_gpt2(test_tokens)
@@ -447,27 +625,28 @@ if MAIN:
 
     print(test_string)
 
+
 # %%
 ##### TRAINING TRANSFORMER #####
 if MAIN:
     model_cfg = Config(
-        debug=False, 
-        d_model=256, 
-        n_heads=4, 
-        d_head=64, 
-        d_mlp=1024, 
-        n_layers=2, 
-        n_ctx=256, 
-        d_vocab=reference_gpt2.cfg.d_vocab
+        debug=False,
+        d_model=256,
+        n_heads=4,
+        d_head=64,
+        d_mlp=1024,
+        n_layers=2,
+        n_ctx=256,
+        d_vocab=reference_gpt2.cfg.d_vocab,
     )
     model = DemoTransformer(model_cfg)
 
 
 @dataclass
-class TransformerTrainingArgs():
+class TransformerTrainingArgs:
     batch_size = 8
     max_epochs = 1
-    max_steps = 1000
+    max_steps = 300
     log_every = 10
     lr = 1e-3
     weight_decay = 1e-2
@@ -481,18 +660,386 @@ if MAIN:
     args = TransformerTrainingArgs()
 
 if MAIN:
-    dataset = datasets.load_dataset("NeelNanda/pile-10k", split="train").remove_columns("meta")
+    dataset = datasets.load_dataset("NeelNanda/pile-10k", split="train").remove_columns(
+        "meta"
+    )
     print(dataset)
-    print(dataset[0]['text'][:100])
+    print(dataset[0]["text"][:100])
 
 if MAIN:
-    tokenized_dataset = tokenize_and_concatenate(dataset, reference_gpt2.tokenizer, streaming=False, max_length=model.cfg.n_ctx, column_name="text", add_bos_token=True, num_proc=4)
-    data_loader = DataLoader(tokenized_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    tokenized_dataset = tokenize_and_concatenate(
+        dataset,
+        reference_gpt2.tokenizer,
+        streaming=False,
+        max_length=model.cfg.n_ctx,
+        column_name="text",
+        add_bos_token=True,
+        num_proc=4,
+    )
+    data_loader = DataLoader(
+        tokenized_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+    )
 
 if MAIN:
-    first_batch = data_loader.dataset[:args.batch_size]
+    first_batch = data_loader.dataset[: args.batch_size]
 
     print(first_batch.keys())
-    print(first_batch['tokens'].shape)
+    print(first_batch["tokens"].shape)
 
 
+# %%
+
+class LitTransformer(pl.LightningModule):
+    def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
+        super().__init__()
+        self.model = model
+        self.cfg = model.cfg
+        self.args = args
+        self.data_loader = data_loader
+
+    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+        logits = self.model(tokens)
+        return logits
+
+    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+        '''
+        Here you compute and return the training loss and some additional metrics for e.g. 
+        the progress bar or logger.
+        '''
+        tokens = batch['tokens'].to(device)
+        log_probs = get_log_probs(self(tokens), tokens)
+        loss = -log_probs.mean()
+        self.log("train_loss", loss)
+        return loss
+
+
+    def configure_optimizers(self):
+        '''
+        Choose what optimizers and learning-rate schedulers to use in your optimization.
+        '''
+        return t.optim.AdamW(self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
+
+
+    def train_dataloader(self):
+        return self.data_loader
+
+
+# if MAIN:
+    # litmodel = LitTransformer(args, model, data_loader)
+    # logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
+
+    # trainer = pl.Trainer(
+    #     max_epochs=args.max_epochs,
+    #     logger=logger,
+    #     log_every_n_steps=args.log_every_n_steps
+    # )
+    # trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
+    # wandb.finish()
+# %%
+
+if MAIN:
+    d_vocab = model.cfg.d_vocab
+
+    print(f"d_vocab = {d_vocab}")
+    print(f"Cross entropy loss on uniform distribution = {math.log(d_vocab)}")
+
+if MAIN:
+    toks = tokenized_dataset[:]["tokens"].flatten()
+
+    d_vocab = model.cfg.d_vocab
+    freqs = t.bincount(toks, minlength=d_vocab)
+    probs = freqs.float() / freqs.sum()
+
+    distn = t.distributions.categorical.Categorical(probs=probs)
+    entropy = distn.entropy()
+
+    print(f"Entropy of training data = {entropy}")
+
+# %%
+
+if MAIN:
+    model_cfg = Config(debug=False)
+    model = DemoTransformer(model_cfg).to(device)
+    model.load_state_dict(reference_gpt2.state_dict(), strict=False)
+
+    tokenizer = reference_gpt2.tokenizer
+
+class TransformerSampler:
+
+    def __init__(self, model: DemoTransformer, tokenizer: GPT2TokenizerFast):
+        self.model = model
+        self.cfg = model.cfg
+        self.tokenizer = tokenizer
+
+    @t.inference_mode()
+    def sample(self, prompt: str, max_tokens_generated=100, verbose=False, **kwargs):
+        '''
+        Returns a string of autoregressively generated text, starting from the prompt.
+
+        Sampling terminates at max_tokens_generated, or when the model generates an
+        end-of-sequence token.
+
+        kwargs are passed to sample_next_token, to give detailed instructions on how 
+        new tokens are chosen.
+        '''
+        tokens = t.Tensor(self.tokenizer.encode(prompt))[None, :].long().to(device)
+        tokens_generated = 1
+        while tokens_generated <= max_tokens_generated:
+            logits = self.model(tokens)[0, -1]
+            next_token_int = self.sample_next_token(tokens[0], logits, **kwargs)
+            next_token = t.Tensor([[next_token_int]]).long().to(device)
+            tokens = t.cat([tokens, next_token], dim=-1)
+            
+            if verbose:
+                print(self.tokenizer.decode(tokens[0]))
+            
+            if next_token.squeeze().item() == self.tokenizer.eos_token_id:
+                break
+
+            tokens_generated += 1
+
+        return self.tokenizer.decode(tokens[0])
+
+    @t.inference_mode()
+    def beam_search(
+        self,
+        prompt: str, 
+        num_return_sequences: int, 
+        num_beams: int, 
+        max_new_tokens: int, 
+        no_repeat_ngram_size: int = 0,
+        verbose=False
+    ) -> List[Tuple[float, t.Tensor]]:
+        '''
+        Returns a string of autoregressively generated text, starting from the prompt.
+
+        Sampling terminates at max_tokens_generated, or when the model generates an
+        end-of-sequence token.
+
+        kwargs are passed to sample_next_token, to give detailed instructions on how 
+        new tokens are chosen.
+        '''
+        pass
+
+
+    @staticmethod
+    def sample_next_token(
+        input_ids: Int[Tensor, "d_vocab"], 
+        logits: Float[Tensor, "d_vocab"], 
+        temperature=1.0, 
+        top_k=0, 
+        top_p=0.0, 
+        frequency_penalty=0.0,
+        seed=None
+    ):
+        assert input_ids.ndim == 1, "input_ids should be a 1D sequence of token ids"
+        assert temperature >= 0, "Temperature should be non-negative"
+        assert 0 <= top_p <= 1.0, "Top-p must be a probability"
+        assert 0 <= top_k, "Top-k must be non-negative"
+        assert not (top_p != 0 and top_k != 0), "At most one of top-p and top-k supported"
+
+        # Set random seeds for reproducibility
+        if seed is not None:
+            t.manual_seed(seed)
+            np.random.seed(seed)
+
+        # Apply all the specialized sampling methods
+        if temperature == 0:
+            return TransformerSampler.greedy_search(logits)
+        elif temperature != 1.0:
+            logits = TransformerSampler.apply_temperature(logits, temperature)
+        if frequency_penalty != 0.0:
+            logits = TransformerSampler.apply_frequency_penalty(input_ids, logits, frequency_penalty)
+        if top_k > 0:
+            return TransformerSampler.sample_top_k(logits, top_k)
+        if top_p > 0.0:
+            return TransformerSampler.sample_top_p(logits, top_p)
+        return TransformerSampler.sample_basic(logits)
+
+
+    @staticmethod
+    def greedy_search(logits: Float[Tensor, "d_vocab"]) -> int:
+        '''
+        Returns the most likely token (as an int).
+        '''
+        out = logits.argmax().item()
+        return out
+
+
+    @staticmethod
+    def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
+        '''
+        Applies temperature scaling to the logits.
+        '''
+        assert temperature != 0
+        return logits / temperature
+
+    @staticmethod
+    def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
+        '''
+        Applies a frequency penalty to the logits.
+        '''
+        id_counts = t.bincount(input_ids, minlength=logits.shape[0])
+        return logits - freq_penalty * id_counts
+
+
+    @staticmethod
+    def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
+        '''
+        Samples from the distribution defined by the logits.
+        '''
+        # print(f"shape of logits: {logits.shape}")
+        # prob_dist = t.softmax(logits)
+        return t.distributions.categorical.Categorical(logits=logits).sample().item()
+
+
+    @staticmethod
+    def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
+        '''
+        Samples from the top k most likely tokens.
+        '''
+        pass
+
+    @staticmethod
+    def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
+        '''
+        Samples from the most likely tokens which make up at least p cumulative probability.
+        '''
+        pass
+# %%
+# test sample method
+if MAIN:
+    sampler = TransformerSampler(model, tokenizer)
+
+    prompt = "Jingle bells, jingle bells, jingle all the way"
+    print(f"Greedy decoding with prompt: {prompt!r}\n")
+
+    output = sampler.sample(prompt, max_tokens_generated=8, temperature=0.0)
+    print(f"Your model said: {output!r}\n")
+
+    expected = "Jingle bells, jingle bells, jingle all the way up to the top of the mountain."
+    assert output == expected
+
+    print("Tests passed!")
+
+# %%
+# test basic sampling
+if MAIN:
+    prompt = "John and Mary went to the"
+    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+    logits = model(input_ids)[0, -1]
+
+    expected_top_5 = {
+        " church": 0.0648,
+        " house": 0.0367,
+        " temple": 0.0145,
+        " same": 0.0104,
+        " Church": 0.0097
+    }
+    frequency_of_top_5 = defaultdict(int)
+
+    N = 10_000
+    for _ in tqdm(range(N)):
+        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
+        frequency_of_top_5[tokenizer.decode(token)] += 1
+
+    for word in expected_top_5:
+        expected_freq = expected_top_5[word]
+        observed_freq = frequency_of_top_5[word] / N
+        print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
+        assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
+
+    print("Tests passed!")
+# %%
+if MAIN:
+    logits = t.tensor([1, 2]).log()
+
+    cold_logits = TransformerSampler.apply_temperature(logits, temperature=0.001)
+    print('A low temperature "sharpens" or "peaks" the distribution: ', cold_logits)
+    t.testing.assert_close(cold_logits, 1000.0 * logits)
+
+    hot_logits = TransformerSampler.apply_temperature(logits, temperature=1000.0)
+    print("A high temperature flattens the distribution: ", hot_logits)
+    t.testing.assert_close(hot_logits, 0.001 * logits)
+
+    print("Tests passed!")
+# %%
+if MAIN:
+    bieber_prompt = "And I was like Baby, baby, baby, oh Like, Baby, baby, baby, no Like, Baby, baby, baby, oh I thought you'd always be mine, mine"
+    input_ids = tokenizer.encode(bieber_prompt, return_tensors="pt")
+    logits = t.ones(tokenizer.vocab_size)
+    penalized_logits = TransformerSampler.apply_frequency_penalty(input_ids.squeeze(), logits, 2.0)
+
+    assert penalized_logits[5156].item() == -11, "Expected 6 occurrences of ' baby' with leading space, 1-2*6=-11"
+    assert penalized_logits[14801].item() == -5, "Expected 3 occurrences of ' Baby' with leading space, 1-2*3=-5"
+
+    print("Tests passed!")
+# %%
+if MAIN:
+    sampler = TransformerSampler(model, tokenizer)
+
+    N_RUNS = 1
+    your_prompt = "I want to maximize the number of paperclips I have. My first step is to"
+    cases = [
+        ("High freq penalty", dict(frequency_penalty=100.0)),
+        ("Negative freq penalty", dict(frequency_penalty=-3.0)),
+        ("Too hot!", dict(temperature=2.0)),
+        ("Pleasantly cool", dict(temperature=0.7)),
+        ("Pleasantly warm", dict(temperature=0.9)),
+        ("Too cold!", dict(temperature=0.01)),
+    ]
+
+    table = Table("Name", "Kwargs", "Output", title="Sampling - Manual Testing")
+
+    for (name, kwargs) in cases:
+        for i in range(N_RUNS):
+            output = sampler.sample(your_prompt, max_tokens_generated=24, **kwargs)
+            table.add_row(name, repr(kwargs), repr(output) + "\n")
+
+    rprint(table)
+# %%
+import time
+device = t.device("cuda") # can also try "cpu"
+
+model = DemoTransformer(Config()).to(device)
+model.load_state_dict(reference_gpt2.state_dict(), strict=False);
+
+initial_text = "Eliezer Shlomo Yudkowsky (born September 11, 1979) is an American decision and artificial intelligence (AI) theorist and writer, best known for"
+# input_ids = tokenizer.encode(initial_text, return_tensors="pt").squeeze()
+
+sampler = TransformerSampler(model, tokenizer)
+
+# Run the noncached version
+t0 = time.time()
+text = sampler.sample(
+    initial_text, 
+    # temperature=0.7, 
+    # top_p=0.95, 
+    seed=0,
+)
+print(f"Time taken (without cache): {time.time() - t0:.2f} seconds")
+rprint(f"Model output:\n\n[bold dark_orange]{text}[/]")
+
+# Run the cached version
+model = DemoTransformer(Config(cached=True)).to(device)
+model.load_state_dict(reference_gpt2.state_dict(), strict=False);
+sampler = TransformerSampler(model, tokenizer)
+t0 = time.time()
+text_with_cache = sampler.sample(
+    initial_text, 
+    # temperature=0.7,
+    # top_p=0.95, 
+    seed=0
+    # kv_cache=KeyValueCache.new_empty(sampler.cfg)
+)
+print(f"Time taken (with cache): {time.time() - t0:.2f} seconds")
+rprint(f"Model output:\n\n[bold dark_orange]{text_with_cache}[/]")
+
+# # Check they are the same
+assert text == text_with_cache, "Your outputs are different, meaning you've probably made a mistake in your cache implementation (or failed to use random seeds)."
+print("Tests passed!")
+# %%
