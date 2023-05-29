@@ -837,12 +837,12 @@ if MAIN:
 def tallest_balanced_bracket(length: int) -> str:
 	return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
 
-example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
-examples.append(example)
 
 
 if MAIN:
 	examples = ["()", "(())", "))"]
+	example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
+	examples.append(example)
 	m = max(len(ex) for ex in examples)
 	toks = tokenizer.tokenize(examples)
 	probs = model(toks)[:, 0].softmax(-1)[:, 1]
