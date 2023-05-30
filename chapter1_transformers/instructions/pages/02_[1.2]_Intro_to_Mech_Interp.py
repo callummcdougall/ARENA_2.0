@@ -994,6 +994,7 @@ def generate_repeated_tokens(
     Outputs are:
         rep_tokens: [batch, 1+2*seq_len]
     '''
+    prefix = (t.ones(batch, 1) * model.tokenizer.bos_token_id).long()
     pass
 
 def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> Tuple[t.Tensor, t.Tensor, ActivationCache]:
@@ -1049,8 +1050,8 @@ def generate_repeated_tokens(
     Outputs are:
         rep_tokens: [batch, 1+2*seq_len]
     '''
-    # SOLUTION
     prefix = (t.ones(batch, 1) * model.tokenizer.bos_token_id).long()
+    # SOLUTION
     rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
     rep_tokens = t.cat([prefix, rep_tokens_half, rep_tokens_half], dim=-1).to(device)
     return rep_tokens
