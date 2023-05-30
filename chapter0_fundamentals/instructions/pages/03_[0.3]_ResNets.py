@@ -936,27 +936,6 @@ if MAIN:
 
 ```
 
-Now let's read and plot our results:
-
-
-```python
-
-if MAIN:
-    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-    
-    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
-
-```
-
-Note - it might not look obvious how the test accuracy is increasing from this graph, because of the y-axis scale. If you want to plot the test accuracy at the very start, you can add a call `trainer.validate()` before `trainer.fit()` (this will call one validation loop before it starts the cycle of `max_epochs` training and validation loops).
-
-```python
-trainer = pl.Trainer(...)
-trainer.validate(model=model)
-trainer.fit(model=model)
-```
-
-
 <details>
 <summary>Help - I get <code>RuntimeError: expected scalar type Float but found Byte</code>.</summary>
 
@@ -1009,6 +988,27 @@ class LitConvNetTest(pl.LightningModule):
         return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 ```
 </details>
+
+
+Now let's read and plot our results:
+
+
+```python
+
+if MAIN:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    
+    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
+
+```
+
+Note - it might not look obvious how the test accuracy is increasing from this graph, because of the y-axis scale. If you want to plot the test accuracy at the very start, you can add a call `trainer.validate()` before `trainer.fit()` (this will call one validation loop before it starts the cycle of `max_epochs` training and validation loops).
+
+```python
+trainer = pl.Trainer(...)
+trainer.validate(model=model)
+trainer.fit(model=model)
+```
 
 
 You should find that after the first epoch, the model is already doing much better than random chance (>95%), and it improves slightly in subsequent epochs.
