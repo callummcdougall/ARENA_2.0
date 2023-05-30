@@ -1240,7 +1240,7 @@ An example hook function for changing the attention patterns at a particular lay
 
 ```python
 def hook_function(
-    attn_pattern: Float[Tensor, "batch heads seq_len seq_len"],
+    attn_pattern: Float[Tensor, "batch heads seqQ seqK"],
     hook: HookPoint
 ) -> Float[Tensor, "batch heads seqQ seqK"]:
 
