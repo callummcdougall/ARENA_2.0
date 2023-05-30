@@ -1100,7 +1100,7 @@ for layer in range(model.cfg.n_layers):
 
 The characteristic pattern of attention heads is a diagonal stripe, with the diagonal offset as `seq_len - 1` (because the destination token attends to the token *after* the destimation token's previous occurrence).
 
-You should see that heads 4 and 10 are strongly induction-y, head 6 is very weakly induction-y, and the rest aren't.
+You should see that heads 4 and 10 are strongly induction-y, and the rest aren't.
 
 </details>
 
