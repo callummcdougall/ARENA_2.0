@@ -879,7 +879,7 @@ if MAIN:
 	
 	bar(
 		probs,
-		x=range(1, 11),
+		x=range(10),
 		template="ggplot2",
 		width=600,
 		title="Classification probabilities", 
@@ -933,7 +933,7 @@ if MAIN:
 	
 	bar(
 		probs,
-		x=range(1, 11),
+		x=range(10),
 		template="ggplot2",
 		width=600,
 		title="Classification probabilities", 
