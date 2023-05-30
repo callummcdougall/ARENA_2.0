@@ -242,8 +242,8 @@ def generate_repeated_tokens(
     Outputs are:
         rep_tokens: [batch, 1+2*seq_len]
     '''
-    random_seq = t.randint(0, model.cfg.d_vocab, size=(batch, seq_len))
-    prefix = t.ones((batch,1), dtype=t.int) * model.tokenizer.bos_token_id
+    random_seq = t.randint(0, model.cfg.d_vocab, size=(batch, seq_len)).to(device)
+    prefix = t.ones((batch,1), dtype=t.int).to(device) * model.tokenizer.bos_token_id
     prompt = t.cat((prefix, random_seq, random_seq), dim=-1)
     return prompt
 
@@ -254,14 +254,13 @@ def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, 
 
     Should use the `generate_repeated_tokens` function above
 
-    Outputs are:
+    Oututs are:
         rep_tokens: [batch, 1+2*seq_len]
         rep_logits: [batch, 1+2*seq_len, d_vocab]
         rep_cache: The cache of the model run on rep_tokens
     '''
     semi_rand_prompt_id = generate_repeated_tokens(model=model, seq_len=seq_len, batch=batch)
-    semi_rand_prompt_str = model.to_str_tokens(semi_rand_prompt_id)
-    logits, cache = model.run_with_cache(semi_rand_prompt_str)
+    logits, cache = model.run_with_cache(semi_rand_prompt_id)
     return semi_rand_prompt_id, logits, cache
 
 
@@ -278,4 +277,49 @@ if MAIN:
     print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
 
     plot_loss_difference(log_probs, rep_str, seq_len)
+# %%
+
+if MAIN:
+    text = generate_repeated_tokens(model=model, seq_len=4, batch=1)
+
+    logits, cache = model.run_with_cache(text, remove_batch_dim=True)
+    token_str = model.to_str_tokens(text)
+    
+    for j in range(model.cfg.n_layers):
+        attn_patterns = cache["pattern", j, "attn"]
+        print(attn_patterns.shape)
+
+        display(cv.attention.attention_patterns(
+            tokens=token_str, 
+            attention=attn_patterns,
+            attention_head_names=[f"L{j}H{i}" for i in range(12)],
+        ))
+# %%
+
+for i in range(12):
+    QK = model.W_Q[1, 10] @ model.W_K[1, 10].T
+    print(i)
+    print(QK.mean())
+    print(QK.std())
+# %%
+def induction_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be induction heads
+
+    Remember - the tokens used to generate rep_cache are (bos_token, *rand_tokens, *rand_tokens)
+    '''
+    threshold = 0.5
+    result = []
+    for l in range(2):
+        attn_patterns = cache["pattern", l]
+        for h in range(12):
+            attn_pattern = attn_patterns[h]
+            seq_len = (attn_pattern.shape[-1] - 1) // 2
+            score = (t.diagonal(attn_pattern, offset=-(seq_len-1))).mean()
+            if score > threshold:
+                result.append(f"{l}.{h}")
+    return result
+
+if MAIN:
+    print("Induction heads = ", ", ".join(induction_attn_detector(cache)))
 # %%
