@@ -39,12 +39,7 @@ You can toggle dark mode from the buttons on the top-right of this page.
 
 
 # [1.2] TransformerLens & induction circuits
-""", unsafe_allow_html=True)
 
-    st.error(r"""
-Note - you can skip most of this intro and move on to section 1/4, then return here after the lunchtime talk (when it will make a bit more sense).
-""")
-    st.markdown(r"""
 
 ## Introduction
 
