@@ -2534,8 +2534,6 @@ W_U = model.W_U
 
 OV_circuit = FactoredMatrix(W_V, W_O)
 full_OV_circuit = W_E @ OV_circuit @ W_U
-
-test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
 ```
 </details>
 
