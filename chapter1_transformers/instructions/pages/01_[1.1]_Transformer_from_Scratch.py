@@ -23,7 +23,7 @@ def section_0():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
     <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
-    <li class='margtop'><a class='contents-el' href='#setup-don't-read-just-run'>Setup (don't read, just run)</a></li>
+    <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -44,10 +44,11 @@ You can toggle dark mode from the buttons on the top-right of this page.
 ## Introduction
 
 
-
 This is a clean, first principles implementation of GPT-2 in PyTorch. The architectural choices closely follow those used by the TransformerLens library (which you'll be using a lot more in later exercises).
 
 The exercises are written to accompany Neel Nanda's [TransformerLens library](https://github.com/neelnanda-io/TransformerLens) for doing mechanistic interpretability research on GPT-2 style language models. We'll be working with this library extensively in this chapter of the course.
+
+Each exercise will have a difficulty and importance rating out of 5, as well as an estimated maximum time you should spend on these exercises and sometimes a short annotation. You should interpret the ratings & time estimates relatively (e.g. if you find yourself spending about 50% longer on the exercises than the time estimates, adjust accordingly). Please do skip exercises / look at solutions if you don't feel like they're important enough to be worth doing, and you'd rather get to the good stuff!
 
 
 ## Content & Learning Objectives
@@ -67,8 +68,6 @@ In this section, we'll take a first look at transformers - what their function i
 #### 2️⃣ Clean Transformer Implementation
 
 Here, we'll implement a transformer from scratch, using only PyTorch's tensor operations. This will give us a good understanding of how transformers work, and how to use them. We do this by going module-by-module, in an experience which should feel somewhat similar to last week's ResNet exercises. Much like with ResNets, you'll conclude by loading in pretrained weights and verifying that your model works as expected.
-
-*You should aim to get at least as far as the end of this section on the first day.*
 
 > ##### Learning objectives
 > 
@@ -96,6 +95,8 @@ Next, you'll learn how to train your transformer from scratch. This will be quit
 
 Lastly, you'll learn how to sample from a transformer. This will involve implementing a few different sampling methods, and writing a caching system which can reuse computations from previous forward passes to improve your model's text generation speed.
 
+*The second half of this section is less important, and you can skip it if you want.*
+
 > ##### Learning objectives
 >
 > * Learn how to sample from a transformer
@@ -104,11 +105,12 @@ Lastly, you'll learn how to sample from a transformer. This will involve impleme
 >     * Optionally, rewrite your sampling functions to make use of your caching methods
 
 
-## Setup (don't read, just run)
+## Setup
 
 
 ```python
-import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"; os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+import os; os.environ['ACCELERATE_DISABLE_RICH'] = "1"
+# os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import sys
 import einops
 from dataclasses import dataclass
@@ -120,7 +122,7 @@ import torch.nn as nn
 import numpy as np
 import math
 from tqdm.notebook import tqdm
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from jaxtyping import Float, Int
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 from collections import defaultdict
@@ -329,7 +331,7 @@ As you get to the end of the vocabulary, you'll be producing some pretty weird-l
 ```python
 
 if MAIN:
-    sorted_vocab[-20:]
+    print(sorted_vocab[-20:])
 
 ```
 
@@ -379,7 +381,7 @@ Length is inconsistent, common numbers bundle together.
 ```python
 
 if MAIN:
-    reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000")
+    print(reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000"))
 
 ```
 
@@ -450,7 +452,7 @@ if MAIN:
 if MAIN:
     most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(logits.argmax(dim=-1)[0])
     
-    list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens))
+    print(list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens)))
 
 ```
 
@@ -562,14 +564,14 @@ def section_2():
 >     * Unembedding (a matrix for converting residual stream vectors into a distribution over tokens)
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-new.png" width="850">
-
-
 ## High-Level architecture
 
-Go watch my [Transformer Circuits walkthrough](https://www.youtube.com/watch?v=KV5gbOmHbjU) if you want more intuitions!
+Go watch Neel's [Transformer Circuits walkthrough](https://www.youtube.com/watch?v=KV5gbOmHbjU) if you want more intuitions!
 
 (Diagram is bottom to top.)
+
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-new.png" width="850">
 
 
 ### Tokenization & Embedding
@@ -664,9 +666,11 @@ We can view the vectors $W^{in}_{[:, i]}$ as the **input directions**, and $W^{o
 
 Terminology note - sometimes we refer to each of these $d_{mlp}$ input-output pairs as **neurons**.
 
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/mlp-neurons.png" width="900">
+
 ---
 
-If you're having trouble visualizing the linear algebra going into this, we've broken it down step by step below. We have:
+Here's a step-by-step breakdown of the linear algebra, if it was too fast above. We have:
 
 $$
 \begin{aligned}
@@ -760,8 +764,8 @@ position = 35
 d_model = 768
 n_heads = 12
 n_layers = 12
-d_mlp = 3072 (4 * d_model)
-d_head = 64 (d_model / n_heads)
+d_mlp = 3072 (= 4 * d_model)
+d_head = 64 (= d_model / n_heads)
 ```
 
 
@@ -771,13 +775,10 @@ It's important to distinguish between parameters and activations in the model.
 
 * **Parameters** are the weights and biases that are learned during training.
     * These don't change when the model input changes.
-    * They can be accessed direction fromm the model, e.g. `model.W_E` for the token embedding.
 * **Activations** are temporary numbers calculated during a forward pass, that are functions of the input.
     * We can think of these values as only existing for the duration of a single forward pass, and disappearing afterwards.
     * We can use hooks to access these values during a forward pass (more on hooks later), but it doesn't make sense to talk about a model's activations outside the context of some particular input.
     * Attention scores and patterns are activations (this is slightly non-intuitve because they're used in a matrix multiplication with another activation).
-
-The dropdown below contains a diagram of a single layer (called a `TransformerBlock`) for an attention-only model with no biases. Each box corresponds to an **activation** (and also tells you the name of the corresponding hook point, which we will eventually use to access those activations). The red text below each box tells you the shape of the activation (ignoring the batch dimension). Each arrow corresponds to an operation on an activation; where there are **parameters** involved these are labelled on the arrows.
 
 #### Print All Activation Shapes of Reference Model
 
@@ -908,7 +909,7 @@ Your LayerNorm should do the following:
 * Scale with learned weights
 * Translate with learned bias
 
-You can use the PyTorch [LayerNorm documentation](https://pytorch.org/docs/stable/generated/t.nn.LayerNorm.html) as a reference. A few more notes:
+You can use the PyTorch [LayerNorm documentation](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html) as a reference. A few more notes:
 
 * Your layernorm implementation always has `affine=True`, i.e. you do learn parameters `w` and `b` (which are represented as $\gamma$ and $\beta$ respectively in the PyTorch documentation).
 * Remember that, after the centering and normalization, each vector of length `d_model` in your input should have mean 0 and variance 1.
@@ -1077,18 +1078,20 @@ class PosEmbed(nn.Module):
 Difficulty: 🟠🟠🟠🟠⚪
 Importance: 🟠🟠🟠🟠🟠
 
-You should spend up to 25-35 minutes on this exercise.
+You should spend up to 30-45 minutes on this exercise.
 ```
 
 * **Step 1:** Produce an attention pattern - for each destination token, probability distribution over previous tokens (including current token)
     * Linear map from input -> query, key shape `[batch, seq_posn, head_index, d_head]`
     * Dot product every *pair* of queries and keys to get attn_scores `[batch, head_index, query_pos, key_pos]` (query = dest, key = source)
-    * Scale and mask `attn_scores` to make it lower triangular, i.e. causal
+    * **Scale** and mask `attn_scores` to make it lower triangular, i.e. causal
     * Softmax along the `key_pos` dimension, to get a probability distribution for each query (destination) token - this is our attention pattern!
 * **Step 2:** Move information from source tokens to destination token using attention pattern (move = apply linear map)
     * Linear map from input -> value `[batch, key_pos, head_index, d_head]`
     * Mix along the `key_pos` with attn pattern to get `z`, which is a weighted average of the value vectors `[batch, query_pos, head_index, d_head]`
     * Map to output, `[batch, position, d_model]` (position = query_pos, we've summed over all heads)
+
+Note - when we say **scale**, we mean dividing by `sqrt(d_head)`. The purpose of this is to avoid vanishing gradients (which is a big problem when we're dealing with a function like softmax - if one of the values is much larger than all the others, the probabilities will be close to 0 or 1, and the gradients will be close to 0).
 
 Below is a much larger, more detailed version of the attention head diagram from earlier. This should give you an idea of the actual tensor operations involved. A few clarifications on this diagram:
 
@@ -1097,7 +1100,7 @@ Below is a much larger, more detailed version of the attention head diagram from
 * We arrange the keys, queries and values as `(batch, seq_pos, head_idx, d_head)`, because the biases have shape `(head_idx, d_head)`, so this makes it convenient to add the biases (recall the rules of array broadcasting!).
 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-attn-2.png" width="1400">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-attn-21.png" width="1400">
 
 
 <details>
@@ -1151,13 +1154,15 @@ First, it's useful to visualize and play around with attention patterns - what e
 
 ```python
 import circuitsvis as cv
+from IPython.display import display
 
 
 if MAIN:
-    cv.attention.attention_patterns(
+    html = cv.attention.attention_patterns(
         tokens=reference_gpt2.to_str_tokens(reference_text), 
         attention=cache["pattern", 0][0]
     )
+    display(html)
 
 ```
 
@@ -1656,9 +1661,9 @@ def get_log_probs(
     
     log_probs = logits.log_softmax(dim=-1)
     # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
-    log_probs_for_predicted_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
+    log_probs_for_tokens = log_probs[:, :-1].gather(dim=-1, index=tokens[:, 1:].unsqueeze(-1)).squeeze(-1)
 
-    return log_probs_for_predicted_tokens
+    return log_probs_for_tokens
 
 
 
@@ -1701,12 +1706,12 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-    <li class='margtop'><a class='contents-el' href='#learning-objectives'>Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#create-model'>Create Model</a></li>
     <li class='margtop'><a class='contents-el' href='#training-args'>Training Args</a></li>
     <li class='margtop'><a class='contents-el' href='#create-data'>Create Data</a></li>
-    <li class='margtop'><a class='contents-el' href='#run-training-loop'>Run Training Loop</a></li>
+    <li class='margtop'><a class='contents-el' href='#training-loop'>Training Loop</a></li>
     <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-write-training-loop'><b>Exercise</b> - write training loop</a></li>
         <li><a class='contents-el' href='#a-note-on-this-loss-curve-optional'>A note on this loss curve (optional)</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -1722,20 +1727,11 @@ def section_3():
 > * Interpret the transformer's falling cross entropy loss with reference to features of the training data (e.g. bigram frequencies)
 
 
-
 Now that we've built our transformer, and verified that it performs as expected when we load in weights, let's try training it from scratch!
-
 
 This is a lightweight demonstration of how you can actually train your own GPT-2 with this code! Here we train a tiny model on a tiny dataset, but it's fundamentally the same code for training a larger/more real model (though you'll need beefier GPUs and data parallelism to do it remotely efficiently, and fancier parallelism for much bigger ones).
 
 For our purposes, we'll train 2L 4 heads per layer model, with context length 256, for 1000 steps of batch size 8, just to show what it looks like (and so the notebook doesn't melt your colab lol).
-
-## Learning Objectives 
-
-* Use the `Adam` optimizer to train your transformer
-* Run a training loop on a very small dataset, and verify that your model's loss is going down
-
-
 
 
 ## Create Model
@@ -1825,7 +1821,7 @@ if MAIN:
 
 ```
 
-## Run Training Loop
+## Training Loop
 
 If you did the material on [PyTorch Lightning](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#pytorch-lightning) during the first week, this should all be familiar to you. If not, a little refresher:
 
@@ -1854,6 +1850,16 @@ Weights and Biases is a useful service which visualises training runs and perfor
 * Remember to call `wandb.finish()` at the end of your training instance.
 </details>
 
+
+### Exercise - write training loop
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
 You should fill in the methods below. Some guidance:
 
 * Remember we were able to calculate cross entropy loss using the `get_log_probs` function in the previous section.
@@ -1875,7 +1881,7 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
@@ -1910,7 +1916,7 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
@@ -2133,8 +2139,8 @@ class TransformerSampler:
 
     @staticmethod
     def sample_next_token(
-        input_ids: Int[Tensor, "d_vocab"], 
-        logits: Float[Tensor, "d_vocab"], 
+        input_ids: Int[Tensor, "seq_len"], 
+        logits: Float[Tensor, "seq_len d_vocab"], 
         temperature=1.0, 
         top_k=0, 
         top_p=0.0, 
@@ -2372,8 +2378,8 @@ class TransformerSampler:
 
     @staticmethod
     def sample_next_token(
-        input_ids: Int[Tensor, "d_vocab"], 
-        logits: Float[Tensor, "d_vocab"], 
+        input_ids: Int[Tensor, "seq_len"], 
+        logits: Float[Tensor, "seq_len d_vocab"], 
         temperature=1.0, 
         top_k=0, 
         top_p=0.0, 
@@ -3028,18 +3034,17 @@ class Beams:
         ]
 
 
-    def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
+    def generate(self, toks_per_beam: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
         '''
         Starting from the current set of beams (which has length `num_beams`), returns a new
-        set of `num_beams * new_beams`, containing the best `new_beams` continuations for each
+        set of `num_beams * toks_per_beam`, containing the best `toks_per_beam` continuations for each
         of the original beams.
 
         Optional argument `no_repeat_ngram_size` means your model won't generate any sequences with
-        a repeating n-gram of this length (don't worry about implementing this until later).
+        a repeating n-gram of this length.
         '''
         pass
 
-        
     def filter(self, num_beams: int) -> Tuple["Beams", "Beams"]:
         '''
         Returns:
@@ -3052,7 +3057,6 @@ class Beams:
         '''
         pass
 
-        
     def print(self, title="Best completions", max_print_chars=80) -> None:
         '''
         Prints out a set of sequences with their corresponding logitsums.
@@ -3088,6 +3092,7 @@ def beam_search(
     To modularize this function, most of the actual complexity is in the Beams class,
     in the `generate` and `filter` methods.
     '''
+
     assert num_return_sequences <= num_beams
     self.model.eval()
 
@@ -3124,7 +3129,7 @@ And here are some unit tests for your `generate` and `filter` methods:
 
 if MAIN:
     print("Testing generate, without no_repeat_ngram_size argument:")
-    new_beams = beams.generate(2)
+    new_beams = beams.generate(toks_per_beam=2)
     new_beams.print()
     assert new_beams.logprobs_and_completions[0][1] == "this is the third time"
 
@@ -3144,12 +3149,12 @@ if MAIN:
     )
     
     # With no_repeat_ngram_size=1, should not generate the token " one" or " two"
-    new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=1)
+    new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=1)
     new_bigram_beams.print()
     assert all([not (completion[1].endswith(" one") or completion[1].endswith(" two")) for completion in new_bigram_beams.logprobs_and_completions])
     
     # With no_repeat_ngram_size=2, it can generate " two" (which it should), but not " one"
-    new_bigram_beams = bigram_beams.generate(3, no_repeat_ngram_size=2)
+    new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=2)
     new_bigram_beams.print()
     assert all([not completion[1].endswith(" one") for completion in new_bigram_beams.logprobs_and_completions])
     assert any([not completion[1].endswith(" two") for completion in new_bigram_beams.logprobs_and_completions])
@@ -3183,10 +3188,10 @@ if MAIN:
 <summary>Solutions (for <code>generate</code> and <code>filter</code>)</summary>
 
 ```python
-def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
+def generate(self, toks_per_beam: int, no_repeat_ngram_size: Optional[int] = None) -> "Beams":
     '''
     Starting from the current set of beams (which has length `num_beams`), returns a new
-    set of `num_beams * new_beams`, containing the best `new_beams` continuations for each
+    set of `num_beams * toks_per_beam`, containing the best `toks_per_beam` continuations for each
     of the original beams.
 
     Optional argument `no_repeat_ngram_size` means your model won't generate any sequences with
@@ -3197,18 +3202,18 @@ def generate(self, new_beams: int, no_repeat_ngram_size: Optional[int] = None) -
     # Get the output logprobs for the next token (for every sequence in current beams)
     logprobs: Tensor = self.model(self.tokens)[:, -1, :].log_softmax(-1)
 
-    # Get the top `new_beams` tokens for each sequence
-    topk_logprobs, topk_tokenIDs = logprobs.topk(k=new_beams)
+    # Get the top `toks_per_beam` tokens for each sequence
+    topk_logprobs, topk_tokenIDs = logprobs.topk(k=toks_per_beam)
 
     # Get all of the new possible beams, via einops operations
     #   Here, we're effectively flattening out the batch dimension and k dimension, to give us tensors
     #   with every possible combination of (original sequence, new token) pairs.)
     new_logprob_sums = sum([
-        einops.repeat(self.logprob_sums, "batch -> batch k", k=new_beams),
+        einops.repeat(self.logprob_sums, "batch -> batch k", k=toks_per_beam),
         einops.rearrange(topk_logprobs, "batch k -> (batch k)")
     ])
     new_tokens = t.concat([
-        einops.repeat(self.tokens, "batch seq -> (batch k) seq", k=new_beams),
+        einops.repeat(self.tokens, "batch seq -> (batch k) seq", k=toks_per_beam),
         einops.rearrange(topk_tokenIDs, "batch k -> (batch k) 1")
     ], dim=-1)
     return self.new_beams(new_logprob_sums, new_tokens)
@@ -3362,10 +3367,10 @@ def beam_search(
     for n in tqdm(range(max_new_tokens)):
 
         # Generation step
-        best_beams = best_beams.generate(num_beams, no_repeat_ngram_size)
+        best_beams = best_beams.generate(toks_per_beam=num_beams, no_repeat_ngram_size=no_repeat_ngram_size)
 
         # Filtering step
-        best_beams, best_beams_terminated = best_beams.filter(num_beams)
+        best_beams, best_beams_terminated = best_beams.filter(num_beams=num_beams)
         final_logprobs_and_completions.extend(best_beams_terminated.logprobs_and_completions)
 
         # Print output
