@@ -1641,7 +1641,7 @@ def logit_attribution(
     l1_results: Float[Tensor, "seq nheads d_model"],
     l2_results: Float[Tensor, "seq nheads d_model"],
     W_U: Float[Tensor, "d_model d_vocab"],
-    tokens: Float[Tensor, "seq"]
+    tokens: Int[Tensor, "seq"]
 ) -> Float[Tensor, "seq-1 n_components"]:
     '''
     Inputs:
@@ -1691,7 +1691,7 @@ def logit_attribution(
     l1_results: Float[Tensor, "seq nheads d_model"],
     l2_results: Float[Tensor, "seq nheads d_model"],
     W_U: Float[Tensor, "d_model d_vocab"],
-    tokens: Float[Tensor, "seq"]
+    tokens: Int[Tensor, "seq"]
 ) -> Float[Tensor, "seq-1 n_components"]:
     '''
     Inputs:
@@ -2461,7 +2461,7 @@ $$
 What is the interpretation of this expression, in the context of our attention head?
 </details>
 
-<!-- <details> -->
+<details>
 <summary>Answer</summary>
 
 If our repeating sequence is `A B ... A B`, then:
@@ -2496,23 +2496,11 @@ You should compute it as a `FactoredMatrix` object.
 
 Remember, you can access the model's weights directly e.g. using `model.W_E` or `model.W_Q` (the latter gives you all the `W_Q` matrices, indexed by layer and head).
 
-
 ```python
-
 if MAIN:
-    head_index = 4
-    layer = 1
-    
-    W_O = model.W_O[layer, head_index]
-    W_V = model.W_V[layer, head_index]
-    W_E = model.W_E
-    W_U = model.W_U
-    
-    OV_circuit = FactoredMatrix(W_V, W_O)
-    full_OV_circuit = W_E @ OV_circuit @ W_U
-    
+    # YOUR CODE HERE - compute OV circuit
+   
     tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
-
 ```
 
 <details>
