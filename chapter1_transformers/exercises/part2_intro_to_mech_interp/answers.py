@@ -158,8 +158,382 @@ if MAIN:
 
 
 if MAIN:
-    display(cv.attention.attention_patterns(attention=cache["pattern", 0, "attn"], tokens=tokens,
-        attention_head_names=[f"L0H{i}" for i in range(12)]))
-    # YOUR CODE HERE - visualize attention
+    for layer in range(2):
+        display(cv.attention.attention_patterns(attention=cache["pattern", layer], tokens=tokens))
+# %%
+score_threshold = 0.7
+
+def diagonal_attn_score(attn_pattern: Float[Tensor, "head seq seq"], offset=0, 
+                        threshold=score_threshold):
+    # If offset = -1 it takes the diagonal below the main diagonal
+    return t.diagonal(attn_pattern, offset, dim1=-2, dim2=-1).mean(dim=-1) > threshold
+
+
+def current_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be current-token heads
+    '''    
+    current_attn_heads = []
+    for layer in range(cache.model.cfg.n_layers):
+        diag_score = diagonal_attn_score(cache['pattern', layer], offset=0)
+        current_attn_heads.extend([f'{layer}.{h}' for h, detected in \
+                                   enumerate(diag_score) if detected])
+    return current_attn_heads
+    
+
+def prev_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be prev-token heads
+    '''
+    current_attn_heads = []
+    for layer in range(cache.model.cfg.n_layers):
+        diag_score = diagonal_attn_score(cache['pattern', layer], offset=-1)
+        current_attn_heads.extend([f'{layer}.{h}' for h, detected in \
+                                   enumerate(diag_score) if detected])
+    return current_attn_heads
+
+def first_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be first-token heads
+    '''
+    current_attn_heads = []
+    for layer in range(cache.model.cfg.n_layers):
+        diag_score = cache['pattern', layer][:, :, 0].mean(dim=-1) > score_threshold
+        current_attn_heads.extend([f'{layer}.{h}' for h, detected in \
+                                   enumerate(diag_score) if detected])
+    return current_attn_heads
+
+
+if MAIN:
+    print("Heads attending to current token  = ", ", ".join(current_attn_detector(cache)))
+    print("Heads attending to previous token = ", ", ".join(prev_attn_detector(cache)))
+    print("Heads attending to first token    = ", ", ".join(first_attn_detector(cache)))
+# %%
+
+def generate_repeated_tokens(
+    model: HookedTransformer, seq_len: int, batch: int = 1
+) -> Int[Tensor, "batch full_seq_len"]:
+    '''
+    Generates a sequence of repeated random tokens
+
+    Outputs are:
+        rep_tokens: [batch, 1+2*seq_len]
+    '''
+    prefix = (t.ones(batch, 1) * model.tokenizer.bos_token_id).long()
+    tokens = t.randint(0, model.cfg.d_vocab, size=(batch, seq_len)).long()
+    rep_tokens = einops.repeat(tokens, 'batch seq -> batch (2 seq)')
+    return t.cat([prefix, rep_tokens], dim=1).to(model.cfg.device)
+
+def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> Tuple[t.Tensor, t.Tensor, ActivationCache]:
+    '''
+    Generates a sequence of repeated random tokens, and runs the model on it, returning logits, tokens and cache
+
+    Should use the `generate_repeated_tokens` function above
+
+    Outputs are:
+        rep_tokens: [batch, 1+2*seq_len]
+        rep_logits: [batch, 1+2*seq_len, d_vocab]
+        rep_cache: The cache of the model run on rep_tokens
+    '''
+    rep_tokens = generate_repeated_tokens(model, seq_len, batch)
+    logits, cache = model.run_with_cache(rep_tokens)
+    return rep_tokens, logits, cache
+
+
+if MAIN:
+    seq_len = 50
+    batch = 1
+    (rep_tokens, rep_logits, rep_cache) = run_and_cache_model_repeated_tokens(model, seq_len, batch)
+    rep_cache.remove_batch_dim()
+    rep_str = model.to_str_tokens(rep_tokens)
+    model.reset_hooks()
+    log_probs = get_log_probs(rep_logits, rep_tokens).squeeze()
+
+    print(f"Performance on the first half: {log_probs[:seq_len].mean():.3f}")
+    print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
+
+    plot_loss_difference(log_probs, rep_str, seq_len)
+# %%
+
+display(cv.attention.attention_patterns(attention=rep_cache["pattern", 1], tokens=rep_tokens))
 
 # %%
+
+def induction_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be induction heads
+
+    Remember - the tokens used to generate rep_cache are (bos_token, *rand_tokens, *rand_tokens)
+    '''
+    offset = - (cache['pattern', 0].shape[-1]//2)
+    attn_heads = []
+    for layer in range(cache.model.cfg.n_layers):
+        diag_score = cache['pattern', layer].diagonal(offset+1, dim1=-2, dim2=-1).mean(-1)
+        print(diag_score)
+        # attn_heads.extend([f'{layer}.{h}' for h, detected in \
+        #                            enumerate(diag_score) if detected > 0.1])
+    return attn_heads
+
+
+if MAIN:
+    print("Induction heads = ", ", ".join(induction_attn_detector(rep_cache)))
+
+#%%
+if MAIN:
+    seq_len = 50
+    batch = 10
+    rep_tokens_10 = generate_repeated_tokens(model, seq_len, batch)
+
+    # We make a tensor to store the induction score for each head.
+    # We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
+    induction_score_store = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+def induction_score_hook(
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
+    hook: HookPoint,
+):
+    '''
+    Calculates the induction score, and stores it in the [layer, head] position of the `induction_score_store` tensor.
+    '''
+    offset = - ((pattern.shape[-1] - 1)//2)
+    induction_score = pattern.diagonal(offset+1, dim1=2, dim2=3).mean([0, -1])
+    induction_score_store[hook.layer()] = induction_score
+
+
+if MAIN:
+    pattern_hook_names_filter = lambda name: name.endswith("pattern")
+
+    # Run with hooks (this is where we write to the `induction_score_store` tensor`)
+    model.run_with_hooks(
+        rep_tokens_10, 
+        return_type=None, # For efficiency, we don't need to calculate the logits
+        fwd_hooks=[(
+            pattern_hook_names_filter,
+            induction_score_hook
+        )]
+    )
+
+    # Plot the induction scores for each head in each layer
+    imshow(
+        induction_score_store, 
+        labels={"x": "Head", "y": "Layer"}, 
+        title="Induction Score by Head", 
+        text_auto=".2f",
+        width=900, height=400
+    )
+# %%
+def visualize_pattern_hook(
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
+    hook: HookPoint,
+):
+    print("Layer: ", hook.layer())
+    display(
+        cv.attention.attention_patterns(
+            tokens=gpt2_small.to_str_tokens(rep_tokens[0]), 
+            attention=pattern.mean(0)
+        )
+    )
+
+
+if MAIN:
+    induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads),
+                                     device=gpt2_small.cfg.device)
+    gpt2_small.run_with_hooks(
+        rep_tokens_10,
+        return_type=None,
+        fwd_hooks=[(
+            pattern_hook_names_filter,
+            induction_score_hook
+        ),(
+        pattern_hook_names_filter,
+            visualize_pattern_hook
+        ,)
+        ]
+    )
+    imshow(
+        induction_score_store, 
+        labels={"x": "Head", "y": "Layer"}, 
+        title="Induction Score by Head", 
+        text_auto=".2f",
+        width=900, height=400)
+
+# %%
+def logit_attribution(
+    embed: Float[Tensor, "seq d_model"],
+    l1_results: Float[Tensor, "seq nheads d_model"],
+    l2_results: Float[Tensor, "seq nheads d_model"],
+    W_U: Float[Tensor, "d_model d_vocab"],
+    tokens: Float[Tensor, "seq"]
+) -> Float[Tensor, "seq-1 n_components"]:
+    '''
+    Inputs:
+        embed: the embeddings of the tokens (i.e. token + position embeddings)
+        l1_results: the outputs of the attention heads at layer 1 (with head as one of the dimensions)
+        l2_results: the outputs of the attention heads at layer 2 (with head as one of the dimensions)
+        W_U: the unembedding matrix
+        tokens: the token ids of the sequence
+
+    Returns:
+        Tensor of shape (seq_len-1, n_components)
+        represents the concatenation (along dim=-1) of logit attributions from:
+            the direct path (seq-1,1)
+            layer 0 logits (seq-1, n_heads)
+            layer 1 logits (seq-1, n_heads)
+        so n_components = 1 + 2*n_heads
+    '''
+    W_U_correct_tokens = W_U[:, tokens[1:]]
+    embed_contributions = einops.einsum(embed[:-1], W_U_correct_tokens, 
+                                        "seq d_model, d_model seq -> seq")[:, None]
+    l1_contributions = einops.einsum(l1_results[:-1], W_U_correct_tokens, 
+                                        "seq n_heads d_model, d_model seq -> seq n_heads")
+    l2_contributions = einops.einsum(l2_results[:-1], W_U_correct_tokens, 
+                                        "seq n_heads d_model, d_model seq -> seq n_heads")
+
+    return t.cat((embed_contributions, l1_contributions, l2_contributions), dim=1)
+
+
+if MAIN:
+    # text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
+    text = "hi there my name is alejandro hi there my name is alejandro"
+    logits, cache = model.run_with_cache(text, remove_batch_dim=True)
+    str_tokens = model.to_str_tokens(text)
+    tokens = model.to_tokens(text)
+
+    with t.inference_mode():
+        embed = cache["embed"]
+        l1_results = cache["result", 0]
+        l2_results = cache["result", 1]
+        logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
+        # Uses fancy indexing to get a len(tokens[0])-1 length tensor, where the kth entry is the predicted logit for the correct k+1th token
+        correct_token_logits = logits[0, t.arange(len(tokens[0]) - 1), tokens[0, 1:]]
+        t.testing.assert_close(logit_attr.sum(1), correct_token_logits, atol=1e-3, rtol=0)
+        print("Tests passed!")
+
+if MAIN:
+    embed = cache["embed"]
+    l1_results = cache["result", 0]
+    l2_results = cache["result", 1]
+    logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
+
+    plot_logit_attribution(model, logit_attr, tokens)
+# %%
+
+
+if MAIN:
+    seq_len = 50
+
+    embed = rep_cache["embed"]
+    l1_results = rep_cache["result", 0]
+    l2_results = rep_cache["result", 1]
+    first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    second_half_tokens = rep_tokens[0, seq_len:]
+
+    logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, rep_tokens[0])
+
+    first_half_logit_attr = logit_attr[: seq_len]
+    second_half_logit_attr = logit_attr[seq_len-1:-1]
+
+    # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+    assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+# %%
+
+def head_ablation_hook(
+    attn_result: Float[Tensor, "batch seq n_heads d_model"],
+    hook: HookPoint,
+    head_index_to_ablate: int
+) -> Float[Tensor, "batch seq n_heads d_model"]:
+    attn_result[:, :, head_index_to_ablate] = 0
+    return attn_result
+
+def cross_entropy_loss(logits, tokens):
+    '''
+    Computes the mean cross entropy between logits (the model's prediction) and tokens (the true values).
+    '''
+    log_probs = F.log_softmax(logits, dim=-1)
+    pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
+    return -pred_log_probs.mean()
+
+
+
+def get_ablation_scores(
+    model: HookedTransformer, 
+    tokens: Int[Tensor, "batch seq"]
+) -> Float[Tensor, "n_layers n_heads"]:
+    '''
+    Returns a tensor of shape (n_layers, n_heads) containing the increase in cross entropy loss from ablating the output of each head.
+    '''
+    # Initialize an object to store the ablation scores
+    ablation_scores = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+    # Calculating loss without any ablation, to act as a baseline
+    model.reset_hooks()
+    logits = model(tokens, return_type="logits")
+    loss_no_ablation = cross_entropy_loss(logits, tokens)
+
+    for layer in tqdm(range(model.cfg.n_layers)):
+        for head in range(model.cfg.n_heads):
+            # Use functools.partial to create a temporary hook function with the head number fixed
+            temp_hook_fn = functools.partial(head_ablation_hook, head_index_to_ablate=head)
+            # Run the model with the ablation hook
+            ablated_logits = model.run_with_hooks(tokens, fwd_hooks=[
+                (utils.get_act_name("result", layer), temp_hook_fn)
+            ])
+            # Calculate the logit difference
+            loss = cross_entropy_loss(ablated_logits, tokens)
+            # Store the result, subtracting the clean loss so that a value of zero means no change in loss
+            ablation_scores[layer, head] = loss - loss_no_ablation
+
+    return ablation_scores
+
+
+if MAIN:
+    ablation_scores = get_ablation_scores(model, rep_tokens)
+    tests.test_get_ablation_scores(ablation_scores, model, rep_tokens)
+
+if MAIN:
+    imshow(
+        ablation_scores, 
+        labels={"x": "Head", "y": "Layer", "color": "Logit diff"},
+        title="Logit Difference After Ablating Heads", 
+        text_auto=".2f",
+        width=900, height=400
+    )
+# %%
+
+def head_ablation_hook(
+    attn_result: Float[Tensor, "batch seq n_heads d_model"],
+    hook: HookPoint,
+    head_index_to_ablate: List[int]
+) -> Float[Tensor, "batch seq n_heads d_model"]:
+    # attn_result[:, :, head_index_to_ablate] = 0
+    mean_acts = attn_result[:, :, head_index_to_ablate].mean(0)
+    attn_result[:, :, head_index_to_ablate] = einops.repeat(mean_acts, 'seq head d_model -> batch seq head d_model', batch=attn_result.shape[0])
+    
+    return attn_result
+
+
+model.reset_hooks()
+logits = model(rep_tokens, return_type="logits")
+loss_no_ablation = cross_entropy_loss(logits, rep_tokens)
+
+temp_hook_fn1 = functools.partial(head_ablation_hook, head_index_to_ablate=[h for h in range(12) if h not in [4, 7]])
+temp_hook_fn2 = functools.partial(head_ablation_hook, head_index_to_ablate=[h for h in range(12) if h not in [4, 10]])
+
+# Run the model with the ablation hook
+ablated_logits = model.run_with_hooks(rep_tokens, fwd_hooks=[
+    (utils.get_act_name("result", 0), temp_hook_fn1),
+    (utils.get_act_name("result", 1), temp_hook_fn2)
+])
+# Calculate the logit difference
+loss = cross_entropy_loss(ablated_logits, rep_tokens)
+# Store the result, subtracting the clean loss so that a value of zero means no change in loss
+ablation_score = loss - loss_no_ablation
+print(f'{loss=}')
+print(f'{loss_no_ablation=}')
+
+
+
