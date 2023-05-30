@@ -39,7 +39,7 @@ You can toggle dark mode from the buttons on the top-right of this page.
 
 
 # [1.2] TransformerLens & induction circuits
-""")
+""", unsafe_allow_html=True)
 
     st.error(r"""
 Note - you can skip most of this intro and move on to section 1/4, then return here after the lunchtime talk (when it will make a bit more sense).
@@ -796,7 +796,7 @@ We notice that there are three basic patterns which repeat quite frequently:
 
 * `prev_token_heads`, which attend mainly to the previous token (e.g. head `0.7`)
 * `current_token_heads`, which attend mainly to the current token (e.g. head `1.6`)
-* `first_token_heads`, which attend mainly to the first token (e.g. heads `0.4` or `1.4`, although these are a bit less clear-cut than the other two)
+* `first_token_heads`, which attend mainly to the first token (e.g. heads `0.3` or `1.4`, although these are a bit less clear-cut than the other two)
 
 The `prev_token_heads` and `current_token_heads` are perhaps unsurprising, because words that are close together in a sequence probably have a lot more mutual information (i.e. we could get quite far using bigram or trigram prediction). 
 
