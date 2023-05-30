@@ -115,9 +115,24 @@ if MAIN:
     layer0_pattern_from_cache = gpt2_cache["pattern", 0]
 
     # YOUR CODE HERE - define `layer0_pattern_from_q_and_k` manually, by manually performing the steps of the attention calculation (dot product, masking, scaling, softmax)
+    def apply_causal_mask(attn_scores: Float[Tensor, "batch n_heads query_pos key_pos"]) -> Float[Tensor, "batch n_heads query_pos key_pos"]:
+        """
+        Applies a causal mask to attention scores, and returns masked scores.
+        """
+        mask = t.triu(t.ones_like(attn_scores, dtype=bool), diagonal=1)
+        return t.masked_fill(attn_scores, mask, -1e9)
 
 
-    layer0_pattern_from_q_and_k = attn_scores.softmax()
+
+    q = gpt2_cache["q0"]
+    k = gpt2_cache["k0"]
+
+    qk = einops.einsum(q, k, "q_pos n_heads d_head, k_pos n_heads d_head -> n_heads q_pos k_pos")
+    assert reference_gpt2.cfg.d_head == q.shape[-1] 
+    attn_scores = qk / math.sqrt(reference_gpt2.cfg.d_head)
+    attn_scores = apply_causal_mask(attn_scores)
+    layer0_pattern_from_q_and_k = attn_scores.softmax(dim=-1)
+    ###
 
     t.testing.assert_close(layer0_pattern_from_cache, layer0_pattern_from_q_and_k)
     print("Tests passed!")

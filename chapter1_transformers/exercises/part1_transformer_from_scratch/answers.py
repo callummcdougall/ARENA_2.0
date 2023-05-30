@@ -686,14 +686,14 @@ class TransformerSampler:
         kwargs are passed to sample_next_token, to give detailed instructions on how 
         new tokens are chosen.
         '''
+        self.model.eval()
         tokens: List[Int] = self.tokenizer.encode(prompt)
         predicted_tokens = []
 
         while len(predicted_tokens) < max_tokens_generated:
-
-            input_ids = t.tensor(tokens + predicted_tokens)
+            input_ids = t.tensor(tokens + predicted_tokens).unsqueeze(0).to(device)
             logits: Float[Tensor, "batch=1, pos, d_vocab"] = self.model(input_ids)
-            prediction = self.sample_next_token(logits.squeeze(0), logits)
+            prediction = self.sample_next_token(input_ids.squeeze(0), logits.squeeze(0), **kwargs)
             predicted_tokens.append(prediction)
 
             if prediction == self.tokenizer.eos_token:
@@ -726,8 +726,8 @@ class TransformerSampler:
 
     @staticmethod
     def sample_next_token(
-        input_ids: Int[Tensor, "seq_len d_vocab"], 
-        logits: Float[Tensor, "seq_len d_vocab"], 
+        input_ids: Int[Tensor, "seq_len"], 
+        logits: Float[Tensor, "d_vocab"], 
         temperature=1.0, 
         top_k=0, 
         top_p=0.0, 
@@ -802,6 +802,7 @@ class TransformerSampler:
         Samples from the most likely tokens which make up at least p cumulative probability.
         '''
         pass
+
 # %%
 if MAIN:
     sampler = TransformerSampler(model, tokenizer)
