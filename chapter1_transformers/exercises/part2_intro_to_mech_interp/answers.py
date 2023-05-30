@@ -156,10 +156,205 @@ if MAIN:
     model.load_state_dict(pretrained_weights)
 # %%
 if MAIN:
-    text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
+    text = """If input is a vector (1-D tensor), then returns a 2-D square tensor with the elements of input as the diagonal.
 
-    str_tokens = model.to_str_tokens(text)
+If input is a matrix (2-D tensor), then returns a 1-D tensor with the diagonal elements of input."""
+
+    logits, cache = model.run_with_cache(text, remove_batch_dim=True)
+
+    for i in range(model.cfg.n_layers):
+        attention_pattern = cache["pattern", i, "attn"]
+        tokens = model.to_str_tokens(text)
+
+        print(f"Layer {i} Head Attention Patterns:")
+        display(cv.attention.attention_patterns(
+            tokens=tokens, 
+            attention=attention_pattern,
+            attention_head_names=[f"L{i}H{j}" for j in range(model.cfg.n_layers)],
+        ))
+# %%
+def current_attn_detector(cache: ActivationCache, threshold: float=.35, diag_param: int=0) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be current-token heads
+    '''
+    detected = []
     for layer in range(model.cfg.n_layers):
-        attention_pattern = cache["pattern", layer]
-        display(cv.attention.attention_patterns(tokens=str_tokens, attention=attention_pattern))
+        attention_patterns = cache["pattern", layer]
+        for head in range(model.cfg.n_heads):
+            pattern = attention_patterns[head]
+            if t.mean(pattern.diag(diag_param)) > threshold:
+                detected.append(f"{layer}.{head}")
+    return detected
+
+def prev_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be prev-token heads
+    '''
+    return current_attn_detector(cache, diag_param=-1)
+
+def first_attn_detector(cache: ActivationCache, threshold: float=.35) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be first-token heads
+    '''
+    detected = []
+    for layer in range(model.cfg.n_layers):
+        attention_patterns = cache["pattern", layer]
+        for head in range(model.cfg.n_heads):
+            pattern = attention_patterns[head]
+            if t.mean(pattern[:,0]) > threshold:
+                detected.append(f"{layer}.{head}")
+    return detected
+
+
+if MAIN:
+    print("Heads attending to current token  = ", ", ".join(current_attn_detector(cache)))
+    print("Heads attending to previous token = ", ", ".join(prev_attn_detector(cache)))
+    print("Heads attending to first token    = ", ", ".join(first_attn_detector(cache)))
+
+
+# %%
+def generate_repeated_tokens(
+    model: HookedTransformer, seq_len: int, batch: int = 1
+) -> Int[Tensor, "batch full_seq_len"]:
+    '''
+    Generates a sequence of repeated random tokens
+
+    Outputs are:
+        rep_tokens: [batch, 1+2*seq_len]
+    '''
+    prefix = (t.ones(batch, 1) * model.tokenizer.bos_token_id).long()
+    nonsense = t.randint(0,model.cfg.d_vocab, size=(batch, seq_len))
+    prompt = t.cat((prefix, nonsense, nonsense), dim=1).to(model.cfg.device)
+    return prompt
+
+def run_and_cache_model_repeated_tokens(model: HookedTransformer, seq_len: int, batch: int = 1) -> Tuple[t.Tensor, t.Tensor, ActivationCache]:
+    '''
+    Generates a sequence of repeated random tokens, and runs the model on it, returning logits, tokens and cache
+
+    Should use the `generate_repeated_tokens` function above
+
+    Outputs are:
+        rep_tokens: [batch, 1+2*seq_len]
+        rep_logits: [batch, 1+2*seq_len, d_vocab]
+        rep_cache: The cache of the model run on rep_tokens
+    '''
+    rand_seq = generate_repeated_tokens(model, seq_len, batch)
+    logits, cache = model.run_with_cache(rand_seq, remove_batch_dim=True)
+    return rand_seq, logits, cache
+
+
+if MAIN:
+    seq_len = 50
+    batch = 1
+    (rep_tokens, rep_logits, rep_cache) = run_and_cache_model_repeated_tokens(model, seq_len, batch)
+    rep_cache.remove_batch_dim()
+    rep_str = model.to_str_tokens(rep_tokens)
+    model.reset_hooks()
+    log_probs = get_log_probs(rep_logits, rep_tokens).squeeze()
+
+    print(f"Performance on the first half: {log_probs[:seq_len].mean():.3f}")
+    print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
+
+    plot_loss_difference(log_probs, rep_str, seq_len)
+# %%
+
+if MAIN:
+    for i in range(model.cfg.n_layers):
+        attention_pattern = rep_cache["pattern", i, "attn"]
+
+        print(f"Layer {i} Head Attention Patterns:")
+        display(cv.attention.attention_patterns(
+            tokens= model.to_str_tokens(rep_tokens), 
+            attention=attention_pattern,
+            attention_head_names=[f"L{i}H{j}" for j in range(model.cfg.n_layers)],
+        ))
+
+# %%
+def induction_attn_detector(cache: ActivationCache) -> List[str]:
+    '''
+    Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be induction heads
+
+    Remember - the tokens used to generate rep_cache are (bos_token, *rand_tokens, *rand_tokens)
+    '''
+    attention_patterns = cache["pattern", 1]
+    detected = []
+    for head in range(model.cfg.n_heads):
+        pattern = attention_patterns[head]
+        half_seq_len = int((pattern.shape[0] - 1) / 2)
+        diag_x = -1 * (half_seq_len) + 1
+        if pattern.diag(diag_x).mean() > 0.2:
+            detected.append(f"1.{head}")
+    return detected
+
+if MAIN:
+    print("Induction heads = ", ", ".join(induction_attn_detector(rep_cache)))
+# %%
+if MAIN:
+    seq_len = 50
+    batch = 10
+    rep_tokens_10 = generate_repeated_tokens(model, seq_len, batch)
+
+    # We make a tensor to store the induction score for each head.
+    # We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
+    induction_score_store = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+def induction_score_hook(
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
+    hook: HookPoint,
+):
+    '''
+    Calculates the induction score, and stores it in the [layer, head] position of the `induction_score_store` tensor.
+    '''
+    diag_x = -1 * seq_len + 1
+    diag = pattern.diagonal(diag_x, dim1=-2, dim2=-1)
+    mean = einops.reduce(diag, 'batch head_index diag -> head_index', 'mean')
+    layer_ix = hook.layer()
+    induction_score_store[layer_ix] = mean
+
+
+if MAIN:
+    pattern_hook_names_filter = lambda name: name.endswith("pattern")
+
+    # Run with hooks (this is where we write to the `induction_score_store` tensor`)
+    model.run_with_hooks(
+        rep_tokens_10, 
+        return_type=None, # For efficiency, we don't need to calculate the logits
+        fwd_hooks=[(
+            pattern_hook_names_filter,
+            induction_score_hook
+        )]
+    )
+
+    # Plot the induction scores for each head in each layer
+    imshow(
+        induction_score_store, 
+        labels={"x": "Head", "y": "Layer"}, 
+        title="Induction Score by Head", 
+        text_auto=".2f",
+        width=900, height=400
+    )
+# %%
+def visualize_pattern_hook(
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
+    hook: HookPoint,
+):
+    print("Layer: ", hook.layer())
+    display(
+        cv.attention.attention_patterns(
+            tokens=gpt2_small.to_str_tokens(rep_tokens[0]), 
+            attention=pattern.mean(0)
+        )
+    )
+
+
+if MAIN:
+    # Run with hooks (this is where we write to the `induction_score_store` tensor`)
+    gpt2_small.run_with_hooks(
+        rep_tokens_10, 
+        return_type=None, # For efficiency, we don't need to calculate the logits
+        fwd_hooks=[(
+            pattern_hook_names_filter,
+            visualize_pattern_hook,
+        )]
+    )
 # %%
