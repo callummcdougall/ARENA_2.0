@@ -393,9 +393,16 @@ def logit_attribution(
             layer 1 logits (seq-1, n_heads)
         so n_components = 1 + 2*n_heads
     '''
-    W_U_correct_tokens = W_U[:, tokens[1:]]
-    pass
+    W_U_correct_tokens = W_U[:, tokens[1:]] #shape d_model, seq-1
+    embed = embed[:-1,:]
+    l1_results = l1_results[:-1,:] #shape seq-1 nheads d_model
+    l2_results = l2_results[:-1,:]
+    
+    direct_path_contributions = einops.einsum(embed, W_U_correct_tokens, 'seq d_model, d_model seq -> seq').unsqueeze(-1)
+    l1_contributions = einops.einsum(l1_results, W_U_correct_tokens, 'seq nheads d_model, d_model seq -> seq nheads')
+    l2_contributions = einops.einsum(l2_results, W_U_correct_tokens, 'seq nheads d_model, d_model seq -> seq nheads')
 
+    return t.cat((direct_path_contributions, l1_contributions, l2_contributions), dim=-1)
 
 if MAIN:
     text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
@@ -413,3 +420,31 @@ if MAIN:
         t.testing.assert_close(logit_attr.sum(1), correct_token_logits, atol=1e-3, rtol=0)
         print("Tests passed!")
 
+
+# %%
+if MAIN:
+    embed = cache["embed"]
+    l1_results = cache["result", 0]
+    l2_results = cache["result", 1]
+    logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
+
+    plot_logit_attribution(model, logit_attr, tokens)
+# %%
+
+if MAIN:
+    seq_len = 50
+
+    embed = rep_cache["embed"]
+    l1_results = rep_cache["result", 0]
+    l2_results = rep_cache["result", 1]
+    first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    second_half_tokens = rep_tokens[0, seq_len:]
+
+    first_half_logit_attr = logit_attribution(embed[:1+seq_len], l1_results[:1+seq_len], l2_results[:1+seq_len], model.W_U, first_half_tokens)
+    second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
+    assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+# %%
