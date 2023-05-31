@@ -579,7 +579,7 @@ if MAIN:
 # %%
 if MAIN:
     layer = 5
-    neuron = 1392
+    neuron = 1393
 
     w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
     w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
@@ -608,3 +608,11 @@ if MAIN:
 
 
 # %%
+
+# neuron L5N1293
+# 62
+
+target = 'C0'
+theirs = ['D1', 'E2']
+mine = 'F3'
+
