@@ -436,9 +436,9 @@ def logit_attribution(
         so n_components = 1 + 2*n_heads
     '''
     W_U_correct_tokens = W_U[:, tokens[1:]]
-    embed_attribution = einops.einsum(embed[:-1], W_U_correct_tokens, 'seq_e d_model, d_model seq_u -> seq_e').unsqueeze(-1)
-    l1_attribution = einops.einsum(l1_results[:-1], W_U_correct_tokens, 'seq_l1 nheads d_model, d_model seq_u -> seq_l1 nheads')
-    l2_attribution = einops.einsum(l2_results[:-1], W_U_correct_tokens, 'seq_l2 nheads d_model, d_model seq_u -> seq_l2 nheads')
+    embed_attribution = einops.einsum(embed[:-1], W_U_correct_tokens, 'seq d_model, d_model seq -> seq').unsqueeze(-1)
+    l1_attribution = einops.einsum(l1_results[:-1], W_U_correct_tokens, 'seq nheads d_model, d_model seq -> seq nheads')
+    l2_attribution = einops.einsum(l2_results[:-1], W_U_correct_tokens, 'seq nheads d_model, d_model seq -> seq nheads')
 
     return t.cat((embed_attribution,l1_attribution,l2_attribution), dim=-1)
 
@@ -458,4 +458,38 @@ if MAIN:
         correct_token_logits = logits[0, t.arange(len(tokens[0]) - 1), tokens[0, 1:]]
         t.testing.assert_close(logit_attr.sum(1), correct_token_logits, atol=1e-3, rtol=0)
         print("Tests passed!")
+# %%
+
+if MAIN:
+    embed = cache["embed"]
+    l1_results = cache["result", 0]
+    l2_results = cache["result", 1]
+    logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
+
+    plot_logit_attribution(model, logit_attr, tokens)
+
+# %%
+if MAIN:
+    seq_len = 50
+
+    embed = rep_cache["embed"]
+    l1_results = rep_cache["result", 0]
+    l2_results = rep_cache["result", 1]
+    first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    second_half_tokens = rep_tokens[0, seq_len:]
+
+    # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+    print(f'embed: {embed.shape}')
+    print(f'l1_results: {l1_results.shape}')
+    print(f'l2_results: {l2_results.shape}')
+    print(f'first_half_tokens: {first_half_tokens.shape}')
+
+    first_half_logit_attr = logit_attribution(embed[: 1 + seq_len], l1_results[: 1 + seq_len], l2_results[: 1 + seq_len], model.W_U, first_half_tokens)
+    second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
+
+    assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
 # %%
