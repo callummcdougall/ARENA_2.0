@@ -511,3 +511,218 @@ if MAIN:
         text_auto=".2f",
         width=900, height=400
     )
+
+# %%
+head_index = 4
+layer = 1
+
+W_O = model.W_O[layer, head_index]
+W_V = model.W_V[layer, head_index]
+W_E = model.W_E
+W_U = model.W_U
+
+OV_circuit = FactoredMatrix(W_V, W_O)
+full_OV_circuit = W_E @ OV_circuit @ W_U
+
+#%%
+def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
+    '''
+    This should take the argmax of each column (ie over dim=0) and return the fraction of the time that's equal to the correct logit
+    '''
+    # SOLUTION
+    AB = full_OV_circuit.AB
+
+    return (t.argmax(AB, dim=1) == t.arange(AB.shape[0]).to(device)).float().mean().item()
+# %%
+W_O_both = einops.rearrange(model.W_O[1, [4, 10]], "head d_head d_model -> (head d_head) d_model")
+W_V_both = einops.rearrange(model.W_V[1, [4, 10]], "head d_model d_head -> d_model (head d_head)")
+
+W_OV_eff = W_E @ FactoredMatrix(W_V_both, W_O_both) @ W_U
+
+print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(W_OV_eff):.4f}")
+# %%
+def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
+    '''Mask the attention scores so that tokens don't attend to previous tokens.'''
+    assert attn_scores.shape == (model.cfg.n_ctx, model.cfg.n_ctx)
+    mask = t.tril(t.ones_like(attn_scores)).bool()
+    neg_inf = t.tensor(-1.0e6).to(attn_scores.device)
+    masked_attn_scores = t.where(mask, attn_scores, neg_inf)
+    return masked_attn_scores
+
+
+
+if MAIN:
+    layer = 0
+    head_index = 7
+    W_pos = model.W_pos
+    W_QK = model.W_Q[layer, head_index] @ model.W_K[layer, head_index].T
+    pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
+    masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
+    pos_by_pos_pattern = t.softmax(masked_scaled, dim=-1)   
+    tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
+
+# %%
+if MAIN:
+    print(f"Avg lower-diagonal value: {pos_by_pos_pattern.diag(-1).mean():.4f}")
+
+    imshow(
+        utils.to_numpy(pos_by_pos_pattern[:100, :100]), 
+        labels={"x": "Key", "y": "Query"}, 
+        title="Attention patterns for prev-token QK circuit, first 100 indices",
+        width=700
+    )
+# %%
+def decompose_qk_input(cache: ActivationCache) -> t.Tensor:
+    '''
+    Output is decomposed_qk_input, with shape [2+num_heads, seq, d_model]
+
+    The [i, :, :]th element is y_i (from notation above)
+    '''
+    pass
+
+def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
+    '''
+    Output is decomposed_q with shape [2+num_heads, position, d_head]
+
+    The [i, :, :]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
+    '''
+    pass
+
+def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
+    '''
+    Output is decomposed_k with shape [2+num_heads, position, d_head]
+
+    The [i, :, :]th element is y_i @ W_K (so the sum along axis 0 is just the k-values)
+    '''
+    pass
+
+
+if MAIN:
+    ind_head_index = 4
+    # First we get decomposed q and k input, and check they're what we expect
+    decomposed_qk_input = decompose_qk_input(rep_cache)
+    decomposed_q = decompose_q(decomposed_qk_input, ind_head_index)
+    decomposed_k = decompose_k(decomposed_qk_input, ind_head_index)
+    t.testing.assert_close(decomposed_qk_input.sum(0), rep_cache["resid_pre", 1] + rep_cache["pos_embed"], rtol=0.01, atol=1e-05)
+    t.testing.assert_close(decomposed_q.sum(0), rep_cache["q", 1][:, ind_head_index], rtol=0.01, atol=0.001)
+    t.testing.assert_close(decomposed_k.sum(0), rep_cache["k", 1][:, ind_head_index], rtol=0.01, atol=0.01)
+    # Second, we plot our results
+    component_labels = ["Embed", "PosEmbed"] + [f"0.{h}" for h in range(model.cfg.n_heads)]
+    for decomposed_input, name in [(decomposed_q, "query"), (decomposed_k, "key")]:
+        imshow(
+            utils.to_numpy(decomposed_input.pow(2).sum([-1])), 
+            labels={"x": "Position", "y": "Component"},
+            title=f"Norms of components of {name}", 
+            y=component_labels,
+            width=1000, height=400
+        )
+# %%
+def decompose_qk_input(cache: ActivationCache) -> t.Tensor:
+    '''
+    Output is decomposed_qk_input, with shape [2+num_heads, seq, d_model]
+
+    The [i, :, :]th element is y_i (from notation above)
+    '''
+    embed_ins = cache['embed'].unsqueeze(0) # [1, seq, d_model]
+    pos_ins = cache['pos_embed'].unsqueeze(0) # [1, seq, d_model]
+    attn_ins = einops.rearrange(cache['result', 0], 'seq n_h d_m -> n_h seq d_m')
+    return t.cat([embed_ins, pos_ins, attn_ins])
+
+def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
+    '''
+    Output is decomposed_q with shape [2+num_heads, position, d_head]
+
+    The [i, :, :]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
+    '''
+    return decomposed_qk_input @ model.W_Q[1, ind_head_index]
+
+def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
+    '''
+    Output is decomposed_k with shape [2+num_heads, position, d_head]
+
+    The [i, :, :]th element is y_i @ W_K (so the sum along axis 0 is just the k-values)
+    '''
+    return decomposed_qk_input @ model.W_K[1, ind_head_index]
+
+
+if MAIN:
+    ind_head_index = 4
+    # First we get decomposed q and k input, and check they're what we expect
+    decomposed_qk_input = decompose_qk_input(rep_cache)
+    decomposed_q = decompose_q(decomposed_qk_input, ind_head_index)
+    decomposed_k = decompose_k(decomposed_qk_input, ind_head_index)
+    t.testing.assert_close(decomposed_qk_input.sum(0), rep_cache["resid_pre", 1] + rep_cache["pos_embed"], rtol=0.01, atol=1e-05)
+    t.testing.assert_close(decomposed_q.sum(0), rep_cache["q", 1][:, ind_head_index], rtol=0.01, atol=0.001)
+    t.testing.assert_close(decomposed_k.sum(0), rep_cache["k", 1][:, ind_head_index], rtol=0.01, atol=0.01)
+    # Second, we plot our results
+    component_labels = ["Embed", "PosEmbed"] + [f"0.{h}" for h in range(model.cfg.n_heads)]
+    for decomposed_input, name in [(decomposed_q, "query"), (decomposed_k, "key")]:
+        imshow(
+            utils.to_numpy(decomposed_input.pow(2).sum([-1])), 
+            labels={"x": "Position", "y": "Component"},
+            title=f"Norms of components of {name}", 
+            y=component_labels,
+            width=1000, height=400
+        )
+# %%
+def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.Tensor:
+    '''
+    Output is decomposed_scores with shape [query_component, key_component, query_pos, key_pos]
+
+    The [i, j, :, :]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
+    '''
+    return einops.einsum(decomposed_q, decomposed_k, 'n_ins_q pos_q d_head, n_ins_k pos_k d_head -> n_ins_q n_ins_k pos_q pos_k')
+
+
+if MAIN:
+    tests.test_decompose_attn_scores(decompose_attn_scores, decomposed_q, decomposed_k)
+# %%
+if MAIN:
+    decomposed_scores = decompose_attn_scores(decomposed_q, decomposed_k)
+    decomposed_stds = einops.reduce(
+        decomposed_scores, 
+        "query_decomp key_decomp query_pos key_pos -> query_decomp key_decomp", 
+        t.std
+    )
+
+    # First plot: attention score contribution from (query_component, key_component) = (Embed, L0H7)
+    imshow(
+        utils.to_numpy(t.tril(decomposed_scores[0, 9])), 
+        title="Attention score contributions from (query, key) = (embed, output of L0H7)",
+        width=800
+    )
+
+    # Second plot: std dev over query and key positions, shown by component
+    imshow(
+        utils.to_numpy(decomposed_stds), 
+        labels={"x": "Key Component", "y": "Query Component"},
+        title="Standard deviations of attention score contributions (by key and query component)", 
+        x=component_labels, 
+        y=component_labels,
+        width=800
+    )
+# %%
+def find_K_comp_full_circuit(
+    model: HookedTransformer,
+    prev_token_head_index: int,
+    ind_head_index: int
+) -> FactoredMatrix:
+    '''
+    Returns a (vocab, vocab)-size FactoredMatrix, with the first dimension being the query side and the second dimension being the key side (going via the previous token head)
+    '''
+    w_qk = FactoredMatrix(model.W_Q[1, ind_head_index], model.W_K[1, ind_head_index].T)
+    w_ov = FactoredMatrix(model.W_V[0, prev_token_head_index], model.W_O[0, prev_token_head_index])
+    key = model.W_E @ w_ov
+    w_with_q = model.W_E @ w_qk
+    return w_with_q @ key.T
+
+
+if MAIN:
+    prev_token_head_index = 7
+    ind_head_index = 4
+    K_comp_circuit = find_K_comp_full_circuit(model, prev_token_head_index, ind_head_index)
+
+    tests.test_find_K_comp_full_circuit(find_K_comp_full_circuit, model)
+
+    print(f"Fraction of tokens where the highest activating key is the same token: {top_1_acc(K_comp_circuit.T):.4f}")
+# %%
