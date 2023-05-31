@@ -1864,7 +1864,7 @@ The code below provides a template for performing zero-ablation on the value vec
 A few notes to help explain the code below:
 
 * In the `get_ablation_scores` function, we run our hook function in a for loop: once for each layer and each head. Each time, we write a single value to the tensor `ablation_scores` that stores the results of ablating that particular head.
-* We use `cross_entropy_loss` as a metric for model performance, rather than logit difference like in the previous section.
+* We can get the output logits then calculate `cross_entropy_loss`, but we can also just use `return_type="loss"` which does this calculation directly. This is in contrast to the logit diff metric we used in the previous section.
     * If the head didn't have any effect on the output, then the ablation score would be zero (since the loss doesn't increase when we ablate).
     * If the head was very important for making correct predictions, then we should see a very large ablation score.
 * We use `functools.partial` to create a temporary hook function with the head number fixed. This is a nice way to avoid having to write a separate hook function for each head.
@@ -1879,14 +1879,16 @@ def head_ablation_hook(
 ) -> Float[Tensor, "batch seq n_heads d_model"]:
     pass
 
+    
 def cross_entropy_loss(logits, tokens):
     '''
     Computes the mean cross entropy between logits (the model's prediction) and tokens (the true values).
+
+    (optional, you can just use return_type="loss" instead.)
     '''
     log_probs = F.log_softmax(logits, dim=-1)
     pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
     return -pred_log_probs.mean()
-
 
 
 def get_ablation_scores(
@@ -3272,7 +3274,7 @@ Here is an illustration which shows the three different cases, and should also e
 
 </details>
 
-How do we formalise overlap? This is basically an open question, but a surprisingly good metric is $\frac{\|W_AW_B\|_F}{\|W_B\|_F\|W_A\|_F}$ where $\|W\|_F=\sum_{i,j}W_{i,j}^2$ is the Frobenius norm, the sum of squared elements. (If you're dying of curiosity as to what makes this a good metric, you can jump to the section immediately after the exercises below.)
+How do we formalise overlap? This is basically an open question, but a surprisingly good metric is $\frac{\|W_AW_B\|_F}{\|W_B\|_F\|W_A\|_F}$ where $\|W\|_F=\sqrt{\sum_{i,j}W_{i,j}^2}$ is the Frobenius norm, the sum of squared elements. (If you're dying of curiosity as to what makes this a good metric, you can jump to the section immediately after the exercises below.)
 
 
 ### Exercise - calculate composition scores
@@ -3331,7 +3333,7 @@ if MAIN:
     
     # YOUR CODE HERE - fill in each tensor in the dictionary, by looping over W_A and W_B from layers 0 and 1
     for comp_type in "QKV":
-        plot_comp_scores(model, composition_scores[comp_type], f"{comp_type} Composition Scores")
+        plot_comp_scores(model, composition_scores[comp_type], f"{comp_type} Composition Scores").show()
 
 ```
 
