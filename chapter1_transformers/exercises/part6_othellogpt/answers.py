@@ -1,5 +1,5 @@
 # %%
-%pip install git+https://github.com/neelnanda-io/neel-plotly
+# %pip install git+https://github.com/neelnanda-io/neel-plotly
 
 # %%
 import os
@@ -364,4 +364,247 @@ if MAIN:
     newly_illegal = [string_to_label(move) for move in valid_moves if move not in flipped_valid_moves]
     print("newly_legal", newly_legal)
     print("newly_illegal", newly_illegal)
+# %%
+
+def apply_scale(resid: Float[Tensor, "batch=1 seq d_model"], flip_dir: Float[Tensor, "d_model"], scale: int, pos: int):
+    '''
+    Returns a version of the residual stream, modified by the amount `scale` in the 
+    direction `flip_dir` at the sequence position `pos`, in the way described above.
+    '''
+    norm_flip_dir = flip_dir/flip_dir.norm()
+    alpha = resid[0, pos].dot(norm_flip_dir)
+    resid[0, pos] -= (scale + 1)*alpha*norm_flip_dir
+    return resid
+
+
+
+if MAIN:
+    tests.test_apply_scale(apply_scale)
+
+# %%
+
+if MAIN:
+    flip_dir = my_probe[:, cell_r, cell_c]
+
+    big_flipped_states_list = []
+    layer = 4
+    scales = [0, 1, 2, 4, 8, 16]
+
+    # Iterate through scales, generate a new facet plot for each possible scale
+    for scale in scales:
+
+        # Hook function which will perform flipping in the "F4 flip direction"
+        def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
+            return apply_scale(resid, flip_dir, scale, pos)
+
+        # Calculate the logits for the board state, with the `flip_hook` intervention
+        # (note that we only need to use :pos+1 as input, because of causal attention)
+        flipped_logits: Tensor = model.run_with_hooks(
+            focus_games_int[game_index:game_index+1, :pos+1],
+            fwd_hooks=[
+                (utils.get_act_name("resid_post", layer), flip_hook),
+            ]
+        ).log_softmax(dim=-1)[0, pos]
+
+        flip_state = t.zeros((64,), dtype=t.float32, device=device) - 10.
+        flip_state[stoi_indices] = flipped_logits[1:]
+        big_flipped_states_list.append(flip_state)
+
+
+if MAIN:
+    flip_state_big = t.stack(big_flipped_states_list)
+    state_big = einops.repeat(state.flatten(), "d -> b d", b=6)
+    color = t.zeros((len(scales), 64)).cuda() + 0.2
+    for s in newly_legal:
+        color[:, to_string(s)] = 1
+    for s in newly_illegal:
+        color[:, to_string(s)] = -1
+
+    scatter(
+        y=state_big, 
+        x=flip_state_big, 
+        title=f"Original vs Flipped {string_to_label(8*cell_r+cell_c)} at Layer {layer}", 
+        # labels={"x": "Flipped", "y": "Original"}, 
+        xaxis="Flipped", 
+        yaxis="Original", 
+
+        hover=[f"{r}{c}" for r in "ABCDEFGH" for c in range(8)], 
+        facet_col=0, facet_labels=[f"Translate by {i}x" for i in scales], 
+        color=color, color_name="Newly Legal", color_continuous_scale="Geyser"
+    )
+# %%
+
+if MAIN:
+    game_index = 1
+    move = 20
+    layer = 6
+
+    plot_single_board(focus_games_string[game_index, :move+1])
+    plot_probe_outputs(layer, game_index, move)
+
+# %%
+
+def plot_contributions(contributions, component: str):
+    imshow(
+        contributions,
+        facet_col=0,
+        y=list("ABCDEFGH"),
+        facet_labels=[f"Layer {i}" for i in range(7)],
+        title=f"{component} Layer Contributions to my vs their (Game {game_index} Move {move})",
+        aspect="equal",
+        width=1400,
+        height=350
+    )
+
+def calculate_attn_and_mlp_probe_score_contributions(
+    focus_cache: ActivationCache, 
+    my_probe: Float[Tensor, "d_model rows cols"],
+    layer: int,
+    game_index: int, 
+    move: int
+) -> Tuple[Float[Tensor, "layers rows cols"], Float[Tensor, "layers rows cols"]]:
+    attn_contr_all = []
+    mlp_contr_all = []
+    for l in range(layer + 1):
+        attn_out = focus_cache['attn_out', l]
+        mlp_out = focus_cache['mlp_out', l]
+        
+        attn_contr = einops.einsum(attn_out[game_index, move], my_probe, 'd, d r c -> r c')
+        mlp_contr = einops.einsum(mlp_out[game_index, move], my_probe, 'd, d r c -> r c')
+
+        attn_contr_all.append(attn_contr)
+        mlp_contr_all.append(mlp_contr)
+    return (t.stack(attn_contr_all), t.stack(mlp_contr_all))
+
+
+    
+
+
+if MAIN:
+    attn_contributions, mlp_contributions = calculate_attn_and_mlp_probe_score_contributions(focus_cache, my_probe, layer, game_index, move)
+
+    plot_contributions(attn_contributions, "Attention")
+    plot_contributions(mlp_contributions, "MLP")
+
+# %%
+if MAIN:
+    attn_contributions, mlp_contributions = calculate_attn_and_mlp_probe_score_contributions(focus_cache, blank_probe, layer, game_index, move)
+
+    plot_contributions(attn_contributions, "Attention")
+    plot_contributions(mlp_contributions, "MLP")
+# %%
+# Scale the probes down to be unit norm per cell
+
+if MAIN:
+    blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
+    my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
+    # Set the center blank probes to 0, since they're never blank so the probe is meaningless
+    blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.
+# %%
+def get_w_in(
+    model: HookedTransformer,
+    layer: int,
+    neuron: int,
+    normalize: bool = False,
+) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the input weights for the neuron in the list, at each square on the board.
+
+    If normalize is True, the weights are normalized to unit norm.
+    '''
+    neuron = model.W_in[layer, :, neuron] # shape: [d_model]
+    if normalize:
+        return neuron / neuron.norm()
+    return neuron
+
+def get_w_out(
+    model: HookedTransformer,
+    layer: int,
+    neuron: int,
+    normalize: bool = False,
+) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the input weights for the neuron in the list, at each square on the board.
+    '''
+    neuron = model.W_out[layer, neuron, :] # shape: [d_model]
+    if normalize:
+        return neuron / neuron.norm()
+    return neuron
+
+def calculate_neuron_input_weights(
+    model: HookedTransformer, 
+    probe: Float[Tensor, "d_model row col"], 
+    layer: int, 
+    neuron: int
+) -> Float[Tensor, "rows cols"]:
+    '''
+    Returns tensor of the input weights for each neuron in the list, at each square on the board,
+    projected along the corresponding probe directions.
+
+    Assume probe directions are normalized. You should also normalize the model weights.
+    '''
+    neuron = get_w_in(model, layer, neuron, normalize=True)
+    return einops.einsum(neuron, probe, 'd_model, d_model row col -> row col')
+
+
+def calculate_neuron_output_weights(
+    model: HookedTransformer, 
+    probe: Float[Tensor, "d_model row col"], 
+    layer: int, 
+    neuron: int
+) -> Float[Tensor, "rows cols"]:
+    '''
+    Returns tensor of the output weights for each neuron in the list, at each square on the board,
+    projected along the corresponding probe directions.
+
+    Assume probe directions are normalized. You should also normalize the model weights.
+    '''
+    neuron = get_w_out(model, layer, neuron, normalize=True)
+    return einops.einsum(neuron, probe, 'd_model, d_model row col -> row col')
+
+def neuron_output_weight_map_to_unemb(
+    model: HookedTransformer,
+    layer: int,
+    neuron: int
+) -> Float[Tensor, 'rows cols']:
+    neuron = get_w_out(model, layer, neuron, normalize=True)
+    out = einops.einsum(neuron, model.W_U, 'd_model, d_model n_vocab -> n_vocab')
+    board = t.zeros(8, 8).to(model.cfg.device)
+    board.flatten()[stoi_indices] = out[1:]
+    return board
+
+if MAIN:
+    tests.test_calculate_neuron_input_weights(calculate_neuron_input_weights, model)
+    tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
+# %%
+if MAIN:
+    layer = 5
+    neuron = 1392
+
+    w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
+    w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
+
+    imshow(
+        t.stack([w_in_L5N1393_blank, w_in_L5N1393_my]),
+        facet_col=0,
+        y=[i for i in "ABCDEFGH"],
+        title=f"Input weights in terms of the probe for neuron L{layer}N{neuron}",
+        facet_labels=["Blank In", "My In"],
+        width=750,
+    )
+
+    w_out_L5N1393_blank = calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron)
+    w_out_L5N1393_my = calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron)
+    w_out_L5N1393_unemb = neuron_output_weight_map_to_unemb(model, layer, neuron)
+
+    imshow(
+        t.stack([w_out_L5N1393_blank, w_out_L5N1393_my, w_out_L5N1393_unemb]),
+        facet_col=0,
+        y=[i for i in "ABCDEFGH"],
+        title=f"output weights in terms of the probe for neuron L{layer}N{neuron}",
+        facet_labels=["Blank Out", "My Out", 'Unemb'],
+        width=1100,
+    )
+
+
 # %%
