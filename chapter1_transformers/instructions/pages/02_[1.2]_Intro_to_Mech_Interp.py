@@ -2080,7 +2080,7 @@ To emphasise - the sophisticated hard part is computing the *attention* pattern 
 
 Below is a diagram of the induction circuit, with the heads indicated in the weight matrices.
 
-![kcomp_diagram_3.png](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described_3.png)
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described_3.png" width="900">
 </details>
 
 
@@ -2163,7 +2163,7 @@ $$
 <details>
 <summary>Answer</summary>
 
-$W_{pos} W_{QK}^h W_{pos}^T$ has size $(d_\text{vocab}, d_\text{vocab})$, it is a bilinear form describing **where information is moved to and from**, among words in our vocabulary (i.e. which tokens pay attention to which others).
+$W_{pos} W_{QK}^h W_{pos}^T$ has size $(n_\text{ctx}, n_\text{ctx})$, it is a bilinear form describing **where information is moved to and from**, among words in our vocabulary (i.e. which tokens pay attention to which others).
 
 If $i$ and $j$ are one-hot encodings for positions `i` and `j` (in other words they are just the ith and jth basis vectors), then $i^T W_{pos} W_{QK}^h W_{pos}^T j$ is the attention score paid by the token with position `i` to the token with position `j`:
 
@@ -2190,7 +2190,7 @@ $$
 <details>
 <summary>Answer</summary>
 
-$W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T$ has size $(d_\text{vocab}, d_\text{vocab})$, it is a bilinear form describing where information is moved to and from in head $h_2$, given that the **query-side vector** is formed from the output of head $h_1$. In other words, this is an instance of **Q-composition**.
+$W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T$ has size $(n_\text{ctx}, n_\text{ctx})$, it is a bilinear form describing where information is moved to and from in head $h_2$, given that the **query-side vector** is formed from the output of head $h_1$. In other words, this is an instance of **Q-composition**.
 
 If $A$ and $B$ are one-hot encodings for tokens `A` and `B`, then $A^T W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T B$ is the attention score paid **to** token `B`, **by** any token which attended strongly to an `A`-token in head $h_1$.
 
@@ -2429,7 +2429,7 @@ The dropdown below contains a diagram explaining how the three sections relate t
 <details>
 <summary>Diagram</summary>
 
-![kcomp](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described_2_new.png)
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described_2_new.png" width="1400">
 </details>
 
 After this, we'll have a look at composition scores, which are a more mathematically justified way of showing that two attention heads are composing (without having to look at their behaviour on any particular class of inputs, since it is a property of the actual model weights).
@@ -2882,7 +2882,7 @@ def decompose_qk_input(cache: ActivationCache) -> t.Tensor:
     '''
     Output is decomposed_qk_input, with shape [2+num_heads, seq, d_model]
 
-    The [i, 0, 0]th element is y_i (from notation above)
+    The [i, :, :]th element is y_i (from notation above)
     '''
     pass
 
@@ -2890,7 +2890,7 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     Output is decomposed_q with shape [2+num_heads, position, d_head]
 
-    The [i, 0, 0]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
+    The [i, :, :]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
     '''
     pass
 
@@ -2898,7 +2898,7 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     Output is decomposed_k with shape [2+num_heads, position, d_head]
 
-    The [i, 0, 0]th element is y_i @ W_K(so the sum along axis 0 is just the k-values)
+    The [i, :, :]th element is y_i @ W_K (so the sum along axis 0 is just the k-values)
     '''
     pass
 
@@ -2935,7 +2935,7 @@ def decompose_qk_input(cache: ActivationCache) -> t.Tensor:
     '''
     Output is decomposed_qk_input, with shape [2+num_heads, seq, d_model]
 
-    The [i, 0, 0]th element is y_i (from notation above)
+    The [i, :, :]th element is y_i (from notation above)
     '''
     # SOLUTION
     y0 = cache["embed"].unsqueeze(0) # shape (1, seq, d_model)
@@ -2948,7 +2948,7 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     Output is decomposed_q with shape [2+num_heads, position, d_head]
 
-    The [i, 0, 0]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
+    The [i, :, :]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
     '''
     # SOLUTION
     W_Q = model.W_Q[1, ind_head_index]
@@ -2962,7 +2962,7 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
     '''
     Output is decomposed_k with shape [2+num_heads, position, d_head]
 
-    The [i, 0, 0]th element is y_i @ W_K(so the sum along axis 0 is just the k-values)
+    The [i, :, :]th element is y_i @ W_K(so the sum along axis 0 is just the k-values)
     '''
     # SOLUTION
     W_K = model.W_K[1, ind_head_index]
@@ -3040,7 +3040,7 @@ def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.T
     '''
     Output is decomposed_scores with shape [query_component, key_component, query_pos, key_pos]
     
-    The [i, j, 0, 0]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
+    The [i, j, :, :]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
     '''
     pass
 
@@ -3059,7 +3059,7 @@ def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.T
     '''
     Output is decomposed_scores with shape [query_component, key_component, query_pos, key_pos]
     
-    The [i, j, 0, 0]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
+    The [i, j, :, :]th element is y_i @ W_QK @ y_j^T (so the sum along both first axes are the attention scores)
     '''
     # SOLUTION
     return einops.einsum(
@@ -3151,7 +3151,6 @@ An illustration:
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described-K-last.png" width="700">
 
-<!-- ![kcomp_diagram_described-K.png](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described-K.png) -->
 </details>
 
 
@@ -3269,7 +3268,7 @@ Recall that we can view each head as having three input wires (keys, queries and
 
 Here is an illustration which shows the three different cases, and should also explain why we use this terminology. You might have to open it in a new tab to see it clearly.
 
-![composition](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/composition_new.png)
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/composition_new.png" width="1400">
 
 </details>
 
@@ -3465,7 +3464,7 @@ The most obvious thing that jumps out (when considered in the context of all the
 
 Another interesting thing to note is that the V-composition scores for heads `1.4` and `1.10` with all other heads in layer 0 are very low. In the context of the induction circuit, this is a good thing - the OV circuits of our induction heads should be operating on the **embeddings**, rather than the outputs of the layer-0 heads. (If our repeating sequence is `A B ... A B`, then it's the QK circuit's job to make sure the second `A` attends to the first `B`, and it's the OV circuit's job to project the residual vector at that position onto the **embedding space** in order to extract the `B`-information, while hopefully ignoring anything else that has been written to that position by the heads in layer 0). So once again, this is a good sign for our composition scores.
 
-![small_comp](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/small_comp_diagram_last.png)
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/small_comp_diagram_last.png" width="750">
 
 </details>
 
