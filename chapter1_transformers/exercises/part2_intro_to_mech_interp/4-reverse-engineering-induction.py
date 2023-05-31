@@ -109,7 +109,6 @@ if MAIN:
 
 #%%
 if MAIN:
-    # YOUR CODE HERE - compute OV circuit
     layer, head_index = 1, 4
     W_OV = FactoredMatrix(model.W_V[layer, head_index], model.W_O[layer, head_index])
     full_OV_circuit = model.W_E @ W_OV @ model.W_U
@@ -143,9 +142,43 @@ if MAIN:
     print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit):.4f}")
 
 
+# Exercise - compute effective circuit
 #%%
 if MAIN:
+    W_V_cat = t.cat([model.W_V[1, 4], model.W_V[1, 10]], dim=1)
+    W_O_cat = t.cat([model.W_O[1, 4], model.W_O[1, 10]], dim=0)
+    W_OV_effective = FactoredMatrix(W_V_cat, W_O_cat)
+    full_effective_OV_circuit = model.W_E @ W_OV_effective @ model.W_U
+    print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_effective_OV_circuit):.4f}")
 
-    full_OV_circuit = model.W_E @ W_OV @ model.W_U
+#%%
+def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
+    '''Mask the attention scores so that tokens don't attend to previous tokens.'''
+    assert attn_scores.shape == (model.cfg.n_ctx, model.cfg.n_ctx)
+    mask = t.tril(t.ones_like(attn_scores)).bool()
+    neg_inf = t.tensor(-1.0e6).to(attn_scores.device)
+    masked_attn_scores = t.where(mask, attn_scores, neg_inf)
+    return masked_attn_scores
 
+
+if MAIN:
+    scores = model.W_pos @ (model.W_Q[0, 7] @ model.W_K[0, 7].T) @ model.W_pos.T
+    scaled_scores = mask_scores(scores / model.cfg.d_head ** 0.5)
+    pos_by_pos_pattern = scaled_scores.softmax(dim=-1)
+    tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
+
+#%%
+if MAIN:
+    print(f"Avg lower-diagonal value: {pos_by_pos_pattern.diag(-1).mean():.4f}")
+
+    imshow(
+        utils.to_numpy(pos_by_pos_pattern[:100, :100]), 
+        labels={"x": "Key", "y": "Query"}, 
+        title="Attention patterns for prev-token QK circuit, first 100 indices",
+        width=700
+    )
+
+#%%
 ### SCRATCHPAD
+# Prev token heads : 0.7
+# Copying heads    : 1.4, 1.10
