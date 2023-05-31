@@ -179,6 +179,7 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part6_othellogpt"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
+%pip install git+https://github.com/neelnanda-io/neel-plotly
 from plotly_utils import imshow
 from neel_plotly import scatter, line
 import part6_othellogpt.tests as tests
