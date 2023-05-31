@@ -658,6 +658,12 @@ if MAIN:
     second_half_tokens = rep_tokens[0, seq_len:]
 
     # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+    with t.inference_mode():
+        logit_attr: Float[Tensor, "seq-1 n_components"] = logit_attribution(embed, l1_results, l2_results, model.W_U, rep_tokens[0])
+
+        first_half_logit_attr = logit_attr[:seq_len]
+        second_half_logit_attr = logit_attr[seq_len:]
+
     assert first_half_logit_attr.shape == (seq_len, 2 * model.cfg.n_heads + 1)
     assert second_half_logit_attr.shape == (seq_len, 2 * model.cfg.n_heads + 1)
 
@@ -674,3 +680,51 @@ if MAIN:
         "Logit attribution (second half of repeated sequence)",
     )
 # %%
+
+def value_ablation_hook(
+    value: Float[Tensor, "seq nhead d_head"],
+    hook: HookPoint,
+):
+    head_index = 10
+    value[:, head_index] = 0 # TODO: should this be t.Tensor(0.) ?
+
+    return value
+
+original_loss = model(rep_tokens, return_type="loss")
+
+ablated_loss = model.run_with_hooks(
+    rep_tokens,
+    return_type="loss",
+    fwd_hooks=[("blocks.1.attn.hook_v", value_ablation_hook)],
+)
+
+print(f"{original_loss=} {ablated_loss=}")
+
+# %%
+
+def value_ablation_hook(
+    result: Float[Tensor, "batch seq nhead d_head"],
+    hook: HookPoint,
+    head_index: Int
+):
+    result[:,:, head_index] = 0 
+
+    return result
+
+ablation_scores = t.zeros(model.cfg.n_layers, model.cfg.n_heads)
+original_loss = model(rep_tokens, return_type="loss")
+
+for layer_idx in range(model.cfg.n_layers):
+    for head_idx in range(model.cfg.n_heads):
+        hook = functools.partial(value_ablation_hook, head_index=head_idx)
+
+        loss = model.run_with_hooks(
+            rep_tokens,
+            return_type="loss",
+            fwd_hooks=[( utils.get_act_name("v", layer_idx), hook)]
+        )
+
+        ablation_scores[layer_idx, head_idx] = loss - original_loss
+
+imshow(ablation_scores, text_auto=".2f")
+
