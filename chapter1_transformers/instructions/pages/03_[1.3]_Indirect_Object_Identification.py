@@ -1020,18 +1020,18 @@ if MAIN:
         top_heads = topk_of_Nd_tensor(per_head_logit_diffs * (1 if head_type=="Positive" else -1), k)
     
         # Get all their attention patterns
-    attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack([
-        cache["pattern", layer][:, head].mean(0)
-         for layer, head in top_heads
-    ])
+        attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack([
+            cache["pattern", layer][:, head].mean(0)
+            for layer, head in top_heads
+        ])
 
-    # Display results
-    display(HTML(f"<h2>Top {k} {head_type} Logit Attribution Heads</h2>"))
-    display(cv.attention.attention_patterns(
-        attention = attn_patterns_for_important_heads,
-        tokens = model.to_str_tokens(tokens[0]),
-        attention_head_names = [f"{layer}.{head}" for layer, head in top_heads],
-    ))
+        # Display results
+        display(HTML(f"<h2>Top {k} {head_type} Logit Attribution Heads</h2>"))
+        display(cv.attention.attention_patterns(
+            attention = attn_patterns_for_important_heads,
+            tokens = model.to_str_tokens(tokens[0]),
+            attention_head_names = [f"{layer}.{head}" for layer, head in top_heads],
+        ))
 
 ```
 
