@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import einops
 from jaxtyping import Int, Float
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union, Sequence
 import functools
 from tqdm import tqdm
 from IPython.display import display
@@ -386,11 +386,12 @@ if MAIN:
     )
     rep_cache.remove_batch_dim()
     rep_str = model.to_str_tokens(rep_tokens)
-    print(f"{rep_str=}")
+    # print(f"{rep_str=}")
     predictions = model.to_str_tokens(rep_logits.argmax(dim=-1))
-    print(f"{predictions=}")
+    # print(f"{predictions=}")
     for x in zip(rep_str[1:], predictions):
-        print(x)
+        # print(x)
+        pass
 
     model.reset_hooks()
     log_probs = get_log_probs(rep_logits, rep_tokens).squeeze()
@@ -398,7 +399,7 @@ if MAIN:
 
     print(f"Performance on the first half: {log_probs[:seq_len].mean():.3f}")
     print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
-
+    print("Unablated")
     plot_loss_difference(log_probs, rep_str, seq_len)
 
 # %%
@@ -659,7 +660,9 @@ if MAIN:
 
     # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
     with t.inference_mode():
-        logit_attr: Float[Tensor, "seq-1 n_components"] = logit_attribution(embed, l1_results, l2_results, model.W_U, rep_tokens[0])
+        logit_attr: Float[Tensor, "seq-1 n_components"] = logit_attribution(
+            embed, l1_results, l2_results, model.W_U, rep_tokens[0]
+        )
 
         first_half_logit_attr = logit_attr[:seq_len]
         second_half_logit_attr = logit_attr[seq_len:]
@@ -681,37 +684,18 @@ if MAIN:
     )
 # %%
 
-def value_ablation_hook(
-    value: Float[Tensor, "seq nhead d_head"],
-    hook: HookPoint,
-):
-    head_index = 10
-    value[:, head_index] = 0 # TODO: should this be t.Tensor(0.) ?
-
-    return value
-
-original_loss = model(rep_tokens, return_type="loss")
-
-ablated_loss = model.run_with_hooks(
-    rep_tokens,
-    return_type="loss",
-    fwd_hooks=[("blocks.1.attn.hook_v", value_ablation_hook)],
-)
-
-print(f"{original_loss=} {ablated_loss=}")
-
-# %%
 
 def value_ablation_hook(
     result: Float[Tensor, "batch seq nhead d_head"],
     hook: HookPoint,
-    head_index: Int
+    head_index: Union[Int, Sequence[Int]],
 ):
-    result[:,:, head_index] = 0 
+    result[:, :, head_index] = 0
 
     return result
 
-ablation_scores = t.zeros(model.cfg.n_layers, model.cfg.n_heads)
+
+ablation_scores = t.zeros(model.cfg.n_layers, model.cfg.n_heads).to(device)
 original_loss = model(rep_tokens, return_type="loss")
 
 for layer_idx in range(model.cfg.n_layers):
@@ -721,10 +705,48 @@ for layer_idx in range(model.cfg.n_layers):
         loss = model.run_with_hooks(
             rep_tokens,
             return_type="loss",
-            fwd_hooks=[( utils.get_act_name("v", layer_idx), hook)]
+            fwd_hooks=[(utils.get_act_name("v", layer_idx), hook)],
         )
 
         ablation_scores[layer_idx, head_idx] = loss - original_loss
 
 imshow(ablation_scores, text_auto=".2f")
 
+
+if MAIN:
+    tests.test_get_ablation_scores(ablation_scores, model, rep_tokens)
+
+
+# %%
+
+
+def is_value_thing(s: str):
+    return s.endswith("hook_v")
+
+
+l0_ablate = functools.partial(
+    value_ablation_hook, head_index=list(set(range(12)) - {7})
+)
+l1_ablate = functools.partial(
+    value_ablation_hook, head_index=list(set(range(12)) - {4, 10})
+)
+
+ablated_rep_logits = model.run_with_hooks(
+    rep_tokens,
+    return_type="logits",
+    fwd_hooks=[
+        (utils.get_act_name("v", 0), l0_ablate),
+        (utils.get_act_name("v", 1), l1_ablate),
+    ],
+)
+
+log_probs = get_log_probs(ablated_rep_logits, rep_tokens).squeeze()
+print(log_probs.shape)
+
+print(f"Performance on the first half: {log_probs[:seq_len].mean():.3f}")
+print(f"Performance on the second half: {log_probs[seq_len:].mean():.3f}")
+
+print("Ablated:")
+plot_loss_difference(log_probs, rep_str, seq_len)
+
+# %%
