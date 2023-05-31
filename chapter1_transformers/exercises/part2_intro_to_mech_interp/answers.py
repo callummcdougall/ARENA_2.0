@@ -595,9 +595,11 @@ if MAIN:
 # %%
 
 if MAIN:
-    layer = 1
-    head_index = 4
-    full_OV_circuit = model.W_E @ FactoredMatrix(model.W_V[layer, head_index], model.W_O[layer, head_index]) @ model.W_U
+    # layer = 1
+    # head_index = 4
+    # full_OV_circuit = model.W_E @ FactoredMatrix(model.W_V[layer, head_index], model.W_O[layer, head_index]) @ model.W_U
+    full_OV_circuit = model.W_E @ (FactoredMatrix(model.W_V[1, 4], model.W_O[1, 4]) + 
+                                   FactoredMatrix(model.W_V[1, 10], model.W_O[1, 10])) @ model.W_U
 
     tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
 
