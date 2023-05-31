@@ -309,21 +309,21 @@ def induction_attn_detector(cache: ActivationCache) -> List[str]:
 if MAIN:
     print("Induction heads = ", ", ".join(induction_attn_detector(rep_cache)))
 # %%
-def hook_function(
-    attn_pattern: Float[Tensor, "batch heads seqQ seqK"],
-    hook: HookPoint
-) -> Float[Tensor, "batch heads seqQ seqK"]:
+# def hook_function(
+#     attn_pattern: Float[Tensor, "batch heads seqQ seqK"],
+#     hook: HookPoint
+# ) -> Float[Tensor, "batch heads seqQ seqK"]:
 
-    # modify attn_pattern (can be inplace)
-    return attn_pattern
+#     # modify attn_pattern (can be inplace)
+#     return attn_pattern
 
-loss = model.run_with_hooks(
-    tokens, 
-    return_type="loss",
-    fwd_hooks=[
-        ('blocks.1.attn.hook_pattern', hook_function)
-    ]
-)
+# loss = model.run_with_hooks(
+#     tokens, 
+#     return_type="loss",
+#     fwd_hooks=[
+#         ('blocks.1.attn.hook_pattern', hook_function)
+#     ]
+# )
 #%%
 
 if MAIN:
@@ -367,37 +367,235 @@ if MAIN:
         width=900, height=400
     )
 #%%
-#TODO FROM HERE
-# SECTION 3
-# def induction_score(cache: ActivationCache) -> List[str]:
-#     '''
-#     Returns a list e.g. ["0.2", "1.4", "1.9"] of "layer.head" which you judge to be induction heads
+    
 
-#     Remember - the tokens used to generate rep_cache are (bos_token, *rand_tokens, *rand_tokens)
-#     '''
-#     _, sq, sk = cache["pattern", 0].shape
-#     n = (sq-1)//2
-#     target = t.zeros((2*n+1, 2*n+1))
-#     # fill ones in the first n+1 rows
-#     target[:n+1, 0] = 1
-#     idx = t.arange(n)
-#     target[n + idx + 1, idx+2] = 1
+
+# %%
+
+
+if MAIN:
+    seq_len = 50
+    batch = 10
+    rep_tokens_10 = generate_repeated_tokens(model, seq_len, batch)
+
+    # We make a tensor to store the induction score for each head.
+    # We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
+    induction_score_store = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+def induction_score_hook(
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
+    hook: HookPoint,
+):
+    '''
+    Calculates the induction score, and stores it in the [layer, head] position of the `induction_score_store` tensor.
+    '''
+    
+    b, n, sq, sk = pattern.shape
+    print(pattern.shape)
+    target = t.zeros((sq, sq)).to(device)
+    # fill ones in the first n+1 rows
+    half = (sq-1)//2
+    target[:half+1, 0] = 1
+    idx = t.arange(half)
+    target[half + idx + 1, idx+2] = 1
+    
+    mask = t.tril(t.ones(sq,sk)).to(device)
+    target = target * mask
+    pattern = pattern * mask
+    dist = t.mean(t.norm(pattern - target, dim=(-1,-2)),dim=0)
+    induction_score_store[hook.layer()] = dist
+
+
+if MAIN:
+    pattern_hook_names_filter = lambda name: name.endswith("pattern")
+
+    # Run with hooks (this is where we write to the `induction_score_store` tensor`)
+    model.run_with_hooks(
+        rep_tokens_10, 
+        return_type=None, # For efficiency, we don't need to calculate the logits
+        fwd_hooks=[(
+            pattern_hook_names_filter,
+            induction_score_hook
+        )]
+    )
+
+    # Plot the induction scores for each head in each layer
+    imshow(
+        induction_score_store, 
+        labels={"x": "Head", "y": "Layer"}, 
+        title="Induction Score by Head", 
+        text_auto=".2f",
+        width=900, height=400
+    )
     
     
-    
-#     def detector(cache, target) -> List[str]:
-#     n, sq, sk = cache["pattern", 0].shape
-#     locations = [f"{x}.{y}" for x in [0,1] for y in range(12)]
-#     mask = t.tril(t.ones(sq,sk)).to(device)
-#     target = target * mask
-    
-#     dists = []
-#     for layer in [0, 1]:
-#         attention_patterns = cache["pattern", layer]
-#         for pat_idx,  pattern in enumerate(attention_patterns):
-#             pattern = pattern * mask
-#             dist = t.norm(target - pattern)
-#             dists.append(dist)
+    # dists = []
+    # for layer in [0, 1]:
+    #     attention_patterns = cache["pattern", layer]
+    #     for pat_idx,  pattern in enumerate(attention_patterns):
+    #         pattern = pattern * mask
+    #         dist = t.norm(target - pattern)
+    #         dists.append(dist)
             
-#     val, idx = t.sort(t.tensor(dists))
-#     return [locations[i] for i in idx[:3]]    
+    # val, idx = t.sort(t.tensor(dists))
+    # return [locations[i] for i in idx[:3]]    
+# %%
+def visualize_pattern_hook(
+    pattern: Float[Tensor, "batch head_index dest_pos source_pos"],
+    hook: HookPoint,
+):
+    print("Layer: ", hook.layer())
+    display(
+        cv.attention.attention_patterns(
+            tokens=gpt2_small.to_str_tokens(rep_tokens[0]), 
+            attention=pattern.mean(0)
+        )
+    )
+
+    # YOUR CODE HERE - find induction heads in gpt2_small
+
+
+# %%
+
+if MAIN:
+    gpt2_text = "Natural language processing tasks, such as question answering, machine translation, reading comprehension, and summarization, are typically approached with supervised learning on taskspecific datasets."
+    gpt2_tokens = gpt2_small.to_tokens(gpt2_text)
+    gpt2_logits, gpt2_cache = gpt2_small.run_with_cache(gpt2_tokens, remove_batch_dim=True)
+
+
+if MAIN:
+    print(type(gpt2_cache))
+    attention_pattern = gpt2_cache["pattern", 0, "attn"]
+    print(attention_pattern.shape)
+    gpt2_str_tokens = gpt2_small.to_str_tokens(gpt2_text)
+
+    print("Layer 0 Head Attention Patterns:")
+    display(cv.attention.attention_patterns(
+        tokens=gpt2_str_tokens, 
+        attention=attention_pattern,
+        attention_head_names=[f"L0H{i}" for i in range(12)],
+    ))
+
+# %%
+
+if MAIN:
+    
+    seq_len = 50
+    batch = 10
+    rep_tokens_10 = generate_repeated_tokens(gpt2_small, seq_len, batch)
+
+    # We make a tensor to store the induction score for each head.
+    # We put it on the model's device to avoid needing to move things between the GPU and CPU, which can be slow.
+    induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads), device=gpt2_small.cfg.device)
+    
+    pattern_hook_names_filter = lambda name: name.endswith("pattern")
+
+    # Run with hooks (this is where we write to the `induction_score_store` tensor`)
+    gpt2_small.run_with_hooks(
+        rep_tokens_10, 
+        return_type=None, # For efficiency, we don't need to calculate the logits
+        fwd_hooks=[(
+            pattern_hook_names_filter,
+            induction_score_hook
+        )]
+    )
+    
+    imshow(
+        induction_score_store, 
+        labels={"x": "Head", "y": "Layer"}, 
+        title="Induction Score by Head", 
+        text_auto=".2f",
+        width=900, height=900
+    )
+    
+    for induction_head_layer in [5, 6, 7]:
+        gpt2_small.run_with_hooks(
+            rep_tokens, 
+            return_type=None, # For efficiency, we don't need to calculate the logits
+            fwd_hooks=[
+                (utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
+            ]
+        )
+# %%
+def logit_attribution(
+    embed: Float[Tensor, "seq d_model"],
+    l0_results: Float[Tensor, "seq nheads d_model"],
+    l1_results: Float[Tensor, "seq nheads d_model"],
+    W_U: Float[Tensor, "d_model d_vocab"],
+    tokens: Int[Tensor, "seq"]
+) -> Float[Tensor, "seq-1 n_components"]:
+    '''
+    Inputs:
+        embed: the embeddings of the tokens (i.e. token + position embeddings)
+        l1_results: the outputs of the attention heads at layer 1 (with head as one of the dimensions)
+        l2_results: the outputs of the attention heads at layer 2 (with head as one of the dimensions)
+        W_U: the unembedding matrix
+        tokens: the token ids of the sequence
+
+    Returns:
+        Tensor of shape (seq_len-1, n_components)
+        represents the concatenation (along dim=-1) of logit attributions from:
+            the direct path (seq-1,1)
+            layer 0 logits (seq-1, n_heads)
+            layer 1 logits (seq-1, n_heads)
+        so n_components = 1 + 2*n_heads
+    '''
+    W_U_correct_tokens = W_U[:, tokens[1:]] #d_model, seq-1
+    # print(W_U_correct_tokens.shape, embed[1:].shape, l0_results.shape, l1_results.shape)
+    direct_path = einops.einsum(W_U_correct_tokens, embed[:-1], "dmodel seqm, seqm dmodel -> seqm").unsqueeze(1)
+    layer_0_logits = einops.einsum(W_U_correct_tokens, l0_results[:-1], "dmodel seqm, seqm nheads dmodel -> seqm nheads")
+    layer_1_logits = einops.einsum(W_U_correct_tokens, l1_results[:-1], "dmodel seqm, seqm nheads dmodel -> seqm nheads")
+    print(direct_path.shape, layer_0_logits.shape, layer_1_logits.shape)
+    output = t.cat([direct_path, layer_0_logits, layer_1_logits], dim=-1)
+    return output
+    
+    
+
+
+if MAIN:
+    text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
+    text = text + text
+    logits, cache = model.run_with_cache(text, remove_batch_dim=True)
+    str_tokens = model.to_str_tokens(text)
+    tokens = model.to_tokens(text)
+
+    with t.inference_mode():
+        embed = cache["embed"]
+        l0_results = cache["result", 0]
+        l1_results = cache["result", 1]
+        logit_attr = logit_attribution(embed, l0_results, l1_results, model.W_U, tokens[0])
+        # Uses fancy indexing to get a len(tokens[0])-1 length tensor, where the kth entry is the predicted logit for the correct k+1th token
+        correct_token_logits = logits[0, t.arange(len(tokens[0]) - 1), tokens[0, 1:]]
+        t.testing.assert_close(logit_attr.sum(1), correct_token_logits, atol=1e-3, rtol=0)
+        print("Tests passed!")
+# %%
+if MAIN:
+    embed = cache["embed"]
+    l1_results = cache["result", 0]
+    l2_results = cache["result", 1]
+    logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
+
+    plot_logit_attribution(model, logit_attr, tokens)
+# %%
+if MAIN:
+    seq_len = 50
+
+    embed = rep_cache["embed"]
+    l1_results = rep_cache["result", 0]
+    l2_results = rep_cache["result", 1]
+    first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    second_half_tokens = rep_tokens[0, seq_len:]
+
+    # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+    
+    first_half_logit_attr = logit_attribution(embed[0, : 1 + seq_len], l1_results[0, : 1 + seq_len], l2_results[0, : 1 + seq_len], model.W_U, first_half_tokens)
+    second_half_logit_attr = logit_attribution(embed[0, seq_len:], l1_results[0, seq_len:], l2_results[0, seq_len:], model.W_U, second_half_tokens)
+    
+    
+    
+    assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+# %%
