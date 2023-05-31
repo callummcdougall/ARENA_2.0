@@ -409,7 +409,7 @@ if MAIN:
         )]
     )
 
-    # Plot the induction scores for each head in each layer
+    #Plot the induction scores for each head in each layer
     imshow(
         induction_score_store, 
         labels={"x": "Head", "y": "Layer"}, 
@@ -432,12 +432,12 @@ def visualize_pattern_hook(
     hook: HookPoint,
 ):
     print("Layer: ", hook.layer())
-    display(
-        cv.attention.attention_patterns(
-            tokens=gpt2_small.to_str_tokens(rep_tokens[0]), 
-            attention=pattern.mean(0)
-        )
-    )
+    # display(
+    #     cv.attention.attention_patterns(
+    #         tokens=gpt2_small.to_str_tokens(rep_tokens[0]), 
+    #         attention=pattern.mean(0)
+    #     )
+    # )
 
 
 if MAIN:
@@ -455,13 +455,13 @@ if MAIN:
     )
 
     # Plot the induction scores for each head in each layer
-    imshow(
-        induction_score_store, 
-        labels={"x": "Head", "y": "Layer"}, 
-        title="Induction Score by Head", 
-        text_auto=".2f",
-        width=600, height=400
-    )
+    # imshow(
+    #     induction_score_store, 
+    #     labels={"x": "Head", "y": "Layer"}, 
+    #     title="Induction Score by Head", 
+    #     text_auto=".2f",
+    #     width=600, height=400
+    # )
 
     for induction_head_layer in [5, 6, 7]:
         gpt2_small.run_with_hooks(
@@ -531,6 +531,7 @@ def logit_attribution(
 
 if MAIN:
     text = "We think that powerful, significantly superhuman machine intelligence is more likely than not to be created this century. If current machine learning techniques were scaled up to this level, we think they would by default produce systems that are deceptive or manipulative, and that no solid plans are known for how to avoid this."
+    #text = model.to_string(rep_tokens)
     logits, cache = model.run_with_cache(text, remove_batch_dim=True)
     str_tokens = model.to_str_tokens(text)
     tokens = model.to_tokens(text)
@@ -544,4 +545,169 @@ if MAIN:
         correct_token_logits = logits[0, t.arange(len(tokens[0]) - 1), tokens[0, 1:]]
         t.testing.assert_close(logit_attr.sum(1), correct_token_logits, atol=1e-3, rtol=0)
         print("Tests passed!")
+#%%
+if MAIN:
+    embed = cache["embed"]
+    l1_results = cache["result", 0]
+    l2_results = cache["result", 1]
+    logit_attr = logit_attribution(embed, l1_results, l2_results, model.W_U, tokens[0])
+
+    plot_logit_attribution(model, logit_attr, tokens)
+# %%
+if MAIN:
+    seq_len = 50
+    batch = 1
+    (rep_tokens, rep_logits, rep_cache) = run_and_cache_model_repeated_tokens(model, seq_len, batch)
+    embed = rep_cache["embed"]
+    l1_results = rep_cache["result", 0]
+    l2_results = rep_cache["result", 1]
+    first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    second_half_tokens = rep_tokens[0, seq_len:]
+
+    # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+    first_half_logit_attr = logit_attribution(
+        embed,
+        l1_results[: 1 + seq_len],
+        l2_results[: 1 + seq_len],
+        model.W_U,
+        first_half_tokens
+    )
+
+    second_half_logit_attr = logit_attribution(
+        embed,
+        l1_results[seq_len:],
+        l2_results[seq_len:],
+        model.W_U,
+        second_half_tokens
+    )
+    assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+
+# %%
+def head_ablation_hook(
+    attn_result: Float[Tensor, "batch seq n_heads d_model"],
+    hook: HookPoint,
+    head_index_to_ablate: int
+) -> Float[Tensor, "batch seq n_heads d_model"]:
+    
+    attn_result[..., head_index_to_ablate, :] = 0
+    return attn_result
+
+def cross_entropy_loss(logits, tokens):
+    '''
+    Computes the mean cross entropy between logits (the model's prediction) and tokens (the true values).
+    '''
+    log_probs = F.log_softmax(logits, dim=-1)
+    pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
+    return -pred_log_probs.mean()
+
+def get_ablation_scores(
+    model: HookedTransformer, 
+    tokens: Int[Tensor, "batch seq"]
+) -> Float[Tensor, "n_layers n_heads"]:
+    '''
+    Returns a tensor of shape (n_layers, n_heads) containing the increase in cross entropy loss from ablating the output of each head.
+    '''
+    # Initialize an object to store the ablation scores
+    ablation_scores = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+    # Calculating loss without any ablation, to act as a baseline
+    model.reset_hooks()
+    logits = model(tokens, return_type="logits")
+    loss_no_ablation = cross_entropy_loss(logits, tokens)
+
+    for layer in tqdm(range(model.cfg.n_layers)):
+        for head in range(model.cfg.n_heads):
+            # Use functools.partial to create a temporary hook function with the head number fixed
+            temp_hook_fn = functools.partial(head_ablation_hook, head_index_to_ablate=head)
+            # Run the model with the ablation hook
+            ablated_logits = model.run_with_hooks(tokens, fwd_hooks=[
+                (utils.get_act_name("result", layer), temp_hook_fn)
+            ])
+            # Calculate the logit difference
+            loss = cross_entropy_loss(ablated_logits, tokens)
+            # Store the result, subtracting the clean loss so that a value of zero means no change in loss
+            ablation_scores[layer, head] = loss - loss_no_ablation
+
+    return ablation_scores
+
+
+
+if MAIN:
+    ablation_scores = get_ablation_scores(model, rep_tokens)
+    tests.test_get_ablation_scores(ablation_scores, model, rep_tokens)
+
+# %%
+if MAIN:
+    imshow(
+        ablation_scores, 
+        labels={"x": "Head", "y": "Layer", "color": "Logit diff"},
+        title="Logit Difference After Ablating Heads", 
+        text_auto=".2f",
+        width=900, height=400
+    )
+# %%
+def head_ablation_hook(
+    attn_result: Float[Tensor, "batch seq n_heads d_model"],
+    hook: HookPoint
+) -> Float[Tensor, "batch seq n_heads d_model"]:
+    layer = hook.layer()
+    num_heads = attn_result.shape[2]
+
+    if layer == 0:
+        heads_to_ablate = list(range(num_heads))
+        heads_to_ablate.remove(7)
+        attn_result[..., heads_to_ablate, :] = 0
+    elif layer == 1:
+        heads_to_ablate = list(range(num_heads))
+        heads_to_ablate.remove(4)
+        heads_to_ablate.remove(10)
+
+        attn_result[..., heads_to_ablate, :] = 0
+
+    return attn_result
+
+def cross_entropy_loss(logits, tokens):
+    '''
+    Computes the mean cross entropy between logits (the model's prediction) and tokens (the true values).
+    '''
+    log_probs = F.log_softmax(logits, dim=-1)
+    pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
+    return -pred_log_probs.mean()
+
+def get_ablation_scores(
+    model: HookedTransformer, 
+    tokens: Int[Tensor, "batch seq"]
+) -> Float[Tensor, "n_layers n_heads"]:
+    '''
+    Returns a tensor of shape (n_layers, n_heads) containing the increase in cross entropy loss from ablating the output of each head.
+    '''
+    # Initialize an object to store the ablation scores
+    ablation_scores = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+    # Calculating loss without any ablation, to act as a baseline
+    model.reset_hooks()
+    logits = model(tokens, return_type="logits")
+    loss_no_ablation = cross_entropy_loss(logits, tokens)
+
+    # Run the model with the ablation hook
+    ablated_logits = model.run_with_hooks(tokens, fwd_hooks=[
+        (lambda name: name.endswith("result"), head_ablation_hook)
+    ])
+    # Calculate the logit difference
+    loss = cross_entropy_loss(ablated_logits, tokens)
+
+
+    return loss, loss_no_ablation
+
+# %%
+if MAIN:
+    loss, loss_no_ablation = get_ablation_scores(model, rep_tokens)
+    ablation_score = loss - loss_no_ablation
+    print(loss, loss_no_ablation)
+    print(ablation_score)
+
 # %%
