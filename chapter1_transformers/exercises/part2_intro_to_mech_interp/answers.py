@@ -536,4 +536,113 @@ print(f'{loss=}')
 print(f'{loss_no_ablation=}')
 
 
+# %%
 
+A = t.randn(5, 2)
+B = t.randn(2, 5)
+M = A @ B
+
+def trace_factored(A, B):
+    AB = A * B.T
+    return AB.sum()
+
+t.testing.assert_close(M.trace(), trace_factored(A, B))
+
+def eigenvalues_factored(A, B):
+    eig_BA = t.linalg.eigvals(B @ A)
+    eig_AB = t.zeros(A.shape[0]).to(eig_BA.device)
+    eig_AB[:eig_BA.shape[0]] = eig_BA
+    return eig_AB
+
+# t.testing.assert_close(t.linalg.eigvals(M), eigenvalues_factored(A, B))
+
+
+
+if MAIN:
+    A = t.randn(5, 2)
+    B = t.randn(2, 5)
+    AB = A @ B
+    AB_factor = FactoredMatrix(A, B)
+    print("Norms:")
+    print(AB.norm())
+    print(AB_factor.norm())
+
+    print(f"Right dimension: {AB_factor.rdim}, Left dimension: {AB_factor.ldim}, Hidden dimension: {AB_factor.mdim}")
+
+if MAIN:
+    print("Eigenvalues:")
+    print(t.linalg.eig(AB).eigenvalues)
+    print(AB_factor.eigenvalues)
+    print()
+    print("Singular Values:")
+    print(t.linalg.svd(AB).S)
+    print(AB_factor.S)
+    print("Full SVD:")
+    print(AB_factor.svd())
+
+if MAIN:
+    C = t.randn(5, 300)
+    ABC = AB @ C
+    ABC_factor = AB_factor @ C
+    print("Unfactored:", ABC.shape, ABC.norm())
+    print("Factored:", ABC_factor.shape, ABC_factor.norm())
+    print(f"Right dimension: {ABC_factor.rdim}, Left dimension: {ABC_factor.ldim}, Hidden dimension: {ABC_factor.mdim}")
+
+if MAIN:
+    AB_unfactored = AB_factor.AB
+    t.testing.assert_close(AB_unfactored, AB)
+
+# %%
+
+if MAIN:
+    layer = 1
+    head_index = 4
+    full_OV_circuit = model.W_E @ FactoredMatrix(model.W_V[layer, head_index], model.W_O[layer, head_index]) @ model.W_U
+
+    tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
+
+# %%
+
+if MAIN:
+    random_rows = t.randint(0, model.cfg.d_vocab, size=(200,))
+    full_OV_circuit_sample = full_OV_circuit[random_rows, random_rows].AB
+
+    imshow(
+        full_OV_circuit_sample,
+        labels={"x": "Input token", "y": "Logits on output token"},
+        title="Full OV circuit for copying head",
+        width=700,
+    )
+
+# %%
+
+def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
+    '''
+    This should take the argmax of each column (ie over dim=0) and return the fraction of the time that's equal to the correct logit
+    '''
+    d_vocab = full_OV_circuit.shape[0]
+    accuracy = t.zeros(d_vocab).bool()
+    
+    for chunk_idx in t.chunk(t.arange(d_vocab), chunks=100):
+       accuracy[chunk_idx] = full_OV_circuit[:,chunk_idx].AB.argmax(dim=0).cpu() == chunk_idx
+
+    return accuracy.float().mean()
+
+
+if MAIN:
+    print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit):.4f}")
+# %%
+if MAIN:
+    full_OV_circuit = model.W_E @ (FactoredMatrix(model.W_V[1, 4], model.W_O[1, 4]) + 
+                                   FactoredMatrix(model.W_V[1, 10], model.W_O[1, 10])) @ model.W_U
+
+    random_rows = t.randint(0, model.cfg.d_vocab, size=(200,))
+    full_OV_circuit_sample = full_OV_circuit[random_rows, random_rows].AB
+
+    imshow(
+        full_OV_circuit_sample,
+        labels={"x": "Input token", "y": "Logits on output token"},
+        title="Full OV circuit for copying head",
+        width=700,
+    )
+# %%
