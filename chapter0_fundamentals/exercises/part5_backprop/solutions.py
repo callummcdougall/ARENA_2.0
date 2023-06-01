@@ -101,7 +101,6 @@ def forward_and_back(a: Arr, b: Arr, c: Arr) -> Tuple[Arr, Arr, Arr]:
 	'''
 	Calculates the output of the computational graph above (g), then backpropogates the gradients and returns dg/da, dg/db, and dg/dc
 	'''
-	
 	d = a * b
 	e = np.log(c)
 	f = d * e
@@ -1136,7 +1135,8 @@ class Linear(Module):
 		x: shape (*, in_features)
 		Return: shape (*, out_features)
 		'''
-		out = x @ self.weight.permute((1, 0))
+		out = x @ self.weight.T
+		# Note, transpose has been defined as .permute(-1, -2) in the Tensor class
 		if self.bias is not None: 
 			out = out + self.bias
 		return out
@@ -1152,11 +1152,11 @@ if MAIN:
 	assert isinstance(linear.weight, Tensor)
 	assert linear.weight.requires_grad
 	
-	input = Tensor([1.0, 2.0, 3.0])
+	input = Tensor([[1.0, 2.0, 3.0]])
 	output = linear(input)
 	assert output.requires_grad
 	
-	expected_output = linear.weight @ input + linear.bias
+	expected_output = input @ linear.weight.T + linear.bias
 	np.testing.assert_allclose(output.array, expected_output.array)
 	
 	print("All tests for `Linear` passed!")

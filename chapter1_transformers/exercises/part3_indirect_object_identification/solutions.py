@@ -142,20 +142,12 @@ if MAIN:
 
 if MAIN:
 	tests.test_logits_to_ave_logit_diff(logits_to_ave_logit_diff)
-
-# %%
-
-
-if MAIN:
+	
 	original_per_prompt_diff = logits_to_ave_logit_diff(original_logits, answer_tokens, per_prompt=True)
 	print("Per prompt logit difference:", original_per_prompt_diff)
 	original_average_logit_diff = logits_to_ave_logit_diff(original_logits, answer_tokens)
 	print("Average logit difference:", original_average_logit_diff)
-
-# %%
-
-
-if MAIN:
+	
 	cols = [
 		"Prompt", 
 		Column("Correct", style="rgb(0,200,0) bold"), 
@@ -338,11 +330,7 @@ if MAIN:
 		"Clean string 0:    ", model.to_string(clean_tokens[0]), "\n"
 		"Corrupted string 0:", model.to_string(corrupted_tokens[0])
 	)
-
-# %%
-
-
-if MAIN:
+	
 	clean_logits, clean_cache = model.run_with_cache(clean_tokens)
 	corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
 	
@@ -387,11 +375,7 @@ if MAIN:
 	)
 	
 	labels = [f"{tok} {i}" for i, tok in enumerate(model.to_str_tokens(clean_tokens[0]))]
-
-# %%
-
-
-if MAIN:
+	
 	imshow(
 		act_patch_resid_pre, 
 		labels={"x": "Position", "y": "Layer"},
@@ -538,11 +522,7 @@ if MAIN:
 		clean_cache, 
 		ioi_metric
 	)
-
-# %%
-
-
-if MAIN:
+	
 	imshow(
 		act_patch_attn_head_out_all_pos, 
 		labels={"y": "Layer", "x": "Head"}, 
@@ -600,11 +580,7 @@ if MAIN:
 	act_patch_attn_head_out_all_pos_own = get_act_patch_attn_head_out_all_pos(model, corrupted_tokens, clean_cache, ioi_metric)
 	
 	t.testing.assert_close(act_patch_attn_head_out_all_pos, act_patch_attn_head_out_all_pos_own)
-
-# %%
-
-
-if MAIN:
+	
 	imshow(
 		act_patch_attn_head_out_all_pos_own,
 		title="Logit Difference From Patched Attn Head Output", 
@@ -622,11 +598,7 @@ if MAIN:
 		clean_cache, 
 		ioi_metric
 	)
-
-# %%
-
-
-if MAIN:
+	
 	imshow(
 		act_patch_attn_head_all_pos_every, 
 		facet_col=0, 
@@ -694,11 +666,7 @@ if MAIN:
 	)
 	
 	t.testing.assert_close(act_patch_attn_head_all_pos_every, act_patch_attn_head_all_pos_every_own)
-
-# %%
-
-
-if MAIN:
+	
 	imshow(
 		act_patch_attn_head_all_pos_every_own,
 		facet_col=0,
@@ -837,8 +805,7 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION NOINDENT
-# 
+# FLAT SOLUTION NOINDENT NOCOMMENT
 def patch_or_freeze_head_vectors(
 	orig_head_vector: Float[Tensor, "batch pos head_index d_head"],
 	hook: HookPoint, 
@@ -859,7 +826,6 @@ def patch_or_freeze_head_vectors(
 	if head_to_patch[0] == hook.layer():
 		orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
 	return orig_head_vector
-# FLAT SOLUTION END
 
 
 if MAIN:
@@ -944,14 +910,10 @@ if MAIN:
 
 
 if MAIN:
-	path_patch_head_to_final_resid_post_eq = get_path_patch_head_to_final_resid_post(model, ioi_metric_2)
-
-# %%
-
-
-if MAIN:
+	path_patch_head_to_final_resid_post = get_path_patch_head_to_final_resid_post(model, ioi_metric_2)
+	
 	imshow(
-		100 * path_patch_head_to_final_resid_post_eq,
+		100 * path_patch_head_to_final_resid_post,
 		title="Direct effect on logit difference",
 		labels={"x":"Head", "y":"Layer", "color": "Logit diff. variation"},
 		coloraxis=dict(colorbar_ticksuffix = "%"),
@@ -960,8 +922,7 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION NOINDENT
-# 
+# FLAT SOLUTION NOINDENT NOCOMMENT
 def patch_head_input(
 	orig_activation: Float[Tensor, "batch pos head_idx d_head"],
 	hook: HookPoint,
@@ -975,7 +936,7 @@ def patch_head_input(
 	heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
 	orig_activation[:, :, heads_to_patch] = patched_cache[hook.name][:, :, heads_to_patch]
 	return orig_activation
-# FLAT SOLUTION END
+
 
 if MAIN:
 	def get_path_patch_head_to_heads(
@@ -1046,7 +1007,7 @@ if MAIN:
 				orig_cache=orig_cache,
 				head_to_patch=(sender_layer, sender_head),
 			)
-			model.add_hook(z_name_filter, hook_fn) #, level=1)
+			model.add_hook(z_name_filter, hook_fn, level=1)
 			
 			_, patched_cache = model.run_with_cache(
 				orig_dataset.toks, 
@@ -1095,35 +1056,6 @@ if MAIN:
 		width=600,
 		coloraxis=dict(colorbar_ticksuffix = "%"),
 	)
-
-# %%
-
-
-# if MAIN:
-# 	path_patch_head_to_final_resid_post = patching.path_patch(
-# 		model,
-# 		clean_tokens=ioi_dataset.toks,
-# 		corrupted_tokens=abc_dataset.toks,
-# 		clean_cache=ioi_cache,
-# 		corrupted_cache=abc_cache,
-# 		patching_metric=ioi_metric_2,
-	
-# 		sender_components="z",
-# 		sender_seq_pos="all",
-# 		receiver_components=[(8, 6, "v"), (8, 10, "v"), (7, 9, "v"), (7, 3, "v")],
-# 		receiver_seq_pos="all",
-	
-# 		verbose=True,
-# 	)
-	
-	
-# 	imshow(
-# 		100 * path_patch_head_to_final_resid_post[:8],
-# 		title="Direct effect on S-Inhibition Heads' values", 
-# 		labels={"x": "Head", "y": "Layer", "color": "Logit diff.<br>variation"},
-# 		width=600,
-# 		coloraxis=dict(colorbar_ticksuffix = "%"),
-# 	)
 
 # %% 5️⃣ PAPER REPLICATION
 
@@ -1291,12 +1223,7 @@ if MAIN:
 
 # %%
 
-
-if MAIN:
-	model.reset_hooks()
-	
-	# FLAT SOLUTION NOINDENT
-	# 
+# FLAT SOLUTION NOINDENT NOCOMMENT
 def generate_repeated_tokens(
 	model: HookedTransformer, 
 	seq_len: int, 
@@ -1308,7 +1235,6 @@ def generate_repeated_tokens(
 	rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
 	rep_tokens = t.cat([rep_tokens_half, rep_tokens_half], dim=-1).to(device)
 	return rep_tokens
-# FLAT SOLUTION END
 
 
 def get_attn_scores(
@@ -1377,6 +1303,7 @@ def plot_early_head_validation_results(seq_len: int = 50, batch: int = 50):
 
 
 if MAIN:
+	model.reset_hooks()
 	plot_early_head_validation_results()
 
 # %%
@@ -1405,8 +1332,7 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION NOINDENT
-# 
+# FLAT SOLUTION NOINDENT NOCOMMENT
 def get_heads_and_posns_to_keep(
 	means_dataset: IOIDataset,
 	model: HookedTransformer,
@@ -1533,7 +1459,6 @@ if MAIN:
 		model.add_hook(lambda name: name.endswith("z"), hook_fn, is_permanent=is_permanent)
 
 		return model
-# FLAT SOLUTION END
 
 # %%
 
@@ -1644,6 +1569,7 @@ def get_score(
 
 	return score
 
+
 if MAIN:
 	def get_minimality_score(
 		model: HookedTransformer,
@@ -1694,10 +1620,8 @@ if MAIN:
 		return minimality_scores
 
 
-
 if MAIN:
 	minimality_scores = get_all_minimality_scores(model)
-	# FLAT SOLUTION END
 
 # %%
 
@@ -1705,7 +1629,7 @@ if MAIN:
 if MAIN:
 	plot_minimal_set_results(minimality_scores)
 
-# %% 5️⃣ BONUS / EXPLORING ANOMALIES
+# %% 6️⃣ BONUS / EXPLORING ANOMALIES
 
 
 if MAIN:
@@ -1750,7 +1674,6 @@ if MAIN:
 		model = model,
 		patching_metric = ioi_metric_2
 	)
-	# FLAT SOLUTION END
 
 # %%
 
@@ -1820,6 +1743,17 @@ if MAIN:
 		f"   Naive prediction of post ablation logit diff: {original_average_logit_diff - per_head_logit_diffs[top_layer, top_head]:.4f}",
 		f"      Logit diff after ablating L{top_layer}H{top_head}: {logits_to_ave_logit_diff_2(ablated_logits):.4f}",
 	]))
+
+# %%
+
+
+if MAIN:
+	make_table(
+		cols = [
+			"Original logit diff", "Direct Logit Attribution of top name mover head", "Naive prediction of post ablation logit diff", f"Logit diff after ablating L{top_layer}H{top_head}",
+			original_average_logit_diff, per_head_logit_diffs[top_layer, top_head]
+		]
+	)
 
 # %%
 
