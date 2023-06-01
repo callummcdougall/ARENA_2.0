@@ -122,7 +122,8 @@ If you are using linux or WSL, this is the best way to ensure that your environm
 
 1. Install docker using [this guide](https://docs.docker.com/engine/install/), depending on the platform you are using.
 2. Install the [nvidia container runtime](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
-3. Launch the container with `docker run --rm -d --runtime=nvidia --gpus '"device='"0"'"' -p 2222:22 ghcr.io/pranavgade20/arena:latest`.
+3. Follow the instructions [here](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry) (i.e. under the heading "Authenticating to the container registry") to authenticate with the GitHub container registry.
+4. Launch the container with `docker run --rm -d --runtime=nvidia --gpus '"device='"0"'"' -p 2222:22 ghcr.io/pranavgade20/arena:latest`.
         
 </details>
 
