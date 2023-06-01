@@ -298,7 +298,7 @@ If you're interested in reading more on this, you can check out [this link](http
 
 </details>
 
-We've implemented this type of masking for you, using TransformerLens's **permanent hooks** feature. We will discuss the details of this below (permanent hooks are a recent addition to TransformerLens which we havent' covered yet, and they're useful to understand).
+We've implemented this type of masking for you, using TransformerLens's **permanent hooks** feature. We will discuss the details of this below (permanent hooks are a recent addition to TransformerLens which we haven't covered yet, and they're useful to understand).
 
 
 
@@ -1261,7 +1261,8 @@ pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
 out_by_component_in_unbalanced_dir = einops.einsum(
     out_by_components_seq0,
     pre_final_ln_dir,
-    "comp batch d_model, d_model -> comp batch",
+    "comp batch d_model, d_model -> comp batch"
+)
 # Subtract the mean
 out_by_component_in_unbalanced_dir -= out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1).unsqueeze(1)
 
