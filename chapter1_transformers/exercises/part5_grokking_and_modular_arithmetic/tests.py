@@ -1,17 +1,13 @@
 import torch as t
 
-import solutions
-
-p = solutions.p
-device = solutions.device
-fourier_basis = solutions.fourier_basis
-
+device = t.device('cuda' if t.cuda.is_available() else 'cpu')
+p = 113
 
 # %% TESTS FOR SECTION 1
 
 def test_make_fourier_basis(make_fourier_basis):
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
-    p = 17
     fourier_basis_actual, fourier_names_actual = make_fourier_basis(p)
     fourier_basis_expected, fourier_names_expected = solutions.make_fourier_basis(p)
 
@@ -22,6 +18,7 @@ def test_make_fourier_basis(make_fourier_basis):
 
 
 def test_fft1d(fft1d): 
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
     x = t.randn(p).to(device)
     actual = fft1d(x)
@@ -39,6 +36,7 @@ def test_fft1d(fft1d):
 
 
 def test_fourier_2d_basis_term(fourier_2d_basis_term):
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
     (i, j) = (3, 5)
     actual = fourier_2d_basis_term(i, j)
@@ -51,6 +49,7 @@ def test_fourier_2d_basis_term(fourier_2d_basis_term):
 
 
 def test_fft2d(fft2d): 
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
     x = t.randn(p, p).to(device)
     actual = fft2d(x)
@@ -70,6 +69,7 @@ def test_fft2d(fft2d):
 # %% TESTS FOR SECTION 2
 
 def test_project_onto_direction(project_onto_direction):
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
     v = t.randn(3).to(device)
     batch_vecs = t.randn(3, 4).to(device)
@@ -82,6 +82,7 @@ def test_project_onto_direction(project_onto_direction):
 
 
 def test_project_onto_frequency(project_onto_frequency):
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
     freq = 7
     batch_vecs = t.randn(p*p, 4).to(device)
@@ -94,6 +95,7 @@ def test_project_onto_frequency(project_onto_frequency):
 
 
 def test_get_trig_sum_directions(get_trig_sum_directions):
+    import part5_grokking_and_modular_arithmetic.solutions as solutions
 
     k = 3
     actual = get_trig_sum_directions(3)
@@ -102,3 +104,21 @@ def test_get_trig_sum_directions(get_trig_sum_directions):
     t.testing.assert_close(actual, expected)
 
     print('All tests in `test_get_trig_sum_directions` passed!')
+
+
+def test_excl_loss(excl_loss, model, key_freqs):
+    excl_loss_list = excl_loss(model, key_freqs)
+    t.testing.assert_close(excl_loss_list, [0.000282, 0.000633, 0.00161, 0.07195, 0.032879], atol=1e-5, rtol=1e-5)
+    print('All tests in `test_excl_loss` passed!')
+
+
+def test_fourier_embed(fourier_embed, model):
+    out = fourier_embed(model)
+    t.testing.assert_close(out[:2].cpu(), t.tensor([0.1017279, 0.083272]), atol=1e-4, rtol=1e-4)
+    print('All tests in `test_fourier_embed` passed!')
+
+
+def test_embed_SVD(embed_SVD, model):
+    S = embed_SVD(model)
+    t.testing.assert_close(S[:2].cpu(), t.tensor([4.1993327, 4.0926037]), atol=1e-4, rtol=1e-4)
+    print('All tests in `test_embed_SVD` passed!')
