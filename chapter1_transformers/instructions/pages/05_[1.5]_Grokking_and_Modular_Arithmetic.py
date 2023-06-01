@@ -33,6 +33,8 @@ def section_0():
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/wheel3-2.png" width="350">
 
+Colab: [**exercises**](https://colab.research.google.com/drive/1OCM_AlnsbC6VkaFXXp9KEYzlu_Mz8rJa) | [**solutions**](https://colab.research.google.com/drive/1vUvQVDB3oBzL2vStjY4yOoG3L2akV8vu)
+
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
@@ -1013,7 +1015,7 @@ Complete the following function. Note that (unlike the function we wrote for the
 
 
 ```python
-def fourier_2d_basis_term(i: int, j: int) -> TT[p, p]:
+def fourier_2d_basis_term(i: int, j: int) -> Float[Tensor, "p p"]:
     '''
     Returns the 2D Fourier basis term corresponding to the outer product of the
     `i`-th component of the 1D Fourier basis in the `x` direction and the `j`-th
@@ -1050,7 +1052,7 @@ if MAIN:
 <summary>Solution</summary>
 
 ```python
-def fourier_2d_basis_term(i: int, j: int) -> TT[p, p]:
+def fourier_2d_basis_term(i: int, j: int) -> Float[Tensor, "p p"]:
     '''
     Returns the 2D Fourier basis term corresponding to the outer product of the
     `i`-th component of the 1D Fourier basis in the `x` direction and the `j`-th
@@ -1798,8 +1800,8 @@ def arrange_by_2d_freqs(tensor):
 
 
 def find_neuron_freqs(
-    fourier_neuron_acts: TT[p, p, d_mlp]
-) -> Tuple[TT[d_mlp], TT[d_mlp]]:
+    fourier_neuron_acts: Float[Tensor, "p p d_mlp"]
+) -> Tuple[Float[Tensor, "d_mlp"], Float[Tensor, "d_mlp"]]:
     '''
     Returns the tensors `neuron_freqs` and `neuron_frac_explained`, 
     containing the frequencies that explain the most variance of each 
@@ -1835,8 +1837,8 @@ Note the use of `einops.reduce` in the solution, rather than just using e.g. `fo
 
 ```python
 def find_neuron_freqs(
-    fourier_neuron_acts: TT[p, p, d_mlp]
-) -> Tuple[TT[d_mlp], TT[d_mlp]]:
+    fourier_neuron_acts: Float[Tensor, "p p d_mlp"]
+) -> Tuple[Float[Tensor, "d_mlp"], Float[Tensor, "d_mlp"]]:
     '''
     Returns the tensors `neuron_freqs` and `neuron_frac_explained`, 
     containing the frequencies that explain the most variance of each 
@@ -2309,7 +2311,7 @@ respectively. Remember, the vectors you return should be normalized.
 
 
 ```python
-def get_trig_sum_directions(k: int) -> Tuple[TT[p, p], TT[p, p]]:
+def get_trig_sum_directions(k: int) -> Tuple[Float[Tensor, "p p"], Float[Tensor, "p p"]]:
     '''
     Given frequency k, returns the normalized vectors in the 2D Fourier basis 
     representing the directions:
@@ -2342,7 +2344,7 @@ cosx_cosy_direction = fourier_2d_basis_term(2*k-1, 2*k-1)
 
 
 ```python
-def get_trig_sum_directions(k: int) -> Tuple[TT[p, p], TT[p, p]]:
+def get_trig_sum_directions(k: int) -> Tuple[Float[Tensor, "p p"], Float[Tensor, "p p"]]:
     '''
     Given frequency k, returns the normalized vectors in the 2D Fourier basis 
     representing the directions:
