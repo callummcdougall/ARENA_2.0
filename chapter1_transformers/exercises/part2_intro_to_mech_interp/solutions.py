@@ -512,12 +512,12 @@ if MAIN:
 # %%
 
 def head_ablation_hook(
-	attn_result: Float[Tensor, "batch seq n_heads d_model"],
+	v: Float[Tensor, "batch seq n_heads d_head"],
 	hook: HookPoint,
 	head_index_to_ablate: int
-) -> Float[Tensor, "batch seq n_heads d_model"]:
-	attn_result[:, :, head_index_to_ablate, :] = 0.0
-	return attn_result
+) -> Float[Tensor, "batch seq n_heads d_head"]:
+	v[:, :, head_index_to_ablate, :] = 0.0
+	return v
 
 
 
@@ -552,7 +552,7 @@ def get_ablation_scores(
 			temp_hook_fn = functools.partial(head_ablation_hook, head_index_to_ablate=head)
 			# Run the model with the ablation hook
 			ablated_logits = model.run_with_hooks(tokens, fwd_hooks=[
-				(utils.get_act_name("result", layer), temp_hook_fn)
+				(utils.get_act_name("v", layer), temp_hook_fn)
 			])
 			# Calculate the logit difference
 			loss = cross_entropy_loss(ablated_logits, tokens)
