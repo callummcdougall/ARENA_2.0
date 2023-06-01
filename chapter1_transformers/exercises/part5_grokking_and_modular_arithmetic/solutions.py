@@ -14,7 +14,6 @@ import plotly.graph_objects as go
 from typing import List, Tuple, Union, Optional
 from fancy_einsum import einsum
 import einops
-from torchtyping import TensorType as TT
 from tqdm import tqdm
 
 from transformer_lens import HookedTransformer, HookedTransformerConfig, utils
@@ -281,7 +280,7 @@ if MAIN:
 
 # %%
 
-def fourier_2d_basis_term(i: int, j: int) -> TT[p, p]:
+def fourier_2d_basis_term(i: int, j: int) -> t.Tensor:
     '''
     Returns the 2D Fourier basis term corresponding to the outer product of the
     `i`-th component of the 1D Fourier basis in the `x` direction and the `j`-th
@@ -512,8 +511,8 @@ def arrange_by_2d_freqs(tensor):
 
 
 def find_neuron_freqs(
-    fourier_neuron_acts: TT[p, p, d_mlp]
-) -> Tuple[TT[d_mlp], TT[d_mlp]]:
+    fourier_neuron_acts: t.Tensor
+) -> Tuple[t.Tensor, t.Tensor]:
     '''
     Returns the tensors `neuron_freqs` and `neuron_frac_explained`, 
     containing the frequencies that explain the most variance of each 
@@ -743,7 +742,7 @@ if MAIN:
 
 # %%
 
-def get_trig_sum_directions(k: int) -> Tuple[TT[p, p], TT[p, p]]:
+def get_trig_sum_directions(k: int) -> Tuple[t.Tensor, t.Tensor]:
     '''
     Given frequency k, returns the normalized vectors in the 2D Fourier basis 
     representing the directions:
