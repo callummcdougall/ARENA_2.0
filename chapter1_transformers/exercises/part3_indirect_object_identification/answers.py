@@ -727,14 +727,20 @@ def get_path_patch_head_to_final_resid_post(
     new_cache: Optional[ActivationCache] = abc_cache,
     orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
+    # Part 1: cache heads
+    # only if we don't already have new_cache and orig_cache
+
+    if new_cache is None:
+        _, new_cache = model.run_with_cache(new_dataset.toks)
+    if orig_cache is None:
+        _, orig_cache = model.run_with_cache(orig_dataset.toks)
+    
     n_layers = model.cfg.n_layers
     n_heads = model.cfg.n_heads
 
     results = t.zeros((n_layers, n_heads), device=device)
 
     for h in range(n_heads):
-        # Part 1: cache heads
-        # already have new_cache and orig_cache
 
         # Part 2: patch sender, freeze others, cache final resid
         # use a hook to patch in the activations from new_cache for the head from which we are patching
