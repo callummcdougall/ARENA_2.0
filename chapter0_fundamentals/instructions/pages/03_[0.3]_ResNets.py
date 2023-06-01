@@ -635,7 +635,7 @@ class LitConvNet(pl.LightningModule):
         '''
         return self.convnet(x)
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. the progress bar or logger.
         '''
@@ -757,12 +757,11 @@ class LitConvNet(pl.LightningModule):
         self.args = args
         self.trainset, self.testset = get_mnist(subset=args.sample)
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
         imgs, labels = batch
         logits = self.convnet(imgs)
         loss = F.cross_entropy(logits, labels)
         self.log("train_loss", loss)
-
         return loss
 
     def configure_optimizers(self):
@@ -904,13 +903,13 @@ class LitConvNetTest(pl.LightningModule):
     def forward(self, x: t.Tensor) -> t.Tensor:
         return self.convnet(x)
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         pass
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
         pass
 
-    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
         pass
 
     def configure_optimizers(self):
@@ -937,27 +936,6 @@ if MAIN:
 
 ```
 
-Now let's read and plot our results:
-
-
-```python
-
-if MAIN:
-    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-    
-    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
-
-```
-
-Note - it might not look obvious how the test accuracy is increasing from this graph, because of the y-axis scale. If you want to plot the test accuracy at the very start, you can add a call `trainer.validate()` before `trainer.fit()` (this will call one validation loop before it starts the cycle of `max_epochs` training and validation loops).
-
-```python
-trainer = pl.Trainer(...)
-trainer.validate(model=model)
-trainer.fit(model=model)
-```
-
-
 <details>
 <summary>Help - I get <code>RuntimeError: expected scalar type Float but found Byte</code>.</summary>
 
@@ -979,20 +957,20 @@ class LitConvNetTest(pl.LightningModule):
     def forward(self, x: t.Tensor) -> t.Tensor:
         return self.convnet(x)
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         # SOLUTION
         imgs, labels = batch
         logits = self(imgs)
         return logits, labels
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
         # SOLUTION
         logits, labels = self._shared_train_val_step(batch)
         loss = F.cross_entropy(logits, labels)
         self.log("train_loss", loss)
         return loss
     
-    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
         # SOLUTION
         logits, labels = self._shared_train_val_step(batch)
         classifications = logits.argmax(dim=1)
@@ -1010,6 +988,27 @@ class LitConvNetTest(pl.LightningModule):
         return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 ```
 </details>
+
+
+Now let's read and plot our results:
+
+
+```python
+
+if MAIN:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    
+    plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
+
+```
+
+Note - it might not look obvious how the test accuracy is increasing from this graph, because of the y-axis scale. If you want to plot the test accuracy at the very start, you can add a call `trainer.validate()` before `trainer.fit()` (this will call one validation loop before it starts the cycle of `max_epochs` training and validation loops).
+
+```python
+trainer = pl.Trainer(...)
+trainer.validate(model=model)
+trainer.fit(model=model)
+```
 
 
 You should find that after the first epoch, the model is already doing much better than random chance (>95%), and it improves slightly in subsequent epochs.
@@ -2271,13 +2270,13 @@ class LitResNet(pl.LightningModule):
     def forward(self, x: t.Tensor) -> t.Tensor:
         pass
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         pass
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
         pass
 
-    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
         pass
 
     def configure_optimizers(self):
@@ -2325,20 +2324,20 @@ class LitResNet(pl.LightningModule):
         # SOLUTION
         return self.resnet(x)
 
-    def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+    def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         # SOLUTION
         imgs, labels = batch
         logits = self(imgs)
         return logits, labels
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
         # SOLUTION
         logits, labels = self._shared_train_val_step(batch)
         loss = F.cross_entropy(logits, labels)
         self.log("train_loss", loss)
         return loss
     
-    def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
         # SOLUTION
         logits, labels = self._shared_train_val_step(batch)
         classifications = logits.argmax(dim=1)

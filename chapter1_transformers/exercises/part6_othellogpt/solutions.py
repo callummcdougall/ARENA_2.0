@@ -2,7 +2,6 @@
 
 import os
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import sys
 import torch as t
 import torch.nn as nn
@@ -12,6 +11,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 import numpy as np
 import einops
+import wandb
 from ipywidgets import interact
 import plotly.express as px
 from ipywidgets import interact
@@ -37,6 +37,7 @@ from tqdm.notebook import tqdm
 from dataclasses import dataclass
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 import pytorch_lightning as pl
+from rich import print as rprint
 import pandas as pd
 
 # Make sure exercises are in the path
@@ -45,21 +46,17 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part6_othellogpt"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-# from plotly_utils import imshow
-from neel_plotly import line, scatter, histogram, imshow
+from plotly_utils import imshow
+from neel_plotly import scatter, line
+import part6_othellogpt.tests as tests
 
-# from part1_ray_tracing.utils import render_lines_with_plotly, setup_widget_fig_ray, setup_widget_fig_triangle
-# import part1_ray_tracing.tests as tests
+device = t.device("cuda" if t.cuda.is_available() else "cpu")
+
+t.set_grad_enabled(False)
 
 MAIN = __name__ == "__main__"
 
-
-if MAIN:
-	device = t.device("cuda" if t.cuda.is_available() else "cpu")
-	
-	t.set_grad_enabled(False);
-
-# %%
+# %% 1️⃣ MODEL SETUP & LINEAR PROBES
 
 
 if MAIN:
@@ -111,12 +108,13 @@ if MAIN:
 if MAIN:
 	os.chdir(section_dir)
 	
-	OTHELLO_ROOT = section_dir / "othello_world"
+	OTHELLO_ROOT = (section_dir / "othello_world").resolve()
+	OTHELLO_MECHINT_ROOT = (OTHELLO_ROOT / "mechanistic_interpretability").resolve()
 	
 	if not OTHELLO_ROOT.exists():
 		!git clone https://github.com/likenneth/othello_world
 	
-	sys.path.append(str(OTHELLO_ROOT / "mechanistic_interpretability"))
+	sys.path.append(str(OTHELLO_MECHINT_ROOT))
 
 # %%
 
@@ -124,13 +122,18 @@ from mech_interp_othello_utils import plot_board, plot_single_board, plot_board_
 
 # %%
 
+# Load board data as ints (i.e. 0 to 60)
 
 if MAIN:
-	board_seqs_int = t.tensor(np.load(OTHELLO_ROOT / "board_seqs_int_small.npy"), dtype=t.long)
-	board_seqs_string = t.tensor(np.load(OTHELLO_ROOT / "board_seqs_string_small.npy"), dtype=t.long)
+	board_seqs_int = t.tensor(np.load(OTHELLO_MECHINT_ROOT / "board_seqs_int_small.npy"), dtype=t.long)
+	# Load board data as "strings" (i.e. 0 to 63 with middle squares skipped out)
+	board_seqs_string = t.tensor(np.load(OTHELLO_MECHINT_ROOT / "board_seqs_string_small.npy"), dtype=t.long)
+	
+	assert all([middle_sq not in board_seqs_string for middle_sq in [27, 28, 35, 36]])
+	assert board_seqs_int.max() == 60
 	
 	num_games, length_of_game = board_seqs_int.shape
-	print("Number of games:", num_games,)
+	print("Number of games:", num_games)
 	print("Length of game:", length_of_game)
 
 # %%
@@ -150,6 +153,7 @@ def to_board_label(i):
 
 if MAIN:
 	board_labels = list(map(to_board_label, stoi_indices))
+	full_board_labels = list(map(to_board_label, range(64)))
 
 # %%
 
@@ -158,7 +162,7 @@ if MAIN:
 	moves_int = board_seqs_int[0, :30]
 	
 	# This is implicitly converted to a batch of size 1
-	logits = model(moves_int)
+	logits: Tensor = model(moves_int)
 	print("logits:", logits.shape)
 
 # %%
@@ -167,14 +171,13 @@ if MAIN:
 if MAIN:
 	logit_vec = logits[0, -1]
 	log_probs = logit_vec.log_softmax(-1)
-	# Remove passing
+	# Remove the "pass" move (the zeroth vocab item)
 	log_probs = log_probs[1:]
 	assert len(log_probs)==60
 	
-	temp_board_state = t.zeros(64, device=logit_vec.device)
-	# Set all cells to -15 by default, for a very negative log prob - this means the middle cells don't show up as mattering
-	temp_board_state -= 13.
-	temp_board_state[stoi_indices] = log_probs
+	# Set all cells to -13 by default, for a very negative log prob - this means the middle cells don't show up as mattering
+	temp_board_state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
+	temp_board_state.flatten()[stoi_indices] = log_probs
 
 # %%
 
@@ -199,20 +202,6 @@ if MAIN:
 
 if MAIN:
 	plot_single_board(int_to_label(moves_int))
-
-# %%
-
-
-if MAIN:
-	board = OthelloBoardState()
-	board.update(to_string(moves_int))
-	plot_square_as_board(board.state, title="Example Board State (+1 is Black, -1 is White)")
-
-# %%
-
-
-if MAIN:
-	print("Valid moves:", string_to_label(board.get_valid_moves()))
 
 # %%
 
@@ -248,19 +237,27 @@ if MAIN:
 
 
 if MAIN:
-	focus_logits, focus_cache = model.run_with_cache(focus_games_int[:, :-1].to(device))
+	imshow(
+		focus_states[0, :16],
+		facet_col=0,
+		facet_col_wrap=8,
+		facet_labels=[f"Move {i}" for i in range(1, 17)],
+		title="First 16 moves of first game",
+		color_continuous_scale="Greys",
+	)
 
 # %%
 
 
 if MAIN:
+	focus_logits, focus_cache = model.run_with_cache(focus_games_int[:, :-1].to(device))
 	focus_logits.shape
 
 # %%
 
 
 if MAIN:
-	full_linear_probe = t.load(OTHELLO_ROOT / "main_linear_probe.pth")
+	full_linear_probe = t.load(OTHELLO_MECHINT_ROOT / "main_linear_probe.pth")
 	
 	rows = 8
 	cols = 8 
@@ -384,7 +381,7 @@ if MAIN:
 	accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
 	
 	plot_square_as_board(
-		1 - t.stack([accuracies_odd, accuracies], dim=0), 
+		1 - t.stack([accuracies_odd, accuracies], dim=0),
 		title="Average Error Rate of Linear Probe", 
 		facet_col=0, facet_labels=["Black to Play moves", "All Moves"], 
 		zmax=0.25, zmin=-0.25
@@ -392,16 +389,40 @@ if MAIN:
 
 # %%
 
-# FLAT SOLUTION
-# YOUR CODE HERE - define `blank_probe` and `my_probe`
-blank_probe = linear_probe[..., 0] - linear_probe[..., 1] * 0.5 - linear_probe[..., 2] * 0.5
-my_probe = linear_probe[..., 2] - linear_probe[..., 1]
-# FLAT SOLUTION END
 
-import part6_othellogpt.tests as tests
+if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - define the `cosine_similarities` tensor, to be plotted
+	odd_BminusW_probe = full_linear_probe[0, ..., 1] - full_linear_probe[0, ..., 2]
+	even_BminusW_probe = full_linear_probe[1, ..., 1] - full_linear_probe[1, ..., 2]
+	
+	both_probs = einops.rearrange(
+		t.stack([odd_BminusW_probe, even_BminusW_probe], dim=0),
+		"modes d_model rows cols -> (modes rows cols) d_model"
+	)
+	both_probs /= both_probs.norm(dim=-1, keepdim=True)
+	
+	cosine_similarities = einops.einsum(
+		both_probs, both_probs,
+		"square_y d_model, square_x d_model -> square_y square_x",
+	)
+	
+	imshow(
+		cosine_similarities,
+		title="Cosine Sim of B-W Linear Probe Directions by Cell",
+		x=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+		y=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+	)
+
+# %%
 
 
 if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - define `blank_probe` and `my_probe`
+	blank_probe = linear_probe[..., 0] - linear_probe[..., 1] * 0.5 - linear_probe[..., 2] * 0.5
+	my_probe = linear_probe[..., 2] - linear_probe[..., 1]
+	
 	tests.test_my_probes(blank_probe, my_probe, linear_probe)
 
 # %%
@@ -411,11 +432,14 @@ if MAIN:
 	pos = 20
 	game_index = 0
 	
+	# Plot board state
 	moves = focus_games_string[game_index, :pos+1]
 	plot_single_board(moves)
 	
-	state = t.zeros((64,), dtype=t.float32, device=device) - 10.
-	state[stoi_indices] = focus_logits[game_index, pos].log_softmax(dim=-1)[1:]
+	# Plot corresponding model predictions
+	state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
+	state.flatten()[stoi_indices] = focus_logits[game_index, pos].log_softmax(dim=-1)[1:]
+	plot_square_as_board(state, zmax=0, diverging_scale=False, title="Log probs")
 
 # %%
 
@@ -490,7 +514,7 @@ if MAIN:
 
 if MAIN:
 	flip_state_big = t.stack(big_flipped_states_list)
-	state_big = einops.repeat(state, "d -> b d", b=6)
+	state_big = einops.repeat(state.flatten(), "d -> b d", b=6)
 	color = t.zeros((len(scales), 64)).cuda() + 0.2
 	for s in newly_legal:
 		color[:, to_string(s)] = 1
@@ -501,7 +525,10 @@ if MAIN:
 		y=state_big, 
 		x=flip_state_big, 
 		title=f"Original vs Flipped {string_to_label(8*cell_r+cell_c)} at Layer {layer}", 
-		xaxis="Flipped", yaxis="Original", 
+		# labels={"x": "Flipped", "y": "Original"}, 
+		xaxis="Flipped", 
+		yaxis="Original", 
+		
 		hover=[f"{r}{c}" for r in "ABCDEFGH" for c in range(8)], 
 		facet_col=0, facet_labels=[f"Translate by {i}x" for i in scales], 
 		color=color, color_name="Newly Legal", color_continuous_scale="Geyser"
@@ -525,11 +552,11 @@ def plot_contributions(contributions, component: str):
 		contributions,
 		facet_col=0,
 		y=list("ABCDEFGH"),
-		facet_name="Layer",
+		facet_labels=[f"Layer {i}" for i in range(7)],
 		title=f"{component} Layer Contributions to my vs their (Game {game_index} Move {move})",
 		aspect="equal",
-		width=1300,
-		height=320
+		width=1400,
+		height=350
 	)
 
 def calculate_attn_and_mlp_probe_score_contributions(
@@ -587,8 +614,6 @@ if MAIN:
 	imshow(
 		overall_contribution, 
 		title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
-		width=380, 
-		height=380
 	)
 
 # %%
@@ -676,6 +701,7 @@ def calculate_neuron_output_weights(
 
 if MAIN:
 	tests.test_calculate_neuron_input_weights(calculate_neuron_input_weights, model)
+	tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
 
 # %%
 
@@ -684,28 +710,29 @@ if MAIN:
 	layer = 5
 	neuron = 1393
 	
-	w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
 	w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
+	w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
 	
 	imshow(
-		t.stack([w_in_L5N1393_my, w_in_L5N1393_blank]),
+		t.stack([w_in_L5N1393_blank, w_in_L5N1393_my]),
 		facet_col=0,
 		y=[i for i in "ABCDEFGH"],
 		title=f"Input weights in terms of the probe for neuron L{layer}N{neuron}",
-		facet_labels=["Blank In", "My In"]
+		facet_labels=["Blank In", "My In"],
+		width=750,
 	)
 
 # %%
 
 
 if MAIN:
-	w_in_L5N1393 = get_w_in(model, layer, neuron)
-	w_out_L5N1393 = get_w_out(model, layer, neuron)
+	w_in_L5N1393 = get_w_in(model, layer, neuron, normalize=True)
+	w_out_L5N1393 = get_w_out(model, layer, neuron, normalize=True)
 	
 	U, S, Vh = t.svd(t.cat([
 		my_probe.reshape(cfg.d_model, 64),
-		blank_probe.reshape(cfg.d_model, 64)],
-	dim=1))
+		blank_probe.reshape(cfg.d_model, 64)
+	], dim=1))
 	
 	# Remove the final four dimensions of U, as the 4 center cells are never blank and so the blank probe is meaningless there
 	probe_space_basis = U[:, :-4]
@@ -729,21 +756,21 @@ if MAIN:
 		heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
 	
 	imshow(
-		heatmaps_blank,
+		t.stack(heatmaps_blank),
 		facet_col=0,
 		y=[i for i in "ABCDEFGH"],
-		title=f"Cosine sim of Output weights and the blank color probe for top layer 3 neurons",
+		title=f"Cosine sim of Output weights and the 'blank color' probe for top layer {layer} neurons",
 		facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
-		height=300,
+		width=1600, height=300,
 	)
 	
 	imshow(
-		heatmaps_my,
+		t.stack(heatmaps_my),
 		facet_col=0,
 		y=[i for i in "ABCDEFGH"],
-		title=f"Cosine sim of Output weights and the my color probe for top layer 3 neurons",
+		title=f"Cosine sim of Output weights and the 'my color' probe for top layer {layer} neurons",
 		facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
-		height=300,
+		width=1600, height=300,
 	)
 
 # %%
@@ -762,21 +789,21 @@ if MAIN:
 		heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
 	
 	imshow(
-		heatmaps_blank,
+		t.stack(heatmaps_blank),
 		facet_col=0,
 		y=[i for i in "ABCDEFGH"],
 		title=f"Cosine sim of Output weights and the blank color probe for top layer 4 neurons",
 		facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
-		height=300,
+		width=1600, height=300,
 	)
 	
 	imshow(
-		heatmaps_my,
+		t.stack(heatmaps_my),
 		facet_col=0,
 		y=[i for i in "ABCDEFGH"],
 		title=f"Cosine sim of Output weights and the my color probe for top layer 4 neurons",
 		facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
-		height=300,
+		width=1600, height=300,
 	)
 
 # %%
@@ -793,17 +820,17 @@ if MAIN:
 		neuron = neuron.item()
 		w_out = get_w_out(model, layer, neuron)
 		# Fill in the `state` tensor with cosine sims, while skipping the middle 4 squares
-		state = t.zeros(64, device=device)
-		state[stoi_indices] = w_out @ W_U_norm
-		heatmaps_unembed.append(state.reshape(8, 8))
+		state = t.zeros((8, 8), device=device)
+		state.flatten()[stoi_indices] = w_out @ W_U_norm
+		heatmaps_unembed.append(state)
 	
 	imshow(
-		heatmaps_unembed,
+		t.stack(heatmaps_unembed),
 		facet_col=0,
 		y=[i for i in "ABCDEFGH"],
 		title=f"Cosine sim of Output weights and the unembed for top layer 4 neurons",
 		facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
-		height=300,
+		width=1600, height=300,
 	)
 
 # %%
@@ -852,18 +879,12 @@ def patching_metric(patched_logits: Float[Tensor, "batch=1 seq=21 d_vocab=61"]):
 	Function of patched logits, calibrated so that it equals 0 when performance is 
 	same as on corrupted input, and 1 when performance is same as on clean input.
 
-	Should only be a function of the logits for the F0 token (you can index into 
-	patched logits using the `f0_index` variable).
-
-	Should be a linear function of the log-softmax of patched logits (note, this is
-	not the same as being a linear function of the logits themselves - can you see 
-	why doing it this way is preferable?).
+	Should be linear function of the logits for the F0 token at the final move.
 	'''
 	patched_log_probs = patched_logits.log_softmax(dim=-1)
 	return (patched_log_probs[0, -1, f0_index] - corrupted_f0_log_prob) / (clean_f0_log_prob - corrupted_f0_log_prob)
 
 
-# Code to test your function:
 
 if MAIN:
 	tests.test_patching_metric(patching_metric, clean_log_probs, corrupted_log_probs)
@@ -932,24 +953,25 @@ if MAIN:
 
 # %%
 
+# FLAT SOLUTION NOINDENT
+# YOUR CODE HERE - calculate cosine sim between unembeddings
+c0_U = model.W_U[:, to_int("C0")].detach()
+c0_U /= c0_U.norm()
 
-if MAIN:
-	c0_U = model.W_U[:, 17].detach()
-	c0_U /= c0_U.norm()
-	
-	d1_U = model.W_U[:, 26].detach()
-	d1_U /= d1_U.norm()
-	
-	print(f"Cosine sim of C0 and D1 unembeds: {c0_U @ d1_U}")
+d1_U = model.W_U[:, to_int("D1")].detach()
+d1_U /= d1_U.norm()
+
+rprint(f"Cosine sim of C0 and D1 unembeds: {c0_U @ d1_U}")
 
 # %%
 
-# FLAT SOLUTION
-# Compute the fraction of variance of neuron output vector explained by unembedding subspace
-w_out = get_w_out(model, layer, neuron, normalize=True)
-U, S, Vh = t.svd(model.W_U[:, 1:])
-print("Fraction of variance captured by W_U", (w_out @ U).norm().item()**2)
-# FLAT SOLUTION END
+
+if MAIN:
+	# FLAT SOLUTION
+	# YOUR CODE HERE - compute the fraction of variance of neuron output vector explained by unembedding subspace
+	w_out = get_w_out(model, layer, neuron, normalize=True)
+	U, S, Vh = t.svd(model.W_U[:, 1:])
+	print("Fraction of variance captured by W_U", (w_out @ U).norm().item()**2)
 
 # %%
 
@@ -957,80 +979,90 @@ print("Fraction of variance captured by W_U", (w_out @ U).norm().item()**2)
 if MAIN:
 	neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
 	
-	imshow(neuron_acts, title=f"L{layer}N{neuron} Activations over 50 games", yaxis="Game", xaxis="Move")
-
-# %%
-
-# focus_states_flipped_value does this but has theirs==1 and mine==2, not 1 and -1. So let's convert!
-
-if MAIN:
-	focus_states_flipped_pm1 = t.zeros_like(focus_states_flipped_value, device=device)
-	focus_states_flipped_pm1[focus_states_flipped_value==2] = -1.
-	focus_states_flipped_pm1[focus_states_flipped_value==1] = 1.
-	# Now, theirs==1 and mine==-1
-
-# %%
-
-# Boolean array for whether the neuron is in the top 30 activations over all games and moves
-
-if MAIN:
-	top_moves = neuron_acts.flatten() > neuron_acts.quantile(0.99)
-	
-	# For each top activation, get the corresponding board state (flattened)
-	board_state_at_top_moves: Int[Tensor, "topk 64"] = focus_states_flipped_pm1[:, :-1].reshape(-1, 64)[top_moves]
-	# Rearrange into (rows, cols), then take mean over all boards
-	board_state_at_top_moves = board_state_at_top_moves.reshape(-1, 8, 8).float().mean(0)
-	
-	plot_square_as_board(
-		board_state_at_top_moves, 
-		title=f"Aggregated top 30 moves for neuron L{layer}N{neuron}", 
-		width=600
+	imshow(
+		neuron_acts,
+		title=f"L{layer}N{neuron} Activations over 50 games",
+		labels={"x": "Move", "y": "Game"},
+		aspect="auto",
+		width=900
 	)
 
 # %%
 
 
 if MAIN:
-	top_neurons = focus_cache["post", 5, "mlp"].std(dim=[0, 1]).argsort(descending=True)[:10]
+	top_moves = neuron_acts > neuron_acts.quantile(0.99)
+	
+	focus_states_flipped_value = focus_states_flipped_value.to(device)
+	board_state_at_top_moves = t.stack([
+		(focus_states_flipped_value == 2)[:, :-1][top_moves].float().mean(0),
+		(focus_states_flipped_value == 1)[:, :-1][top_moves].float().mean(0),
+		(focus_states_flipped_value == 0)[:, :-1][top_moves].float().mean(0)
+	])
+	
+	plot_square_as_board(
+		board_state_at_top_moves, 
+		facet_col=0,
+		facet_labels=["Mine", "Theirs", "Blank"],
+		title=f"Aggregated top 30 moves for neuron L{layer}N{neuron}", 
+	)
 
 # %%
 
-# FLAT SOLUTION
-# Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
-board_states = []
-output_weights_in_logit_basis = []
 
-for neuron in top_neurons:
-	# Get output weights in logit basis
-	w_out = get_w_out(model, layer, neuron, normalize=False)
-	state = t.zeros(8, 8, device=device)
-	state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
-	output_weights_in_logit_basis.append(state)
+if MAIN:
+	focus_states_flipped_pm1 = t.zeros_like(focus_states_flipped_value, device=device)
+	focus_states_flipped_pm1[focus_states_flipped_value==2] = 1.
+	focus_states_flipped_pm1[focus_states_flipped_value==1] = -1.
 	
-	# Get activations by indexing into cache
-	neuron_acts = focus_cache["post", 5, "mlp"][:, :, neuron]
-	# Boolean array for whether the neuron is in the top 30 activations over all games and moves
-	top_moves = neuron_acts.flatten() > neuron_acts.quantile(0.99)
-	# For each top activation, get the corresponding board state (flattened)
-	board_state_at_top_moves: Int[Tensor, "topk 64"] = focus_states_flipped_pm1[:, :-1].reshape(-1, 64)[top_moves]
-	# Rearrange into (rows, cols), then take mean over all boards
-	board_state_at_top_moves = board_state_at_top_moves.reshape(-1, 8, 8).float().mean(0)
-	board_states.append(board_state_at_top_moves)
+	board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+	
+	plot_square_as_board(
+		board_state_at_top_moves, 
+		title=f"Aggregated top 30 moves for neuron L{layer}N{neuron} (1 = theirs, -1 = mine)",
+	)
+
+# %%
 
 
-plot_square_as_board(
-	board_states, 
-	title=f"Aggregated top 30 moves for each top 10 neuron in layer 5", 
-	facet_col=0, 
-	facet_labels=[f"L5N{n.item()}" for n in top_neurons]
-)
-plot_square_as_board(
-	output_weights_in_logit_basis, 
-	title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
-	facet_col=0, 
-	facet_labels=[f"L5N{n.item()}" for n in top_neurons]
-)
-# FLAT SOLUTION END
+if MAIN:
+	# FLAT SOLUTION
+	# Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+	layer = 5
+	top_neurons = focus_cache["post", layer].std(dim=[0, 1]).argsort(descending=True)[:10]
+	board_states = []
+	output_weights_in_logit_basis = []
+	
+	for neuron in top_neurons:
+	
+		# Get output weights in logit basis
+		w_out = get_w_out(model, layer, neuron, normalize=False)
+		state = t.zeros(8, 8, device=device)
+		state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+		output_weights_in_logit_basis.append(state)
+		
+		# Get max activating dataset aggregations
+		neuron_acts = focus_cache["post", 5, "mlp"][:, :, neuron]
+		top_moves = neuron_acts > neuron_acts.quantile(0.99)
+		board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+		board_states.append(board_state_at_top_moves)
+	
+	
+	output_weights_in_logit_basis = t.stack(output_weights_in_logit_basis)
+	board_states = t.stack(board_states)
+	
+	plot_square_as_board(
+		output_weights_in_logit_basis, 
+		title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
+		facet_col=0, 
+		facet_labels=[f"L5N{n.item()}" for n in top_neurons]
+	)
+	plot_square_as_board(
+		board_states, 
+		title=f"Aggregated top 30 moves for each top 10 neuron in layer 5", 
+		facet_col=0, 
+		facet_labels=[f"L5N{n.item()}" for n in top_neurons]
+	)
 
 # %%
 
@@ -1043,32 +1075,38 @@ if MAIN:
 	label = (c0==0) & (d1==-1) & (e2==1)
 	
 	neuron_acts = focus_cache["post", 5][:, :, 1393]
-	df = pd.DataFrame({"acts":neuron_acts.flatten().tolist(), "label":label[:, :-1].flatten().tolist()})
-	px.histogram(df, x="acts", color="label", histnorm="percent", barmode="group", nbins=100, title="Spectrum plot for neuron L5N1393 testing C0==BLANK & D1==THEIR'S & E2==MINE")
-
-# %% 4️⃣ TRAINING A PROBE
-
-def seq_to_state_stack(str_moves):
-	if isinstance(str_moves, t.Tensor):
-		str_moves = str_moves.tolist()
-	board = OthelloBoardState()
-	states = []
-	for move in str_moves:
-		board.umpire(move)
-		states.append(np.copy(board.state))
-	states = np.stack(states, axis=0)
-	return states
-
+	
+def make_spectrum_plot(
+	neuron_acts: Float[Tensor, "batch"],
+	label: Bool[Tensor, "batch"],
+	**kwargs
+) -> None:
+	'''
+	Generates a spectrum plot from the neuron activations and a set of labels.
+	'''
+	px.histogram(
+		pd.DataFrame({"acts": neuron_acts.tolist(), "label": label.tolist()}), 
+		x="acts", color="label", histnorm="percent", barmode="group", nbins=100, 
+		title="Spectrum plot for neuron L5N1393 testing C0==BLANK & D1==THEIRS & E2==MINE",
+		color_discrete_sequence=px.colors.qualitative.Bold
+	).show()
 
 
 if MAIN:
-	state_stack = t.tensor(
-		np.stack([seq_to_state_stack(seq) for seq in board_seqs_string[:50, :-1]])
+	make_spectrum_plot(neuron_acts.flatten(), label[:, :-1].flatten())
+
+# %% 4️⃣ TRAINING A PROBE
+
+
+if MAIN:
+	imshow(
+		focus_states[0, :16],
+		facet_col=0,
+		facet_col_wrap=8,
+		facet_labels=[f"Move {i}" for i in range(1, 17)],
+		title="First 16 moves of first game",
+		color_continuous_scale="Greys",
 	)
-	print(state_stack.shape)
-	
-	# Visualize the first 8 moves
-	imshow(state_stack[0, :8], facet_col=0, height=300)
 
 # %%
 
@@ -1080,6 +1118,7 @@ class ProbeTrainingArgs():
 	pos_start: int = 5
 	pos_end: int = model.cfg.n_ctx - 5
 	length: int = pos_end - pos_start
+	alternating: Tensor = t.tensor([1 if i%2 == 0 else -1 for i in range(length)], device=device)
 
 	# Game state (options are blank/mine/theirs)
 	options: int = 3
@@ -1101,9 +1140,6 @@ class ProbeTrainingArgs():
 
 	# The first mode is blank or not, the second mode is next or prev GIVEN that it is not blank
 	modes = 3
-	def __post_init__(self):
-		self.alternating = t.tensor([1 if i%2 == 0 else -1 for i in range(self.length)], device=device)
-		self.logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=self.probe_name)
 
 	# Code to get randomly initialized probe
 	def setup_linear_probe(self, model: HookedTransformer):
@@ -1115,6 +1151,17 @@ class ProbeTrainingArgs():
 
 # %%
 
+def seq_to_state_stack(str_moves):
+	board = OthelloBoardState()
+	states = []
+	for move in str_moves:
+		board.umpire(move)
+		states.append(np.copy(board.state))
+	states = np.stack(states, axis=0)
+	return states
+
+# %%
+
 class LitLinearProbe(pl.LightningModule):
 	def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
 		super().__init__()
@@ -1123,13 +1170,23 @@ class LitLinearProbe(pl.LightningModule):
 		self.linear_probe = args.setup_linear_probe(model)
 		pl.seed_everything(42, workers=True)
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+	def training_step(self, batch: Int[Tensor, "game_idx"], batch_idx: int) -> t.Tensor:
 
 		games_int = board_seqs_int[batch.cpu()]
 		games_str = board_seqs_string[batch.cpu()]
-		state_stack = t.stack([t.tensor(seq_to_state_stack(game_str)) for game_str in games_str])
+		state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
 		state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
 		state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
+		batch_size = self.args.batch_size
+		game_len = self.args.length
+
+		# games_int = tensor of game sequences, each of length 60
+		# This is the input to our model
+		assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
+
+		# state_stack_one_hot = tensor of one-hot encoded states for each game
+		# We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
+		assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
 
 		with t.inference_mode():
 			_, cache = model.run_with_cache(
@@ -1160,10 +1217,14 @@ class LitLinearProbe(pl.LightningModule):
 		return loss
 
 	def train_dataloader(self):
+		'''
+		Returns `games_int` and `state_stack_one_hot` tensors.
+		'''
 		n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
 		full_train_indices = t.randperm(self.args.num_games)[:n_indices]
-		full_train_indices = einops.rearrange(full_train_indices, "(i j) -> i j", j=self.args.batch_size)
+		full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
 		return full_train_indices
+		
 
 	def configure_optimizers(self):
 		optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
@@ -1177,13 +1238,14 @@ if MAIN:
 	args = ProbeTrainingArgs()
 	litmodel = LitLinearProbe(model, args)
 	
-	# Get dataloader(s)
-	trainloader = litmodel.train_dataloader()
+	# You can choose either logger
+	logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
+	# logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
 	
 	# Train the model
 	trainer = pl.Trainer(
-		max_epochs=litmodel.args.max_epochs,
-		logger=litmodel.args.logger,
+		max_epochs=args.max_epochs,
+		logger=logger,
 		log_every_n_steps=1,
 	)
 	trainer.fit(model=litmodel)
@@ -1204,16 +1266,19 @@ if MAIN:
 	my_linear_probe[..., their_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 1] + litmodel.linear_probe[white_to_play_index, ..., 2])
 	my_linear_probe[..., my_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 2] + litmodel.linear_probe[white_to_play_index, ..., 1])
 	
+	# Getting the probe's output, and then its predictions
 	probe_out = einops.einsum(
-		focus_cache["resid_post", 6], my_linear_probe, # linear_probe
+		focus_cache["resid_post", 6], my_linear_probe,
 		"game move d_model, d_model row col options -> game move row col options"
 	)
 	probe_out_value = probe_out.argmax(dim=-1)
 	
-	correct_middle_odd_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
+	# Getting the correct answers in the odd cases
+	correct_middle_odd_answers = (probe_out_value == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
 	accuracies_odd = einops.reduce(correct_middle_odd_answers.float(), "game move row col -> row col", "mean")
 	
-	correct_middle_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5]
+	# Getting the correct answers in all cases
+	correct_middle_answers = (probe_out_value == focus_states_flipped_value[:, :-1])[:, 5:-5]
 	accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
 	
 	plot_square_as_board(

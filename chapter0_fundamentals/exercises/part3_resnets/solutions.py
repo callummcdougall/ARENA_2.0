@@ -181,7 +181,7 @@ class LitConvNet(pl.LightningModule):
 		'''
 		return self.convnet(x)
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
 		'''
 		Here you compute and return the training loss and some additional metrics for e.g. the progress bar or logger.
 		'''
@@ -273,12 +273,11 @@ class LitConvNet(pl.LightningModule):
 		self.args = args
 		self.trainset, self.testset = get_mnist(subset=args.sample)
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
 		imgs, labels = batch
 		logits = self.convnet(imgs)
 		loss = F.cross_entropy(logits, labels)
 		self.log("train_loss", loss)
-
 		return loss
 
 	def configure_optimizers(self):
@@ -332,18 +331,18 @@ class LitConvNetTest(pl.LightningModule):
 	def forward(self, x: t.Tensor) -> t.Tensor:
 		return self.convnet(x)
 
-	def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+	def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
 		imgs, labels = batch
 		logits = self(imgs)
 		return logits, labels
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
 		logits, labels = self._shared_train_val_step(batch)
 		loss = F.cross_entropy(logits, labels)
 		self.log("train_loss", loss)
 		return loss
 	
-	def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+	def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
 		logits, labels = self._shared_train_val_step(batch)
 		classifications = logits.argmax(dim=1)
 		accuracy = t.sum(classifications == labels) / len(classifications)
@@ -891,18 +890,18 @@ class LitResNet(pl.LightningModule):
 	def forward(self, x: t.Tensor) -> t.Tensor:
 		return self.resnet(x)
 
-	def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
+	def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
 		imgs, labels = batch
 		logits = self(imgs)
 		return logits, labels
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
 		logits, labels = self._shared_train_val_step(batch)
 		loss = F.cross_entropy(logits, labels)
 		self.log("train_loss", loss)
 		return loss
 	
-	def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
+	def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
 		logits, labels = self._shared_train_val_step(batch)
 		classifications = logits.argmax(dim=1)
 		accuracy = t.sum(classifications == labels) / len(classifications)
