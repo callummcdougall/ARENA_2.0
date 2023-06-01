@@ -2192,7 +2192,7 @@ $$
 <details>
 <summary>Answer</summary>
 
-$W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T$ has size $(n_\text{ctx}, n_\text{ctx})$, it is a bilinear form describing where information is moved to and from in head $h_2$, given that the **query-side vector** is formed from the output of head $h_1$. In other words, this is an instance of **Q-composition**.
+$W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T$ has size $(d_\text{model}, d_\text{model})$, it is a bilinear form describing where information is moved to and from in head $h_2$, given that the **query-side vector** is formed from the output of head $h_1$. In other words, this is an instance of **Q-composition**.
 
 If $A$ and $B$ are one-hot encodings for tokens `A` and `B`, then $A^T W_E W_{OV}^{h_1} W_{QK}^{h_2} W_E^T B$ is the attention score paid **to** token `B`, **by** any token which attended strongly to an `A`-token in head $h_1$.
 
