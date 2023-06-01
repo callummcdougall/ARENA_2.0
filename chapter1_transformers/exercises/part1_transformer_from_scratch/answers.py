@@ -724,7 +724,9 @@ class LitTransformer(pl.LightningModule):
     def train_dataloader(self):
         return self.data_loader
 
+# %%
 if MAIN:
+    t.set_float32_matmul_precision('medium')
     litmodel = LitTransformer(args, model, data_loader)
     print(f"Trying to start project with name {args.log_name}")
     logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name, entity="tkwa")
@@ -755,4 +757,196 @@ if MAIN:
     entropy = distn.entropy()
 
     print(f"Entropy of training data = {entropy}")
+# %%
+
+### Sampling ###
+
+if MAIN:
+    model_cfg = Config()
+    model = DemoTransformer(model_cfg).to(device)
+    model.load_state_dict(reference_gpt2.state_dict(), strict=False)
+
+    tokenizer = reference_gpt2.tokenizer
+
+
+class TransformerSampler:
+
+    def __init__(self, model: DemoTransformer, tokenizer: GPT2TokenizerFast):
+        self.model = model
+        self.cfg = model.cfg
+        self.tokenizer = tokenizer
+
+    @t.inference_mode()
+    def sample(self, prompt: str, max_tokens_generated=100, verbose=False, **kwargs):
+        '''
+        Returns a string of autoregressively generated text, starting from the prompt.
+
+        Sampling terminates at max_tokens_generated, or when the model generates an
+        end-of-sequence token.
+
+        kwargs are passed to sample_next_token, to give detailed instructions on how 
+        new tokens are chosen.
+        '''
+        tokens = t.tensor(self.tokenizer.encode(prompt)).unsqueeze(0)
+        prompt_length = tokens.shape[1]
+        while tokens.shape[1] < prompt_length + max_tokens_generated and tokens[0, -1] != self.tokenizer.eos_token_id:
+            logits = self.model(tokens)[:, -1]
+            next_token = t.tensor([[self.sample_next_token(tokens[0], logits, **kwargs)]])
+            print(next_token)
+            print(f"{tokens.shape=}")
+            print(f"{next_token.shape=}")
+            tokens = t.cat((tokens, t.tensor([[next_token]])), dim=1).clone()
+            print(tokens)
+            print(tokens.shape)
+        return self.tokenizer.decode(tokens[0])
+
+    @t.inference_mode()
+    def beam_search(
+        self,
+        prompt: str, 
+        num_return_sequences: int, 
+        num_beams: int, 
+        max_new_tokens: int, 
+        no_repeat_ngram_size: int = 0,
+        verbose=False
+    ) -> List[Tuple[float, t.Tensor]]:
+        '''
+        Returns a string of autoregressively generated text, starting from the prompt.
+
+        Sampling terminates at max_tokens_generated, or when the model generates an
+        end-of-sequence token.
+
+        kwargs are passed to sample_next_token, to give detailed instructions on how 
+        new tokens are chosen.
+        '''
+        pass
+
+
+    @staticmethod
+    def sample_next_token(
+        input_ids: Int[Tensor, "seq_len"], 
+        logits: Float[Tensor, "seq_len d_vocab"], 
+        temperature=1.0, 
+        top_k=0, 
+        top_p=0.0, 
+        frequency_penalty=0.0,
+        seed=None
+    ):
+        assert input_ids.ndim == 1, "input_ids should be a 1D sequence of token ids"
+        assert temperature >= 0, "Temperature should be non-negative"
+        assert 0 <= top_p <= 1.0, "Top-p must be a probability"
+        assert 0 <= top_k, "Top-k must be non-negative"
+        assert not (top_p != 0 and top_k != 0), "At most one of top-p and top-k supported"
+
+        # Set random seeds for reproducibility
+        if seed is not None:
+            t.manual_seed(seed)
+            np.random.seed(seed)
+
+        # Apply all the specialized sampling methods
+        if temperature == 0:
+            return TransformerSampler.greedy_search(logits)
+        elif temperature != 1.0:
+            logits = TransformerSampler.apply_temperature(logits, temperature)
+        if frequency_penalty != 0.0:
+            logits = TransformerSampler.apply_frequency_penalty(input_ids, logits, frequency_penalty)
+        if top_k > 0:
+            return TransformerSampler.sample_top_k(logits, top_k)
+        if top_p > 0.0:
+            return TransformerSampler.sample_top_p(logits, top_p)
+        return TransformerSampler.sample_basic(logits)
+
+
+    @staticmethod
+    def greedy_search(logits: Float[Tensor, "d_vocab"]) -> int:
+        '''
+        Returns the most likely token (as an int).
+        '''
+        assert len(logits.shape) == 1 or len(logits.shape) == 2 and logits.shape[0] == 1
+        out = logits.argmax().item()
+        return out
+
+
+    @staticmethod
+    def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
+        '''
+        Applies temperature scaling to the logits.
+        '''
+        pass
+
+    @staticmethod
+    def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
+        '''
+        Applies a frequency penalty to the logits.
+        '''
+        pass
+
+    @staticmethod
+    def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
+        '''
+        Samples from the distribution defined by the logits.
+        '''
+        dist = t.distributions.categorical.Categorical(logits)
+        ret = dist.sample().item()
+        print(ret)
+        assert isinstance(ret, int)
+        return ret
+
+    @staticmethod
+    def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
+        '''
+        Samples from the top k most likely tokens.
+        '''
+        pass
+
+    @staticmethod
+    def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
+        '''
+        Samples from the most likely tokens which make up at least p cumulative probability.
+        '''
+        pass
+# %%
+
+if MAIN:
+    sampler = TransformerSampler(model, tokenizer)
+
+    prompt = "Jingle bells, jingle bells, jingle all the way"
+    print(f"Greedy decoding with prompt: {prompt!r}\n")
+
+    output = sampler.sample(prompt, max_tokens_generated=8, temperature=0.0)
+    print(f"Your model said: {output!r}\n")
+
+    expected = "Jingle bells, jingle bells, jingle all the way up to the top of the mountain."
+    assert output == expected
+
+    print("Tests passed!")
+# %%
+
+# Test basic sampling
+if MAIN:
+    prompt = "John and Mary went to the"
+    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+    logits = model(input_ids)[0, -1]
+
+    expected_top_5 = {
+        " church": 0.0648,
+        " house": 0.0367,
+        " temple": 0.0145,
+        " same": 0.0104,
+        " Church": 0.0097
+    }
+    frequency_of_top_5 = defaultdict(int)
+
+    N = 10_000
+    for _ in tqdm(range(N)):
+        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
+        frequency_of_top_5[tokenizer.decode(token)] += 1
+
+    for word in expected_top_5:
+        expected_freq = expected_top_5[word]
+        observed_freq = frequency_of_top_5[word] / N
+        print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
+        assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
+
+    print("Tests passed!")
 # %%
