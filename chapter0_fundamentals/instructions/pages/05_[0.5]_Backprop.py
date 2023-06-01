@@ -1332,7 +1332,10 @@ def wrap_forward_fn(numpy_func: Callable, is_differentiable=True) -> Callable:
     '''
 
     def tensor_func(*args: Any, **kwargs: Any) -> Tensor:
-    pass
+        pass
+        
+    return tensor_func
+
 
 def _sum(x: Arr, dim=None, keepdim=False) -> Arr:
     # need to be careful with sum, because kwargs have different names in torch and numpy
@@ -1390,33 +1393,22 @@ This is probably because you're not defining `requires_grad` correctly. Remember
 ```python
 def wrap_forward_fn(numpy_func: Callable, is_differentiable=True) -> Callable:
     '''
-    numpy_func: function. It takes any number of positional arguments, some of which may be NumPy arrays, and any number of keyword arguments which we aren't allowing to be NumPy arrays at present. It returns a single NumPy array.
-    is_differentiable: if True, numpy_func is differentiable with respect to some input argument, so we may need to track information in a Recipe. If False, we definitely don't need to track information.
+    numpy_func: Callable
+        takes any number of positional arguments, some of which may be NumPy arrays, and 
+        any number of keyword arguments which we aren't allowing to be NumPy arrays at 
+        present. It returns a single NumPy array.
+    
+    is_differentiable: 
+        if True, numpy_func is differentiable with respect to some input argument, so we 
+        may need to track information in a Recipe. If False, we definitely don't need to
+        track information.
 
-    Return: function. It has the same signature as numpy_func, except wherever there was a NumPy array, this has a Tensor instead.
+    Return: Callable
+        It has the same signature as numpy_func, except wherever there was a NumPy array, 
+        this has a Tensor instead.
     '''
 
     def tensor_func(*args: Any, **kwargs: Any) -> Tensor:
-
-        arg_arrays = tuple([(a.array if isinstance(a, Tensor) else a) for a in args])
-        out_arr = numpy_func(*arg_arrays, **kwargs)
-    
-        requires_grad = grad_tracking_enabled and is_differentiable and any([
-            (isinstance(a, Tensor) and (a.requires_grad or a.recipe is not None)) for a in args
-        ])
-        
-        out = Tensor(out_arr, requires_grad)
-        
-        if requires_grad:
-            parents = {idx: a for idx, a in enumerate(args) if isinstance(a, Tensor)}
-            out.recipe = Recipe(numpy_func, arg_arrays, kwargs, parents)
-            
-        return out
-
-    return tensor_func
-```
-```python
-def tensor_func(*args: Any, **kwargs: Any) -> Tensor:
         # SOLUTION
         
         # Get all function arguments as non-tensors (i.e. either ints or arrays)
@@ -1498,6 +1490,7 @@ def topological_sort(node: Node, get_children: Callable) -> List[Node]:
     Should raise an error if the graph with `node` as root is not in fact acyclic.
     '''
     pass
+
 
 
 if MAIN:
@@ -1603,8 +1596,7 @@ def sorted_computational_graph(tensor: Tensor) -> List[Tensor]:
     For a given tensor, return a list of Tensors that make up the nodes of the given Tensor's computational graph, 
     in reverse topological order (i.e. `tensor` should be first).
     '''
-    pass
-    
+    pass   
 
 
 if MAIN:
@@ -3109,11 +3101,11 @@ if MAIN:
     assert isinstance(linear.weight, Tensor)
     assert linear.weight.requires_grad
     
-    input = Tensor([1.0, 2.0, 3.0])
+    input = Tensor([[1.0, 2.0, 3.0]])
     output = linear(input)
     assert output.requires_grad
     
-    expected_output = linear.weight @ input + linear.bias
+    expected_output = input @ linear.weight.T + linear.bias
     np.testing.assert_allclose(output.array, expected_output.array)
     
     print("All tests for `Linear` passed!")
@@ -3159,7 +3151,8 @@ class Linear(Module):
         Return: shape (*, out_features)
         '''
         # SOLUTION
-        out = x @ self.weight.permute((1, 0))
+        out = x @ self.weight.T
+        # Note, transpose has been defined as .permute(-1, -2) in the Tensor class
         if self.bias is not None: 
             out = out + self.bias
         return out
