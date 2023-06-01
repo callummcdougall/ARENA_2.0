@@ -347,13 +347,7 @@ def patch_residual_component(
     Patches a given sequence position in the residual stream, using the value
     from the clean cache.
     '''
-    # print("Before")
-    # print(corrupted_residual_component[:,:,64*pos:64*(pos+1)])
-    # print()
-    corrupted_residual_component[:,pos,:] = clean_cache["resid_pre", hook.layer()][:,pos,:]
-    # print("After")
-    # print(corrupted_residual_component[:,:,64*pos:64*(pos+1)])
-    # print()
+    corrupted_residual_component[:,pos,:] = clean_cache[hook.name][:,pos,:]
     return corrupted_residual_component
 
 def get_act_patch_resid_pre(
@@ -383,9 +377,6 @@ def get_act_patch_resid_pre(
                     (utils.get_act_name('resid_pre', l), patching_fn)
                 ]
             )
-            # print(f"patching metric for {l}.{h}:")
-            # print(patching_metric(logits))
-            # print()
             pos_patching_results.append(patching_metric(logits))
         patching_results.append(pos_patching_results)
 
@@ -484,11 +475,6 @@ if MAIN:
         width=600
     )
 # %%
-print(clean_cache["attn", 0, "result"].shape)
-print(clean_cache["attn", 0, "hook_z"].shape)
-print(clean_cache["z", 0].shape)
-print(clean_cache[utils.get_act_name("z", 0)].shape)
-# %%
 def patch_head_vector(
     corrupted_head_vector: Float[Tensor, "batch pos head_index d_head"],
     hook: HookPoint, 
@@ -499,7 +485,7 @@ def patch_head_vector(
     Patches the output of a given head (before it's added to the residual stream) at
     every sequence position, using the value from the clean cache.
     '''
-    corrupted_head_vector[:,:,head_index,:] = clean_cache["z", hook.layer()][:,:,head_index,:]
+    corrupted_head_vector[:,:,head_index,:] = clean_cache[hook.name][:,:,head_index,:]
     return corrupted_head_vector
 
 def get_act_patch_attn_head_out_all_pos(
@@ -545,5 +531,257 @@ if MAIN:
         title="Logit Difference From Patched Attn Head Output", 
         labels={"x":"Head", "y":"Layer"},
         width=600
+    )
+# %%
+if MAIN:
+    act_patch_attn_head_all_pos_every = patching.get_act_patch_attn_head_all_pos_every(
+        model, 
+        corrupted_tokens, 
+        clean_cache, 
+        ioi_metric
+    )
+
+    imshow(
+        act_patch_attn_head_all_pos_every, 
+        facet_col=0, 
+        facet_labels=["Output", "Query", "Key", "Value", "Pattern"],
+        title="Activation Patching Per Head (All Pos)", 
+        labels={"x": "Head", "y": "Layer"},
+    )
+# %%
+# Get the heads with largest value patching
+# (we know from plot above that these are the 4 heads in layers 7 & 8)
+if MAIN:
+    k = 4
+    top_heads = topk_of_Nd_tensor(act_patch_attn_head_all_pos_every[3], k=k)
+
+    print(top_heads)
+
+    # Get all their attention patterns
+    attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack([
+        cache["pattern", layer][:, head].mean(0)
+            for layer, head in top_heads
+    ])
+
+    # Display results
+    display(HTML(f"<h2>Top {k} Logit Attribution Heads (from value-patching)</h2>"))
+    display(cv.attention.attention_patterns(
+        attention = attn_patterns_for_important_heads,
+        tokens = model.to_str_tokens(tokens[0]),
+        attention_head_names = [f"{layer}.{head}" for layer, head in top_heads],
+    ))
+    # %%
+    print(act_patch_attn_head_all_pos_every.shape)
+# %%
+if MAIN:
+    attn_patterns_for_interesting_early_heads: Float[Tensor, "head q k"] = t.stack([
+        cache["pattern", layer][:, head].mean(0)
+            for layer, head in [(3,0),(5,5),(6,9)]
+    ])
+
+    display(cv.attention.attention_patterns(
+        attention = attn_patterns_for_interesting_early_heads,
+        tokens = model.to_str_tokens(tokens[0]),
+        attention_head_names = [f"{layer}.{head}" for layer, head in [(3,0),(5,5),(6,9)]],
+    ))
+
+
+#### PART 4: PATH PATCHING
+# %%
+from part3_indirect_object_identification.ioi_dataset import NAMES, IOIDataset
+# %%
+
+if MAIN:
+    N = 25
+    ioi_dataset = IOIDataset(
+        prompt_type="mixed",
+        N=N,
+        tokenizer=model.tokenizer,
+        prepend_bos=False,
+        seed=1,
+        device=str(device)
+    )
+# %%
+if MAIN:
+    abc_dataset = ioi_dataset.gen_flipped_prompts("ABB->XYZ, BAB->XYZ")
+# %%
+def format_prompt(sentence: str) -> str:
+    '''Format a prompt by underlining names (for rich print)'''
+    return re.sub("(" + "|".join(NAMES) + ")", lambda x: f"[u bold dark_orange]{x.group(0)}[/]", sentence) + "\n"
+
+
+def make_table(cols, colnames, title="", n_rows=5, decimals=4):
+    '''Makes and displays a table, from cols rather than rows (using rich print)'''
+    table = Table(*colnames, title=title)
+    rows = list(zip(*cols))
+    f = lambda x: x if isinstance(x, str) else f"{x:.{decimals}f}"
+    for row in rows[:n_rows]:
+        table.add_row(*list(map(f, row)))
+    rprint(table)
+
+if MAIN:
+    make_table(
+        colnames = ["IOI prompt", "IOI subj", "IOI indirect obj", "ABC prompt"],
+        cols = [
+            map(format_prompt, ioi_dataset.sentences), 
+            model.to_string(ioi_dataset.s_tokenIDs).split(), 
+            model.to_string(ioi_dataset.io_tokenIDs).split(), 
+            map(format_prompt, abc_dataset.sentences), 
+        ],
+        title = "Sentences from IOI vs ABC distribution",
+    )
+# %%
+def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
+    '''
+    Returns logit difference between the correct and incorrect answer.
+
+    If per_prompt=True, return the array of differences rather than the average.
+    '''
+
+    # Only the final logits are relevant for the answer
+    # Get the logits corresponding to the indirect object / subject tokens respectively
+    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+    s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+    # Find logit difference
+    answer_logit_diff = io_logits - s_logits
+    return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+
+
+
+if MAIN:
+    model.reset_hooks(including_permanent=True)
+
+    ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
+    abc_logits_original, abc_cache = model.run_with_cache(abc_dataset.toks)
+
+    ioi_per_prompt_diff = logits_to_ave_logit_diff_2(ioi_logits_original, per_prompt=True)
+    abc_per_prompt_diff = logits_to_ave_logit_diff_2(abc_logits_original, per_prompt=True)
+
+    ioi_average_logit_diff = logits_to_ave_logit_diff_2(ioi_logits_original).item()
+    abc_average_logit_diff = logits_to_ave_logit_diff_2(abc_logits_original).item()
+# %%
+if MAIN:
+    print(f"Average logit diff (IOI dataset): {ioi_average_logit_diff:.4f}")
+    print(f"Average logit diff (ABC dataset): {abc_average_logit_diff:.4f}")
+
+    make_table(
+        colnames = ["IOI prompt", "IOI logit diff", "ABC prompt", "ABC logit diff"],
+        cols = [
+            map(format_prompt, ioi_dataset.sentences), 
+            ioi_per_prompt_diff,
+            map(format_prompt, abc_dataset.sentences), 
+            abc_per_prompt_diff,
+        ],
+        title = "Sentences from IOI vs ABC distribution",
+    )
+# %%
+def ioi_metric_2(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    clean_logit_diff: float = ioi_average_logit_diff,
+    corrupted_logit_diff: float = abc_average_logit_diff,
+    ioi_dataset: IOIDataset = ioi_dataset,
+) -> float:
+    '''
+    We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+    and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+    '''
+    patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+    return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+
+
+
+if MAIN:
+    print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
+    print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
+# %%
+def store_residual(
+    residual: Float[Tensor, "batch pos d_model"],
+    hook: HookPoint, 
+    store: Float[Tensor, "batch pos d_model"], 
+) -> Float[Tensor, "batch pos d_model"]:
+    '''
+    Patches a given sequence position in the residual stream, using the value
+    from the clean cache.
+    '''
+    store[:] = residual[:]
+    return residual
+
+def patch_residual(
+    original_residual: Float[Tensor, "batch pos d_model"],
+    hook: HookPoint, 
+    patched_residual: Float[Tensor, "batch pos d_model"]
+) -> Float[Tensor, "batch pos d_model"]:
+    '''
+    Patches a given sequence position in the residual stream, using the value
+    from the clean cache.
+    '''
+    original_residual[:] = patched_residual
+    return original_residual
+
+
+def get_path_patch_head_to_final_resid_post(
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
+) -> Float[Tensor, "layer head"]:
+    n_layers = model.cfg.n_layers
+    n_heads = model.cfg.n_heads
+
+    results = t.zeros((n_layers, n_heads), device=device)
+
+    for h in range(n_heads):
+        # Part 1: cache heads
+        # already have new_cache and orig_cache
+
+        # Part 2: patch sender, freeze others, cache final resid
+        # use a hook to patch in the activations from new_cache for the head from which we are patching
+        for l in range(n_layers):
+            new_cache_patching_hook = [
+                (utils.get_act_name("z", l), partial(patch_head_vector, head_index=h, clean_cache=new_cache))
+            ]
+            # use a hook to patch in the activations from orig_cache everywhere else
+            orig_cache_patching_hooks = [
+                (utils.get_act_name("z", l2), partial(patch_head_vector, head_index=h2, clean_cache=orig_cache))
+                for l2 in range(n_layers) for h2 in range(n_heads) if h != h2
+            ]
+            # use a hook to store the activations at the final residual stream
+            final_resid = t.zeros_like(orig_cache["resid_post", n_layers-1], device=device)
+            store_resid_hook = [
+                (utils.get_act_name("resid_post", n_layers-1), partial(store_residual, store=final_resid))
+            ]
+
+            hooks = new_cache_patching_hook + orig_cache_patching_hooks + store_resid_hook
+
+            model.run_with_hooks(
+                orig_dataset.toks, 
+                fwd_hooks=hooks
+            )
+            # Part 3: patch in final resid
+            # use a hook to patch in the activations from the final residual stream
+            resid_patching_fn = partial(patch_residual, patched_residual=final_resid)
+            
+            logits = model.run_with_hooks(
+                orig_dataset.toks,
+                fwd_hooks=[
+                    (utils.get_act_name("resid_post", n_layers-1), resid_patching_fn)
+                ]
+            )
+
+            results[l][h] = patching_metric(logits)
+
+    return results
+
+if MAIN:
+    path_patch_head_to_final_resid_post = get_path_patch_head_to_final_resid_post(model, ioi_metric_2)
+
+    imshow(
+        100 * path_patch_head_to_final_resid_post,
+        title="Direct effect on logit difference",
+        labels={"x":"Head", "y":"Layer", "color": "Logit diff. variation"},
+        coloraxis=dict(colorbar_ticksuffix = "%"),
+        width=600,
     )
 # %%
