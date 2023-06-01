@@ -578,7 +578,7 @@ if MAIN:
     tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
 # %%
 if MAIN:
-    layer = 5
+    layer = 1
     neuron = 1393
 
     w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
@@ -588,7 +588,7 @@ if MAIN:
         t.stack([w_in_L5N1393_blank, w_in_L5N1393_my]),
         facet_col=0,
         y=[i for i in "ABCDEFGH"],
-        title=f"Input weights in terms of the probe for neuron L{layer}N{neuron}",
+        title=f"Input weights in terms of the probe for neuron {layer}N{neuron}",
         facet_labels=["Blank In", "My In"],
         width=750,
     )
@@ -601,18 +601,465 @@ if MAIN:
         t.stack([w_out_L5N1393_blank, w_out_L5N1393_my, w_out_L5N1393_unemb]),
         facet_col=0,
         y=[i for i in "ABCDEFGH"],
-        title=f"output weights in terms of the probe for neuron L{layer}N{neuron}",
+        title=f"output weights in terms of the probe for neuron {layer}N{neuron}",
         facet_labels=["Blank Out", "My Out", 'Unemb'],
         width=1100,
     )
 
 
 # %%
+if MAIN:
+    w_in_L5N1393 = get_w_in(model, layer, neuron, normalize=True)
+    w_out_L5N1393 = get_w_out(model, layer, neuron, normalize=True)
 
-# neuron L5N1293
-# 62
+    U, S, Vh = t.svd(t.cat([
+        my_probe.reshape(cfg.d_model, 64),
+        blank_probe.reshape(cfg.d_model, 64)
+    ], dim=1))
 
-target = 'C0'
-theirs = ['D1', 'E2']
-mine = 'F3'
+    U_unemb, _, _ = t.svd(
+        model.W_U[:, :]
+    )
 
+    # Remove the final four dimensions of U, as the 4 center cells are never blank and so the blank probe is meaningless there
+    probe_space_basis = U[:, :-4]
+
+    print("Fraction of input weights in probe basis:", (w_in_L5N1393 @ probe_space_basis).norm().item()**2)
+    print("Fraction of output weights in probe basis:", (w_out_L5N1393 @ probe_space_basis).norm().item()**2)
+    print("Fraction of output weights in unemb basis:", (w_out_L5N1393 @ U_unemb).norm().item()**2)
+
+# %%
+
+def kurtosis(tensor: Tensor, reduced_axes, fisher=True):
+    '''
+    Computes the kurtosis of a tensor over specified dimensions.
+    '''
+    return (((tensor - tensor.mean(dim=reduced_axes, keepdim=True)) / tensor.std(dim=reduced_axes, keepdim=True))**4).mean(dim=reduced_axes, keepdim=False) - fisher*3
+
+
+
+
+if MAIN:
+    unembed_normalized = model.W_U / model.W_U.norm(dim=0)
+    square_unembed = t.zeros(model.cfg.d_model, 8, 8).to(model.cfg.device)
+    square_unembed.flatten(start_dim=1)[:, stoi_indices] = unembed_normalized[:, 1:]
+
+    layer = 3
+    top_layer_3_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
+    # top_layer_3_neurons = einops.reduce(focus_cache["post", layer][:, 3:-3], "game move neuron -> neuron", reduction=kurtosis).argsort(descending=True)[:10]
+
+    heatmaps_blank = []
+    heatmaps_my = []
+    heatmaps_U = []
+
+    for neuron in top_layer_3_neurons:
+        neuron = neuron.item()
+        # heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
+        # heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
+        # heatmaps_U.append(calculate_neuron_output_weights(model, square_unembed, layer, neuron))
+
+        heatmaps_blank.append(calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron))
+        heatmaps_my.append(calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron))
+        heatmaps_U.append(calculate_neuron_input_weights(model, square_unembed, layer, neuron))
+        
+    imshow(
+        t.stack(heatmaps_blank),
+        facet_col=0,
+        y=[i for i in "ABCDEFGH"],
+        title=f"Cosine sim of Output weights and the 'blank color' probe for top layer {layer} neurons",
+        facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+        width=1600, height=300,
+    )
+
+    imshow(
+        t.stack(heatmaps_my),
+        facet_col=0,
+        y=[i for i in "ABCDEFGH"],
+        title=f"Cosine sim of Output weights and the 'my color' probe for top layer {layer} neurons",
+        facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+        width=1600, height=300,
+    )
+
+    imshow(
+        t.stack(heatmaps_U),
+        facet_col=0,
+        y=[i for i in "ABCDEFGH"],
+        title=f"Cosine sim of Output weights and Unembed for top layer {layer} neurons",
+        facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+        width=1600, height=300,
+    )
+# %%
+if MAIN:
+    game_index = 4
+    move = 20
+
+    # plot_single_board(focus_games_string[game_index, :move+1], title="Original Game (black plays E0)")
+    # plot_single_board(focus_games_string[game_index, :move].tolist()+[16], title="Corrupted Game (blank plays C0)")
+
+    plot_single_board(focus_games_string[game_index, :move+1], title="Original Game (black plays E0)")
+    plot_single_board(focus_games_string[game_index, :move-1].tolist()+
+                      [to_string('G7'), focus_games_string[game_index, move+1].item()], title="Corrupted Game (blank plays C0)")
+
+# %%
+
+if MAIN:
+    clean_input = focus_games_int[game_index, :move+1].clone()
+    corrupted_input = focus_games_int[game_index, :move+1].clone()
+    corrupted_input[-1] = to_int("C0")
+    print("Clean:     ", ", ".join(int_to_label(corrupted_input)))
+    print("Corrupted: ", ", ".join(int_to_label(clean_input)))
+
+if MAIN:
+    clean_logits, clean_cache = model.run_with_cache(clean_input)
+    corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_input)
+
+    clean_log_probs = clean_logits.log_softmax(dim=-1)
+    corrupted_log_probs = corrupted_logits.log_softmax(dim=-1)
+# %%
+
+if MAIN:
+    f0_index = to_int("F0")
+    clean_f0_log_prob = clean_log_probs[0, -1, f0_index]
+    corrupted_f0_log_prob = corrupted_log_probs[0, -1, f0_index]
+
+    print("Clean log prob", clean_f0_log_prob.item())
+    print("Corrupted log prob", corrupted_f0_log_prob.item(), "\n")
+
+def patching_metric(patched_logits: Float[Tensor, "batch=1 seq=21 d_vocab=61"]):
+    '''
+    Function of patched logits, calibrated so that it equals 0 when performance is 
+    same as on corrupted input, and 1 when performance is same as on clean input.
+
+    Should be linear function of the logits for the F0 token at the final move.
+    '''
+    patch_f0_log_prob = patched_logits.log_softmax(-1)[0, -1, f0_index]
+    return  ((corrupted_f0_log_prob - patch_f0_log_prob) / (corrupted_f0_log_prob - clean_f0_log_prob))
+
+
+if MAIN:
+    tests.test_patching_metric(patching_metric, clean_log_probs, corrupted_log_probs)
+# %%
+
+def patch_final_move_output(
+    activation: Float[Tensor, "batch seq d_model"], 
+    hook: HookPoint,
+    clean_cache: ActivationCache,
+) -> Float[Tensor, "batch seq d_model"]:
+    '''
+    Hook function which patches activations at the final sequence position.
+
+    Note, we only need to patch in the final sequence position, because the
+    prior moves in the clean and corrupted input are identical (and this is
+    an autoregressive model).
+    '''
+    activation[:, -1] = clean_cache[hook.name][:, -1]
+    return activation
+
+def get_act_patch_resid_pre(
+    model: HookedTransformer, 
+    corrupted_input: Float[Tensor, "batch pos"], 
+    clean_cache: ActivationCache, 
+    patching_metric: Callable[[Float[Tensor, "batch seq d_model"]], Float[Tensor, ""]]
+) -> Float[Tensor, "2 d_model"]:
+    '''
+    Returns an array of results, corresponding to the results of patching at
+    each (attn_out, mlp_out) for all layers in the model.
+    '''
+    model.reset_hooks()
+    patch_results = []
+
+    for layer in range(model.cfg.n_layers):
+        patch_hook = partial(patch_final_move_output, clean_cache=clean_cache)
+        patch_logits_attn = model.run_with_hooks(corrupted_input, fwd_hooks=[(
+            utils.get_act_name('attn_out', layer), patch_hook
+        )])
+        patch_logits_mlp = model.run_with_hooks(corrupted_input, fwd_hooks=[(
+            utils.get_act_name('mlp_out', layer), patch_hook
+        )])
+        patch_results.append((patching_metric(patch_logits_attn).item(),
+                              patching_metric(patch_logits_mlp).item()))
+    return np.array(patch_results).T
+
+if MAIN:
+    patching_results = get_act_patch_resid_pre(model, corrupted_input, clean_cache, patching_metric)
+
+    line(patching_results, title="Layer Output Patching Effect on F0 Log Prob", line_labels=["attn", "mlp"], width=750)
+
+
+# %%
+
+if MAIN:
+    layer = 5
+    neuron = 1393
+
+    w_out = get_w_out(model, layer, neuron, normalize=False)
+    state = t.zeros(8, 8, device=device)
+    state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+    plot_square_as_board(state, title=f"Output weights of Neuron {layer}N{neuron} in the output logit basis", width=600)
+# %%
+
+print(t.cosine_similarity(model.W_U[:, to_int('C0')], model.W_U[:, to_int('D1')], dim=0))
+
+# %%
+
+w_out = get_w_out(model, layer, neuron, normalize=True)
+U, S, Vh = t.svd(model.W_U[:, 1:])
+print("Fraction of variance captured by W_U", (w_out @ U).norm().item()**2)
+# %%
+
+if MAIN:
+    neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
+
+    imshow(
+        neuron_acts,
+        title=f"{layer}N{neuron} Activations over 50 games",
+        labels={"x": "Move", "y": "Game"},
+        aspect="auto",
+        width=900
+    )
+# %%
+
+if MAIN:
+    top_moves = neuron_acts > neuron_acts.quantile(0.95)
+
+    focus_states_flipped_value = focus_states_flipped_value.to(device)
+    board_state_at_top_moves = t.stack([
+        (focus_states_flipped_value == 2)[:, :-1][top_moves].float().mean(0),
+        (focus_states_flipped_value == 1)[:, :-1][top_moves].float().mean(0),
+        (focus_states_flipped_value == 0)[:, :-1][top_moves].float().mean(0)
+    ])
+
+    plot_square_as_board(
+        board_state_at_top_moves, 
+        facet_col=0,
+        facet_labels=["Mine", "Theirs", "Blank"],
+        title=f"Aggregated top 30 moves for neuron {layer}N{neuron}", 
+    )
+# %%
+
+if MAIN:
+    focus_states_flipped_pm1 = t.zeros_like(focus_states_flipped_value, device=device)
+    focus_states_flipped_pm1[focus_states_flipped_value==2] = 1.
+    focus_states_flipped_pm1[focus_states_flipped_value==1] = -1.
+
+    board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+
+    plot_square_as_board(
+        board_state_at_top_moves, 
+        title=f"Aggregated top 30 moves for neuron {layer}N{neuron} (1 = theirs, -1 = mine)",
+    )
+# %%
+
+unembed_normalized = model.W_U / model.W_U.norm(dim=0)
+square_unembed = t.zeros(model.cfg.d_model, 8, 8).to(model.cfg.device)
+square_unembed.flatten(start_dim=1)[:, stoi_indices] = unembed_normalized[:, 1:]
+
+layer = 5
+top_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
+# top_neurons = einops.reduce(focus_cache["post", layer][:, 3:-3], "game move neuron -> neuron", reduction=kurtosis).argsort(descending=True)[:10]
+output_weights_list = []
+board_states_list = []
+
+
+for neuron in top_neurons:
+    output_weights_list.append(calculate_neuron_input_weights(model, square_unembed, layer, neuron))
+
+    neuron_acts = focus_cache["post", layer][..., neuron]
+    top_moves_neuron = neuron_acts > neuron_acts.quantile(0.95)
+    board_states_list.append(focus_states_flipped_pm1[:, :-1][top_moves_neuron].float().mean(0))
+
+output_weights_in_logit_basis = t.stack(output_weights_list)
+board_states = t.stack(board_states_list)
+
+
+if MAIN:
+    # Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+    plot_square_as_board(
+        output_weights_in_logit_basis, 
+        title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
+        facet_col=0, 
+        facet_labels=[f"L5N{n.item()}" for n in top_neurons],
+        width=1500
+    )
+    plot_square_as_board(
+        board_states, 
+        title=f"Aggregated top 30 moves for each top 10 neuron in layer 5", 
+        facet_col=0, 
+        facet_labels=[f"L5N{n.item()}" for n in top_neurons],
+        width=1500
+    )
+# %%
+
+if MAIN:
+    c0 = focus_states_flipped_pm1[:, :, 2, 0]
+    d1 = focus_states_flipped_pm1[:, :, 3, 1]
+    e2 = focus_states_flipped_pm1[:, :, 4, 2]
+
+    label = (c0==0) & (d1==-1) & (e2==1)
+
+    neuron_acts = focus_cache["post", 5][:, :, 1393]
+
+def make_spectrum_plot(
+    neuron_acts: Float[Tensor, "batch"],
+    label: Bool[Tensor, "batch"],
+    **kwargs
+) -> None:
+    '''
+    Generates a spectrum plot from the neuron activations and a set of labels.
+    '''
+    px.histogram(
+        pd.DataFrame({"acts": neuron_acts.tolist(), "label": label.tolist()}), 
+        x="acts", color="label", histnorm="percent", barmode="group", nbins=100, 
+        title="Spectrum plot for neuron L5N1393 testing C0==BLANK & D1==THEIRS & E2==MINE",
+        color_discrete_sequence=px.colors.qualitative.Bold
+    ).show()
+
+
+if MAIN:
+    make_spectrum_plot(neuron_acts.flatten(), label[:, :-1].flatten())
+# %%
+true_pos = (neuron_acts > 0) & (label[:, :-1] == True)
+false_neg = (neuron_acts < 0) & (label[:, :-1] == True)
+
+false_neg_states = focus_states_flipped_pm1[:, :-1][false_neg]
+true_pos_states = focus_states_flipped_pm1[:, :-1][true_pos]
+
+false_neg_states_reshape = false_neg_states[:20].reshape(5, 4, 8, 8)
+# imshow(false_neg_states_reshape, animation_frame=0, facet_col=1)
+
+imshow(utils.to_numpy(t.stack([false_neg_states.float().mean(0), 
+                               true_pos_states.float().mean(0)])),
+                               facet_col=0)
+imshow(false_neg_states.float().std(0))
+
+
+# %%
+imshow(
+    focus_states[0, :16],
+    facet_col=0,
+    facet_col_wrap=8,
+    facet_labels=[f"Move {i}" for i in range(1, 17)],
+    title="First 16 moves of first game",
+    color_continuous_scale="Greys",
+)
+# %%
+@dataclass
+class ProbeTrainingArgs():
+
+    # Which layer, and which positions in a game sequence to probe
+    layer: int = 6
+    pos_start: int = 5
+    pos_end: int = model.cfg.n_ctx - 5
+    length: int = pos_end - pos_start
+    alternating: Tensor = t.tensor([1 if i%2 == 0 else -1 for i in range(length)], device=device)
+
+    # Game state (options are blank/mine/theirs)
+    options: int = 3
+    rows: int = 8
+    cols: int = 8
+
+    # Standard training hyperparams
+    max_epochs: int = 8
+    num_games: int = 50000
+
+    # Hyperparams for optimizer
+    batch_size: int = 256
+    lr: float = 1e-4
+    betas: Tuple[float, float] = (0.9, 0.99)
+    wd: float = 0.01
+
+    # Misc.
+    probe_name: str = "main_linear_probe"
+
+    # The first mode is blank or not, the second mode is next or prev GIVEN that it is not blank
+    modes = 3
+
+    # Code to get randomly initialized probe
+    def setup_linear_probe(self, model: HookedTransformer):
+        linear_probe = t.randn(
+            self.modes, model.cfg.d_model, self.rows, self.cols, self.options, requires_grad=False, device=device
+        ) / np.sqrt(model.cfg.d_model)
+        linear_probe.requires_grad = True
+        return linear_probe
+# %%
+def seq_to_state_stack(str_moves):
+    board = OthelloBoardState()
+    states = []
+    for move in str_moves:
+        board.umpire(move)
+        states.append(np.copy(board.state))
+    states = np.stack(states, axis=0)
+    return states
+# %%
+class LitLinearProbe(pl.LightningModule):
+    def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
+        super().__init__()
+        self.model = model
+        self.args = args
+        self.linear_probe = args.setup_linear_probe(model)
+        pl.seed_everything(42, workers=True)
+
+    def training_step(self, batch: Int[Tensor, "game_idx"], batch_idx: int) -> t.Tensor:
+
+        games_int = board_seqs_int[batch.cpu()]
+        games_str = board_seqs_string[batch.cpu()]
+        state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
+        state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
+        state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
+        batch_size = self.args.batch_size
+        game_len = self.args.length
+
+        # games_int = tensor of game sequences, each of length 60
+        # This is the input to our model
+        assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
+
+        # state_stack_one_hot = tensor of one-hot encoded states for each game
+        # We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
+        assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
+
+        with t.inference_mode():
+            _, cache = self.model.run_with_cache(games_int[:, :-1], names_filter=lambda name: 'resid_post' in name, return_type=None)
+            
+        resid_post = cache['resid_post', self.args.layer][:, self.args.pos_start: self.args.pos_end]
+
+        logits = einops.einsum(resid_post, self.linear_probe, 'batch game_len d_model, modes d_model rows cols options -> modes batch game_len rows cols options')
+        log_prob = logits.log_softmax(dim=-1) # modes batch game_len rows cols options
+        loss = (log_prob * state_stack_one_hot).sum(dim=-1).mean(dim=1) # modes game_len rows cols
+
+        loss_all = loss[2].sum()
+        loss_even = loss[0, ::2].sum()
+        loss_odd = loss[1, 1::2].sum()
+
+        return loss_all + loss_even + loss_odd
+
+
+    def train_dataloader(self):
+        '''
+        Returns `games_int` and `state_stack_one_hot` tensors.
+        '''
+        n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
+        full_train_indices = t.randperm(self.args.num_games)[:n_indices]
+        full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
+        return full_train_indices
+
+
+    def configure_optimizers(self):
+        optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
+        return optimizer
+# %%
+# Create the model & training system
+args = ProbeTrainingArgs()
+litmodel = LitLinearProbe(model, args)
+
+# You can choose either logger
+logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
+# logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
+
+# Train the model
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs,
+    logger=logger,
+    log_every_n_steps=1,
+)
+trainer.fit(model=litmodel)
+# %%
