@@ -78,7 +78,6 @@ if MAIN:
 	
 	print(f"Model accuracy: {is_correct.sum()}/{len(true_tokens)}")
 	print(f"Correct words: {gpt2_small.to_str_tokens(prediction[is_correct])}")
-	# FLAT SOLUTION END
 
 # %%
 
@@ -116,7 +115,6 @@ if MAIN:
 	mask = t.triu(t.ones((seq, seq), dtype=bool), diagonal=1).to(device)
 	layer0_attn_scores.masked_fill_(mask, -1e9)
 	layer0_pattern_from_q_and_k = (layer0_attn_scores / headsize**0.5).softmax(-1)
-	# FLAT SOLUTION END
 	
 	t.testing.assert_close(layer0_pattern_from_cache, layer0_pattern_from_q_and_k)
 	print("Tests passed!")
@@ -194,7 +192,6 @@ if MAIN:
 	for layer in range(model.cfg.n_layers):
 		attention_pattern = cache["pattern", layer]
 		display(cv.attention.attention_patterns(tokens=str_tokens, attention=attention_pattern))
-	# FLAT SOLUTION END
 
 # %%
 
@@ -427,7 +424,6 @@ if MAIN:
 				(utils.get_act_name("pattern", induction_head_layer), visualize_pattern_hook)
 			]
 		)
-	# FLAT SOLUTION END
 
 # %%
 
@@ -506,7 +502,6 @@ if MAIN:
 	# (each with a single call to the `logit_attribution` function)
 	first_half_logit_attr = logit_attribution(embed[:seq_len+1], l1_results[:seq_len+1], l2_results[:seq_len+1], model.W_U, first_half_tokens)
 	second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
-	# FLAT SOLUTION END
 	
 	assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
 	assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
@@ -517,12 +512,12 @@ if MAIN:
 # %%
 
 def head_ablation_hook(
-	attn_result: Float[Tensor, "batch seq n_heads d_model"],
+	v: Float[Tensor, "batch seq n_heads d_head"],
 	hook: HookPoint,
 	head_index_to_ablate: int
-) -> Float[Tensor, "batch seq n_heads d_model"]:
-	attn_result[:, :, head_index_to_ablate, :] = 0.0
-	return attn_result
+) -> Float[Tensor, "batch seq n_heads d_head"]:
+	v[:, :, head_index_to_ablate, :] = 0.0
+	return v
 
 
 
@@ -557,7 +552,7 @@ def get_ablation_scores(
 			temp_hook_fn = functools.partial(head_ablation_hook, head_index_to_ablate=head)
 			# Run the model with the ablation hook
 			ablated_logits = model.run_with_hooks(tokens, fwd_hooks=[
-				(utils.get_act_name("result", layer), temp_hook_fn)
+				(utils.get_act_name("v", layer), temp_hook_fn)
 			])
 			# Calculate the logit difference
 			loss = cross_entropy_loss(ablated_logits, tokens)
@@ -655,7 +650,6 @@ if MAIN:
 	# YOUR CODE HERE - get a random sample from the full OV circuit, so it can be plotted with `imshow`
 	indices = t.randint(0, model.cfg.d_vocab, (200,))
 	full_OV_circuit_sample = full_OV_circuit[indices, indices].AB
-	# FLAT SOLUTION END
 	
 	imshow(
 		full_OV_circuit_sample,
@@ -706,7 +700,6 @@ if MAIN:
 	pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
 	masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
 	pos_by_pos_pattern = t.softmax(masked_scaled, dim=-1)
-	# FLAT SOLUTION END
 	
 	tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
 
@@ -904,7 +897,6 @@ if MAIN:
 			composition_scores["Q"][i, j] = get_comp_score(W_OV[0, i], W_QK[1, j])
 			composition_scores["K"][i, j] = get_comp_score(W_OV[0, i], W_QK[1, j].T)
 			composition_scores["V"][i, j] = get_comp_score(W_OV[0, i], W_OV[1, j])
-	# FLAT SOLUTION END
 	
 	# Plot the composition scores
 	for comp_type in "QKV":
