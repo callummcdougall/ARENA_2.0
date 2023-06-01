@@ -540,12 +540,13 @@ def logit_attribution(
             layer 1 logits (seq-1, n_heads)
         so n_components = 1 + 2*n_heads
     '''
+    
     W_U_correct_tokens = W_U[:, tokens[1:]] #d_model, seq-1
     # print(W_U_correct_tokens.shape, embed[1:].shape, l0_results.shape, l1_results.shape)
-    direct_path = einops.einsum(W_U_correct_tokens, embed[:-1], "dmodel seqm, seqm dmodel -> seqm").unsqueeze(1)
-    layer_0_logits = einops.einsum(W_U_correct_tokens, l0_results[:-1], "dmodel seqm, seqm nheads dmodel -> seqm nheads")
-    layer_1_logits = einops.einsum(W_U_correct_tokens, l1_results[:-1], "dmodel seqm, seqm nheads dmodel -> seqm nheads")
-    print(direct_path.shape, layer_0_logits.shape, layer_1_logits.shape)
+    direct_path = einops.einsum(W_U_correct_tokens, embed[:-1], "... dmodel seqm, ... seqm dmodel -> ... seqm").unsqueeze(1)
+    layer_0_logits = einops.einsum(W_U_correct_tokens, l0_results[:-1], "... dmodel seqm, ... seqm nheads dmodel -> ... seqm nheads")
+    layer_1_logits = einops.einsum(W_U_correct_tokens, l1_results[:-1], "... dmodel seqm, ... seqm nheads dmodel -> ... seqm nheads")
+    #print(direct_path.shape, layer_0_logits.shape, layer_1_logits.shape)
     output = t.cat([direct_path, layer_0_logits, layer_1_logits], dim=-1)
     return output
     
@@ -579,23 +580,166 @@ if MAIN:
 # %%
 if MAIN:
     seq_len = 50
-
-    embed = rep_cache["embed"]
-    l1_results = rep_cache["result", 0]
-    l2_results = rep_cache["result", 1]
+    batch = 1
+    (rep_tokens, rep_logits, rep_cache) = run_and_cache_model_repeated_tokens(model, seq_len, batch)
+    embed = rep_cache["embed"].squeeze()
+    l1_results = rep_cache["result", 0].squeeze()
+    l2_results = rep_cache["result", 1].squeeze()
     first_half_tokens = rep_tokens[0, : 1 + seq_len]
     second_half_tokens = rep_tokens[0, seq_len:]
-
+    
+    # FLAT SOLUTION
     # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
     
-    first_half_logit_attr = logit_attribution(embed[0, : 1 + seq_len], l1_results[0, : 1 + seq_len], l2_results[0, : 1 + seq_len], model.W_U, first_half_tokens)
-    second_half_logit_attr = logit_attribution(embed[0, seq_len:], l1_results[0, seq_len:], l2_results[0, seq_len:], model.W_U, second_half_tokens)
-    
-    
+    # (each with a single call to the `logit_attribution` function)
+    first_half_logit_attr = logit_attribution(embed[:seq_len+1], l1_results[:seq_len+1], l2_results[:seq_len+1], model.W_U, first_half_tokens)
+    second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
+    # FLAT SOLUTION END
     
     assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
     assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    
+    plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+    # seq_len = 50
+    # batch=10
+    # (rep_tokens, rep_logits, rep_cache) = run_and_cache_model_repeated_tokens(model, seq_len, batch)
+    # embed = rep_cache["embed"]
+    # l1_results = rep_cache["result", 0]
+    # l2_results = rep_cache["result", 1]
+    # first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    # second_half_tokens = rep_tokens[0, seq_len:]
 
+    # # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+   
+    # first_half_logit_attr = logit_attribution(embed[:seq_len+1], l1_results[:seq_len+1], l2_results[:seq_len+1], model.W_U, first_half_tokens)
+    # second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
+    
+    # # first_half_logit_attr = logit_attribution(embed[: 1 + seq_len], l1_results[: 1 + seq_len], l2_results[: 1 + seq_len], model.W_U, first_half_tokens)
+    # # second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
+    
+    # print(first_half_logit_attr.shape, (seq_len, 2*model.cfg.n_heads + 1))
+    
+    # assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    # assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+
+    # plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
+    # plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
+# %%
+def head_ablation_hook(
+    z: Float[Tensor, "batch seq n_heads d_model"],
+    hook: HookPoint,
+    head_index_to_ablate: int
+) -> Float[Tensor, "batch seq n_heads d_model"]:
+    z[:,:,head_index_to_ablate, :] = 0
+    return z
+
+
+def cross_entropy_loss(logits, tokens):
+    '''
+    Computes the mean cross entropy between logits (the model's prediction) and tokens (the true values).
+
+    (optional, you can just use return_type="loss" instead.)
+    '''
+    log_probs = F.log_softmax(logits, dim=-1)
+    pred_log_probs = t.gather(log_probs[:, :-1], -1, tokens[:, 1:, None])[..., 0]
+    return -pred_log_probs.mean()
+
+
+def get_ablation_scores(
+    model: HookedTransformer, 
+    tokens: Int[Tensor, "batch seq"]
+) -> Float[Tensor, "n_layers n_heads"]:
+    '''
+    Returns a tensor of shape (n_layers, n_heads) containing the increase in cross entropy loss from ablating the output of each head.
+    '''
+    # Initialize an object to store the ablation scores
+    ablation_scores = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
+
+    # Calculating loss without any ablation, to act as a baseline
+    model.reset_hooks()
+    logits = model(tokens, return_type="logits")
+    loss_no_ablation = cross_entropy_loss(logits, tokens)
+
+    for layer in tqdm(range(model.cfg.n_layers)):
+        for head in range(model.cfg.n_heads):
+            # Use functools.partial to create a temporary hook function with the head number fixed
+            temp_hook_fn = functools.partial(head_ablation_hook, head_index_to_ablate=head)
+            # Run the model with the ablation hook
+            ablated_logits = model.run_with_hooks(tokens, fwd_hooks=[
+                (utils.get_act_name("result", layer), temp_hook_fn)
+            ])
+            # Calculate the logit difference
+            loss = cross_entropy_loss(ablated_logits, tokens)
+            # Store the result, subtracting the clean loss so that a value of zero means no change in loss
+            ablation_scores[layer, head] = loss - loss_no_ablation
+
+    return ablation_scores
+
+
+
+if MAIN:
+    ablation_scores = get_ablation_scores(model, rep_tokens)
+    tests.test_get_ablation_scores(ablation_scores, model, rep_tokens)
+# %%
+if MAIN:
+    imshow(
+        ablation_scores, 
+        labels={"x": "Head", "y": "Layer", "color": "Logit diff"},
+        title="Logit Difference After Ablating Heads", 
+        text_auto=".2f",
+        width=900, height=400
+    )
+# %%
+
+def head_keep_hook(
+    z: Float[Tensor, "batch seq n_heads d_model"],
+    hook: HookPoint,
+    head_idx_keep
+) -> Float[Tensor, "batch seq n_heads d_model"]:
+    batch, seq, n_heads, d_model = z.shape
+    for head_index in range(n_heads):
+        if head_index not in head_idx_keep:
+            z[:,:,head_index, :] = 0
+    return z
+
+
+keep_head = ["1.4", "1.10", "0.7"]
+for induction_head_layer in [0,1]:
+        model.run_with_hooks(
+            rep_tokens, 
+            return_type=None, # For efficiency, we don't need to calculate the logits
+            fwd_hooks=[
+                ('blocks.0.attn.hook_z', functools.partial(head_keep_hook, head_idx_keep=[7])),
+                ('blocks.1.attn.hook_z', functools.partial(head_keep_hook, head_idx_keep=[4,10]))
+            ]
+        )
+# %%
+if MAIN:
+    seq_len = 50
+    batch = 1
+    
+    model.add_hook('blocks.0.attn.hook_z', functools.partial(head_keep_hook, head_idx_keep=[7]))
+    model.add_hook('blocks.1.attn.hook_z', functools.partial(head_keep_hook, head_idx_keep=[4,10]))
+    
+    (rep_tokens, rep_logits, rep_cache) = run_and_cache_model_repeated_tokens(model, seq_len, batch)
+    embed = rep_cache["embed"].squeeze()
+    l1_results = rep_cache["result", 0].squeeze()
+    l2_results = rep_cache["result", 1].squeeze()
+    first_half_tokens = rep_tokens[0, : 1 + seq_len]
+    second_half_tokens = rep_tokens[0, seq_len:]
+    
+    # FLAT SOLUTION
+    # YOUR CODE HERE - define `first_half_logit_attr` and `second_half_logit_attr`
+    
+    # (each with a single call to the `logit_attribution` function)
+    first_half_logit_attr = logit_attribution(embed[:seq_len+1], l1_results[:seq_len+1], l2_results[:seq_len+1], model.W_U, first_half_tokens)
+    second_half_logit_attr = logit_attribution(embed[seq_len:], l1_results[seq_len:], l2_results[seq_len:], model.W_U, second_half_tokens)
+    # FLAT SOLUTION END
+    
+    assert first_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    assert second_half_logit_attr.shape == (seq_len, 2*model.cfg.n_heads + 1)
+    
     plot_logit_attribution(model, first_half_logit_attr, first_half_tokens, "Logit attribution (first half of repeated sequence)")
     plot_logit_attribution(model, second_half_logit_attr, second_half_tokens, "Logit attribution (second half of repeated sequence)")
 # %%
