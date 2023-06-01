@@ -247,7 +247,8 @@ def is_balanced_vectorized(tokens: Float[Tensor, "seq_len"]) -> bool:
     lookup = t.tensor([0, 0, 0, 1, -1]).to(device)
     to_add = lookup[[tokens.int()]]
     cums = to_add.cumsum(dim=-1)
-    return((cums[-1]) == 0 and (cums >= 0).all()).item()
+    return ((cums[-1]) == 0 and (cums >= 0).all()).item()
+
 
 if MAIN:
     for tokens, expected in zip(tokenizer.tokenize(examples), labels):
@@ -255,4 +256,292 @@ if MAIN:
         assert expected == actual, f"{tokens}: expected {expected} got {actual}"
     print("is_balanced_vectorized ok!")
 
+# %%
+
+
+def get_post_final_ln_dir(model: HookedTransformer) -> Float[Tensor, "d_model"]:
+    """
+    Returns the direction in which final_ln_output[0, :] should point to maximize P(unbalanced)
+    """
+    return model.W_U[:, 0] - model.W_U[:, 1]
+
+
+if MAIN:
+    tests.test_get_post_final_ln_dir(get_post_final_ln_dir, model)
+
+# %%
+
+
+def get_activations(
+    model: HookedTransformer,
+    toks: Int[Tensor, "batch seq"],
+    names: Union[str, List[str]],
+) -> Union[t.Tensor, ActivationCache]:
+    """
+    Uses hooks to return activations from the model.
+
+    If names is a string, returns the activations for that hook name.
+    If names is a list of strings, returns a dictionary mapping hook names to tensors of activations.
+    """
+    names_list = [names] if isinstance(names, str) else names
+    _, cache = model.run_with_cache(
+        toks,
+        return_type=None,
+        names_filter=lambda name: name in names_list,
+    )
+
+    return cache[names] if isinstance(names, str) else cache
+
+
+# %%
+def LN_hook_names(layernorm: LayerNorm) -> Tuple[str, str]:
+    """
+    Returns the names of the hooks immediately before and after a given layernorm.
+    e.g. LN_hook_names(model.final_ln) returns ["blocks.2.hook_resid_post", "ln_final.hook_normalized"]
+    """
+    if layernorm.name == "ln_final":
+        input_hook_name = utils.get_act_name("resid_post", 2)
+        output_hook_name = "ln_final.hook_normalized"
+    else:
+        layer, ln = layernorm.name.split(".")[1:]
+        input_hook_name = utils.get_act_name(
+            "resid_pre" if ln == "ln1" else "resid_mid", layer
+        )
+        output_hook_name = utils.get_act_name("normalized", layer, ln)
+
+    return input_hook_name, output_hook_name
+
+
+if MAIN:
+    pre_final_ln_name, post_final_ln_name = LN_hook_names(model.ln_final)
+    print(pre_final_ln_name, post_final_ln_name)
+# %%
+
+
+def get_ln_fit(
+    model: HookedTransformer,
+    data: BracketsDataset,
+    layernorm: LayerNorm,
+    seq_pos: Optional[int] = None,
+) -> Tuple[LinearRegression, float]:
+    """
+    if seq_pos is None, find best fit aggregated over all sequence positions. Otherwise, fit only for given seq_pos.
+
+    Returns: A tuple of a (fitted) sklearn LinearRegression object and the r^2 of the fit
+    """
+    input_hook_name, output_hook_name = LN_hook_names(layernorm)
+    acts = get_activations(
+        model=model, toks=data.toks, names=[input_hook_name, output_hook_name]
+    )
+    Xs = acts[input_hook_name]
+    Yalls = acts[output_hook_name]
+    if seq_pos is not None:
+        X = Xs[:, seq_pos, :].cpu()
+        Yall = Yalls[:, seq_pos, :].cpu()
+    else:
+        X = einops.rearrange(Xs, "b seq model -> (b seq) model").cpu()
+        Yall = einops.rearrange(Yalls, "b seq model -> (b seq) model").cpu()
+    lin = LinearRegression()
+    lin = lin.fit(X=X, y=Yall)
+    r2 = lin.score(X=X, y=Yall)
+    return lin, r2
+
+
+if MAIN:
+    tests.test_get_ln_fit(get_ln_fit, model, data_mini)
+
+    (final_ln_fit, r2) = get_ln_fit(model, data, layernorm=model.ln_final, seq_pos=0)
+    print(f"r^2 for LN_final, at sequence position 0: {r2:.4f}")
+
+    (final_ln_fit, r2) = get_ln_fit(
+        model, data, layernorm=model.blocks[1].ln1, seq_pos=None
+    )
+    print(f"r^2 for LN1, layer 1, over all sequence positions: {r2:.4f}")
+
+
+# %%
+
+
+def get_pre_final_ln_dir(
+    model: HookedTransformer, data: BracketsDataset
+) -> Float[Tensor, "d_model"]:
+    """
+    Returns the direction in residual stream (pre ln_final, at sequence position 0) which
+    most points in the direction of making an unbalanced classification.
+    """
+    lin, r2 = get_ln_fit(model=model, data=data, layernorm=model.ln_final, seq_pos=0)
+    return t.from_numpy(lin.coef_.T).to(device) @ get_post_final_ln_dir(model)
+
+
+if MAIN:
+    tests.test_get_pre_final_ln_dir(get_pre_final_ln_dir, model, data_mini)
+
+
+# %%
+
+
+def get_out_by_components_NOT_WORKING(
+    model: HookedTransformer, data: BracketsDataset
+) -> Float[Tensor, "component batch seq_pos emb"]:
+    """
+    Computes a tensor of shape [10, dataset_size, seq_pos, emb] representing the output of the model's components when run on the data.
+    The first dimension is  [embeddings, head 0.0, head 0.1, mlp 0, head 1.0, head 1.1, mlp 1, head 2.0, head 2.1, mlp 2]
+    """
+
+    acts = [utils.get_act_name("result", x) for x in range(3)]
+    mlps = [utils.get_act_name("mlp_out", x) for x in range(3)]
+    names = ["embed"] + acts + mlps
+    cache = get_activations(model, data.toks, names)
+
+    embed = cache[names[0]]
+    heads = [cache[name] for name in names[1:4]]
+    mlps = [cache[name] for name in names[4:]]
+
+    output = [embed]
+    for layer_x in range(3):
+        for head_ix in range(2):
+            output.append(heads[layer_x][:, :, head_ix, :])
+        output.append(mlps[layer_x])
+
+    return t.stack(output)
+
+    # """
+    # _, cache = model.run_with_cache(data.toks)
+    # pre_final_ln_dir = get_pre_final_ln_dir(model, data)
+
+    # output = []
+    # output.append(cache["embed"])
+    # for layer_x in range(3):
+    #     heads = cache["result", layer_x]
+    #     mlp = cache["mlp_out", layer_x]
+
+    #     for head_x in range(2):
+    #         output.append(heads[:,:,head_x,:])
+
+    #     output.append(mlp)
+
+    # return t.stack(output)
+    # """
+
+
+def get_out_by_components(
+    model: HookedTransformer, data: BracketsDataset
+) -> Float[Tensor, "component batch seq_pos emb"]:
+    """
+    Computes a tensor of shape [10, dataset_size, seq_pos, emb] representing the output of the model's components when run on the data.
+    The first dimension is  [embeddings, head 0.0, head 0.1, mlp 0, head 1.0, head 1.1, mlp 1, head 2.0, head 2.1, mlp 2]
+    """
+    # SOLUTION
+    embedding_hook_names = ["hook_embed", "hook_pos_embed"]
+    head_hook_names = [
+        utils.get_act_name("result", layer) for layer in range(model.cfg.n_layers)
+    ]
+    mlp_hook_names = [
+        utils.get_act_name("mlp_out", layer) for layer in range(model.cfg.n_layers)
+    ]
+
+    all_hook_names = embedding_hook_names + head_hook_names + mlp_hook_names
+    activations = get_activations(model, data.toks, all_hook_names)
+
+    out = (activations["hook_embed"] + activations["hook_pos_embed"]).unsqueeze(0)
+
+    for head_hook_name, mlp_hook_name in zip(head_hook_names, mlp_hook_names):
+        out = t.concat(
+            [
+                out,
+                einops.rearrange(
+                    activations[head_hook_name],
+                    "batch seq heads emb -> heads batch seq emb",
+                ),
+                activations[mlp_hook_name].unsqueeze(0),
+            ]
+        )
+
+    return out
+
+
+if MAIN:
+    tests.test_get_out_by_components(get_out_by_components, model, data_mini)
+# %%
+
+if MAIN:
+    # YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
+
+    out_by_componets = get_out_by_components(model=model, data=data)
+    out_by_componets_first = out_by_componets[:, :, 0, :]
+    pre_dir = get_pre_final_ln_dir(model=model, data=data)
+    out_by_component_and_seq_in_unbalanced_dir = out_by_componets_first @ pre_dir
+
+    out_by_component_in_unbalanced_dir = (
+        out_by_component_and_seq_in_unbalanced_dir
+        - out_by_component_and_seq_in_unbalanced_dir[:, data.isbal]
+        .mean(dim=1)
+        .unsqueeze(1)
+    )
+    tests.test_out_by_component_in_unbalanced_dir(
+        out_by_component_in_unbalanced_dir, model, data
+    )
+
+    plotly_utils.hists_per_comp(
+        out_by_component_in_unbalanced_dir, data, xaxis_range=[-10, 20]
+    )
+
+
+# %%
+
+
+def is_balanced_vectorized_return_both(
+    toks: Float[Tensor, "batch seq"]
+) -> Tuple[Bool[Tensor, "batch"], Bool[Tensor, "batch"]]:
+    lookup = t.tensor([0, 0, 0, 1, -1]).to(device)
+    to_add = lookup[[toks.int()]]
+    cums = to_add.flip(-1).cumsum(dim=-1)
+
+    total_elevation_failure = cums[:, -1] != 0
+    negative_failure = (cums > 0).any(dim=-1)
+    return (total_elevation_failure, negative_failure)
+
+
+if MAIN:
+    total_elevation_failure, negative_failure = is_balanced_vectorized_return_both(
+        data.toks
+    )
+    h20_in_unbalanced_dir = out_by_component_in_unbalanced_dir[7]
+    h21_in_unbalanced_dir = out_by_component_in_unbalanced_dir[8]
+
+    tests.test_total_elevation_and_negative_failures(
+        data, total_elevation_failure, negative_failure
+    )
+
+# %%
+
+if MAIN:
+    failure_types_dict = {
+        "both failures": negative_failure & total_elevation_failure,
+        "just neg failure": negative_failure & ~total_elevation_failure,
+        "just total elevation failure": ~negative_failure & total_elevation_failure,
+        "balanced": ~negative_failure & ~total_elevation_failure,
+    }
+
+    plotly_utils.plot_failure_types_scatter(
+        h20_in_unbalanced_dir, h21_in_unbalanced_dir, failure_types_dict, data
+    )
+# %%
+
+if MAIN:
+    plotly_utils.plot_contribution_vs_open_proportion(
+        h20_in_unbalanced_dir,
+        "Head 2.0 contribution vs proportion of open brackets '('",
+        failure_types_dict,
+        data,
+    )
+# %%
+
+if MAIN:
+    plotly_utils.plot_contribution_vs_open_proportion(
+        h21_in_unbalanced_dir,
+        "Head 2.1 contribution vs proportion of open brackets '('",
+        failure_types_dict,
+        data,
+    )
 # %%
