@@ -499,3 +499,12 @@ if MAIN:
     ablation_scores = get_ablation_scores(model, rep_tokens)
     tests.test_get_ablation_scores(ablation_scores, model, rep_tokens)
 # %%
+if MAIN:
+    imshow(
+        ablation_scores, 
+        labels={"x": "Head", "y": "Layer", "color": "Logit diff"},
+        title="Logit Difference After Ablating Heads", 
+        text_auto=".2f",
+        width=900, height=400
+    )
+# %%
