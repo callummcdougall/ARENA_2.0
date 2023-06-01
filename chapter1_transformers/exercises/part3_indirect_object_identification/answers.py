@@ -374,7 +374,7 @@ def get_act_patch_resid_pre(
     patching_results = []
 
     for l in range(12):
-        head_patching_results = []
+        pos_patching_results = []
         for p in range(seq_len):
             patching_fn = partial(patch_residual_component, pos=p, clean_cache=clean_cache)
             logits = model.run_with_hooks(
@@ -386,8 +386,8 @@ def get_act_patch_resid_pre(
             # print(f"patching metric for {l}.{h}:")
             # print(patching_metric(logits))
             # print()
-            head_patching_results.append(patching_metric(logits))
-        patching_results.append(head_patching_results)
+            pos_patching_results.append(patching_metric(logits))
+        patching_results.append(pos_patching_results)
 
     return t.tensor(patching_results).to(device)
 
@@ -405,5 +405,145 @@ if MAIN:
         title="Logit Difference From Patched Residual Stream", 
         labels={"x":"Sequence Position", "y":"Layer"},
         width=600 # If you remove this argument, the plot will usually fill the available space
+    )
+# %%
+if MAIN:
+    act_patch_block_every = patching.get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
+
+    imshow(
+        act_patch_block_every,
+        x=labels, 
+        facet_col=0, # This argument tells plotly which dimension to split into separate plots
+        facet_labels=["Residual Stream", "Attn Output", "MLP Output"], # Subtitles of separate plots
+        title="Logit Difference From Patched Attn Head Output", 
+        labels={"x": "Sequence Position", "y": "Layer"},
+        width=1000,
+    )
+# %%
+def get_act_patch_block_every(
+    model: HookedTransformer, 
+    corrupted_tokens: Float[Tensor, "batch pos"], 
+    clean_cache: ActivationCache, 
+    patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float]
+) -> Float[Tensor, "layer pos"]:
+    '''
+    Returns an array of results of patching each position at each layer in the residual
+    stream, using the value from the clean cache.
+
+    The results are calculated using the patching_metric function, which should be
+    called on the model's logit output.
+    '''
+    model.reset_hooks()
+    seq_len = corrupted_tokens.shape[1]
+    patching_results = t.zeros((3,model.cfg.n_layers,seq_len), device=device)
+
+    for idx, component in enumerate(["resid_pre", "attn_out", "mlp_out"]):
+        for l in range(12):
+            pos_patching_results = t.zeros(seq_len, device=device)
+            for p in range(seq_len):
+                patching_fn = partial(patch_residual_component, pos=p, clean_cache=clean_cache)
+                logits = model.run_with_hooks(
+                    corrupted_tokens,
+                    fwd_hooks=[
+                        (utils.get_act_name(component, l), patching_fn)
+                    ]
+                )
+                pos_patching_results[p] = patching_metric(logits)
+            patching_results[idx][l] = pos_patching_results
+
+    return t.tensor(patching_results).to(device)
+
+
+if MAIN:
+    act_patch_block_every_own = get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
+
+    t.testing.assert_close(act_patch_block_every, act_patch_block_every_own)
+
+    imshow(
+        act_patch_block_every_own,
+        x=labels, 
+        facet_col=0,
+        facet_labels=["Residual Stream", "Attn Output", "MLP Output"],
+        title="Logit Difference From Patched Attn Head Output", 
+        labels={"x": "Sequence Position", "y": "Layer"},
+        width=1000
+    )
+# %%
+if MAIN:
+    act_patch_attn_head_out_all_pos = patching.get_act_patch_attn_head_out_all_pos(
+        model, 
+        corrupted_tokens, 
+        clean_cache, 
+        ioi_metric
+    )
+
+    imshow(
+        act_patch_attn_head_out_all_pos, 
+        labels={"y": "Layer", "x": "Head"}, 
+        title="attn_head_out Activation Patching (All Pos)",
+        width=600
+    )
+# %%
+print(clean_cache["attn", 0, "result"].shape)
+print(clean_cache["attn", 0, "hook_z"].shape)
+print(clean_cache["z", 0].shape)
+print(clean_cache[utils.get_act_name("z", 0)].shape)
+# %%
+def patch_head_vector(
+    corrupted_head_vector: Float[Tensor, "batch pos head_index d_head"],
+    hook: HookPoint, 
+    head_index: int, 
+    clean_cache: ActivationCache
+) -> Float[Tensor, "batch pos head_index d_head"]:
+    '''
+    Patches the output of a given head (before it's added to the residual stream) at
+    every sequence position, using the value from the clean cache.
+    '''
+    corrupted_head_vector[:,:,head_index,:] = clean_cache["z", hook.layer()][:,:,head_index,:]
+    return corrupted_head_vector
+
+def get_act_patch_attn_head_out_all_pos(
+    model: HookedTransformer, 
+    corrupted_tokens: Float[Tensor, "batch pos"], 
+    clean_cache: ActivationCache, 
+    patching_metric: Callable
+) -> Float[Tensor, "layer head"]:
+    '''
+    Returns an array of results of patching at all positions for each head in each
+    layer, using the value from the clean cache.
+
+    The results are calculated using the patching_metric function, which should be
+    called on the model's logit output.
+    '''
+    model.reset_hooks()
+
+    n_layers = model.cfg.n_layers
+    n_heads = model.cfg.n_heads
+    results = t.zeros((n_layers, n_heads), device=device)
+
+    for l in range(n_layers):
+        for h in range(n_heads):
+            patching_fn = partial(patch_head_vector, head_index=h, clean_cache=clean_cache)
+            logits = model.run_with_hooks(
+                corrupted_tokens,
+                fwd_hooks=[
+                    (utils.get_act_name("z", l), patching_fn)
+                ]
+            )
+            results[l][h] = patching_metric(logits)
+    
+    return results
+
+
+if MAIN:
+    act_patch_attn_head_out_all_pos_own = get_act_patch_attn_head_out_all_pos(model, corrupted_tokens, clean_cache, ioi_metric)
+
+    t.testing.assert_close(act_patch_attn_head_out_all_pos, act_patch_attn_head_out_all_pos_own)
+
+    imshow(
+        act_patch_attn_head_out_all_pos_own,
+        title="Logit Difference From Patched Attn Head Output", 
+        labels={"x":"Head", "y":"Layer"},
+        width=600
     )
 # %%
