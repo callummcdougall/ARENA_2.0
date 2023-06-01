@@ -179,7 +179,6 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part6_othellogpt"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-!pip install git+https://github.com/neelnanda-io/neel-plotly
 from plotly_utils import imshow
 from neel_plotly import scatter, line
 import part6_othellogpt.tests as tests
@@ -218,6 +217,7 @@ def section_1():
     <li class='margtop'><a class='contents-el' href='#using-the-probe'>Using the probe</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#computing-accuracy'>Computing Accuracy</a></li>
+        <li><a class='contents-el' href='#exercise-calculate-probe-cosine-similarities'><b>Exercise</b> - calculate probe cosine similarities</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#intervening-with-the-probe'>Intervening with the probe</a></li>
     <li><ul class="contents">
@@ -415,6 +415,7 @@ def to_board_label(i):
 
 if MAIN:
     board_labels = list(map(to_board_label, stoi_indices))
+    full_board_labels = list(map(to_board_label, range(64)))
 
 ```
 
@@ -865,6 +866,47 @@ if MAIN:
 ```
 
 Note that we can see the probe is worse near corners, as we anecdotally observed.
+
+
+### Exercise - calculate probe cosine similarities
+
+As another nice way of visualising how the "black to play" and "white to play" probes are similar, we can calculate the cosine similarity between each of the embedding vectors for both odd and even modes.
+
+Try and replicate Neel's plot, which you can find at [this link](https://res.cloudinary.com/lesswrong-2-0/image/upload/f_auto,q_auto/v1/mirroredImages/nmxzr2zsjNtjaHh7x/cuxy4pf353wazoq5emmn). You can see in this plot that the cosine similarities for the probe directions at odd and even moves are close to -1 (indicating that the probes are finding the right directions).
+
+Remember, `full_linear_probe` has shape `(modes=3, d_model=512, rows=8, cols=8, options=3)`. The modes are black to play (odd) / white to play (even) / all, and the options are blank / black / white respectively. The plot we're trying to replicate has the cosine similarity of the probe direction at every square in the board, for odd and even modes (denoted with `(O)` and `(E)` in the reference plot).
+
+
+```python
+
+if MAIN:
+    # YOUR CODE HERE - define the `cosine_similarities` tensor, to be plotted
+    imshow(
+        cosine_similarities,
+        title="Cosine Sim of B-W Linear Probe Directions by Cell",
+        x=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+        y=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+    )
+
+```
+
+<details>
+<summary>Solution</summary>
+
+
+```python
+odd_BminusW_probe = full_linear_probe[0, ..., 1] - full_linear_probe[0, ..., 2]
+even_BminusW_probe = full_linear_probe[1, ..., 1] - full_linear_probe[1, ..., 2]
+both_probs = einops.rearrange(
+    t.stack([odd_BminusW_probe, even_BminusW_probe], dim=0),
+    "modes d_model rows cols -> (modes rows cols) d_model"
+both_probs /= both_probs.norm(dim=-1, keepdim=True)
+cosine_similarities = einops.einsum(
+    both_probs, both_probs,
+    "square_y d_model, square_x d_model -> square_y square_x",
+
+```
+</details>
 
 
 ## Intervening with the probe

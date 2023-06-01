@@ -111,8 +111,8 @@ if MAIN:
 	OTHELLO_ROOT = (section_dir / "othello_world").resolve()
 	OTHELLO_MECHINT_ROOT = (OTHELLO_ROOT / "mechanistic_interpretability").resolve()
 	
-	# if not OTHELLO_ROOT.exists():
-	# 	!git clone https://github.com/likenneth/othello_world
+	if not OTHELLO_ROOT.exists():
+		!git clone https://github.com/likenneth/othello_world
 	
 	sys.path.append(str(OTHELLO_MECHINT_ROOT))
 
@@ -153,6 +153,7 @@ def to_board_label(i):
 
 if MAIN:
 	board_labels = list(map(to_board_label, stoi_indices))
+	full_board_labels = list(map(to_board_label, range(64)))
 
 # %%
 
@@ -391,6 +392,33 @@ if MAIN:
 
 if MAIN:
 	# FLAT SOLUTION
+	# YOUR CODE HERE - define the `cosine_similarities` tensor, to be plotted
+	odd_BminusW_probe = full_linear_probe[0, ..., 1] - full_linear_probe[0, ..., 2]
+	even_BminusW_probe = full_linear_probe[1, ..., 1] - full_linear_probe[1, ..., 2]
+	
+	both_probs = einops.rearrange(
+		t.stack([odd_BminusW_probe, even_BminusW_probe], dim=0),
+		"modes d_model rows cols -> (modes rows cols) d_model"
+	)
+	both_probs /= both_probs.norm(dim=-1, keepdim=True)
+	
+	cosine_similarities = einops.einsum(
+		both_probs, both_probs,
+		"square_y d_model, square_x d_model -> square_y square_x",
+	)
+	
+	imshow(
+		cosine_similarities,
+		title="Cosine Sim of B-W Linear Probe Directions by Cell",
+		x=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+		y=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+	)
+
+# %%
+
+
+if MAIN:
+	# FLAT SOLUTION
 	# YOUR CODE HERE - define `blank_probe` and `my_probe`
 	blank_probe = linear_probe[..., 0] - linear_probe[..., 1] * 0.5 - linear_probe[..., 2] * 0.5
 	my_probe = linear_probe[..., 2] - linear_probe[..., 1]
@@ -467,21 +495,21 @@ if MAIN:
 	for scale in scales:
 	
 		# Hook function which will perform flipping in the "F4 flip direction"
-		def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
-			return apply_scale(resid, flip_dir, scale, pos)
+	def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
+		return apply_scale(resid, flip_dir, scale, pos)
 
-		# Calculate the logits for the board state, with the `flip_hook` intervention
-		# (note that we only need to use :pos+1 as input, because of causal attention)
-		flipped_logits: Tensor = model.run_with_hooks(
-			focus_games_int[game_index:game_index+1, :pos+1],
-			fwd_hooks=[
-				(utils.get_act_name("resid_post", layer), flip_hook),
-			]
-		).log_softmax(dim=-1)[0, pos]
+	# Calculate the logits for the board state, with the `flip_hook` intervention
+	# (note that we only need to use :pos+1 as input, because of causal attention)
+	flipped_logits: Tensor = model.run_with_hooks(
+		focus_games_int[game_index:game_index+1, :pos+1],
+		fwd_hooks=[
+			(utils.get_act_name("resid_post", layer), flip_hook),
+		]
+	).log_softmax(dim=-1)[0, pos]
 
-		flip_state = t.zeros((64,), dtype=t.float32, device=device) - 10.
-		flip_state[stoi_indices] = flipped_logits.log_softmax(dim=-1)[1:]
-		big_flipped_states_list.append(flip_state)
+	flip_state = t.zeros((64,), dtype=t.float32, device=device) - 10.
+	flip_state[stoi_indices] = flipped_logits.log_softmax(dim=-1)[1:]
+	big_flipped_states_list.append(flip_state)
 
 
 if MAIN:
