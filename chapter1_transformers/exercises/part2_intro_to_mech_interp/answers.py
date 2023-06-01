@@ -335,27 +335,27 @@ def visualize_pattern_hook(
     )
 
 
-if MAIN:
-    induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads),
-                                     device=gpt2_small.cfg.device)
-    gpt2_small.run_with_hooks(
-        rep_tokens_10,
-        return_type=None,
-        fwd_hooks=[(
-            pattern_hook_names_filter,
-            induction_score_hook
-        ),(
-        pattern_hook_names_filter,
-            visualize_pattern_hook
-        ,)
-        ]
-    )
-    imshow(
-        induction_score_store, 
-        labels={"x": "Head", "y": "Layer"}, 
-        title="Induction Score by Head", 
-        text_auto=".2f",
-        width=900, height=400)
+# if MAIN:
+#     induction_score_store = t.zeros((gpt2_small.cfg.n_layers, gpt2_small.cfg.n_heads),
+#                                      device=gpt2_small.cfg.device)
+#     gpt2_small.run_with_hooks(
+#         rep_tokens_10,
+#         return_type=None,
+#         fwd_hooks=[(
+#             pattern_hook_names_filter,
+#             induction_score_hook
+#         ),(
+#         pattern_hook_names_filter,
+#             visualize_pattern_hook
+#         ,)
+#         ]
+#     )
+#     imshow(
+#         induction_score_store, 
+#         labels={"x": "Head", "y": "Layer"}, 
+#         title="Induction Score by Head", 
+#         text_auto=".2f",
+#         width=900, height=400)
 
 # %%
 def logit_attribution(
@@ -595,17 +595,21 @@ if MAIN:
 # %%
 
 if MAIN:
-    layer = 1
-    head_index = 4
-    full_OV_circuit = model.W_E @ FactoredMatrix(model.W_V[layer, head_index], model.W_O[layer, head_index]) @ model.W_U
+    # layer = 1
+    # head_index = 4
+    # full_OV_circuit = model.W_E @ FactoredMatrix(model.W_V[layer, head_index], model.W_O[layer, head_index]) @ model.W_U
+    full_OV_circuit_1 = model.W_E @ FactoredMatrix(model.W_V[1, 4], model.W_O[1, 4]) @ model.W_U 
+    full_OV_circuit_2 = model.W_E @ FactoredMatrix(model.W_V[1, 10], model.W_O[1, 10]) @ model.W_U
 
-    tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
+    # tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
 
 # %%
 
 if MAIN:
     random_rows = t.randint(0, model.cfg.d_vocab, size=(200,))
-    full_OV_circuit_sample = full_OV_circuit[random_rows, random_rows].AB
+    full_OV_circuit_sample_1 = full_OV_circuit_1[random_rows, random_rows].AB
+    full_OV_circuit_sample_2 = full_OV_circuit_2[random_rows, random_rows].AB
+    full_OV_circuit_sample = full_OV_circuit_sample_1 + full_OV_circuit_sample_2
 
     imshow(
         full_OV_circuit_sample,
@@ -629,12 +633,12 @@ def top_1_acc(full_OV_circuit: FactoredMatrix) -> float:
     return accuracy.float().mean()
 
 
-if MAIN:
-    print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit):.4f}")
+# if MAIN:
+#     print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(full_OV_circuit_sample):.4f}")
 # %%
 if MAIN:
-    full_OV_circuit = model.W_E @ (FactoredMatrix(model.W_V[1, 4], model.W_O[1, 4]) + 
-                                   FactoredMatrix(model.W_V[1, 10], model.W_O[1, 10])) @ model.W_U
+    # full_OV_circuit = model.W_E @ (FactoredMatrix(model.W_V[1, 4], model.W_O[1, 4]) + 
+    #                                FactoredMatrix(model.W_V[1, 10], model.W_O[1, 10])) @ model.W_U
 
     random_rows = t.randint(0, model.cfg.d_vocab, size=(200,))
     full_OV_circuit_sample = full_OV_circuit[random_rows, random_rows].AB
@@ -646,3 +650,141 @@ if MAIN:
         width=700,
     )
 # %%
+W_O_both = einops.rearrange(model.W_O[1, [4, 10]], "head d_head d_model -> (head d_head) d_model")
+W_V_both = einops.rearrange(model.W_V[1, [4, 10]], "head d_model d_head -> d_model (head d_head)")
+
+W_OV_eff = model.W_E @ FactoredMatrix(W_V_both, W_O_both) @ model.W_U
+
+print(f"Fraction of the time that the best logit is on the diagonal: {top_1_acc(W_OV_eff):.4f}")
+# %%
+
+def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
+    '''Mask the attention scores so that tokens don't attend to previous tokens.'''
+    assert attn_scores.shape == (model.cfg.n_ctx, model.cfg.n_ctx)
+    mask = t.tril(t.ones_like(attn_scores)).bool()
+    neg_inf = t.tensor(-1.0e6).to(attn_scores.device)
+    masked_attn_scores = t.where(mask, attn_scores, neg_inf)
+    return masked_attn_scores
+
+
+
+if MAIN:
+    # YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
+    pos_by_pos_pattern = model.W_pos @ model.W_Q[0, 7] @ model.W_K[0, 7].T @ model.W_pos.T
+    pos_by_pos_pattern = mask_scores(pos_by_pos_pattern/model.cfg.d_head**0.5)
+    # pos_by_pos_pattern = pos_by_pos_pattern.softmax(dim=-1)
+    # layer = 0
+    # head_index = 7
+    # W_pos = model.W_pos
+    # W_QK = model.W_Q[layer, head_index] @ model.W_K[layer, head_index].T
+    # pos_by_pos_scores = W_pos @ W_QK @ W_pos.T
+    # masked_scaled = mask_scores(pos_by_pos_scores / model.cfg.d_head ** 0.5)
+    pos_by_pos_pattern = t.softmax(pos_by_pos_pattern, dim=-1)
+    tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, 7)
+
+# %%
+def decompose_qk_input(cache: ActivationCache) -> t.Tensor:
+    '''
+    Output is decomposed_qk_input, with shape [2+num_heads, seq, d_model]
+
+    The [i, :, :]th element is y_i (from notation above)
+    '''
+    decomposed = t.zeros(size=(2+cache.model.cfg.n_heads, cache["hook_embed"].shape[0], cache["hook_embed"].shape[1])).to(device=cache.model.cfg.device)
+    decomposed[0] = cache["hook_embed"]
+    decomposed[1] = cache["hook_pos_embed"]
+    decomposed[2:] = einops.rearrange(cache["result", 0], "seq heads d_model -> heads seq d_model")
+    return decomposed
+
+def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
+    '''
+    Output is decomposed_q with shape [2+num_heads, position, d_head]
+
+    The [i, :, :]th element is y_i @ W_Q (so the sum along axis 0 is just the q-values)
+    '''
+    W_Q = model.W_Q[1, ind_head_index]
+    return decomposed_qk_input @ W_Q
+
+def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
+    '''
+    Output is decomposed_k with shape [2+num_heads, position, d_head]
+
+    The [i, :, :]th element is y_i @ W_K (so the sum along axis 0 is just the k-values)
+    '''
+    W_K = model.W_K[1, ind_head_index]
+    return decomposed_qk_input @ W_K
+
+
+if MAIN:
+    ind_head_index = 4
+    # First we get decomposed q and k input, and check they're what we expect
+    decomposed_qk_input = decompose_qk_input(rep_cache)
+    decomposed_q = decompose_q(decomposed_qk_input, ind_head_index)
+    decomposed_k = decompose_k(decomposed_qk_input, ind_head_index)
+    t.testing.assert_close(decomposed_qk_input.sum(0), rep_cache["resid_pre", 1] + rep_cache["pos_embed"], rtol=0.01, atol=1e-05)
+    t.testing.assert_close(decomposed_q.sum(0), rep_cache["q", 1][:, ind_head_index], rtol=0.01, atol=0.001)
+    t.testing.assert_close(decomposed_k.sum(0), rep_cache["k", 1][:, ind_head_index], rtol=0.01, atol=0.01)
+    # Second, we plot our results
+    component_labels = ["Embed", "PosEmbed"] + [f"0.{h}" for h in range(model.cfg.n_heads)]
+    for decomposed_input, name in [(decomposed_q, "query"), (decomposed_k, "key")]:
+        imshow(
+            utils.to_numpy(decomposed_input.pow(2).sum([-1])), 
+            labels={"x": "Position", "y": "Component"},
+            title=f"Norms of components of {name}", 
+            y=component_labels,
+            width=1000, height=400
+        )
+# %%
+
+def decompose_attn_scores(decomposed_q: t.Tensor, decomposed_k: t.Tensor) -> t.Tensor:
+    return einops.einsum(decomposed_q, decomposed_k, "num_heads_q position_q d_head, \
+                         num_heads_k position_k d_head -> num_heads_q num_heads_k position_q position_k")
+
+
+if MAIN:
+    tests.test_decompose_attn_scores(decompose_attn_scores, decomposed_q, decomposed_k)
+# %%
+if MAIN:
+    decomposed_scores = decompose_attn_scores(decomposed_q, decomposed_k)
+    decomposed_stds = einops.reduce(
+        decomposed_scores, 
+        "query_decomp key_decomp query_pos key_pos -> query_decomp key_decomp", 
+        t.std
+    )
+
+    # First plot: attention score contribution from (query_component, key_component) = (Embed, L0H7)
+    imshow(
+        utils.to_numpy(t.tril(decomposed_scores[0, 9])), 
+        title="Attention score contributions from (query, key) = (embed, output of L0H7)",
+        width=800
+    )
+
+    # Second plot: std dev over query and key positions, shown by component
+    imshow(
+        utils.to_numpy(decomposed_stds), 
+        labels={"x": "Key Component", "y": "Query Component"},
+        title="Standard deviations of attention score contributions (by key and query component)", 
+        x=component_labels, 
+        y=component_labels,
+        width=800
+    )
+# %%
+def find_K_comp_full_circuit(
+    model: HookedTransformer,
+    prev_token_head_index: int,
+    ind_head_index: int
+) -> FactoredMatrix:
+    '''
+    Returns a (vocab, vocab)-size FactoredMatrix, with the first dimension being the query side and the second dimension being the key side (going via the previous token head)
+    '''
+    pass
+
+
+if MAIN:
+    prev_token_head_index = 7
+    ind_head_index = 4
+    K_comp_circuit = find_K_comp_full_circuit(model, prev_token_head_index, ind_head_index)
+
+    tests.test_find_K_comp_full_circuit(find_K_comp_full_circuit, model)
+
+    print(f"Fraction of tokens where the highest activating key is the same token: {top_1_acc(K_comp_circuit.T):.4f}")
+
