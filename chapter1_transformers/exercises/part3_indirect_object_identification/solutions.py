@@ -1620,7 +1620,8 @@ if MAIN:
 		return minimality_scores
 
 
-minimality_scores = get_all_minimality_scores(model)
+if MAIN:
+	minimality_scores = get_all_minimality_scores(model)
 
 # %%
 

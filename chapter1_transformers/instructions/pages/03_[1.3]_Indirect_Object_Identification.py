@@ -132,7 +132,7 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 * If for some reason you forget to ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?", then you'll have another chance to do this.
     * These are *(Backup Name Mover Heads)*
     * Their existance might be partly because transformers are trained with **dropout**. This can make them "forget" things, so it's important to have a backup method for recovering that information!
-* You want to avoid overconfidence, so you also ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?" another time, in order to ***anti-***predict the response that you get from this question. *(negative name mover heads)*
+* You want to avoid overconfidence, so you also ask the question "does anyone have a name that isn't `" John"`, and isn't at the 4th position in the sequence?" another time, in order to *anti-*predict the response that you get from this question. *(negative name mover heads)*
     * Yes, this is as weird as it sounds! The authors speculate that these heads "hedge" the predictions, avoiding high cross-entropy loss when making mistakes.
 
 </details>
@@ -1020,18 +1020,18 @@ if MAIN:
         top_heads = topk_of_Nd_tensor(per_head_logit_diffs * (1 if head_type=="Positive" else -1), k)
     
         # Get all their attention patterns
-    attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack([
-        cache["pattern", layer][:, head].mean(0)
-         for layer, head in top_heads
-    ])
+        attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack([
+            cache["pattern", layer][:, head].mean(0)
+            for layer, head in top_heads
+        ])
 
-    # Display results
-    display(HTML(f"<h2>Top {k} {head_type} Logit Attribution Heads</h2>"))
-    display(cv.attention.attention_patterns(
-        attention = attn_patterns_for_important_heads,
-        tokens = model.to_str_tokens(tokens[0]),
-        attention_head_names = [f"{layer}.{head}" for layer, head in top_heads],
-    ))
+        # Display results
+        display(HTML(f"<h2>Top {k} {head_type} Logit Attribution Heads</h2>"))
+        display(cv.attention.attention_patterns(
+            attention = attn_patterns_for_important_heads,
+            tokens = model.to_str_tokens(tokens[0]),
+            attention_head_names = [f"{layer}.{head}" for layer, head in top_heads],
+        ))
 
 ```
 
