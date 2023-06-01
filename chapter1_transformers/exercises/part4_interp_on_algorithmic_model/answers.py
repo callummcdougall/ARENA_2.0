@@ -369,7 +369,7 @@ if MAIN:
 
     balanced_out_components = out_by_component_in_unbalanced_dir[:, data.isbal].mean(dim=1)
 
-    # out_by_component_in_unbalanced_dir -= einops.repeat(balanced_out_components, "comp -> comp b", b=5000)
+    out_by_component_in_unbalanced_dir -= einops.repeat(balanced_out_components, "comp -> comp b", b=5000)
     
 
     tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
@@ -481,7 +481,17 @@ if MAIN:
 if MAIN:
     # YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
     pre_20_dir = get_pre_20_dir(model, data)
-    out_components = get_out_by_components(model, data)[:,:,0] # [10, dataset_size, emb]
+
+    # want embed, layer 0 heads+mlp, layer 1 heads+mlp
+    out_components_20 = get_out_by_components(model, data)[:7,:,1] # [7, dataset_size, emb in pos 1]
+
+    out_by_component_in_pre_20_unbalanced_dir = einops.einsum(pre_20_dir, out_components_20, 
+                                                       "emb, comp b emb -> comp b")
+
+    balanced_out_components = out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(dim=1)
+
+    out_by_component_in_pre_20_unbalanced_dir -= einops.repeat(balanced_out_components, "comp -> comp b", b=5000)
+
 
     tests.test_out_by_component_in_pre_20_unbalanced_dir(out_by_component_in_pre_20_unbalanced_dir, model, data)
 
@@ -489,3 +499,42 @@ if MAIN:
         out_by_component_in_pre_20_unbalanced_dir, 
         data, xaxis_range=(-5, 12)
     )
+# %%
+
+if MAIN:
+    plotly_utils.mlp_attribution_scatter(out_by_component_in_pre_20_unbalanced_dir, data, failure_types_dict)
+
+
+# %%
+def get_out_by_neuron(
+    model: HookedTransformer, 
+    data: BracketsDataset, 
+    layer: int, 
+    seq: Optional[int] = None
+) -> Float[Tensor, "batch *seq neuron d_model"]:
+    '''
+    If seq is not None, then out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :],
+    i.e. the vector which is written to the residual stream by the ith neuron (where x
+    is the input to the residual stream (i.e. shape (batch, seq, d_model)).
+
+    If seq is None, then out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+    (Note, using * in jaxtyping indicates an optional dimension)
+    '''
+    
+    pass
+
+def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset, layer: int) -> Float[Tensor, "batch neurons"]:
+    '''
+    [b, s, i]th element is the contribution of the vector written by the ith neuron to the residual stream in the 
+    unbalanced direction (for the b-th element in the batch, and the s-th sequence position).
+
+    In other words we need to take the vector produced by the `get_out_by_neuron` function, and project it onto the 
+    unbalanced direction for head 2.0 (at seq pos = 1).
+    '''
+    pass
+
+
+if MAIN:
+    tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
+    tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
