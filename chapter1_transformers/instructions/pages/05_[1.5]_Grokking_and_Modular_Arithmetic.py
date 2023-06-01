@@ -1013,7 +1013,7 @@ Complete the following function. Note that (unlike the function we wrote for the
 
 
 ```python
-def fourier_2d_basis_term(i: int, j: int) -> TT[p, p]:
+def fourier_2d_basis_term(i: int, j: int) -> Float[Tensor, "p p"]:
     '''
     Returns the 2D Fourier basis term corresponding to the outer product of the
     `i`-th component of the 1D Fourier basis in the `x` direction and the `j`-th
@@ -1050,7 +1050,7 @@ if MAIN:
 <summary>Solution</summary>
 
 ```python
-def fourier_2d_basis_term(i: int, j: int) -> TT[p, p]:
+def fourier_2d_basis_term(i: int, j: int) -> Float[Tensor, "p p"]:
     '''
     Returns the 2D Fourier basis term corresponding to the outer product of the
     `i`-th component of the 1D Fourier basis in the `x` direction and the `j`-th
@@ -1798,8 +1798,8 @@ def arrange_by_2d_freqs(tensor):
 
 
 def find_neuron_freqs(
-    fourier_neuron_acts: TT[p, p, d_mlp]
-) -> Tuple[TT[d_mlp], TT[d_mlp]]:
+    fourier_neuron_acts: Float[Tensor, "p p d_mlp"]
+) -> Tuple[Float[Tensor, "d_mlp"], Float[Tensor, "d_mlp"]]:
     '''
     Returns the tensors `neuron_freqs` and `neuron_frac_explained`, 
     containing the frequencies that explain the most variance of each 
@@ -1835,8 +1835,8 @@ Note the use of `einops.reduce` in the solution, rather than just using e.g. `fo
 
 ```python
 def find_neuron_freqs(
-    fourier_neuron_acts: TT[p, p, d_mlp]
-) -> Tuple[TT[d_mlp], TT[d_mlp]]:
+    fourier_neuron_acts: Float[Tensor, "p p d_mlp"]
+) -> Tuple[Float[Tensor, "d_mlp"], Float[Tensor, "d_mlp"]]:
     '''
     Returns the tensors `neuron_freqs` and `neuron_frac_explained`, 
     containing the frequencies that explain the most variance of each 
@@ -2309,7 +2309,7 @@ respectively. Remember, the vectors you return should be normalized.
 
 
 ```python
-def get_trig_sum_directions(k: int) -> Tuple[TT[p, p], TT[p, p]]:
+def get_trig_sum_directions(k: int) -> Tuple[Float[Tensor, "p p"], Float[Tensor, "p p"]]:
     '''
     Given frequency k, returns the normalized vectors in the 2D Fourier basis 
     representing the directions:
@@ -2342,7 +2342,7 @@ cosx_cosy_direction = fourier_2d_basis_term(2*k-1, 2*k-1)
 
 
 ```python
-def get_trig_sum_directions(k: int) -> Tuple[TT[p, p], TT[p, p]]:
+def get_trig_sum_directions(k: int) -> Tuple[Float[Tensor, "p p"], Float[Tensor, "p p"]]:
     '''
     Given frequency k, returns the normalized vectors in the 2D Fourier basis 
     representing the directions:
