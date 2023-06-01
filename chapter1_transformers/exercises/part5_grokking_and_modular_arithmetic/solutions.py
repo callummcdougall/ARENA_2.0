@@ -1,6 +1,5 @@
 # %%
 
-from cgitb import Hook
 import torch as t
 import torch.nn.functional as F
 import numpy as np
@@ -23,11 +22,17 @@ import part5_grokking_and_modular_arithmetic.tests as tests
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
-os.chdir(r"C:\Users\calsm\Documents\AI Alignment\ARENA\TRANSFORMERLENS_AND_MI\exercises\grokking")
+import sys, os
+# Make sure exercises are in the path
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "part5_grokking_and_modular_arithmetic"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+
 # print(os.getcwd())
 
-root = Path('Grokking/saved_runs')
-large_root = Path('Grokking/large_files')
+root = Path(section_dir / 'Grokking/saved_runs')
+large_root = Path(section_dir / 'Grokking/large_files')
 
 MAIN = __name__ == "__main__"
 
