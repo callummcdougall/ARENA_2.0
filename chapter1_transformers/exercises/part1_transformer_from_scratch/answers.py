@@ -15,7 +15,7 @@ import torch.nn as nn
 import numpy as np
 import math
 from tqdm.notebook import tqdm
-from typing import Tuple, List, Optional
+from typing import Any, Tuple, List, Optional, Dict
 from jaxtyping import Float, Int
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 from collections import defaultdict
@@ -685,13 +685,13 @@ if MAIN:
     )
 
 if MAIN:
-    first_batch = data_loader.dataset[: args.batch_size]
+    first_batch = data_loader.dataset[:args.batch_size]
 
     print(first_batch.keys())
-    print(first_batch["tokens"].shape)
-
+    print(first_batch['tokens'].shape)
 
 # %%
+
 
 class LitTransformer(pl.LightningModule):
     def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
@@ -705,40 +705,37 @@ class LitTransformer(pl.LightningModule):
         logits = self.model(tokens)
         return logits
 
-    def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
+    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
         '''
         Here you compute and return the training loss and some additional metrics for e.g. 
         the progress bar or logger.
         '''
         tokens = batch['tokens'].to(device)
-        log_probs = get_log_probs(self(tokens), tokens)
-        loss = -log_probs.mean()
-        self.log("train_loss", loss)
+        logits = model(tokens)
+        logprobs = get_log_probs(logits, tokens) # "batch posn-1"
+        loss = -t.mean(logprobs)
+        self.log('train_loss', loss)
         return loss
 
-
-    def configure_optimizers(self):
-        '''
-        Choose what optimizers and learning-rate schedulers to use in your optimization.
-        '''
-        return t.optim.AdamW(self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
-
+    def configure_optimizers(self) -> Any:
+        optimizer = t.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        return optimizer
 
     def train_dataloader(self):
         return self.data_loader
 
+if MAIN:
+    litmodel = LitTransformer(args, model, data_loader)
+    print(f"Trying to start project with name {args.log_name}")
+    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name, entity="tkwa")
 
-# if MAIN:
-    # litmodel = LitTransformer(args, model, data_loader)
-    # logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
-
-    # trainer = pl.Trainer(
-    #     max_epochs=args.max_epochs,
-    #     logger=logger,
-    #     log_every_n_steps=args.log_every_n_steps
-    # )
-    # trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
-    # wandb.finish()
+    trainer = pl.Trainer(
+        max_epochs=args.max_epochs,
+        logger=logger,
+        log_every_n_steps=args.log_every_n_steps,
+    )
+    trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
+    wandb.finish()
 # %%
 
 if MAIN:
@@ -746,7 +743,7 @@ if MAIN:
 
     print(f"d_vocab = {d_vocab}")
     print(f"Cross entropy loss on uniform distribution = {math.log(d_vocab)}")
-
+# %%
 if MAIN:
     toks = tokenized_dataset[:]["tokens"].flatten()
 
@@ -758,288 +755,4 @@ if MAIN:
     entropy = distn.entropy()
 
     print(f"Entropy of training data = {entropy}")
-
-# %%
-
-if MAIN:
-    model_cfg = Config(debug=False)
-    model = DemoTransformer(model_cfg).to(device)
-    model.load_state_dict(reference_gpt2.state_dict(), strict=False)
-
-    tokenizer = reference_gpt2.tokenizer
-
-class TransformerSampler:
-
-    def __init__(self, model: DemoTransformer, tokenizer: GPT2TokenizerFast):
-        self.model = model
-        self.cfg = model.cfg
-        self.tokenizer = tokenizer
-
-    @t.inference_mode()
-    def sample(self, prompt: str, max_tokens_generated=100, verbose=False, **kwargs):
-        '''
-        Returns a string of autoregressively generated text, starting from the prompt.
-
-        Sampling terminates at max_tokens_generated, or when the model generates an
-        end-of-sequence token.
-
-        kwargs are passed to sample_next_token, to give detailed instructions on how 
-        new tokens are chosen.
-        '''
-        tokens = t.Tensor(self.tokenizer.encode(prompt))[None, :].long().to(device)
-        tokens_generated = 1
-        while tokens_generated <= max_tokens_generated:
-            logits = self.model(tokens)[0, -1]
-            next_token_int = self.sample_next_token(tokens[0], logits, **kwargs)
-            next_token = t.Tensor([[next_token_int]]).long().to(device)
-            tokens = t.cat([tokens, next_token], dim=-1)
-            
-            if verbose:
-                print(self.tokenizer.decode(tokens[0]))
-            
-            if next_token.squeeze().item() == self.tokenizer.eos_token_id:
-                break
-
-            tokens_generated += 1
-
-        return self.tokenizer.decode(tokens[0])
-
-    @t.inference_mode()
-    def beam_search(
-        self,
-        prompt: str, 
-        num_return_sequences: int, 
-        num_beams: int, 
-        max_new_tokens: int, 
-        no_repeat_ngram_size: int = 0,
-        verbose=False
-    ) -> List[Tuple[float, t.Tensor]]:
-        '''
-        Returns a string of autoregressively generated text, starting from the prompt.
-
-        Sampling terminates at max_tokens_generated, or when the model generates an
-        end-of-sequence token.
-
-        kwargs are passed to sample_next_token, to give detailed instructions on how 
-        new tokens are chosen.
-        '''
-        pass
-
-
-    @staticmethod
-    def sample_next_token(
-        input_ids: Int[Tensor, "d_vocab"], 
-        logits: Float[Tensor, "d_vocab"], 
-        temperature=1.0, 
-        top_k=0, 
-        top_p=0.0, 
-        frequency_penalty=0.0,
-        seed=None
-    ):
-        assert input_ids.ndim == 1, "input_ids should be a 1D sequence of token ids"
-        assert temperature >= 0, "Temperature should be non-negative"
-        assert 0 <= top_p <= 1.0, "Top-p must be a probability"
-        assert 0 <= top_k, "Top-k must be non-negative"
-        assert not (top_p != 0 and top_k != 0), "At most one of top-p and top-k supported"
-
-        # Set random seeds for reproducibility
-        if seed is not None:
-            t.manual_seed(seed)
-            np.random.seed(seed)
-
-        # Apply all the specialized sampling methods
-        if temperature == 0:
-            return TransformerSampler.greedy_search(logits)
-        elif temperature != 1.0:
-            logits = TransformerSampler.apply_temperature(logits, temperature)
-        if frequency_penalty != 0.0:
-            logits = TransformerSampler.apply_frequency_penalty(input_ids, logits, frequency_penalty)
-        if top_k > 0:
-            return TransformerSampler.sample_top_k(logits, top_k)
-        if top_p > 0.0:
-            return TransformerSampler.sample_top_p(logits, top_p)
-        return TransformerSampler.sample_basic(logits)
-
-
-    @staticmethod
-    def greedy_search(logits: Float[Tensor, "d_vocab"]) -> int:
-        '''
-        Returns the most likely token (as an int).
-        '''
-        out = logits.argmax().item()
-        return out
-
-
-    @staticmethod
-    def apply_temperature(logits: Float[Tensor, "d_vocab"], temperature: float) -> Float[Tensor, "d_vocab"]:
-        '''
-        Applies temperature scaling to the logits.
-        '''
-        assert temperature != 0
-        return logits / temperature
-
-    @staticmethod
-    def apply_frequency_penalty(input_ids: Int[Tensor, "seq_len"], logits: Float[Tensor, "d_vocab"], freq_penalty: float) -> Float[Tensor, "d_vocab"]:
-        '''
-        Applies a frequency penalty to the logits.
-        '''
-        id_counts = t.bincount(input_ids, minlength=logits.shape[0])
-        return logits - freq_penalty * id_counts
-
-
-    @staticmethod
-    def sample_basic(logits: Float[Tensor, "d_vocab"]) -> int:
-        '''
-        Samples from the distribution defined by the logits.
-        '''
-        # print(f"shape of logits: {logits.shape}")
-        # prob_dist = t.softmax(logits)
-        return t.distributions.categorical.Categorical(logits=logits).sample().item()
-
-
-    @staticmethod
-    def sample_top_k(logits: Float[Tensor, "d_vocab"], k: int) -> int:
-        '''
-        Samples from the top k most likely tokens.
-        '''
-        pass
-
-    @staticmethod
-    def sample_top_p(logits: Float[Tensor, "d_vocab"], top_p: float, min_tokens_to_keep: int = 1) -> int:
-        '''
-        Samples from the most likely tokens which make up at least p cumulative probability.
-        '''
-        pass
-# %%
-# test sample method
-if MAIN:
-    sampler = TransformerSampler(model, tokenizer)
-
-    prompt = "Jingle bells, jingle bells, jingle all the way"
-    print(f"Greedy decoding with prompt: {prompt!r}\n")
-
-    output = sampler.sample(prompt, max_tokens_generated=8, temperature=0.0)
-    print(f"Your model said: {output!r}\n")
-
-    expected = "Jingle bells, jingle bells, jingle all the way up to the top of the mountain."
-    assert output == expected
-
-    print("Tests passed!")
-
-# %%
-# test basic sampling
-if MAIN:
-    prompt = "John and Mary went to the"
-    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    logits = model(input_ids)[0, -1]
-
-    expected_top_5 = {
-        " church": 0.0648,
-        " house": 0.0367,
-        " temple": 0.0145,
-        " same": 0.0104,
-        " Church": 0.0097
-    }
-    frequency_of_top_5 = defaultdict(int)
-
-    N = 10_000
-    for _ in tqdm(range(N)):
-        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
-        frequency_of_top_5[tokenizer.decode(token)] += 1
-
-    for word in expected_top_5:
-        expected_freq = expected_top_5[word]
-        observed_freq = frequency_of_top_5[word] / N
-        print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
-        assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
-
-    print("Tests passed!")
-# %%
-if MAIN:
-    logits = t.tensor([1, 2]).log()
-
-    cold_logits = TransformerSampler.apply_temperature(logits, temperature=0.001)
-    print('A low temperature "sharpens" or "peaks" the distribution: ', cold_logits)
-    t.testing.assert_close(cold_logits, 1000.0 * logits)
-
-    hot_logits = TransformerSampler.apply_temperature(logits, temperature=1000.0)
-    print("A high temperature flattens the distribution: ", hot_logits)
-    t.testing.assert_close(hot_logits, 0.001 * logits)
-
-    print("Tests passed!")
-# %%
-if MAIN:
-    bieber_prompt = "And I was like Baby, baby, baby, oh Like, Baby, baby, baby, no Like, Baby, baby, baby, oh I thought you'd always be mine, mine"
-    input_ids = tokenizer.encode(bieber_prompt, return_tensors="pt")
-    logits = t.ones(tokenizer.vocab_size)
-    penalized_logits = TransformerSampler.apply_frequency_penalty(input_ids.squeeze(), logits, 2.0)
-
-    assert penalized_logits[5156].item() == -11, "Expected 6 occurrences of ' baby' with leading space, 1-2*6=-11"
-    assert penalized_logits[14801].item() == -5, "Expected 3 occurrences of ' Baby' with leading space, 1-2*3=-5"
-
-    print("Tests passed!")
-# %%
-if MAIN:
-    sampler = TransformerSampler(model, tokenizer)
-
-    N_RUNS = 1
-    your_prompt = "I want to maximize the number of paperclips I have. My first step is to"
-    cases = [
-        ("High freq penalty", dict(frequency_penalty=100.0)),
-        ("Negative freq penalty", dict(frequency_penalty=-3.0)),
-        ("Too hot!", dict(temperature=2.0)),
-        ("Pleasantly cool", dict(temperature=0.7)),
-        ("Pleasantly warm", dict(temperature=0.9)),
-        ("Too cold!", dict(temperature=0.01)),
-    ]
-
-    table = Table("Name", "Kwargs", "Output", title="Sampling - Manual Testing")
-
-    for (name, kwargs) in cases:
-        for i in range(N_RUNS):
-            output = sampler.sample(your_prompt, max_tokens_generated=24, **kwargs)
-            table.add_row(name, repr(kwargs), repr(output) + "\n")
-
-    rprint(table)
-# %%
-import time
-device = t.device("cuda") # can also try "cpu"
-
-model = DemoTransformer(Config()).to(device)
-model.load_state_dict(reference_gpt2.state_dict(), strict=False);
-
-initial_text = "Eliezer Shlomo Yudkowsky (born September 11, 1979) is an American decision and artificial intelligence (AI) theorist and writer, best known for"
-# input_ids = tokenizer.encode(initial_text, return_tensors="pt").squeeze()
-
-sampler = TransformerSampler(model, tokenizer)
-
-# Run the noncached version
-t0 = time.time()
-text = sampler.sample(
-    initial_text, 
-    # temperature=0.7, 
-    # top_p=0.95, 
-    seed=0,
-)
-print(f"Time taken (without cache): {time.time() - t0:.2f} seconds")
-rprint(f"Model output:\n\n[bold dark_orange]{text}[/]")
-
-# Run the cached version
-model = DemoTransformer(Config(cached=True)).to(device)
-model.load_state_dict(reference_gpt2.state_dict(), strict=False);
-sampler = TransformerSampler(model, tokenizer)
-t0 = time.time()
-text_with_cache = sampler.sample(
-    initial_text, 
-    # temperature=0.7,
-    # top_p=0.95, 
-    seed=0
-    # kv_cache=KeyValueCache.new_empty(sampler.cfg)
-)
-print(f"Time taken (with cache): {time.time() - t0:.2f} seconds")
-rprint(f"Model output:\n\n[bold dark_orange]{text_with_cache}[/]")
-
-# # Check they are the same
-assert text == text_with_cache, "Your outputs are different, meaning you've probably made a mistake in your cache implementation (or failed to use random seeds)."
-print("Tests passed!")
 # %%
