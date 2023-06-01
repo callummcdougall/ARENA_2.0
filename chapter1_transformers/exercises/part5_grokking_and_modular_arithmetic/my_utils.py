@@ -8,7 +8,6 @@ from functools import partial
 import numpy as np
 import pandas as pd
 from IPython.display import display
-from torchtyping import TensorType as TT
 from typing import Tuple, List, Callable
 from transformer_lens import HookedTransformer, utils
 from transformer_lens.hook_points import HookPoint
