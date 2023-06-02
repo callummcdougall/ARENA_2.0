@@ -694,7 +694,7 @@ if MAIN:
     print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
     print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
 # %%
-def store_residual(
+def store_activations(
     residual: Float[Tensor, "batch pos d_model"],
     hook: HookPoint, 
     store: Float[Tensor, "batch pos d_model"], 
@@ -740,23 +740,22 @@ def get_path_patch_head_to_final_resid_post(
 
     results = t.zeros((n_layers, n_heads), device=device)
 
-    for h in range(n_heads):
-
+    for sender_h in range(n_heads):
         # Part 2: patch sender, freeze others, cache final resid
-        # use a hook to patch in the activations from new_cache for the head from which we are patching
-        for l in range(n_layers):
+        for sender_l in range(n_layers):
+            # use a hook to patch in the activations from new_cache for the head from which we are patching
             new_cache_patching_hook = [
-                (utils.get_act_name("z", l), partial(patch_head_vector, head_index=h, clean_cache=new_cache))
+                (utils.get_act_name("z", sender_l), partial(patch_head_vector, head_index=sender_h, clean_cache=new_cache))
             ]
             # use a hook to patch in the activations from orig_cache everywhere else
             orig_cache_patching_hooks = [
-                (utils.get_act_name("z", l2), partial(patch_head_vector, head_index=h2, clean_cache=orig_cache))
-                for l2 in range(n_layers) for h2 in range(n_heads) if h != h2
+                (utils.get_act_name("z", l), partial(patch_head_vector, head_index=h, clean_cache=orig_cache))
+                for l in range(n_layers) for h in range(n_heads) if sender_h != h
             ]
             # use a hook to store the activations at the final residual stream
             final_resid = t.zeros_like(orig_cache["resid_post", n_layers-1], device=device)
             store_resid_hook = [
-                (utils.get_act_name("resid_post", n_layers-1), partial(store_residual, store=final_resid))
+                (utils.get_act_name("resid_post", n_layers-1), partial(store_activations, store=final_resid))
             ]
 
             hooks = new_cache_patching_hook + orig_cache_patching_hooks + store_resid_hook
@@ -776,7 +775,7 @@ def get_path_patch_head_to_final_resid_post(
                 ]
             )
 
-            results[l][h] = patching_metric(logits)
+            results[sender_l][sender_h] = patching_metric(logits)
 
     return results
 
@@ -791,3 +790,129 @@ if MAIN:
         width=600,
     )
 # %%
+def store_head_activations(
+    head_vector: Float[Tensor, "batch pos head_index d_head"],
+    hook: HookPoint, 
+    head_index: int, 
+    store: Float[Tensor, "batch pos d_head"]
+) -> Float[Tensor, "batch pos head_index d_head"]:
+    '''
+    Patches the output of a given head (before it's added to the residual stream) at
+    every sequence position, using the value from the clean cache.
+    '''
+    store[:,:,:] = head_vector[:,:,head_index,:]
+    return head_vector
+
+def patch_head_with_store(
+    head_vector: Float[Tensor, "batch pos head_index d_head"],
+    hook: HookPoint, 
+    head_index: int,
+    patched_head_acts: Float[Tensor, "batch pos d_head"]
+) -> Float[Tensor, "batch pos head_index d_head"]:
+    '''
+    Patches a given sequence position in the residual stream, using the value
+    from the clean cache.
+    '''
+    head_vector[:,:,head_index] = patched_head_acts
+    return head_vector
+
+
+def get_path_patch_head_to_heads(
+    receiver_heads: List[Tuple[int, int]],
+    receiver_input: str,
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = None,
+    orig_cache: Optional[ActivationCache] = None,
+) -> Float[Tensor, "layer head"]:
+    '''
+    Performs path patching (see algorithm in appendix B of IOI paper), with:
+
+        sender head = (each head, looped through, one at a time)
+        receiver node = input to a later head (or set of heads)
+
+    The receiver node is specified by receiver_heads and receiver_input.
+    Example (for S-inhibition path patching the queries):
+        receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+        receiver_input = "v"
+
+    Returns:
+        tensor of metric values for every possible sender head
+    '''
+    # Part 1: cache heads
+    # only if we don't already have new_cache and orig_cache
+    if new_cache is None:
+        _, new_cache = model.run_with_cache(new_dataset.toks)
+    if orig_cache is None:
+        _, orig_cache = model.run_with_cache(orig_dataset.toks)
+    
+    relevant_layers = max([l for l,_ in receiver_heads])
+    n_layers = model.cfg.n_layers
+    n_heads = model.cfg.n_heads
+
+    results = t.zeros((relevant_layers, n_heads), device=device)
+
+    for sender_h in range(n_heads):
+        for sender_l in range(relevant_layers):
+            # Part 2: patch sender, freeze others, cache receiver activations
+            # use a hook to patch in the activations from new_cache for the head from which we are patching
+            new_cache_patching_hook = [
+                (utils.get_act_name("z", sender_l), partial(patch_head_vector, head_index=sender_h, clean_cache=new_cache))
+            ]
+            # use a hook to patch in the activations from orig_cache everywhere else
+            orig_cache_patching_hooks = [
+                (utils.get_act_name("z", l), partial(patch_head_vector, head_index=h, clean_cache=orig_cache))
+                for l in range(n_layers) for h in range(n_heads) if sender_h != h
+            ]
+            # use a hooks to store the activations at the receiver heads
+            receiver_stores = [
+                t.zeros_like(orig_cache[receiver_input, receiver_l][:,:,receiver_h], device=device)
+                for receiver_l, receiver_h in receiver_heads
+            ]
+            store_receiver_activations = [
+                (utils.get_act_name(receiver_input, receiver_l), partial(store_head_activations, head_index=receiver_h, store=receiver_store))
+                for receiver_store, (receiver_l, receiver_h) in zip(receiver_stores, receiver_heads)
+            ]
+
+            hooks = new_cache_patching_hook + orig_cache_patching_hooks + store_receiver_activations
+
+            model.run_with_hooks(
+                orig_dataset.toks, 
+                fwd_hooks=hooks
+            )
+            # Part 3: new forward pass with patched in activations from receiver heads
+            # use a hook to patch in the activations from the receiver heads
+            receiver_patching_hooks = [
+                (utils.get_act_name(receiver_input, receiver_l), 
+                 partial(patch_head_with_store, head_index=receiver_h, patched_head_acts=receiver_store))
+                 for receiver_store, (receiver_l, receiver_h) in zip(receiver_stores, receiver_heads)
+            ]
+            
+            logits = model.run_with_hooks(
+                orig_dataset.toks,
+                fwd_hooks=receiver_patching_hooks
+            )
+
+            results[sender_l][sender_h] = patching_metric(logits)
+
+    return results
+
+if MAIN:
+    model.reset_hooks()
+
+    s_inhibition_value_path_patching_results = get_path_patch_head_to_heads(
+        receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+        receiver_input = "v",
+        model = model,
+        patching_metric = ioi_metric_2
+    )
+
+    imshow(
+        100 * s_inhibition_value_path_patching_results,
+        title="Direct effect on S-Inhibition Heads' values", 
+        labels={"x": "Head", "y": "Layer", "color": "Logit diff.<br>variation"},
+        width=600,
+        coloraxis=dict(colorbar_ticksuffix = "%"),
+    )
