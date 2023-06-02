@@ -806,6 +806,13 @@ Note that we can see the probe is worse near corners, as we anecdotally observed
 
 ### Exercise - calculate probe cosine similarities
 
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-20 minutes on this exercise.
+```
+
 As another nice way of visualising how the "black to play" and "white to play" probes are similar, we can calculate the cosine similarity between each of the embedding vectors for both odd and even modes.
 
 Try and replicate Neel's plot, which you can find at [this link](https://res.cloudinary.com/lesswrong-2-0/image/upload/f_auto,q_auto/v1/mirroredImages/nmxzr2zsjNtjaHh7x/cuxy4pf353wazoq5emmn). You can see in this plot that the cosine similarities for the probe directions at odd and even moves are close to -1 (indicating that the probes are finding the right directions).
@@ -815,6 +822,7 @@ Remember, `full_linear_probe` has shape `(modes=3, d_model=512, rows=8, cols=8, 
 
 ```python
 # YOUR CODE HERE - define the `cosine_similarities` tensor, to be plotted
+
 imshow(
     cosine_similarities,
     title="Cosine Sim of B-W Linear Probe Directions by Cell",
@@ -1407,11 +1415,12 @@ def get_w_in(
     normalize: bool = False,
 ) -> Float[Tensor, "d_model"]:
     '''
-    Returns the input weights for the neuron in the list, at each square on the board.
+    Returns the input weights for the given neuron.
 
     If normalize is True, the weights are normalized to unit norm.
     '''
     pass
+
 
 def get_w_out(
     model: HookedTransformer,
@@ -1420,9 +1429,12 @@ def get_w_out(
     normalize: bool = False,
 ) -> Float[Tensor, "d_model"]:
     '''
-    Returns the input weights for the neuron in the list, at each square on the board.
+    Returns the input weights for the given neuron.
+
+    If normalize is True, the weights are normalized to unit norm.
     '''
     pass
+
 
 def calculate_neuron_input_weights(
     model: HookedTransformer, 
@@ -1431,12 +1443,13 @@ def calculate_neuron_input_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the input weights for each neuron in the list, at each square on the board,
+    Returns tensor of the input weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
     '''
     pass
+
 
 def calculate_neuron_output_weights(
     model: HookedTransformer, 
@@ -1445,7 +1458,7 @@ def calculate_neuron_output_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the output weights for each neuron in the list, at each square on the board,
+    Returns tensor of the output weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
@@ -1485,7 +1498,9 @@ def get_w_out(
     normalize: bool = False,
 ) -> Float[Tensor, "d_model"]:
     '''
-    Returns the input weights for the neuron in the list, at each square on the board.
+    Returns the output weights for the neuron in the list, at each square on the board.
+
+    If normalize is True, the weights are normalized to unit norm.
     '''
     # SOLUTION
     w_out = model.W_out[layer, neuron, :].detach().clone()
@@ -1499,7 +1514,7 @@ def calculate_neuron_input_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the input weights for each neuron in the list, at each square on the board,
+    Returns tensor of the input weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
@@ -1519,7 +1534,7 @@ def calculate_neuron_output_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the output weights for each neuron in the list, at each square on the board,
+    Returns tensor of the output weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.

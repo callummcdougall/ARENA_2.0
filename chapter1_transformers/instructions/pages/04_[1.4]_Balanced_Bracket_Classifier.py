@@ -1047,7 +1047,7 @@ As we've seen in previous exercises, it's much more natural to think about the r
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/attribution.png" width="900">
 
-Once we do this, we can narrow in on the components who are making direct contributions to the classification, i.e. which are writing vectors to the residual stream which have a high dot produce with the `pre_final_ln_dir` for unbalanced brackets relative to balanced brackets.
+Once we do this, we can narrow in on the components who are making direct contributions to the classification, i.e. which are writing vectors to the residual stream which have a high dot product with the `pre_final_ln_dir` for unbalanced brackets relative to balanced brackets.
 
 In order to answer this question, we need the following tools:
 - A way to break down the input to the LN by component.

@@ -360,7 +360,7 @@ prompt_format = [
     "After Martin and Amy went to the park,{} gave a drink to",
 ]
 name_pairs = [
-    (" Mary", " John"),
+    (" John", " Mary"),
     (" Tom", " James"),
     (" Dan", " Sid"),
     (" Martin", " Amy"),
@@ -1031,7 +1031,19 @@ From these plots, you might want to start thinking about the algorithm which is 
 
 We'll save a full hypothesis for how the model works until the end of the next section.
 
+<details>
+<summary>Aside - be careful with your interpretations!</summary>
 
+Plotting `cache["pattern", layer][:, head][0]` is informative. Replacing this line with the average attention pattern `cache["pattern", layer][:, head].mean(0)` is potentially very misleading, and gives some odd-looking results. Can you figure out why?
+
+<details>
+<summary>Answer</summary>
+
+You're taking the mean over 8 sentences: 4 with an `ABA` structure (i.e. `"When John and Mary went to the store, John gave a drink to..."`) and 4 of the same sentence **but with structure flipped to `ABB`** (i.e. `"When John and Mary went to the store, Mary gave a drink to..."`). This has the effect of flipping the position of `IO1` and `S1`, hence if you take the average over all 8, any attention pattern of the form "always attend to `S1`" will now look like "pay equal attention to `IO1` and `S1`".
+</details>
+
+This is a good lesson in making sure you're aware of what it is you're plotting!
+</details>
 
 
 """, unsafe_allow_html=True)
@@ -2293,6 +2305,7 @@ You can also look at the dropdowns to get more hints and guidance (e.g. if you w
 
 You'll know you've succeeded if you can plot the results, and replicate Figure 3(b) from [the paper](https://arxiv.org/pdf/2211.00593.pdf) (at the top of page 6).
 
+**Note - if you use `model.add_hook` then `model.run_with_cache`, you might have to pass the argument `level=1` to the `add_hook` method. I don't know why the function sometimes fails unless you do this (this bug only started appearing after the exercises were written). I've not had time to track this down, but extra credit to anyone who can (-:**
 
 <details>
 <summary>Click here to get a docstring for the main function.</summary>
@@ -2472,8 +2485,6 @@ def get_path_patch_head_to_final_resid_post(
             names_filter=resid_post_name_filter, 
             return_type=None
         )
-        # if (sender_layer, sender_head) == (9, 9):
-        #     return patched_cache
         assert set(patched_cache.keys()) == {resid_post_hook_name}
 
         # ========== Step 3 ==========
