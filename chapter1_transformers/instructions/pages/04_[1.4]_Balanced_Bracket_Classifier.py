@@ -1213,7 +1213,7 @@ Don't forget to subtract the mean for each component across all the balanced sam
 
 ```python
 # Get output by components, at sequence position 0 (which is used for classification)
-out_by_components_seq0: Float[Tensor, "comp batch d_model"] = out_by_components[:, :, 0, :]
+out_by_components_seq0: Float[Tensor, "comp batch d_model"] = get_out_by_components(model, data)[:, :, 0, :]
 # Get the unbalanced direction for tensors being fed into the final layernorm
 pre_final_ln_dir: Float[Tensor, "d_model"] = get_pre_final_ln_dir(model, data)
 # Get the size of the contributions for each component
@@ -1588,7 +1588,8 @@ pre_layer2_outputs_seqpos1 = out_by_components[:-3, :, 1, :]
 out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
     pre_layer2_outputs_seqpos1,
     get_pre_20_dir(model, data),
-    "comp batch emb, emb -> comp batch",
+    "comp batch emb, emb -> comp batch"
+)
 out_by_component_in_pre_20_unbalanced_dir -= out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(-1, keepdim=True)
 
 ```
