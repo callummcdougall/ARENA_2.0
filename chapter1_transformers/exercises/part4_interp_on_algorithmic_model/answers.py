@@ -207,3 +207,33 @@ for (tokens, expected) in zip(tokenizer.tokenize(examples), labels):
     actual = is_balanced_vectorized(tokens)
     assert expected == actual, f"{tokens}: expected {expected} got {actual}"
 print("is_balanced_vectorized ok!")
+
+#%%
+def get_post_final_ln_dir(model: HookedTransformer) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the direction in which final_ln_output[0, :] should point to maximize P(unbalanced)
+    '''
+    return model.W_U[:, 0] - model.W_U[:, 1]
+
+tests.test_get_post_final_ln_dir(get_post_final_ln_dir, model)
+
+#%%
+def get_activations(
+    model: HookedTransformer, 
+    toks: Int[Tensor, "batch seq"], 
+    names: Union[str, List[str]]
+) -> Union[t.Tensor, ActivationCache]:
+    '''
+    Uses hooks to return activations from the model.
+
+    If names is a string, returns the activations for that hook name.
+    If names is a list of strings, returns a dictionary mapping hook names to tensors of activations.
+    '''
+    names_list = [names] if isinstance(names, str) else names
+    _, cache = model.run_with_cache(
+        toks,
+        return_type=None,
+        names_filter=lambda name: name in names_list,
+    )
+
+    return cache[names] if isinstance(names, str) else cache
