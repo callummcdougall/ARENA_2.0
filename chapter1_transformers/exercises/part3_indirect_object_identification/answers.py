@@ -368,7 +368,8 @@ def patch_residual_component(
     Patches a given sequence position in the residual stream, using the value
     from the clean cache.
     '''
-    clean_cache[]
+    corrupted_residual_component[:,pos,:] = clean_cache[hook.name][:,pos,:]
+    return corrupted_residual_component
 
 def get_act_patch_resid_pre(
     model: HookedTransformer, 
@@ -383,10 +384,106 @@ def get_act_patch_resid_pre(
     The results are calculated using the patching_metric function, which should be
     called on the model's logit output.
     '''
-    pass
+    model.reset_hooks()
+    seq = corrupted_tokens.shape[1]
+    results = t.zeros((model.cfg.n_layers, corrupted_tokens.shape[1]), device=device)
+    for layer in range(model.cfg.n_layers):
+        for pos in range(seq):
+            hook_name = f"blocks.{layer}.hook_resid_pre"
+            hook_fn = partial(patch_residual_component, pos=pos, clean_cache=clean_cache)
+            patch_logits = model.run_with_hooks(corrupted_tokens, fwd_hooks=[tuple((hook_name, hook_fn))])
+            results[layer, pos] = patching_metric(patch_logits)
+    return results
 
 
-if MAIN:
-    act_patch_resid_pre_own = get_act_patch_resid_pre(model, corrupted_tokens, clean_cache, ioi_metric)
+act_patch_resid_pre_own = get_act_patch_resid_pre(model, corrupted_tokens, clean_cache, ioi_metric)
+imshow(act_patch_resid_pre_own)
+t.testing.assert_close(act_patch_resid_pre, act_patch_resid_pre_own)
 
-    t.testing.assert_close(act_patch_resid_pre, act_patch_resid_pre_own)
+imshow(
+    act_patch_resid_pre_own, 
+    x=labels, 
+    title="Logit Difference From Patched Residual Stream", 
+    labels={"x":"Sequence Position", "y":"Layer"},
+    width=600 # If you remove this argument, the plot will usually fill the available space
+)
+
+
+# %%
+act_patch_block_every = patching.get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
+
+imshow(
+    act_patch_block_every,
+    x=labels, 
+    facet_col=0, # This argument tells plotly which dimension to split into separate plots
+    facet_labels=["Residual Stream", "Attn Output", "MLP Output"], # Subtitles of separate plots
+    title="Logit Difference From Patched Attn Head Output", 
+    labels={"x": "Sequence Position", "y": "Layer"},
+    width=1000,
+)
+
+
+# %%
+act_patch_attn_head_out_all_pos = patching.get_act_patch_attn_head_out_all_pos(
+    model, 
+    corrupted_tokens, 
+    clean_cache, 
+    ioi_metric
+)
+
+imshow(
+    act_patch_attn_head_out_all_pos, 
+    labels={"y": "Layer", "x": "Head"}, 
+    title="attn_head_out Activation Patching (All Pos)",
+    width=600
+)
+
+
+# %%
+def patch_head_vector(
+    corrupted_head_vector: Float[Tensor, "batch pos head_index d_head"],
+    hook: HookPoint, 
+    head_index: int, 
+    clean_cache: ActivationCache
+) -> Float[Tensor, "batch pos head_index d_head"]:
+    '''
+    Patches the output of a given head (before it's added to the residual stream) at
+    every sequence position, using the value from the clean cache.
+    '''
+    z: Float[Tensor, "batch seq n_head d_head"] = clean_cache[hook.name]
+    corrupted_head_vector[:,:,head_index,:] = z[:,:,head_index,:]
+    return corrupted_head_vector
+
+def get_act_patch_attn_head_out_all_pos(
+    model: HookedTransformer, 
+    corrupted_tokens: Float[Tensor, "batch pos"], 
+    clean_cache: ActivationCache, 
+    patching_metric: Callable
+) -> Float[Tensor, "layer head"]:
+    '''
+    Returns an array of results of patching at all positions for each head in each
+    layer, using the value from the clean cache.
+
+    The results are calculated using the patching_metric function, which should be
+    called on the model's logit output.
+    '''
+    results = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device='cuda')
+    model.reset_hooks()
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            hook_name = f"blocks.{layer}.attn.hook_z"
+            hook_fn = partial(patch_head_vector, head_index=head, clean_cache=clean_cache)
+            patched_logits = model.run_with_hooks(corrupted_tokens, fwd_hooks=[tuple((hook_name, hook_fn))])
+            results[layer, head] = patching_metric(patched_logits)
+    return results
+
+act_patch_attn_head_out_all_pos_own = get_act_patch_attn_head_out_all_pos(model, corrupted_tokens, clean_cache, ioi_metric)
+
+t.testing.assert_close(act_patch_attn_head_out_all_pos, act_patch_attn_head_out_all_pos_own)
+
+imshow(
+    act_patch_attn_head_out_all_pos_own,
+    title="Logit Difference From Patched Attn Head Output", 
+    labels={"x":"Head", "y":"Layer"},
+    width=600
+)
