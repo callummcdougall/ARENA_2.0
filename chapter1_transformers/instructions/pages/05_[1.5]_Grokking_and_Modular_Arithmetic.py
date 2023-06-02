@@ -1871,7 +1871,7 @@ They are designed to get you to engage with ideas from linear algebra (specifica
 
 We want to do the following:
 
-* Take `neuron_acts_post`, which is a tensor of shape `(p*p, p)`, with the `[i, j]`-th element being the activation of neuron `j` on the `i`-th input sequence in our `all_data` batch.
+* Take `neuron_acts_post`, which is a tensor of shape `(p*p, d_mlp)`, with the `[i, j]`-th element being the activation of neuron `j` on the `i`-th input sequence in our `all_data` batch.
 * Treating this tensor as `p` separate vectors in $\mathbb{R}^{p^2}$ (with the last dimension being the batch dimension), we will project each of these vectors onto the subspace of $\mathbb{R}^{p^2}$ spanned by the 2D Fourier basis vectors for the associated frequency of that particular neuron (i.e. the constant, linear, and quadratic terms).
 * Take these projected `neuron_acts_post` vectors, and apply `W_logit` to give us new logits. Compare the cross entropy loss with these logits to our original logits.
 
@@ -1888,19 +1888,7 @@ def project_onto_direction(batch_vecs: t.Tensor, v: t.Tensor) -> t.Tensor:
     batch_vecs.shape = (n, ...)
     v.shape = (n,)
     '''
-
-    # Get tensor of components of each vector in v-direction
-    components_in_v_dir = einops.einsum(
-        batch_vecs, v,
-        "n ..., n -> ..."
-    )
-
-    # Use these components as coefficients of v in our projections
-    return einops.einsum(
-        components_in_v_dir, v,
-        "..., n -> n ..."
-    )
-
+    pass
 
 
 tests.test_project_onto_direction(project_onto_direction)
