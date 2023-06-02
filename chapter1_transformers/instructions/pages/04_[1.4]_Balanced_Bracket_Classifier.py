@@ -40,7 +40,7 @@ Please send any problems / bugs on the `#errata` channel in the [Slack group](ht
 You can toggle dark mode from the buttons on the top-right of this page.
 
 
-# [1.4] Interpretability on an Algorithmic Model
+# [1.4] Balanced Bracket Classifier
 
 
 ## Introduction
