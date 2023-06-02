@@ -373,19 +373,14 @@ plotly_utils.hists_per_comp(
 
 #%%
 def is_balanced_vectorized_return_both(
-    tokens: Float[Tensor, "batch seq"]
+        toks: Float[Tensor, "batch seq"]
 ) -> Tuple[Bool[Tensor, "batch"], Bool[Tensor, "batch"]]:
-    token_lookup = lambda x: relu(x-2) - 3*relu(x-3)
-    vectorized_tokens = token_lookup(tokens).float()
-    M = t.tril(t.ones(vectorized_tokens.shape[1], vectorized_tokens.shape[1])).to(device)
-    cum_sum = einops.einsum(M, vectorized_tokens, "row seq, batch seq -> batch row")
-
-    total_elevation_failure = cum_sum[tokens == tokenizer.END_TOKEN].abs() >= 1e-2
-    negative_failure = cum_sum.min(dim=-1).values < -1e-2
-
-    # no_negatives = not (relu(-1 * cum_sum).sum().abs() > 1e-2).item()
-    # ends_with_zero = cum_sum[tokens == tokenizer.END_TOKEN].abs().item() <= -1e-2
-
+    # SOLUTION
+    table = t.tensor([0, 0, 0, 1, -1]).to(device)
+    change = table[toks.to(device)].flip(-1)
+    altitude = t.cumsum(change, -1)
+    total_elevation_failure = altitude[:, -1] != 0
+    negative_failure = altitude.max(-1).values > 0
     return total_elevation_failure, negative_failure
 
 
@@ -395,3 +390,34 @@ h20_in_unbalanced_dir = out_by_component_in_unbalanced_dir[7]
 h21_in_unbalanced_dir = out_by_component_in_unbalanced_dir[8]
 
 tests.test_total_elevation_and_negative_failures(data, total_elevation_failure, negative_failure)
+
+#%%
+failure_types_dict = {
+    "both failures": negative_failure & total_elevation_failure,
+    "just neg failure": negative_failure & ~total_elevation_failure,
+    "just total elevation failure": ~negative_failure & total_elevation_failure,
+    "balanced": ~negative_failure & ~total_elevation_failure
+}
+
+plotly_utils.plot_failure_types_scatter(
+    h20_in_unbalanced_dir,
+    h21_in_unbalanced_dir,
+    failure_types_dict,
+    data
+)
+
+#%%
+plotly_utils.plot_contribution_vs_open_proportion(
+    h20_in_unbalanced_dir, 
+    "Head 2.0 contribution vs proportion of open brackets '('",
+    failure_types_dict, 
+    data
+)
+
+#%%
+plotly_utils.plot_contribution_vs_open_proportion(
+    h21_in_unbalanced_dir, 
+    "Head 2.1 contribution vs proportion of open brackets '('",
+    failure_types_dict,
+    data
+)
