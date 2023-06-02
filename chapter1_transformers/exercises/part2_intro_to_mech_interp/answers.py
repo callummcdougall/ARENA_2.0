@@ -711,3 +711,19 @@ if MAIN:
     print(ablation_score)
 
 # %%
+#### SECTION 4
+
+if MAIN:
+    # YOUR CODE HERE - compute OV circuit
+    head_index = 4
+    layer = 1
+
+    W_O = model.W_O[layer, head_index]
+    W_V = model.W_V[layer, head_index]
+    W_E = model.W_E
+    W_U = model.W_U
+
+    OV_factor = FactoredMatrix(W_V, W_O)
+    full_OV_circuit = W_E @ OV_factor @ W_U
+    tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
+# %%
