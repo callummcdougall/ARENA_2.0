@@ -916,3 +916,79 @@ if MAIN:
         width=600,
         coloraxis=dict(colorbar_ticksuffix = "%"),
     )
+
+
+#### PART 5: Paper Replication
+
+# %%
+def scatter_embedding_vs_attn(
+    attn_from_end_to_io: Float[Tensor, "batch"],
+    attn_from_end_to_s: Float[Tensor, "batch"],
+    projection_in_io_dir: Float[Tensor, "batch"],
+    projection_in_s_dir: Float[Tensor, "batch"],
+    layer: int,
+    head: int
+):
+    scatter(
+        x=t.concat([attn_from_end_to_io, attn_from_end_to_s], dim=0),
+        y=t.concat([projection_in_io_dir, projection_in_s_dir], dim=0),
+        color=["IO"] * N + ["S"] * N,
+        title=f"Projection of the output of {layer}.{head} along the name<br>embedding vs attention probability on name",
+        title_x=0.5,
+        labels={"x": "Attn prob on name", "y": "Dot w Name Embed", "color": "Name type"},
+        color_discrete_sequence=["#72FF64", "#C9A5F7"],
+        width=650
+    )
+# %%
+def calculate_and_show_scatter_embedding_vs_attn(
+    layer: int,
+    head: int,
+    cache: ActivationCache = ioi_cache,
+    dataset: IOIDataset = ioi_dataset,
+) -> None:
+    '''
+    Creates and plots a figure equivalent to 3(c) in the paper.
+
+    This should involve computing the four 1D tensors:
+        attn_from_end_to_io
+        attn_from_end_to_s
+        projection_in_io_dir
+        projection_in_s_dir
+    and then calling the scatter_embedding_vs_attn function.
+    '''
+    wo = model.W_O[layer, head]
+
+    # Get head's output to residual stream
+    z = cache["z", layer][:, :, head]
+    output = einops.einsum(z, wo, 'batch pos d_head, d_head d_model -> batch pos d_model')
+    output_on_end_token = output[t.arange(z.size(0)),dataset.word_idx["end"]]
+
+    # Get IO and S directions
+    io_dir = model.W_U.T[dataset.io_tokenIDs]
+    s_dir = model.W_U.T[dataset.s_tokenIDs]
+
+    # Get projection of output on directions
+    projection_in_io_dir = (io_dir * output_on_end_token).sum(-1)
+    projection_in_s_dir = (s_dir * output_on_end_token).sum(-1)
+
+    
+    # Get attention probs
+    attn_from_end_to_io = cache["pattern", 1][t.arange(z.size(0)),head,-1,dataset.word_idx["IO"]]
+    attn_from_end_to_s = cache["pattern", 1][t.arange(z.size(0)),head,-1,dataset.word_idx["S1"]]
+    
+    scatter_embedding_vs_attn(
+        attn_from_end_to_io,
+        attn_from_end_to_s,
+        projection_in_io_dir,
+        projection_in_s_dir,
+        layer,
+        head
+    )
+
+
+nmh = (9, 9)
+calculate_and_show_scatter_embedding_vs_attn(*nmh)
+
+nnmh = (11, 10)
+calculate_and_show_scatter_embedding_vs_attn(*nnmh)
+# %%
