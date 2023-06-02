@@ -270,78 +270,66 @@ Run the code below to define your model:
 
 
 ```python
+p = 113
 
-if MAIN:
-    p = 113
-    
-    cfg = HookedTransformerConfig(
-        n_layers = 1,
-        d_vocab = p+1,
-        d_model = 128,
-        d_mlp = 4 * 128,
-        n_heads = 4,
-        d_head = 128 // 4,
-        n_ctx = 3,
-        act_fn = "relu",
-        normalization_type = None,
-        device = device
-    )
-    
-    model = HookedTransformer(cfg)
+cfg = HookedTransformerConfig(
+    n_layers = 1,
+    d_vocab = p+1,
+    d_model = 128,
+    d_mlp = 4 * 128,
+    n_heads = 4,
+    d_head = 128 // 4,
+    n_ctx = 3,
+    act_fn = "relu",
+    normalization_type = None,
+    device = device
+)
 
+model = HookedTransformer(cfg)
 ```
 
 Next, run the following code to get the relevant data into your directory:
 
 
 ```python
+os.chdir(section_dir)
+if not large_root.exists(): 
+    !git clone https://github.com/neelnanda-io/Grokking.git
+    os.mkdir(large_root)
 
-if MAIN:
-    os.chdir(section_dir)
-    if not large_root.exists(): 
-        !git clone https://github.com/neelnanda-io/Grokking.git
-        os.mkdir(large_root)
-    
-    full_run_data_path = (large_root / "full_run_data.pth").resolve()
-    if not full_run_data_path.exists():
-        url = "https://drive.google.com/uc?id=12pmgxpTHLDzSNMbMCuAMXP1lE_XiCQRy"
-        output = str(full_run_data_path)
-        gdown.download(url, output)
-
+full_run_data_path = (large_root / "full_run_data.pth").resolve()
+if not full_run_data_path.exists():
+    url = "https://drive.google.com/uc?id=12pmgxpTHLDzSNMbMCuAMXP1lE_XiCQRy"
+    output = str(full_run_data_path)
+    gdown.download(url, output)
 ```
 
 Once this has finished, you can load in your weights, using these helper functions:
 
 
 ```python
+full_run_data = t.load(full_run_data_path)
+state_dict = full_run_data["state_dicts"][400]
 
-if MAIN:
-    full_run_data = t.load(full_run_data_path)
-    state_dict = full_run_data["state_dicts"][400]
-    
-    model = load_in_state_dict(model, state_dict)
-
+model = load_in_state_dict(model, state_dict)
 ```
 
 Before we start doing mech interp on our model, let's have a look at our loss curves. How quickly do the model's training and test loss curves fall?
 
 
 ```python
-
-if MAIN:
-    lines(
-        lines_list=[
-            full_run_data['train_losses'][::10], 
-            full_run_data['test_losses']
-        ], 
-        labels=['train loss', 'test loss'], 
-        title='Grokking Training Curve', 
-        x=np.arange(5000)*10,
-        xaxis='Epoch',
-        yaxis='Loss',
-        log_y=True
-    )
-
+lines(
+    lines_list=[
+        full_run_data['train_losses'][::10], 
+        full_run_data['test_losses']
+    ], 
+    labels=['train loss', 'test loss'], 
+    title='Grokking Training Curve', 
+    x=np.arange(5000)*10,
+    xaxis='Epoch',
+    yaxis='Loss',
+    log_y=True
+)
 ```
 
 This is fascinating! We can see that the model initially memorises traiing data (train loss curve falls sharply to almost zero, while test loss curve actually goes up), but eventually "groks" the task, i.e. suddenly learns to generalise on unseen data.
@@ -356,29 +344,26 @@ Let's define some useful variables, and print out their shape to verify they are
 
 ```python
 # Helper variables
+W_O = model.W_O[0]
+W_K = model.W_K[0]
+W_Q = model.W_Q[0]
+W_V = model.W_V[0]
+W_in = model.W_in[0]
+W_out = model.W_out[0]
+W_pos = model.W_pos
+W_E = model.W_E[:-1]
+final_pos_resid_initial = model.W_E[-1] + W_pos[2]
+W_U = model.W_U[:, :-1]
 
-if MAIN:
-    W_O = model.W_O[0]
-    W_K = model.W_K[0]
-    W_Q = model.W_Q[0]
-    W_V = model.W_V[0]
-    W_in = model.W_in[0]
-    W_out = model.W_out[0]
-    W_pos = model.W_pos
-    W_E = model.W_E[:-1]
-    final_pos_resid_initial = model.W_E[-1] + W_pos[2]
-    W_U = model.W_U[:, :-1]
-    
-    print('W_O  ', tuple(W_O.shape))
-    print('W_K  ', tuple(W_K.shape))
-    print('W_Q  ', tuple(W_Q.shape))
-    print('W_V  ', tuple(W_V.shape))
-    print('W_in ', tuple(W_in.shape))
-    print('W_out', tuple(W_out.shape))
-    print('W_pos', tuple(W_pos.shape))
-    print('W_E  ', tuple(W_E.shape))
-    print('W_U  ', tuple(W_U.shape))
-
+print('W_O  ', tuple(W_O.shape))
+print('W_K  ', tuple(W_K.shape))
+print('W_Q  ', tuple(W_Q.shape))
+print('W_V  ', tuple(W_V.shape))
+print('W_in ', tuple(W_in.shape))
+print('W_out', tuple(W_out.shape))
+print('W_pos', tuple(W_pos.shape))
+print('W_E  ', tuple(W_E.shape))
+print('W_U  ', tuple(W_U.shape))
 ```
 
 Note here - we've taken slices of the embedding and unembedding matrices, to remove the final row/column (which corresponds to the `=` token). We've done this so that we can peform a Fourier transform on these weights later on. From now on, when we refer to $W_E$ and $W_U$, we'll usually be referring to these smaller matrices. We've explicitly defined `final_pos_resid_initial` because this will be needed later (to get the query vector for sequence position 2).
@@ -389,16 +374,13 @@ Next, we'll run our model on all data. It's worth being clear on what we're doin
 
 
 ```python
-
-if MAIN:
-    all_data = t.tensor([(i, j, p) for i in range(p) for j in range(p)]).to(device)
-    labels = t.tensor([fn(i, j) for i, j, _ in all_data]).to(device)
-    original_logits, cache = model.run_with_cache(all_data)
-    # Final position only, also remove the logits for `=`
-    original_logits = original_logits[:, -1, :-1]
-    original_loss = cross_entropy_high_precision(original_logits, labels)
-    print(f"Original loss: {original_loss.item()}")
-
+all_data = t.tensor([(i, j, p) for i in range(p) for j in range(p)]).to(device)
+labels = t.tensor([fn(i, j) for i, j, _ in all_data]).to(device)
+original_logits, cache = model.run_with_cache(all_data)
+# Final position only, also remove the logits for `=`
+original_logits = original_logits[:, -1, :-1]
+original_loss = cross_entropy_high_precision(original_logits, labels)
+print(f"Original loss: {original_loss.item()}")
 ```
 
 You should get an extremely small loss (around `2.4e-07`).
@@ -427,13 +409,10 @@ You can check your results by printing the tensor shapes.
 
 
 ```python
-
-if MAIN:
-    # YOUR CODE HERE - get the relevant activations
-    assert attn_mat.shape == (p*p, cfg.n_heads, 3)
-    assert neuron_acts_post.shape == (p*p, cfg.d_mlp)
-    assert neuron_acts_pre.shape == (p*p, cfg.d_mlp)
-
+# YOUR CODE HERE - get the relevant activations
+assert attn_mat.shape == (p*p, cfg.n_heads, 3)
+assert neuron_acts_post.shape == (p*p, cfg.d_mlp)
+assert neuron_acts_pre.shape == (p*p, cfg.d_mlp)
 ```
 
 ## Functional form
@@ -654,12 +633,10 @@ In the **Answers** dropdown above, we identified three **effective weight matric
 
 
 ```python
-
-if MAIN:
-    # YOUR CODE HERE - define these matrices
-    assert W_logit.shape == (cfg.d_mlp, cfg.d_vocab - 1)
-    assert W_neur.shape == (cfg.n_heads, cfg.d_vocab - 1, cfg.d_mlp)
-    assert W_attn.shape == (cfg.n_heads, cfg.d_vocab - 1)
+# YOUR CODE HERE - define these matrices
+assert W_logit.shape == (cfg.d_mlp, cfg.d_vocab - 1)
+assert W_neur.shape == (cfg.n_heads, cfg.d_vocab - 1, cfg.d_mlp)
+assert W_attn.shape == (cfg.n_heads, cfg.d_vocab - 1)
 ```
 
 <details>
@@ -698,41 +675,35 @@ The heatmap generated from the code below is a $p\times p$ image, where the cell
 
 
 ```python
+attn_mat = attn_mat[:, :, :2]
+# Note, we ignore attn from 2 -> 2
 
-if MAIN:
-    attn_mat = attn_mat[:, :, :2]
-    # Note, we ignore attn from 2 -> 2
-    
-    attn_mat_sq = einops.rearrange(attn_mat, "(x y) head seq -> x y head seq", x=p)
-    # We rearranged attn_mat, so the first two dims represent (x, y) in modular arithmetic equation
-    
-    inputs_heatmap(
-        attn_mat_sq[..., 0], 
-        title=f'Attention score for heads at position 0',
-        animation_frame=2,
-        animation_name='head'
-    )
+attn_mat_sq = einops.rearrange(attn_mat, "(x y) head seq -> x y head seq", x=p)
+# We rearranged attn_mat, so the first two dims represent (x, y) in modular arithmetic equation
 
+inputs_heatmap(
+    attn_mat_sq[..., 0], 
+    title=f'Attention score for heads at position 0',
+    animation_frame=2,
+    animation_name='head'
+)
 ```
 
 **Neuron activations:**
 
 
 ```python
+neuron_acts_post_sq = einops.rearrange(neuron_acts_post, "(x y) d_mlp -> x y d_mlp", x=p)
+neuron_acts_pre_sq = einops.rearrange(neuron_acts_pre, "(x y) d_mlp -> x y d_mlp", x=p)
+# We rearranged activations, so the first two dims represent (x, y) in modular arithmetic equation
 
-if MAIN:
-    neuron_acts_post_sq = einops.rearrange(neuron_acts_post, "(x y) d_mlp -> x y d_mlp", x=p)
-    neuron_acts_pre_sq = einops.rearrange(neuron_acts_pre, "(x y) d_mlp -> x y d_mlp", x=p)
-    # We rearranged activations, so the first two dims represent (x, y) in modular arithmetic equation
-    
-    top_k = 3
-    inputs_heatmap(
-        neuron_acts_post_sq[..., :top_k], 
-        title=f'Activations for first {top_k} neurons',
-        animation_frame=2,
-        animation_name='Neuron'
-    )
-
+top_k = 3
+inputs_heatmap(
+    neuron_acts_post_sq[..., :top_k], 
+    title=f'Activations for first {top_k} neurons',
+    animation_frame=2,
+    animation_name='Neuron'
+)
 ```
 
 **Effective weights:**
@@ -741,33 +712,27 @@ if MAIN:
 
 
 ```python
-
-if MAIN:
-    top_k = 5
-    animate_multi_lines(
-        W_neur[..., :top_k], 
-        y_index = [f'head {hi}' for hi in range(4)],
-        labels = {'x':'Input token', 'value':'Contribution to neuron'},
-        snapshot='Neuron',
-        title=f'Contribution to first {top_k} neurons via OV-circuit of heads (not weighted by attention)'
-    )
-
+top_k = 5
+animate_multi_lines(
+    W_neur[..., :top_k], 
+    y_index = [f'head {hi}' for hi in range(4)],
+    labels = {'x':'Input token', 'value':'Contribution to neuron'},
+    snapshot='Neuron',
+    title=f'Contribution to first {top_k} neurons via OV-circuit of heads (not weighted by attention)'
+)
 ```
 
 #### **$W_{attn}$**
 
 
 ```python
-
-if MAIN:
-    lines(
-        W_attn,
-        labels = [f'head {hi}' for hi in range(4)],
-        xaxis='Input token',
-        yaxis='Contribution to attn score',
-        title=f'Contribution to attention score (pre-softmax) for each head'
-    )
-
+lines(
+    W_attn,
+    labels = [f'head {hi}' for hi in range(4)],
+    xaxis='Input token',
+    yaxis='Contribution to attn score',
+    title=f'Contribution to attention score (pre-softmax) for each head'
+)
 ```
 
 All this periodicity might make us think that the vocabulary basis isn't the most natural one to be operating in. The question is - what is the appropriate basis?
@@ -836,8 +801,7 @@ def make_fourier_basis(p: int) -> Tuple[Tensor, List[str]]:
     pass
 
 
-if MAIN:
-    tests.test_make_fourier_basis(make_fourier_basis)
+tests.test_make_fourier_basis(make_fourier_basis)
 ```
 
 <details>
@@ -872,17 +836,14 @@ Once you've done this (and passed the tests), you can run the cell below to visu
 
 
 ```python
+fourier_basis, fourier_basis_names = make_fourier_basis(p)
 
-if MAIN:
-    fourier_basis, fourier_basis_names = make_fourier_basis(p)
-    
-    animate_lines(
-        fourier_basis, 
-        snapshot_index=fourier_basis_names, 
-        snapshot='Fourier Component', 
-        title='Graphs of Fourier Components (Use Slider)'
-    )
-
+animate_lines(
+    fourier_basis, 
+    snapshot_index=fourier_basis_names, 
+    snapshot='Fourier Component', 
+    title='Graphs of Fourier Components (Use Slider)'
+)
 ```
 
 *Note - from this point onwards, the `fourier_basis` and `fourier_basis_names` variables are global, so you'll be using them in other functions. We won't be changing the value of `p`; this is also global.*
@@ -892,10 +853,7 @@ Now, you can prove the fourier basis is orthonormal by showing that the inner pr
 
 
 ```python
-
-if MAIN:
-    imshow(fourier_basis @ fourier_basis.T)
-
+imshow(fourier_basis @ fourier_basis.T)
 ```
 
 Now that we've shown the Fourier transform is indeed an orthonormal basis, we can write any $p$-dimensional vector in terms of this basis. The **1D Fourier transform** is just the transformation taking the components of a vector in the standard basis to its components in the Fourier basis (in other words we project the vector along each of the Fourier basis vectors).
@@ -924,9 +882,7 @@ def fft1d(x: t.Tensor) -> t.Tensor:
     pass
 
 
-if MAIN:
-    tests.test_fft1d(fft1d)
-
+tests.test_fft1d(fft1d)
 ```
 
 <details>
@@ -962,17 +918,14 @@ $$
 
 
 ```python
+v = sum([
+    fourier_basis[4],
+    fourier_basis[15]/5,
+    fourier_basis[67]/10
+])
 
-if MAIN:
-    v = sum([
-        fourier_basis[4],
-        fourier_basis[15]/5,
-        fourier_basis[67]/10
-    ])
-    
-    line(v, xaxis='Vocab basis', title='Example periodic function')
-    line(fft1d(v), xaxis='Fourier Basis', title='Fourier Transform of example function', hover=fourier_basis_names)
-
+line(v, xaxis='Vocab basis', title='Example periodic function')
+line(fft1d(v), xaxis='Fourier Basis', title='Fourier Transform of example function', hover=fourier_basis_names)
 ```
 
 You should observe a jagged but approximately periodic function in the first plot, and a very sparse function in the second plot (with only three non-zero coefficients).
@@ -1027,25 +980,20 @@ def fourier_2d_basis_term(i: int, j: int) -> Float[Tensor, "p p"]:
    
 
 
-if MAIN:
-    tests.test_fourier_2d_basis_term(fourier_2d_basis_term)
-
+tests.test_fourier_2d_basis_term(fourier_2d_basis_term)
 ```
 
 Once you've defined this function, you can visualize the 2D Fourier basis by running the following code. Verify that they do indeed look periodic.
 
 
 ```python
+x_term = 4
+y_term = 6
 
-if MAIN:
-    x_term = 4
-    y_term = 6
-    
-    inputs_heatmap(
-        fourier_2d_basis_term(x_term, y_term).T,
-        title=f"2D Fourier Basis term {fourier_basis_names[x_term]}x {fourier_basis_names[y_term]}y"
-    )
-
+inputs_heatmap(
+    fourier_2d_basis_term(x_term, y_term).T,
+    title=f"2D Fourier Basis term {fourier_basis_names[x_term]}x {fourier_basis_names[y_term]}y"
+)
 ```
 
 <details>
@@ -1100,8 +1048,7 @@ def fft2d(tensor: t.Tensor) -> t.Tensor:
     pass    
 
 
-if MAIN:
-    tests.test_fft2d(fft2d)
+tests.test_fft2d(fft2d)
 ```
 
 <details>
@@ -1131,29 +1078,23 @@ Below is some code to plot a simple 2D periodic function (which is a linear comb
 
 
 ```python
+example_fn = sum([
+    fourier_2d_basis_term(4, 6), 
+    fourier_2d_basis_term(14, 46) / 3,
+    fourier_2d_basis_term(97, 100) / 6
+])
 
-if MAIN:
-    example_fn = sum([
-        fourier_2d_basis_term(4, 6), 
-        fourier_2d_basis_term(14, 46) / 3,
-        fourier_2d_basis_term(97, 100) / 6
-    ])
-    
-    inputs_heatmap(example_fn.T, title=f"Example periodic function")
-
+inputs_heatmap(example_fn.T, title=f"Example periodic function")
 ```
 
 Code to show this function is sparse in the 2D Fourier basis (you'll have to zoom in to see the non-zero coefficients):
 
 
 ```python
-
-if MAIN:
-    imshow_fourier(
-        fft2d(example_fn),
-        title='Example periodic function in 2D Fourier basis'
-    )
-
+imshow_fourier(
+    fft2d(example_fn),
+    title='Example periodic function in 2D Fourier basis'
+)
 ```
 
 You can run this code, and check that the non-zero components exactly match the basis terms we used to construct the function.
@@ -1189,18 +1130,15 @@ The code below takes the 2D Fourier transform of the attention matrix, and plots
 
 ```python
 # Apply Fourier transformation
+attn_mat_fourier_basis = fft2d(attn_mat_sq)
 
-if MAIN:
-    attn_mat_fourier_basis = fft2d(attn_mat_sq)
-    
-    # Plot results
-    imshow_fourier(
-        attn_mat_fourier_basis[..., 0], 
-        title=f'Attention score for heads at position 0, in Fourier basis',
-        animation_frame=2,
-        animation_name='head'
-    )
-
+# Plot results
+imshow_fourier(
+    attn_mat_fourier_basis[..., 0], 
+    title=f'Attention score for heads at position 0, in Fourier basis',
+    animation_frame=2,
+    animation_name='head'
+)
 ```
 
 You should find that the result is extremely sparse - there will only be a few cells (mostly on the zeroth rows or columns, i.e. corresponding to the constant or linear terms) which aren't zero. This suggests that we're on the right track using the 2D Fourier basis!
@@ -1221,18 +1159,15 @@ We'll do the exact same here, and plot the activations in the Fourier basis:
 
 
 ```python
+neuron_acts_post_fourier_basis = fft2d(neuron_acts_post_sq)
 
-if MAIN:
-    neuron_acts_post_fourier_basis = fft2d(neuron_acts_post_sq)
-    
-    top_k = 3
-    imshow_fourier(
-        neuron_acts_post_fourier_basis[..., :top_k], 
-        title=f'Activations for first {top_k} neurons',
-        animation_frame=2,
-        animation_name='Neuron'
-    )
-
+top_k = 3
+imshow_fourier(
+    neuron_acts_post_fourier_basis[..., :top_k], 
+    title=f'Activations for first {top_k} neurons',
+    animation_frame=2,
+    animation_name='Neuron'
+)
 ```
 
 ### Exercise - spot patterns in the activations
@@ -1312,19 +1247,17 @@ def fft1d_given_dim(tensor: t.Tensor, dim: int) -> t.Tensor:
     return fft1d(tensor.transpose(dim, -1)).transpose(dim, -1)
 
 
-if MAIN:
-    W_neur_fourier = fft1d_given_dim(W_neur, dim=1)
-    
-    top_k = 5
-    animate_multi_lines(
-        W_neur_fourier[..., :top_k], 
-        y_index = [f'head {hi}' for hi in range(4)],
-        labels = {'x':'Fourier component', 'value':'Contribution to neuron'},
-        snapshot='Neuron',
-        hover=fourier_basis_names,
-        title=f'Contribution to first {top_k} neurons via OV-circuit of heads (not weighted by attn), in Fourier basis'
-    )
+W_neur_fourier = fft1d_given_dim(W_neur, dim=1)
 
+top_k = 5
+animate_multi_lines(
+    W_neur_fourier[..., :top_k], 
+    y_index = [f'head {hi}' for hi in range(4)],
+    labels = {'x':'Fourier component', 'value':'Contribution to neuron'},
+    snapshot='Neuron',
+    hover=fourier_basis_names,
+    title=f'Contribution to first {top_k} neurons via OV-circuit of heads (not weighted by attn), in Fourier basis'
+)
 ```
 
 Note that each line plot generally has $\sin k$ and $\cos k$ terms non-zero, rather than having one but not the other.
@@ -1345,17 +1278,14 @@ We amend this to:
 
 
 ```python
-
-if MAIN:
-    lines(
-        fft1d(W_attn), 
-        labels = [f'head {hi}' for hi in range(4)],
-        xaxis='Input token', 
-        yaxis = 'Contribution to attn score',
-        title=f'Contribution to attn score (pre-softmax) for each head, in Fourier Basis', 
-        hover=fourier_basis_names
-    )
-
+lines(
+    fft1d(W_attn), 
+    labels = [f'head {hi}' for hi in range(4)],
+    xaxis='Input token', 
+    yaxis = 'Contribution to attn score',
+    title=f'Contribution to attn score (pre-softmax) for each head, in Fourier Basis', 
+    hover=fourier_basis_names
+)
 ```
 
 You may have noticed that the handful of non-zero frequencies in both these last two line charts exactly match the important frequencies we read off the attention patterns!
@@ -1433,16 +1363,13 @@ Below is some code to plot the embedding in the Fourier basis. You should run th
 
 
 ```python
-
-if MAIN:
-    line(
-        (fourier_basis @ W_E).pow(2).sum(1), 
-        hover=fourier_basis_names,
-        title='Norm of embedding of each Fourier Component',
-        xaxis='Fourier Component',
-        yaxis='Norm'
-    )
-
+line(
+    (fourier_basis @ W_E).pow(2).sum(1), 
+    hover=fourier_basis_names,
+    title='Norm of embedding of each Fourier Component',
+    xaxis='Fourier Component',
+    yaxis='Norm'
+)
 ```
 
 <details>
@@ -1597,14 +1524,11 @@ Remember to work with the `neuron_acts_post_sq` object, which already has its ba
 
 
 ```python
-
-if MAIN:
-    # YOUR CODE HERE - compute neuron activations (centered)
-    imshow_fourier(
-        neuron_acts_centered_fourier.pow(2).mean(-1),
-        title=f"Norms of 2D Fourier components of centered neuron activations",
-    )
-
+# YOUR CODE HERE - compute neuron activations (centered)
+imshow_fourier(
+    neuron_acts_centered_fourier.pow(2).mean(-1),
+    title=f"Norms of 2D Fourier components of centered neuron activations",
+)
 ```
 
 <details>
@@ -1813,12 +1737,10 @@ def find_neuron_freqs(
     pass
 
 
-if MAIN:
-    neuron_freqs, neuron_frac_explained = find_neuron_freqs(neuron_acts_centered_fourier)
-    key_freqs, neuron_freq_counts = t.unique(neuron_freqs, return_counts=True)
-    
-    assert key_freqs.tolist() == [14, 35, 41, 42, 52]
+neuron_freqs, neuron_frac_explained = find_neuron_freqs(neuron_acts_centered_fourier)
+key_freqs, neuron_freq_counts = t.unique(neuron_freqs, return_counts=True)
 
+assert key_freqs.tolist() == [14, 35, 41, 42, 52]
 ```
 
 <details>
@@ -1880,20 +1802,17 @@ Once you've written this function and passed the tests, you can plot the fractio
 
 
 ```python
+fraction_of_activations_positive_at_posn2 = (cache['pre', 0][:, -1] > 0).float().mean(0)
 
-if MAIN:
-    fraction_of_activations_positive_at_posn2 = (cache['pre', 0][:, -1] > 0).float().mean(0)
-    
-    scatter(
-        x=neuron_freqs, 
-        y=neuron_frac_explained,
-        xaxis="Neuron frequency", 
-        yaxis="Frac explained", 
-        colorbar_title="Frac positive",
-        title="Fraction of neuron activations explained by key freq",
-        color=utils.to_numpy(fraction_of_activations_positive_at_posn2)
-    )
-
+scatter(
+    x=neuron_freqs, 
+    y=neuron_frac_explained,
+    xaxis="Neuron frequency", 
+    yaxis="Frac explained", 
+    colorbar_title="Frac positive",
+    title="Fraction of neuron activations explained by key freq",
+    color=utils.to_numpy(fraction_of_activations_positive_at_posn2)
+)
 ```
 
 We color the neurons according to the fraction of data points for which they are active. We see that there are 5 distinct clusters of neurons that are well explained (frac > 0.85) by one frequency.
@@ -1903,14 +1822,11 @@ There is a sixth, diffuse cluster of neurons that always fire. They are not well
 
 ```python
 # To represent that they are in a special sixth cluster, we set the frequency of these neurons to -1
+neuron_freqs[neuron_frac_explained < 0.85] = -1.
+key_freqs_plus = t.concatenate([key_freqs, -key_freqs.new_ones((1,))])
 
-if MAIN:
-    neuron_freqs[neuron_frac_explained < 0.85] = -1.
-    key_freqs_plus = t.concatenate([key_freqs, -key_freqs.new_ones((1,))])
-    
-    for i, k in enumerate(key_freqs_plus):
-        print(f'Cluster {i}: freq k={k}, {(neuron_freqs==k).sum()} neurons')
-
+for i, k in enumerate(key_freqs_plus):
+    print(f'Cluster {i}: freq k={k}, {(neuron_freqs==k).sum()} neurons')
 ```
 
 ### Further investigation of neuron clusters
@@ -1921,25 +1837,22 @@ We can separately view the norms of the Fourier Components of the neuron activat
 
 
 ```python
-
-if MAIN:
-    fourier_norms_in_each_cluster = []
-    for freq in key_freqs:
-        fourier_norms_in_each_cluster.append(
-            einops.reduce(
-                neuron_acts_centered_fourier.pow(2)[..., neuron_freqs==freq], 
-                'batch_y batch_x neuron -> batch_y batch_x', 
-                'mean'
-            )
+fourier_norms_in_each_cluster = []
+for freq in key_freqs:
+    fourier_norms_in_each_cluster.append(
+        einops.reduce(
+            neuron_acts_centered_fourier.pow(2)[..., neuron_freqs==freq], 
+            'batch_y batch_x neuron -> batch_y batch_x', 
+            'mean'
         )
-    
-    imshow_fourier(
-        t.stack(fourier_norms_in_each_cluster), 
-        title=f'Norm of 2D Fourier components of neuron activations in each cluster',
-        facet_col=0,
-        facet_labels=[f"Freq={freq}" for freq in key_freqs]
     )
 
+imshow_fourier(
+    t.stack(fourier_norms_in_each_cluster), 
+    title=f'Norm of 2D Fourier components of neuron activations in each cluster',
+    facet_col=0,
+    facet_labels=[f"Freq={freq}" for freq in key_freqs]
+)
 ```
 
 Now that we've found what appear to be neuron clusters, it's time to validate our observations. We'll do this by showing that, for each neuron cluster, we can set terms for any other frequency to zero and still get good performance on the task.
@@ -1990,9 +1903,7 @@ def project_onto_direction(batch_vecs: t.Tensor, v: t.Tensor) -> t.Tensor:
 
 
 
-if MAIN:
-    tests.test_project_onto_direction(project_onto_direction)
-
+tests.test_project_onto_direction(project_onto_direction)
 ```
 
 <details>
@@ -2064,10 +1975,7 @@ def project_onto_frequency(batch_vecs: t.Tensor, freq: int) -> t.Tensor:
     pass
 
     
-
-if MAIN:
-    tests.test_project_onto_frequency(project_onto_frequency)
-
+tests.test_project_onto_frequency(project_onto_frequency)
 ```
 
 <details>
@@ -2109,44 +2017,41 @@ Finally, run the following code to project out the other frequencies from the ne
 
 
 ```python
+logits_in_freqs = []
 
-if MAIN:
-    logits_in_freqs = []
-    
-    for freq in key_freqs:
-    
-        # Get all neuron activations corresponding to this frequency
-        filtered_neuron_acts = neuron_acts_post[:, neuron_freqs==freq]
-    
-        # Project onto const/linear/quadratic terms in 2D Fourier basis
-        filtered_neuron_acts_in_freq = project_onto_frequency(filtered_neuron_acts, freq)
-    
-        # Calcluate new logits, from these filtered neuron activations
-        logits_in_freq = filtered_neuron_acts_in_freq @ W_logit[neuron_freqs==freq]
-    
-        logits_in_freqs.append(logits_in_freq)
-    
-    # We add on neurons in the always firing cluster, unfiltered
-    logits_always_firing = neuron_acts_post[:, neuron_freqs==-1] @ W_logit[neuron_freqs==-1]
-    logits_in_freqs.append(logits_always_firing)
-    
-    # Print new losses
-    print('Loss with neuron activations ONLY in key freq (inclusing always firing cluster)\n{:.6e}\n'.format( 
-        test_logits(
-            sum(logits_in_freqs), 
-            bias_correction=True, 
-            original_logits=original_logits
-        )
-    ))
-    print('Loss with neuron activations ONLY in key freq (exclusing always firing cluster)\n{:.6e}\n'.format( 
-        test_logits(
-            sum(logits_in_freqs[:-1]), 
-            bias_correction=True, 
-            original_logits=original_logits
-        )
-    ))
-    print('Original loss\n{:.6e}'.format(original_loss))
+for freq in key_freqs:
 
+    # Get all neuron activations corresponding to this frequency
+    filtered_neuron_acts = neuron_acts_post[:, neuron_freqs==freq]
+
+    # Project onto const/linear/quadratic terms in 2D Fourier basis
+    filtered_neuron_acts_in_freq = project_onto_frequency(filtered_neuron_acts, freq)
+
+    # Calcluate new logits, from these filtered neuron activations
+    logits_in_freq = filtered_neuron_acts_in_freq @ W_logit[neuron_freqs==freq]
+
+    logits_in_freqs.append(logits_in_freq)
+
+# We add on neurons in the always firing cluster, unfiltered
+logits_always_firing = neuron_acts_post[:, neuron_freqs==-1] @ W_logit[neuron_freqs==-1]
+logits_in_freqs.append(logits_always_firing)
+
+# Print new losses
+print('Loss with neuron activations ONLY in key freq (inclusing always firing cluster)\n{:.6e}\n'.format( 
+    test_logits(
+        sum(logits_in_freqs), 
+        bias_correction=True, 
+        original_logits=original_logits
+    )
+))
+print('Loss with neuron activations ONLY in key freq (exclusing always firing cluster)\n{:.6e}\n'.format( 
+    test_logits(
+        sum(logits_in_freqs[:-1]), 
+        bias_correction=True, 
+        original_logits=original_logits
+    )
+))
+print('Original loss\n{:.6e}'.format(original_loss))
 ```
 
 You should find that the loss doesn't change much when you project out the other frequencies, and even if you remove the always firing cluster the loss is still very small.
@@ -2156,19 +2061,16 @@ We can also compare the importance of each cluster of neurons by ablating it (wh
 
 
 ```python
-
-if MAIN:
-    print('Loss with neuron activations excluding none:     {:.9f}'.format(original_loss.item()))
-    for c, freq in enumerate(key_freqs_plus):
-        print('Loss with neuron activations excluding freq={}:  {:.9f}'.format(
-            freq, 
-            test_logits(
-                sum(logits_in_freqs) - logits_in_freqs[c], 
-                bias_correction=True, 
-                original_logits=original_logits
-            )
-        ))
-
+print('Loss with neuron activations excluding none:     {:.9f}'.format(original_loss.item()))
+for c, freq in enumerate(key_freqs_plus):
+    print('Loss with neuron activations excluding freq={}:  {:.9f}'.format(
+        freq, 
+        test_logits(
+            sum(logits_in_freqs) - logits_in_freqs[c], 
+            bias_correction=True, 
+            original_logits=original_logits
+        )
+    ))
 ```
 
 ## Understanding Logit Computation
@@ -2264,22 +2166,19 @@ Below is some code to visualise this. Note the use of `einops.reduce` rather tha
 
 
 ```python
+imshow_fourier(
+    einops.reduce(neuron_acts_centered_fourier.pow(2), 'y x neuron -> y x', 'mean'), 
+    title='Norm of Fourier Components of Neuron Acts'
+)
 
-if MAIN:
-    imshow_fourier(
-        einops.reduce(neuron_acts_centered_fourier.pow(2), 'y x neuron -> y x', 'mean'), 
-        title='Norm of Fourier Components of Neuron Acts'
-    )
-    
-    # Rearrange logits, so the first two dims represent (x, y) in modular arithmetic equation
-    original_logits_sq = einops.rearrange(original_logits, "(x y) z -> x y z", x=p)
-    original_logits_fourier = fft2d(original_logits_sq)
-    
-    imshow_fourier(
-        einops.reduce(original_logits_fourier.pow(2), 'y x z -> y x', 'mean'), 
-        title='Norm of Fourier Components of Logits'
-    )
+# Rearrange logits, so the first two dims represent (x, y) in modular arithmetic equation
+original_logits_sq = einops.rearrange(original_logits, "(x y) z -> x y z", x=p)
+original_logits_fourier = fft2d(original_logits_sq)
 
+imshow_fourier(
+    einops.reduce(original_logits_fourier.pow(2), 'y x z -> y x', 'mean'), 
+    title='Norm of Fourier Components of Logits'
+)
 ```
 
 You should find that the linear and constant terms have more or less vanished relative to the quadratic terms, and that the quadratic terms are much larger in the logits than the neuron activations. This is annotated in the plots below (which should match the results you get from running the code):
@@ -2324,9 +2223,7 @@ def get_trig_sum_directions(k: int) -> Tuple[Float[Tensor, "p p"], Float[Tensor,
     pass
 
 
-if MAIN:
-    tests.test_get_trig_sum_directions(get_trig_sum_directions)
-
+tests.test_get_trig_sum_directions(get_trig_sum_directions)
 ```
 
 <details>
@@ -2372,31 +2269,28 @@ Once you've passed these tests, you can run the code to project the logits onto 
 
 
 ```python
+trig_logits = []
 
-if MAIN:
-    trig_logits = []
-    
-    for k in key_freqs:
-    
-        cos_xplusy_direction, sin_xplusy_direction = get_trig_sum_directions(k)
-    
-        cos_xplusy_projection = project_onto_direction(
-            original_logits,
-            cos_xplusy_direction.flatten()
-        )
-    
-        sin_xplusy_projection = project_onto_direction(
-            original_logits,
-            sin_xplusy_direction.flatten()
-        )
-    
-        trig_logits.extend([cos_xplusy_projection, sin_xplusy_projection])
-    
-    trig_logits = sum(trig_logits)
-    
-    print(f'Loss with just x+y components: {test_logits(trig_logits, True, original_logits):.4e}')
-    print(f"Original Loss: {original_loss:.4e}")
+for k in key_freqs:
 
+    cos_xplusy_direction, sin_xplusy_direction = get_trig_sum_directions(k)
+
+    cos_xplusy_projection = project_onto_direction(
+        original_logits,
+        cos_xplusy_direction.flatten()
+    )
+
+    sin_xplusy_projection = project_onto_direction(
+        original_logits,
+        sin_xplusy_direction.flatten()
+    )
+
+    trig_logits.extend([cos_xplusy_projection, sin_xplusy_projection])
+
+trig_logits = sum(trig_logits)
+
+print(f'Loss with just x+y components: {test_logits(trig_logits, True, original_logits):.4e}')
+print(f"Original Loss: {original_loss:.4e}")
 ```
 
 You should find that the loss with just these components is significantly **lower** than your original loss. This is very strong evidence that we've correctly identified the algorithm used by our model.
@@ -2428,19 +2322,16 @@ Thus, if we right-multiply $W_{logit}$ by $F^T$, we should get a matrix $W_{logi
 
 
 ```python
+US = W_logit @ fourier_basis.T
 
-if MAIN:
-    US = W_logit @ fourier_basis.T
-    
-    imshow_div(
-        US,
-        x=fourier_basis_names,
-        yaxis='Neuron index',
-        title='W_logit in the Fourier Basis',
-        height=800,
-        width=600
-    )
-
+imshow_div(
+    US,
+    x=fourier_basis_names,
+    yaxis='Neuron index',
+    title='W_logit in the Fourier Basis',
+    height=800,
+    width=600
+)
 ```
 
 You should see that the columns of this matrix are only non-zero at positions $2k$, $2k-1$ for the key frequencies. Since our model's final output is just a linear combination of these columns (with the coefficients given by the neuron activations), this proves that $W_{logit}$ is projecting onto directions corresponding to our key frequencies.
@@ -2477,24 +2368,21 @@ First, let's do a quick sanity check. We expect vectors $u_{2k-1}$ and $u_{2k}$ 
 
 
 ```python
+US_sorted = t.concatenate([
+    US[neuron_freqs==freq] for freq in key_freqs_plus
+])
+hline_positions = np.cumsum([(neuron_freqs == freq).sum().item() for freq in key_freqs]).tolist() + [cfg.d_mlp]
 
-if MAIN:
-    US_sorted = t.concatenate([
-        US[neuron_freqs==freq] for freq in key_freqs_plus
-    ])
-    hline_positions = np.cumsum([(neuron_freqs == freq).sum().item() for freq in key_freqs]).tolist() + [cfg.d_mlp]
-    
-    imshow_div(
-        US_sorted,
-        x=fourier_basis_names, 
-        yaxis='Neuron',
-        title='W_logit in the Fourier Basis (rearranged by neuron cluster)',
-        hline_positions = hline_positions,
-        hline_labels = [f"Cluster: {freq=}" for freq in key_freqs.tolist()] + ["No freq"],
-        height=800,
-        width=600
-    )
-
+imshow_div(
+    US_sorted,
+    x=fourier_basis_names, 
+    yaxis='Neuron',
+    title='W_logit in the Fourier Basis (rearranged by neuron cluster)',
+    hline_positions = hline_positions,
+    hline_labels = [f"Cluster: {freq=}" for freq in key_freqs.tolist()] + ["No freq"],
+    height=800,
+    width=600
+)
 ```
 
 You should find that, for each frequency $k$, the components of the output in directions $\cos(\omega_k \vec{\textbf{z}})$ and $\sin(\omega_k \vec{\textbf{z}})$ are determined only by the neurons in the $k$-cluster, i.e. they are determined only by the 2D Fourier components of the input $(x, y)$ with frequency $k$.
@@ -2503,30 +2391,27 @@ This is promising, but we still haven't shown that $\sigma_{2k-1} u_{2k-1} \prop
 
 
 ```python
+cos_components = []
+sin_components = []
 
-if MAIN:
-    cos_components = []
-    sin_components = []
-    
-    for k in key_freqs:
-        σu_sin = US[:, 2*k]
-        σu_cos = US[:, 2*k-1]
-    
-        logits_in_cos_dir = neuron_acts_post_sq @ σu_cos
-        logits_in_sin_dir = neuron_acts_post_sq @ σu_sin
-    
-        cos_components.append(fft2d(logits_in_cos_dir))
-        sin_components.append(fft2d(logits_in_sin_dir))
-        
-    for title, components in zip(['Cosine', 'Sine'], [cos_components, sin_components]):
-        imshow_fourier(
-            t.stack(components),
-            title=f'{title} components of neuron activations in Fourier basis',
-            animation_frame=0,
-            animation_name="Frequency",
-            animation_labels=key_freqs.tolist()
-        )
+for k in key_freqs:
+    σu_sin = US[:, 2*k]
+    σu_cos = US[:, 2*k-1]
 
+    logits_in_cos_dir = neuron_acts_post_sq @ σu_cos
+    logits_in_sin_dir = neuron_acts_post_sq @ σu_sin
+
+    cos_components.append(fft2d(logits_in_cos_dir))
+    sin_components.append(fft2d(logits_in_sin_dir))
+    
+for title, components in zip(['Cosine', 'Sine'], [cos_components, sin_components]):
+    imshow_fourier(
+        t.stack(components),
+        title=f'{title} components of neuron activations in Fourier basis',
+        animation_frame=0,
+        animation_name="Frequency",
+        animation_labels=key_freqs.tolist()
+    )
 ```
 
 Can you interpret this plot? Can you explain why this plot confirms our hypothesis about how logits are computed?
@@ -2665,13 +2550,12 @@ First, we'll define some useful functions. In particular, the `get_metrics` func
 
 
 ```python
+epochs = full_run_data['epochs']
 
-if MAIN:
-    epochs = full_run_data['epochs']
-    
-    # Define a dictionary to store our metrics in
-    metric_cache = {}
-    
+# Define a dictionary to store our metrics in
+metric_cache = {}
+
+
 def get_metrics(model: HookedTransformer, metric_cache, metric_fn, name, reset=False):
     '''
     Define a metric (by metric_fn) and add it to the cache, with the name `name`.
@@ -2692,25 +2576,22 @@ def get_metrics(model: HookedTransformer, metric_cache, metric_fn, name, reset=F
         except:
             metric_cache[name] = t.tensor(np.array(metric_cache[name]))
 
-if MAIN:
-    plot_metric = partial(lines, x=epochs, xaxis='Epoch', log_y=True)
+
+plot_metric = partial(lines, x=epochs, xaxis='Epoch', log_y=True)
     
     
 def test_loss(model):
     logits = model(all_data)[:, -1, :-1]
     return test_logits(logits, False, mode='test')
 
-if MAIN:
-    get_metrics(model, metric_cache, test_loss, 'test_loss')
+get_metrics(model, metric_cache, test_loss, 'test_loss')
     
     
 def train_loss(model):
     logits = model(all_data)[:, -1, :-1]
     return test_logits(logits, False, mode='train')
 
-if MAIN:
-    get_metrics(model, metric_cache, train_loss, 'train_loss')
-
+get_metrics(model, metric_cache, train_loss, 'train_loss')
 ```
 
 ## Excluded Loss
@@ -2746,8 +2627,7 @@ def excl_loss(model: HookedTransformer, key_freqs: list) -> list:
     pass
 
 
-if MAIN:
-    tests.test_excl_loss(excl_loss, model, key_freqs)
+tests.test_excl_loss(excl_loss, model, key_freqs)
 ```
 
 <details>
@@ -2790,25 +2670,22 @@ Once you've completed this function, you can run the following code to plot the 
 
 
 ```python
+excl_loss = partial(excl_loss, key_freqs=key_freqs)
+get_metrics(model, metric_cache, excl_loss, 'excl_loss')
 
-if MAIN:
-    excl_loss = partial(excl_loss, key_freqs=key_freqs)
-    get_metrics(model, metric_cache, excl_loss, 'excl_loss')
-    
-    lines(
-        t.concat([
-            metric_cache['excl_loss'].T, 
-            metric_cache['train_loss'][None, :],  
-            metric_cache['test_loss'][None, :]
-        ], axis=0), 
-        labels=[f'excl {freq}' for freq in key_freqs]+['train', 'test'], 
-        title='Excluded Loss for each trig component',
-        log_y=True,
-        x=full_run_data['epochs'],
-        xaxis='Epoch',
-        yaxis='Loss'
-    )
-
+lines(
+    t.concat([
+        metric_cache['excl_loss'].T, 
+        metric_cache['train_loss'][None, :],  
+        metric_cache['test_loss'][None, :]
+    ], axis=0), 
+    labels=[f'excl {freq}' for freq in key_freqs]+['train', 'test'], 
+    title='Excluded Loss for each trig component',
+    log_y=True,
+    x=full_run_data['epochs'],
+    xaxis='Epoch',
+    yaxis='Loss'
+)
 ```
 
 ## Development of the embedding
@@ -2840,9 +2717,7 @@ def fourier_embed(model: HookedTransformer):
     pass
 
 
-if MAIN:
-    tests.test_fourier_embed(fourier_embed, model)
-
+tests.test_fourier_embed(fourier_embed, model)
 ```
 
 <details>
@@ -2864,19 +2739,16 @@ Next, you can plot how the norm of Fourier components of the embedding changes d
 
 ```python
 # Plot every 200 epochs so it's not overwhelming
+get_metrics(model, metric_cache, fourier_embed, 'fourier_embed')
 
-if MAIN:
-    get_metrics(model, metric_cache, fourier_embed, 'fourier_embed')
-    
-    animate_lines(
-        metric_cache['fourier_embed'][::2],
-        snapshot_index = epochs[::2],
-        snapshot='Epoch',
-        hover=fourier_basis_names,
-        animation_group='x',
-        title='Norm of Fourier Components in the Embedding Over Training',
-    )
-
+animate_lines(
+    metric_cache['fourier_embed'][::2],
+    snapshot_index = epochs[::2],
+    snapshot='Epoch',
+    hover=fourier_basis_names,
+    animation_group='x',
+    title='Norm of Fourier Components in the Embedding Over Training',
+)
 ```
 
 ### Exercise - Examine the SVD of $W_E$
@@ -2901,9 +2773,7 @@ def embed_SVD(model: HookedTransformer) -> t.Tensor:
     pass
 
 
-if MAIN:
-    tests.test_embed_SVD(embed_SVD, model)
-
+tests.test_embed_SVD(embed_SVD, model)
 ```
 
 <details>
@@ -2923,19 +2793,16 @@ def embed_SVD(model: HookedTransformer) -> t.Tensor:
 
 
 ```python
+get_metrics(model, metric_cache, embed_SVD, 'embed_SVD')
 
-if MAIN:
-    get_metrics(model, metric_cache, embed_SVD, 'embed_SVD')
-    
-    animate_lines(
-        metric_cache['embed_SVD'],
-        snapshot_index = epochs,
-        snapshot='Epoch',
-        title='Singular Values of the Embedding During Training',
-        xaxis='Singular Number',
-        yaxis='Singular Value',
-    )
-
+animate_lines(
+    metric_cache['embed_SVD'],
+    snapshot_index = epochs,
+    snapshot='Epoch',
+    title='Singular Values of the Embedding During Training',
+    xaxis='Singular Number',
+    yaxis='Singular Value',
+)
 ```
 
 Can you interpret what's going on in this plot?
@@ -3004,31 +2871,29 @@ def tensor_trig_ratio(model: HookedTransformer, mode: str):
 
     
 
-if MAIN:
-    for mode in ['neuron_pre', 'neuron_post', 'logit']:
-        get_metrics(
-            model, 
-            metric_cache, 
-            partial(tensor_trig_ratio, mode=mode), 
-            f"{mode}_trig_ratio", 
-            reset=True
-        )
-    
-    lines_list = []
-    line_labels = []
-    for mode in ['neuron_pre', 'neuron_post', 'logit']:
-        tensor = metric_cache[f"{mode}_trig_ratio"]
-        lines_list.append(einops.reduce(tensor, 'epoch index -> epoch', 'mean'))
-        line_labels.append(f"{mode}_trig_frac")
-    
-    plot_metric(
-        lines_list, 
-        labels=line_labels, 
-        log_y=False,
-        yaxis='Ratio',
-        title='Fraction of logits and neurons explained by trig terms',
+for mode in ['neuron_pre', 'neuron_post', 'logit']:
+    get_metrics(
+        model, 
+        metric_cache, 
+        partial(tensor_trig_ratio, mode=mode), 
+        f"{mode}_trig_ratio", 
+        reset=True
     )
 
+lines_list = []
+line_labels = []
+for mode in ['neuron_pre', 'neuron_post', 'logit']:
+    tensor = metric_cache[f"{mode}_trig_ratio"]
+    lines_list.append(einops.reduce(tensor, 'epoch index -> epoch', 'mean'))
+    line_labels.append(f"{mode}_trig_frac")
+
+plot_metric(
+    lines_list, 
+    labels=line_labels, 
+    log_y=False,
+    yaxis='Ratio',
+    title='Fraction of logits and neurons explained by trig terms',
+)
 ```
 
 By plotting on a log scale, we can more clearly see that all 3 are having a higher proportion of trig components over training, but that the logits are smoother while the neurons exhibit more of a phase change.
@@ -3109,41 +2974,39 @@ def get_frac_explained(model: HookedTransformer):
 
 
 
-if MAIN:
-    get_metrics(model, metric_cache, get_frac_explained, 'get_frac_explained')
-    
-    frac_explained_pre = metric_cache['get_frac_explained'][:, 0]
-    frac_explained_quadratic_pre = metric_cache['get_frac_explained'][:, 1]
-    frac_explained_post = metric_cache['get_frac_explained'][:, 2]
-    frac_explained_quadratic_post = metric_cache['get_frac_explained'][:, 3]
-    neuron_freqs_ = metric_cache['get_frac_explained'][:, 4]
-    frac_active = metric_cache['get_frac_explained'][:, 5]
-    
-    animate_scatter(
-        t.stack([frac_explained_quadratic_pre, frac_explained_quadratic_post], dim=1)[:200:5],
-        color=neuron_freqs_[:200:5], 
-        color_name='freq',
-        snapshot='epoch',
-        snapshot_index=epochs[:200:5],
-        xaxis='Quad ratio pre',
-        yaxis='Quad ratio post',
-        color_continuous_scale='viridis',
-        title='Fraction of variance explained by quadratic terms (up to epoch 20K)'
-    )
-    
-    animate_scatter(
-        t.stack([neuron_freqs_, frac_explained_pre, frac_explained_post], dim=1)[:200:5],
-        color=frac_active[:200:5],
-        color_name='frac_active',
-        snapshot='epoch',
-        snapshot_index=epochs[:200:5],
-        xaxis='Freq',
-        yaxis='Frac explained',
-        hover=list(range(d_mlp)),
-        color_continuous_scale='viridis',
-        title='Fraction of variance explained by this frequency (up to epoch 20K)'
-    )
+get_metrics(model, metric_cache, get_frac_explained, 'get_frac_explained')
 
+frac_explained_pre = metric_cache['get_frac_explained'][:, 0]
+frac_explained_quadratic_pre = metric_cache['get_frac_explained'][:, 1]
+frac_explained_post = metric_cache['get_frac_explained'][:, 2]
+frac_explained_quadratic_post = metric_cache['get_frac_explained'][:, 3]
+neuron_freqs_ = metric_cache['get_frac_explained'][:, 4]
+frac_active = metric_cache['get_frac_explained'][:, 5]
+
+animate_scatter(
+    t.stack([frac_explained_quadratic_pre, frac_explained_quadratic_post], dim=1)[:200:5],
+    color=neuron_freqs_[:200:5], 
+    color_name='freq',
+    snapshot='epoch',
+    snapshot_index=epochs[:200:5],
+    xaxis='Quad ratio pre',
+    yaxis='Quad ratio post',
+    color_continuous_scale='viridis',
+    title='Fraction of variance explained by quadratic terms (up to epoch 20K)'
+)
+
+animate_scatter(
+    t.stack([neuron_freqs_, frac_explained_pre, frac_explained_post], dim=1)[:200:5],
+    color=frac_active[:200:5],
+    color_name='frac_active',
+    snapshot='epoch',
+    snapshot_index=epochs[:200:5],
+    xaxis='Freq',
+    yaxis='Frac explained',
+    hover=list(range(d_mlp)),
+    color_continuous_scale='viridis',
+    title='Fraction of variance explained by this frequency (up to epoch 20K)'
+)
 ```
 
 ## Development of commutativity
@@ -3164,39 +3027,34 @@ def avg_attn_pattern(model: HookedTransformer):
     )
 
 
-if MAIN:
-    get_metrics(model, metric_cache, avg_attn_pattern, 'avg_attn_pattern')
-    
-    imshow_div(
-        metric_cache['avg_attn_pattern'][::5],
-        animation_frame=0, 
-        animation_name='head',
-        title='Avg attn by position and head, snapped every 100 epochs', 
-        xaxis='Pos', 
-        yaxis='Head',
-        zmax=0.5,
-        zmin=0.0,
-        color_continuous_scale='Blues',
-        text_auto='.3f',
-    )
+get_metrics(model, metric_cache, avg_attn_pattern, 'avg_attn_pattern')
 
+imshow_div(
+    metric_cache['avg_attn_pattern'][::5],
+    animation_frame=0, 
+    animation_name='head',
+    title='Avg attn by position and head, snapped every 100 epochs', 
+    xaxis='Pos', 
+    yaxis='Head',
+    zmax=0.5,
+    zmin=0.0,
+    color_continuous_scale='Blues',
+    text_auto='.3f',
+)
 ```
 
 We can also see this by plotting the average difference between pos 0 and pos 1.
 
 
 ```python
-
-if MAIN:
-    lines(
-        (metric_cache['avg_attn_pattern'][:, :, 0]-metric_cache['avg_attn_pattern'][:, :, 1]).T,
-        labels=[f"head {i}" for i in range(4)],
-        x=epochs,
-        xaxis='Epoch',
-        yaxis='Average difference',
-        title='Attention to pos 0 - pos 1 by head over training'
-    )
-
+lines(
+    (metric_cache['avg_attn_pattern'][:, :, 0]-metric_cache['avg_attn_pattern'][:, :, 1]).T,
+    labels=[f"head {i}" for i in range(4)],
+    x=epochs,
+    xaxis='Epoch',
+    yaxis='Average difference',
+    title='Attention to pos 0 - pos 1 by head over training'
+)
 ```
 
 ## Small lag to clean up noise
@@ -3230,16 +3088,14 @@ def trig_loss(model: HookedTransformer, mode: str = 'all'):
 
 
 
-if MAIN:
-    get_metrics(model, metric_cache, trig_loss, 'trig_loss')
-    
-    trig_loss_train = partial(trig_loss, mode='train')
-    get_metrics(model, metric_cache, trig_loss_train, 'trig_loss_train')
-    
-    line_labels = ['test_loss', 'train_loss', 'trig_loss', 'trig_loss_train']
-    plot_metric([metric_cache[lab] for lab in line_labels], labels=line_labels, title='Different losses over training')
-    plot_metric([metric_cache['test_loss']/metric_cache['trig_loss']], title='Ratio of trig and test loss')
+get_metrics(model, metric_cache, trig_loss, 'trig_loss')
 
+trig_loss_train = partial(trig_loss, mode='train')
+get_metrics(model, metric_cache, trig_loss_train, 'trig_loss_train')
+
+line_labels = ['test_loss', 'train_loss', 'trig_loss', 'trig_loss_train']
+plot_metric([metric_cache[lab] for lab in line_labels], labels=line_labels, title='Different losses over training')
+plot_metric([metric_cache['test_loss']/metric_cache['trig_loss']], title='Ratio of trig and test loss')
 ```
 
 ## Development of squared sum of the weights
@@ -3254,29 +3110,25 @@ Another data point is looking at the sum of squared weights for each parameter. 
 
 
 ```python
-
-if MAIN:
-    parameter_names = [name for name, param in model.named_parameters()]
+parameter_names = [name for name, param in model.named_parameters()]
     
 def sum_sq_weights(model):
     return [param.pow(2).sum().item() for name, param in model.named_parameters()]
 
-if MAIN:
-    get_metrics(model, metric_cache, sum_sq_weights, 'sum_sq_weights')
-    
-    plot_metric(
-        metric_cache['sum_sq_weights'].T, 
-        title='Sum of squared weights for each parameter',
-        # Take only the end of each parameter name for brevity
-        labels=[i.split('.')[-1] for i in parameter_names],
-        log_y=False
-    )
-    plot_metric(
-        [einops.reduce(metric_cache['sum_sq_weights'], 'epoch param -> epoch', 'sum')], 
-        title='Total sum of squared weights',
-        log_y=False
-    )
+get_metrics(model, metric_cache, sum_sq_weights, 'sum_sq_weights')
 
+plot_metric(
+    metric_cache['sum_sq_weights'].T, 
+    title='Sum of squared weights for each parameter',
+    # Take only the end of each parameter name for brevity
+    labels=[i.split('.')[-1] for i in parameter_names],
+    log_y=False
+)
+plot_metric(
+    [einops.reduce(metric_cache['sum_sq_weights'], 'epoch param -> epoch', 'sum')], 
+    title='Total sum of squared weights',
+    log_y=False
+)
 ```
 
 

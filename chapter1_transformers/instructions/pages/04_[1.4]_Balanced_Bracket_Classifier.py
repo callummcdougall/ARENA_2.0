@@ -347,31 +347,28 @@ Here, we define the model according to the description we gave above. First, you
 
 
 ```python
+VOCAB = "()"
 
-if MAIN:
-    VOCAB = "()"
-    
-    cfg = HookedTransformerConfig(
-        n_ctx=42,
-        d_model=56,
-        d_head=28,
-        n_heads=2,
-        d_mlp=56,
-        n_layers=3,
-        attention_dir="bidirectional", # defaults to "causal"
-        act_fn="relu",
-        d_vocab=len(VOCAB)+3, # plus 3 because of end and pad and start token
-        d_vocab_out=2, # 2 because we're doing binary classification
-        use_attn_result=True, 
-        device=device,
-        use_hook_tokens=True
-    )
-    
-    model = HookedTransformer(cfg).eval()
-    
-    state_dict = t.load(section_dir / "brackets_model_state_dict.pt")
-    model.load_state_dict(state_dict)
+cfg = HookedTransformerConfig(
+    n_ctx=42,
+    d_model=56,
+    d_head=28,
+    n_heads=2,
+    d_mlp=56,
+    n_layers=3,
+    attention_dir="bidirectional", # defaults to "causal"
+    act_fn="relu",
+    d_vocab=len(VOCAB)+3, # plus 3 because of end and pad and start token
+    d_vocab_out=2, # 2 because we're doing binary classification
+    use_attn_result=True, 
+    device=device,
+    use_hook_tokens=True
+)
 
+model = HookedTransformer(cfg).eval()
+
+state_dict = t.load(section_dir / "brackets_model_state_dict.pt")
+model.load_state_dict(state_dict)
 ```
 
 ## Tokenizer
@@ -382,22 +379,19 @@ You have been given a tokenizer `SimpleTokenizer("()")` which will give you some
 
 
 ```python
+tokenizer = SimpleTokenizer("()")
 
-if MAIN:
-    tokenizer = SimpleTokenizer("()")
-    
-    # Examples of tokenization
-    # (the second one applies padding, since the sequences are of different lengths)
-    print(tokenizer.tokenize("()"))
-    print(tokenizer.tokenize(["()", "()()"]))
-    
-    # Dictionaries mapping indices to tokens and vice versa
-    print(tokenizer.i_to_t)
-    print(tokenizer.t_to_i)
-    
-    # Examples of decoding (all padding tokens are removed)
-    print(tokenizer.decode(t.tensor([[0, 3, 4, 2, 1, 1]])))
+# Examples of tokenization
+# (the second one applies padding, since the sequences are of different lengths)
+print(tokenizer.tokenize("()"))
+print(tokenizer.tokenize(["()", "()()"]))
 
+# Dictionaries mapping indices to tokens and vice versa
+print(tokenizer.i_to_t)
+print(tokenizer.t_to_i)
+
+# Examples of decoding (all padding tokens are removed)
+print(tokenizer.decode(t.tensor([[0, 3, 4, 2, 1, 1]])))
 ```
 
 ### Implementing our masking
@@ -438,10 +432,8 @@ def add_perma_hooks_to_mask_pad_tokens(model: HookedTransformer, pad_token: int)
     return model
 
 
-if MAIN:
-    model.reset_hooks(including_permanent=True)
-    model = add_perma_hooks_to_mask_pad_tokens(model, tokenizer.PAD_TOKEN)
-
+model.reset_hooks(including_permanent=True)
+model = add_perma_hooks_to_mask_pad_tokens(model, tokenizer.PAD_TOKEN)
 ```
 
 ## Dataset
@@ -454,17 +446,14 @@ Remember to download the `brackets_data.json` file from [this Google Drive link]
 
 
 ```python
-
-if MAIN:
-    N_SAMPLES = 5000
-    with open(section_dir / "brackets_data.json") as f:
-        data_tuples: List[Tuple[str, bool]] = json.load(f)
-        print(f"loaded {len(data_tuples)} examples")
-    assert isinstance(data_tuples, list)
-    data_tuples = data_tuples[:N_SAMPLES]
-    data = BracketsDataset(data_tuples).to(device)
-    data_mini = BracketsDataset(data_tuples[:100]).to(device)
-
+N_SAMPLES = 5000
+with open(section_dir / "brackets_data.json") as f:
+    data_tuples: List[Tuple[str, bool]] = json.load(f)
+    print(f"loaded {len(data_tuples)} examples")
+assert isinstance(data_tuples, list)
+data_tuples = data_tuples[:N_SAMPLES]
+data = BracketsDataset(data_tuples).to(device)
+data_mini = BracketsDataset(data_tuples[:100]).to(device)
 ```
 
 You are encouraged to look at the code for `BracketsDataset` (scroll up to the setup code at the top - but make sure to not look to closely at the solutions!) to see what methods and properties the `data` object has.
@@ -478,15 +467,12 @@ As is good practice, let's examine the dataset and plot the distribution of sequ
 
 
 ```python
-
-if MAIN:
-    hist(
-        [len(x) for x, _ in data_tuples], 
-        nbins=data.seq_length,
-        title="Sequence lengths of brackets in dataset",
-        labels={"x": "Seq len"}
-    )
-
+hist(
+    [len(x) for x, _ in data_tuples], 
+    nbins=data.seq_length,
+    title="Sequence lengths of brackets in dataset",
+    labels={"x": "Seq len"}
+)
 ```
 
 <details>
@@ -504,21 +490,18 @@ Now that we have all the pieces in place, we can try running our model on the da
 
 ```python
 # Define and tokenize examples
+examples = ["()()", "(())", "))((", "()", "((()()()()))", "(()()()(()(())()", "()(()(((())())()))"]
+labels = [True, True, False, True, True, False, True]
+toks = tokenizer.tokenize(examples)
 
-if MAIN:
-    examples = ["()()", "(())", "))((", "()", "((()()()()))", "(()()()(()(())()", "()(()(((())())()))"]
-    labels = [True, True, False, True, True, False, True]
-    toks = tokenizer.tokenize(examples)
-    
-    # Get output logits for the 0th sequence position (i.e. the [start] token)
-    logits = model(toks)[:, 0]
-    
-    # Get the probabilities via softmax, then get the balanced probability (which is the second element)
-    prob_balanced = logits.softmax(-1)[:, 1]
-    
-    # Display output
-    print("Model confidence:\n" + "\n".join([f"{ex:18} : {prob:<8.4%} : label={int(label)}" for ex, prob, label in zip(examples, prob_balanced, labels)]))
+# Get output logits for the 0th sequence position (i.e. the [start] token)
+logits = model(toks)[:, 0]
 
+# Get the probabilities via softmax, then get the balanced probability (which is the second element)
+prob_balanced = logits.softmax(-1)[:, 1]
+
+# Display output
+print("Model confidence:\n" + "\n".join([f"{ex:18} : {prob:<8.4%} : label={int(label)}" for ex, prob, label in zip(examples, prob_balanced, labels)]))
 ```
 
 We can also run our model on the whole dataset, and see how many brackets are correctly classified.
@@ -537,11 +520,9 @@ def run_model_on_data(model: HookedTransformer, data: BracketsDataset, batch_siz
     return all_logits
 
 
-if MAIN:
-    test_set = data
-    n_correct = (run_model_on_data(model, test_set).argmax(-1).bool() == test_set.isbal).sum()
-    print(f"\nModel got {n_correct} out of {len(data)} training examples correct!")
-
+test_set = data
+n_correct = (run_model_on_data(model, test_set).argmax(-1).bool() == test_set.isbal).sum()
+print(f"\nModel got {n_correct} out of {len(data)} training examples correct!")
 ```
 
 ## Algorithmic Solutions
@@ -571,12 +552,10 @@ def is_balanced_forloop(parens: str) -> bool:
     pass
 
 
-if MAIN:
-    for (parens, expected) in zip(examples, labels):
-        actual = is_balanced_forloop(parens)
-        assert expected == actual, f"{parens}: expected {expected} got {actual}"
-    print("is_balanced_forloop ok!")
-
+for (parens, expected) in zip(examples, labels):
+    actual = is_balanced_forloop(parens)
+    assert expected == actual, f"{parens}: expected {expected} got {actual}"
+print("is_balanced_forloop ok!")
 ```
 
 <details>
@@ -626,12 +605,10 @@ def is_balanced_vectorized(tokens: Float[Tensor, "seq_len"]) -> bool:
     pass
 
 
-if MAIN:
-    for (tokens, expected) in zip(tokenizer.tokenize(examples), labels):
-        actual = is_balanced_vectorized(tokens)
-        assert expected == actual, f"{tokens}: expected {expected} got {actual}"
-    print("is_balanced_vectorized ok!")
-
+for (tokens, expected) in zip(tokenizer.tokenize(examples), labels):
+    actual = is_balanced_vectorized(tokens)
+    assert expected == actual, f"{tokens}: expected {expected} got {actual}"
+print("is_balanced_vectorized ok!")
 ```
 
 <details>
@@ -740,7 +717,7 @@ Suppose we run the model on some sequence and it outputs the classification prob
 
 We'd like to know _why_ the model had this output, and we'll do so by moving backwards through the network, and figuring out the correspondence between facts about earlier activations and facts about the final output. We want to build a chain of connections through different places in the computational graph of the model, repeatedly reducing our questions about later values to questions about earlier values.
 
-Let's start with an easy one. Notice that the final classification probabilities only depend on the difference between the class logits, as softmax is invariant to constant additions. So rather than asking, "What led to this probability on balanced?", we can equivalently ask, "What led to this difference in logits?". Let's move another step backward. Since the logits each a linear function of the output of the final LayerNorm, their difference will be some linear function as well. In other words, we can find a vector in the space of LayerNorm outputs such that the logit difference will be the dot product of the LayerNorm's output with that vector.
+Let's start with an easy one. Notice that the final classification probabilities only depend on the difference between the class logits, as softmax is invariant to constant additions. So rather than asking, "What led to this probability on balanced?", we can equivalently ask, "What led to this difference in logits?". Let's move another step backward. Since the logits are each a linear function of the output of the final LayerNorm, their difference will be some linear function as well. In other words, we can find a vector in the space of LayerNorm outputs such that the logit difference will be the dot product of the LayerNorm's output with that vector.
 
 We now want some way to tell which parts of the model are doing something meaningful. We will do this by identifying a single direction in the embedding space of the start token that we claim to be the "unbalanced direction": the direction that most indicates that the input string is unbalanced. It is important to note that it might be that other directions are important as well (in particular because of layer norm), but for a first approximation this works well.
 
@@ -814,9 +791,7 @@ def get_post_final_ln_dir(model: HookedTransformer) -> Float[Tensor, "d_model"]:
     pass
 
 
-if MAIN:
-    tests.test_get_post_final_ln_dir(get_post_final_ln_dir, model)
-
+tests.test_get_post_final_ln_dir(get_post_final_ln_dir, model)
 ```
 
 <details>
@@ -936,11 +911,8 @@ def LN_hook_names(layernorm: LayerNorm) -> Tuple[str, str]:
     return input_hook_name, output_hook_name
 
 
-
-if MAIN:
-    pre_final_ln_name, post_final_ln_name = LN_hook_names(model.ln_final)
-    print(pre_final_ln_name, post_final_ln_name)
-
+pre_final_ln_name, post_final_ln_name = LN_hook_names(model.ln_final)
+print(pre_final_ln_name, post_final_ln_name)
 ```
 
 * The `get_ln_fit` function takes `seq_pos` as an input. If this is an integer, then we are fitting only for that sequence position. If `seq_pos = None`, then we are fitting for all sequence positions (we aggregate the sequence and batch dimensions before performing our regression).
@@ -961,15 +933,13 @@ def get_ln_fit(
     pass
 
 
-if MAIN:
-    tests.test_get_ln_fit(get_ln_fit, model, data_mini)
-    
-    (final_ln_fit, r2) = get_ln_fit(model, data, layernorm=model.ln_final, seq_pos=0)
-    print(f"r^2 for LN_final, at sequence position 0: {r2:.4f}")
-    
-    (final_ln_fit, r2) = get_ln_fit(model, data, layernorm=model.blocks[1].ln1, seq_pos=None)
-    print(f"r^2 for LN1, layer 1, over all sequence positions: {r2:.4f}")
+tests.test_get_ln_fit(get_ln_fit, model, data_mini)
 
+(final_ln_fit, r2) = get_ln_fit(model, data, layernorm=model.ln_final, seq_pos=0)
+print(f"r^2 for LN_final, at sequence position 0: {r2:.4f}")
+
+(final_ln_fit, r2) = get_ln_fit(model, data, layernorm=model.blocks[1].ln1, seq_pos=None)
+print(f"r^2 for LN1, layer 1, over all sequence positions: {r2:.4f}")
 ```
 
 <details>
@@ -1038,9 +1008,7 @@ def get_pre_final_ln_dir(model: HookedTransformer, data: BracketsDataset) -> Flo
     pass
 
 
-if MAIN:
-    tests.test_get_pre_final_ln_dir(get_pre_final_ln_dir, model, data_mini)
-
+tests.test_get_pre_final_ln_dir(get_pre_final_ln_dir, model, data_mini)
 ```
 
 <details>
@@ -1125,28 +1093,22 @@ def get_out_by_components(model: HookedTransformer, data: BracketsDataset) -> Fl
     pass
 
 
-if MAIN:
-    tests.test_get_out_by_components(get_out_by_components, model, data_mini)
-
+tests.test_get_out_by_components(get_out_by_components, model, data_mini)
 ```
 
 Now, you can test your function by confirming that input to the final layer norm is the sum of the output of each component and the output projection biases.
 
 
-
 ```python
+biases = model.b_O.sum(0)
+out_by_components = get_out_by_components(model, data)
+summed_terms = out_by_components.sum(dim=0) + biases
 
-if MAIN:
-    biases = model.b_O.sum(0)
-    out_by_components = get_out_by_components(model, data)
-    summed_terms = out_by_components.sum(dim=0) + biases
-    
-    final_ln_input_name, final_ln_output_name = LN_hook_names(model.ln_final)
-    final_ln_input = get_activations(model, data.toks, final_ln_input_name)
-    
-    t.testing.assert_close(summed_terms, final_ln_input)
-    print("Tests passed!")
+final_ln_input_name, final_ln_output_name = LN_hook_names(model.ln_final)
+final_ln_input = get_activations(model, data.toks, final_ln_input_name)
 
+t.testing.assert_close(summed_terms, final_ln_input)
+print("Tests passed!")
 ```
 
 <details>
@@ -1223,16 +1185,13 @@ We've given you a `hists_per_comp` function which will plot these histograms for
 
 
 ```python
+# YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
+tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
 
-if MAIN:
-    # YOUR CODE HERE - define the object `out_by_component_in_unbalanced_dir`
-    tests.test_out_by_component_in_unbalanced_dir(out_by_component_in_unbalanced_dir, model, data)
-    
-    plotly_utils.hists_per_comp(
-        out_by_component_in_unbalanced_dir, 
-        data, xaxis_range=[-10, 20]
-    )
-
+plotly_utils.hists_per_comp(
+    out_by_component_in_unbalanced_dir, 
+    data, xaxis_range=[-10, 20]
+)
 ```
 
 <details>
@@ -1324,14 +1283,12 @@ def is_balanced_vectorized_return_both(
     pass
 
 
-if MAIN:
-    total_elevation_failure, negative_failure = is_balanced_vectorized_return_both(data.toks)
-    
-    h20_in_unbalanced_dir = out_by_component_in_unbalanced_dir[7]
-    h21_in_unbalanced_dir = out_by_component_in_unbalanced_dir[8]
-    
-    tests.test_total_elevation_and_negative_failures(data, total_elevation_failure, negative_failure)
+total_elevation_failure, negative_failure = is_balanced_vectorized_return_both(data.toks)
 
+h20_in_unbalanced_dir = out_by_component_in_unbalanced_dir[7]
+h21_in_unbalanced_dir = out_by_component_in_unbalanced_dir[8]
+
+tests.test_total_elevation_and_negative_failures(data, total_elevation_failure, negative_failure)
 ```
 
 <details>
@@ -1357,22 +1314,19 @@ Once you've passed the tests, you can run the code below to generate your plot.
 
 
 ```python
+failure_types_dict = {
+    "both failures": negative_failure & total_elevation_failure,
+    "just neg failure": negative_failure & ~total_elevation_failure,
+    "just total elevation failure": ~negative_failure & total_elevation_failure,
+    "balanced": ~negative_failure & ~total_elevation_failure
+}
 
-if MAIN:
-    failure_types_dict = {
-        "both failures": negative_failure & total_elevation_failure,
-        "just neg failure": negative_failure & ~total_elevation_failure,
-        "just total elevation failure": ~negative_failure & total_elevation_failure,
-        "balanced": ~negative_failure & ~total_elevation_failure
-    }
-    
-    plotly_utils.plot_failure_types_scatter(
-        h20_in_unbalanced_dir,
-        h21_in_unbalanced_dir,
-        failure_types_dict,
-        data
-    )
-
+plotly_utils.plot_failure_types_scatter(
+    h20_in_unbalanced_dir,
+    h21_in_unbalanced_dir,
+    failure_types_dict,
+    data
+)
 ```
 
 Look at the graph and think about what the roles of the different heads are!
@@ -1391,30 +1345,24 @@ In most of the rest of these exercises, we'll focus on the overall elevation cir
 
 
 ```python
-
-if MAIN:
-    plotly_utils.plot_contribution_vs_open_proportion(
-        h20_in_unbalanced_dir, 
-        "Head 2.0 contribution vs proportion of open brackets '('",
-        failure_types_dict, 
-        data
-    )
-
+plotly_utils.plot_contribution_vs_open_proportion(
+    h20_in_unbalanced_dir, 
+    "Head 2.0 contribution vs proportion of open brackets '('",
+    failure_types_dict, 
+    data
+)
 ```
 
 You can also compare this to head 2.1:
 
 
 ```python
-
-if MAIN:
-    plotly_utils.plot_contribution_vs_open_proportion(
-        h21_in_unbalanced_dir, 
-        "Head 2.1 contribution vs proportion of open brackets '('",
-        failure_types_dict,
-        data
-    )
-
+plotly_utils.plot_contribution_vs_open_proportion(
+    h21_in_unbalanced_dir, 
+    "Head 2.1 contribution vs proportion of open brackets '('",
+    failure_types_dict,
+    data
+)
 ```
 
 
@@ -1501,9 +1449,7 @@ def get_attn_probs(model: HookedTransformer, data: BracketsDataset, layer: int, 
     pass
 
 
-if MAIN:
-    tests.test_get_attn_probs(get_attn_probs, model, data_mini)
-
+tests.test_get_attn_probs(get_attn_probs, model, data_mini)
 ```
 
 <details>
@@ -1524,17 +1470,14 @@ Once you've passed the tests, you can plot your results:
 
 
 ```python
+attn_probs_20: Float[Tensor, "batch seqQ seqK"] = get_attn_probs(model, data, 2, 0)
+attn_probs_20_open_query0 = attn_probs_20[data.starts_open].mean(0)[0]
 
-if MAIN:
-    attn_probs_20: Float[Tensor, "batch seqQ seqK"] = get_attn_probs(model, data, 2, 0)
-    attn_probs_20_open_query0 = attn_probs_20[data.starts_open].mean(0)[0]
-    
-    bar(
-        attn_probs_20_open_query0,
-        title="Avg Attention Probabilities for query 0, first token '(', head 2.0",
-        width=700, template="simple_white"
-    )
-
+bar(
+    attn_probs_20_open_query0,
+    title="Avg Attention Probabilities for query 0, first token '(', head 2.0",
+    width=700, template="simple_white"
+)
 ```
 
 You should see an average attention of around 0.5 on position 1, and an average of about 0 for all other tokens. So `2.0` is just moving information from residual stream 1 to residual stream 0. In other words, `2.0` passes residual stream 1 through its `W_OV` circuit (after `LayerNorm`ing, of course), weighted by some amount which we'll pretend is constant. Importantly, this means that **the necessary information for classification must already have been stored in sequence position 1 before this head**. The plot thickens!
@@ -1579,9 +1522,7 @@ def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
     pass
 
 
-if MAIN:
-    tests.test_get_pre_20_dir(get_pre_20_dir, model, data_mini)
-
+tests.test_get_pre_20_dir(get_pre_20_dir, model, data_mini)
 ```
 
 <details>
@@ -1629,16 +1570,13 @@ Now that you've got the `pre_20_dir`, you can calculate magnitudes for each of t
 
 
 ```python
+# YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
+tests.test_out_by_component_in_pre_20_unbalanced_dir(out_by_component_in_pre_20_unbalanced_dir, model, data)
 
-if MAIN:
-    # YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
-    tests.test_out_by_component_in_pre_20_unbalanced_dir(out_by_component_in_pre_20_unbalanced_dir, model, data)
-    
-    plotly_utils.hists_per_comp(
-        out_by_component_in_pre_20_unbalanced_dir, 
-        data, xaxis_range=(-5, 12)
-    )
-
+plotly_utils.hists_per_comp(
+    out_by_component_in_pre_20_unbalanced_dir, 
+    data, xaxis_range=(-5, 12)
+)
 ```
 
 <details>
@@ -1683,10 +1621,7 @@ In order to get a better look at what `mlp0` and `mlp1` are doing more thoughly,
 
 
 ```python
-
-if MAIN:
-    plotly_utils.mlp_attribution_scatter(out_by_component_in_pre_20_unbalanced_dir, data, failure_types_dict)
-
+plotly_utils.mlp_attribution_scatter(out_by_component_in_pre_20_unbalanced_dir, data, failure_types_dict)
 ```
 
 ### MLPs as key-value pairs
@@ -1757,10 +1692,8 @@ def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset,
     pass
 
 
-if MAIN:
-    tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
-    tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
-
+tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
+tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
 ```
 
 <details>
@@ -1859,9 +1792,7 @@ def get_out_by_neuron_in_20_dir_less_memory(model: HookedTransformer, data: Brac
     pass
 
 
-if MAIN:
-    tests.test_get_out_by_neuron_in_20_dir_less_memory(get_out_by_neuron_in_20_dir_less_memory, model, data_mini)
-
+tests.test_get_out_by_neuron_in_20_dir_less_memory(get_out_by_neuron_in_20_dir_less_memory, model, data_mini)
 ```
 
 <details>
@@ -1913,14 +1844,11 @@ One note: now that we are deep in the internals of the network, our assumption t
 
 
 ```python
-
-if MAIN:
-    for layer in range(2):
-        # Get neuron significances for head 2.0, sequence position #1 output
-        neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[utils.to_numpy(data.starts_open), :]
-        # Plot neurons' activations
-        plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer, renderer="browser")
-
+for layer in range(2):
+    # Get neuron significances for head 2.0, sequence position #1 output
+    neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[utils.to_numpy(data.starts_open), :]
+    # Plot neurons' activations
+    plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer, renderer="browser")
 ```
 
 <details>
@@ -1984,9 +1912,7 @@ def get_q_and_k_for_given_input(
     pass
 
 
-if MAIN:
-    tests.test_get_q_and_k_for_given_input(get_q_and_k_for_given_input, model, tokenizer)
-
+tests.test_get_q_and_k_for_given_input(get_q_and_k_for_given_input, model, tokenizer)
 ```
 
 <details>
@@ -2032,19 +1958,17 @@ We'll write functions to do this for both heads in layer 0, because it will be i
 
 
 ```python
+layer = 0
+all_left_parens = "".join(["(" * 40])
+all_right_parens = "".join([")" * 40])
 
-if MAIN:
-    layer = 0
-    all_left_parens = "".join(["(" * 40])
-    all_right_parens = "".join([")" * 40])
-    
-    model.reset_hooks()
-    q0_all_left, k0_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, layer)
-    q0_all_right, k0_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, layer)
-    k0_avg = (k0_all_left + k0_all_right) / 2
-    
-    
-    # Define hook function to patch in q or k vectors
+model.reset_hooks()
+q0_all_left, k0_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, layer)
+q0_all_right, k0_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, layer)
+k0_avg = (k0_all_left + k0_all_right) / 2
+
+
+# Define hook function to patch in q or k vectors
 def hook_fn_patch_qk(
     value: Float[Tensor, "batch seq head d_head"], 
     hook: HookPoint, 
@@ -2075,17 +1999,14 @@ def hook_fn_display_attn_patterns(
 
 # Run our model on left parens, but patch in the average key values for left vs right parens
 # This is to give us a rough idea how the model behaves on average when the query is a left paren
-
-if MAIN:
-    model.run_with_hooks(
-        tokenizer.tokenize(all_left_parens).to(device),
-        return_type=None,
-        fwd_hooks=[
-            (utils.get_act_name("k", layer), partial(hook_fn_patch_qk, new_value=k0_avg)),
-            (utils.get_act_name("pattern", layer), hook_fn_display_attn_patterns),
-        ]
-    )
-
+model.run_with_hooks(
+    tokenizer.tokenize(all_left_parens).to(device),
+    return_type=None,
+    fwd_hooks=[
+        (utils.get_act_name("k", layer), partial(hook_fn_patch_qk, new_value=k0_avg)),
+        (utils.get_act_name("pattern", layer), hook_fn_display_attn_patterns),
+    ]
+)
 ```
 
 <details>
@@ -2143,19 +2064,17 @@ def hook_fn_display_attn_patterns_for_single_query(
     )
 
 
-if MAIN:
-    data_len_40 = BracketsDataset.with_length(data_tuples, 40).to(device)
-    
-    model.reset_hooks()
-    model.run_with_hooks(
-        data_len_40.toks[data_len_40.isbal],
-        return_type=None,
-        fwd_hooks=[
-            (utils.get_act_name("q", 0), partial(hook_fn_patch_qk, new_value=q0_all_left)),
-            (utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns_for_single_query),
-        ]
-    )
+data_len_40 = BracketsDataset.with_length(data_tuples, 40).to(device)
 
+model.reset_hooks()
+model.run_with_hooks(
+    data_len_40.toks[data_len_40.isbal],
+    return_type=None,
+    fwd_hooks=[
+        (utils.get_act_name("q", 0), partial(hook_fn_patch_qk, new_value=q0_all_left)),
+        (utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns_for_single_query),
+    ]
+)
 ```
 
 <details>
@@ -2262,10 +2181,8 @@ def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -
     return model.W_E[idx]
 
 
-if MAIN:
-    # YOUR CODE HERE - define v_L and v_R, as described above.
-    print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
-
+# YOUR CODE HERE - define v_L and v_R, as described above.
+print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
 ```
 
 <details>
@@ -2323,18 +2240,16 @@ def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> f
     pass
 
 
-if MAIN:
-    print("Avg squared cosine similarity of v_R with ...\n")
-    
-    cos_sim_mlp0 = cos_sim_with_MLP_weights(model, v_R, 0)
-    print(f"...MLP input directions in layer 0:  {cos_sim_mlp0.pow(2).mean():.6f}")
-    
-    cos_sim_mlp1 = cos_sim_with_MLP_weights(model, v_R, 1)
-    print(f"...MLP input directions in layer 1:  {cos_sim_mlp1.pow(2).mean():.6f}")
-    
-    cos_sim_rand = avg_squared_cos_sim(v_R)
-    print(f"...random vectors of len = d_model:  {cos_sim_rand:.6f}")
+print("Avg squared cosine similarity of v_R with ...\n")
 
+cos_sim_mlp0 = cos_sim_with_MLP_weights(model, v_R, 0)
+print(f"...MLP input directions in layer 0:  {cos_sim_mlp0.pow(2).mean():.6f}")
+
+cos_sim_mlp1 = cos_sim_with_MLP_weights(model, v_R, 1)
+print(f"...MLP input directions in layer 1:  {cos_sim_mlp1.pow(2).mean():.6f}")
+
+cos_sim_rand = avg_squared_cos_sim(v_R)
+print(f"...random vectors of len = d_model:  {cos_sim_rand:.6f}")
 ```
 
 <details>
@@ -2511,15 +2426,11 @@ example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
 
 ```python
 # YOUR CODE HERE - update the examples list below, to find adversarial examples!
-
-
-if MAIN:
-    examples = ["()", "(())", "))"]
-    m = max(len(ex) for ex in examples)
-    toks = tokenizer.tokenize(examples)
-    probs = model(toks)[:, 0].softmax(-1)[:, 1]
-    print("\n".join([f"{ex:{m}} -> {p:.4%} balanced confidence" for (ex, p) in zip(examples, probs)]))
-
+examples = ["()", "(())", "))"]
+m = max(len(ex) for ex in examples)
+toks = tokenizer.tokenize(examples)
+probs = model(toks)[:, 0].softmax(-1)[:, 1]
+print("\n".join([f"{ex:{m}} -> {p:.4%} balanced confidence" for (ex, p) in zip(examples, probs)]))
 ```
 
 <details>
