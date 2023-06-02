@@ -472,6 +472,7 @@ if MAIN:
     pre_dir = get_pre_final_ln_dir(model=model, data=data)
     out_by_component_and_seq_in_unbalanced_dir = out_by_componets_first @ pre_dir
 
+    # why do we subtract out the mean of balanced?
     out_by_component_in_unbalanced_dir = (
         out_by_component_and_seq_in_unbalanced_dir
         - out_by_component_and_seq_in_unbalanced_dir[:, data.isbal]
@@ -544,4 +545,157 @@ if MAIN:
         failure_types_dict,
         data,
     )
+# %%
+def get_attn_probs(model: HookedTransformer, data: BracketsDataset, layer: int, head: int) -> t.Tensor:
+    '''
+    Returns: (N_SAMPLES, max_seq_len, max_seq_len) tensor that sums to 1 over the last dimension.
+    '''
+    act_name =  utils.get_act_name("pattern", layer)
+    pattern = get_activations(model, data.toks, act_name)
+    return pattern[:, head, :, :]
+
+
+if MAIN:
+    tests.test_get_attn_probs(get_attn_probs, model, data_mini)
+# %%
+if MAIN:
+    for layer in range(3):
+        for head in range(2):
+            attn_probs_20: Float[Tensor, "batch seqQ seqK"] = get_attn_probs(model, data, layer, head)
+            attn_probs_20_open_query0 = attn_probs_20[data.starts_open].mean(0)[0]
+
+            plotly_utils.imshow(attn_probs_20.mean(0), title=f"{layer} {head}")
+
+            # bar(
+            #     attn_probs_20_open_query0,
+            #     title="Avg Attention Probabilities for query 0, first token '(', head 2.0",
+            #     width=700, template="simple_white"
+            # )
+# %%
+def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d_model d_model"]:
+    '''
+    Returns the W_OV matrix for a particular layer and head.
+    '''
+    W_O = model.W_O[layer, head]
+    W_V = model.W_V[layer, head]
+    
+    return W_V @ W_O
+    
+
+def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the direction propagated back through the OV matrix of 2.0 
+    and then through the layernorm before the layer 2 attention heads.
+    '''
+    layer = 2
+    head = 0
+    pos = 1
+    lin, r2 = get_ln_fit(model=model, data=data, layernorm=model.blocks[layer].ln1, seq_pos=pos)
+    return t.from_numpy(lin.coef_.T).to(device) @ get_WOV(model=model, layer=layer, head=head) @ get_pre_final_ln_dir(model, data)
+
+if MAIN:
+    tests.test_get_pre_20_dir(get_pre_20_dir, model, data_mini)
+# %%
+
+if MAIN:
+    # YOUR CODE HERE - define `out_by_component_in_pre_20_unbalanced_dir` (for all components before head 2.0)
+
+    seq_position = 1
+    out_by_componets_second = out_by_componets[:7, :, seq_position, :]
+    pre_20_dir = get_pre_20_dir(model=model, data=data)
+    out_by_component_and_seq_in_pre_20_unbalanced_dir = out_by_componets_second @ pre_20_dir
+
+    # why do we subtract out the mean of balanced?
+    out_by_component_in_pre_20_unbalanced_dir = (
+        out_by_component_and_seq_in_pre_20_unbalanced_dir
+        - out_by_component_and_seq_in_pre_20_unbalanced_dir[:, data.isbal]
+        .mean(dim=1, keepdim=True)
+    )
+
+
+    # tests.test_out_by_component_in_pre_20_unbalanced_dir(out_by_component_in_pre_20_unbalanced_dir, model, data)
+
+    plotly_utils.hists_per_comp(
+        out_by_component_in_pre_20_unbalanced_dir, 
+        data, xaxis_range=(-5, 12)
+    )
+
+
+# %%
+
+if MAIN:
+    plotly_utils.mlp_attribution_scatter(out_by_component_in_pre_20_unbalanced_dir, data, failure_types_dict)
+# %%
+
+def get_out_by_neuron(
+    model: HookedTransformer, 
+    data: BracketsDataset, 
+    layer: int, 
+    seq: Optional[int] = None
+) -> Float[Tensor, "batch *seq neuron d_model"]:
+    '''
+    If seq is not None, then out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :],
+    i.e. the vector which is written to the residual stream by the ith neuron (where x
+    is the input to the residual stream (i.e. shape (batch, seq, d_model)).
+
+    If seq is None, then out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+    (Note, using * in jaxtyping indicates an optional dimension)
+    '''
+    
+    embedding_hook_names = ["hook_embed", "hook_pos_embed"]
+    head_hook_names = [
+        utils.get_act_name("result", layer) for layer in range(model.cfg.n_layers)
+    ]
+    mlp_hook_names = [
+        utils.get_act_name("mlp_out", layer) for layer in range(model.cfg.n_layers)
+    ]
+
+    all_hook_names = embedding_hook_names + head_hook_names + mlp_hook_names
+    activations = get_activations(model, data.toks, all_hook_names)
+
+    out = (activations["hook_embed"] + activations["hook_pos_embed"]).unsqueeze(0)
+
+    for head_hook_name, mlp_hook_name in zip(head_hook_names, mlp_hook_names):
+        out = t.concat(
+            [
+                out,
+                einops.rearrange(
+                    activations[head_hook_name],
+                    "batch seq heads emb -> heads batch seq emb",
+                ),
+                activations[mlp_hook_name].unsqueeze(0),
+            ]
+        )
+
+    cfg.act_fn
+    model.ml
+    return out
+
+
+
+    if seq is None:
+        # out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+        pass
+    else:
+        # out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :]
+        pass
+
+
+def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset, layer: int) -> Float[Tensor, "batch neurons"]:
+    '''
+    [b, s, i]th element is the contribution of the vector written by the ith neuron to the residual stream in the 
+    unbalanced direction (for the b-th element in the batch, and the s-th sequence position).
+
+    In other words we need to take the vector produced by the `get_out_by_neuron` function, and project it onto the 
+    unbalanced direction for head 2.0 (at seq pos = 1).
+    '''
+    pass
+
+
+if MAIN:
+    tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
+    tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
+
 # %%
