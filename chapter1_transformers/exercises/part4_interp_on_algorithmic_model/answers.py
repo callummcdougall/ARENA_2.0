@@ -421,3 +421,119 @@ plotly_utils.plot_contribution_vs_open_proportion(
     failure_types_dict,
     data
 )
+
+#%%
+def get_attn_probs(model: HookedTransformer, data: BracketsDataset, layer: int, head: int) -> t.Tensor:
+    '''
+    Returns: (N_SAMPLES, max_seq_len, max_seq_len) tensor that sums to 1 over the last dimension.
+    '''
+    name = f"blocks.{layer}.attn.hook_pattern"
+    attn_probs = get_activations(model, data.toks, name)[:, head, :, :]
+    return attn_probs
+
+
+tests.test_get_attn_probs(get_attn_probs, model, data_mini)
+
+#%%
+attn_probs_20: Float[Tensor, "batch seqQ seqK"] = get_attn_probs(model, data, 2, 0)
+attn_probs_20_open_query0 = attn_probs_20[data.starts_open].mean(0)[0]
+
+bar(
+    attn_probs_20_open_query0,
+    title="Avg Attention Probabilities for query 0, first token '(', head 2.0",
+    width=700, template="simple_white"
+)
+
+#%%
+def get_WOV(model: HookedTransformer, layer: int, head: int) -> Float[Tensor, "d_model d_model"]:
+    '''
+    Returns the W_OV matrix for a particular layer and head.
+    '''
+    return model.W_V[layer, head] @ model.W_O[layer, head]
+
+def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the direction propagated back through the OV matrix of 2.0 
+    and then through the layernorm before the layer 2 attention heads.
+    '''
+    pre_final_ln_dir = get_pre_final_ln_dir(model, data)
+    W_OV_20 = get_WOV(model, 2, 0)
+    reg, r2_score = get_ln_fit(model, data, model.blocks[2].ln1, seq_pos=1)
+    L1_linear = t.tensor(reg.coef_).to(device)
+    return L1_linear.T @ W_OV_20 @ pre_final_ln_dir
+
+
+tests.test_get_pre_20_dir(get_pre_20_dir, model, data_mini)
+
+#%%
+component_resid = get_out_by_components(model, data)[:6+1]
+unbal_dir = get_pre_20_dir(model, data)
+
+out_by_component_in_pre_20_unbalanced_dir = einops.einsum(
+    component_resid[:, :, 1, :], unbal_dir,
+    "component batch d_model, d_model -> component batch",
+)
+
+out_by_component_bal_mean = out_by_component_in_pre_20_unbalanced_dir[:, data.isbal].mean(dim=1, keepdim=True)
+out_by_component_in_pre_20_unbalanced_dir -= out_by_component_bal_mean
+
+tests.test_out_by_component_in_pre_20_unbalanced_dir(out_by_component_in_pre_20_unbalanced_dir, model, data)
+
+plotly_utils.hists_per_comp(
+    out_by_component_in_pre_20_unbalanced_dir, 
+    data, xaxis_range=(-5, 12)
+)
+
+
+#%%
+plotly_utils.mlp_attribution_scatter(
+    out_by_component_in_pre_20_unbalanced_dir,
+    data, failure_types_dict
+)
+
+#%%
+def get_out_by_neuron(
+    model: HookedTransformer, 
+    data: BracketsDataset, 
+    layer: int, 
+    seq: Optional[int] = None
+) -> Float[Tensor, "batch *seq neuron d_model"]:
+    '''
+    If seq is not None, then out[b, s, i, :] = f(x[b, s].T @ W_in[:, i]) @ W_out[i, :],
+    i.e. the vector which is written to the residual stream by the ith neuron (where x
+    is the input to the residual stream (i.e. shape (batch, seq, d_model)).
+
+    If seq is None, then out[b, i, :] = vector f(x[b].T @ W_in[:, i]) @ W_out[i, :]
+
+    (Note, using * in jaxtyping indicates an optional dimension)
+    '''
+    mlp_post = get_activations(model, data.toks, utils.get_act_name("post", layer))
+    W_out = model.W_out[layer]
+    out = einops.einsum(mlp_post, W_out, "batch seq neuron, neuron d_model -> batch seq neuron d_model")
+
+    if seq is not None:
+        return out[:, seq, :, :]
+    else:
+        return out
+    
+def get_out_by_neuron_in_20_dir(
+    model: HookedTransformer,
+    data: BracketsDataset,
+    layer: int
+) -> Float[Tensor, "batch neurons"]:
+    '''
+    [b, s, i]th element is the contribution of the vector written by the ith 
+    neuron to the residual stream in the 
+    unbalanced direction (for the b-th element in the batch, and the s-th 
+    sequence position).
+
+    In other words we need to take the vector produced by the `get_out_by_neuron` 
+    function, and project it onto the 
+    unbalanced direction for head 2.0 (at seq pos = 1).
+    '''
+    neuron_cont = get_out_by_neuron(model, data, layer, seq=1)
+    unbal_dir = get_pre_20_dir(model, data)
+    return einops.einsum(neuron_cont, unbal_dir, "batch neurons d_model, d_model -> batch neurons")
+
+tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
+tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
