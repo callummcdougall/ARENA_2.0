@@ -1042,7 +1042,7 @@ def get_copying_scores(
     ln2 = model.blocks[0].ln2
     names_resid_post = name_embeddings + mlp(ln2(name_embeddings))
     names_resid_post = names_resid_post.squeeze(1)
-    
+
     # get copying score for each layer, head pair
     for l in range(n_layers):
         for h in range(n_heads):
@@ -1080,3 +1080,64 @@ for i, name in enumerate(["name mover", "negative name mover"]):
             [f"{copying_results[i, layer, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
         ]
     )
+# %%
+def get_attn_scores(
+    model: HookedTransformer, 
+    seq_len: int, 
+    batch: int, 
+    head_type: Literal["duplicate", "prev", "induction"]
+):
+    '''
+    Returns attention scores for sequence of duplicated tokens, for every head.
+    '''
+    n_layers = model.cfg.n_layers
+    n_heads = model.cfg.n_heads
+    scores = t.zeros((n_layers, n_heads), device=device)
+
+    tokens = t.randint(0, model.cfg.d_vocab, size=(batch,seq_len), device=device)
+    repeated_tokens = t.cat((tokens, tokens), dim=-1)
+
+    _, cache = model.run_with_cache(repeated_tokens)
+
+    for l in range(n_layers):
+        for h in range(n_heads):
+            attn_pattern = cache["pattern", l][:,h]
+            if head_type == "duplicate":
+                offset_diag = t.diagonal(attn_pattern, offset=-seq_len, dim1=-2, dim2=-1)
+            elif head_type == "prev":
+                offset_diag = t.diagonal(attn_pattern, offset=-1, dim1=-2, dim2=-1)
+            elif head_type == "induction":
+                offset_diag = t.diagonal(attn_pattern, offset=-seq_len+1, dim1=-2, dim2=-1)
+            score = offset_diag.mean()
+            scores[l][h] = score
+
+    return scores
+
+
+def plot_early_head_validation_results(seq_len: int = 50, batch: int = 50):
+    '''
+    Produces a plot that looks like Figure 18 in the paper.
+    '''
+    head_types = ["duplicate", "prev", "induction"]
+
+    results = t.stack([
+        get_attn_scores(model, seq_len, batch, head_type=head_type)
+        for head_type in head_types
+    ])
+
+    imshow(
+        results,
+        facet_col=0,
+        facet_labels=[
+            f"{head_type.capitalize()} token attention prob.<br>on sequences of random tokens"
+            for head_type in head_types
+        ],
+        labels={"x": "Head", "y": "Layer"},
+        width=1300,
+    )
+
+
+
+model.reset_hooks()
+plot_early_head_validation_results()
+# %%
