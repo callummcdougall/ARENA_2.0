@@ -537,3 +537,208 @@ def get_out_by_neuron_in_20_dir(
 
 tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
 tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
+# %%
+
+def get_out_by_neuron_in_20_dir_less_memory(
+    model: HookedTransformer, 
+    data: BracketsDataset, 
+    layer: int
+) -> Float[Tensor, "batch neurons"]:
+    '''
+    Has the same output as `get_out_by_neuron_in_20_dir`, but uses less memory (because it never stores
+    the output vector of each neuron individually).
+    '''
+    mlp_post = get_activations(model, data.toks, utils.get_act_name("post", layer))
+    W_out = model.W_out[layer]
+    unbal_dir = get_pre_20_dir(model, data)
+    right = einops.einsum(W_out, unbal_dir, "neuron d_model, d_model -> neuron")
+    out = einops.einsum(mlp_post[:,1], right, "batch neuron, neuron -> batch neuron")
+    return out
+
+tests.test_get_out_by_neuron_in_20_dir_less_memory(get_out_by_neuron_in_20_dir_less_memory, model, data_mini)
+
+# %%
+for layer in range(2):
+    # Get neuron significances for head 2.0, sequence position #1 output
+    neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[utils.to_numpy(data.starts_open), :]
+    # Plot neurons' activations
+    plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer, renderer="browser")
+
+# %%
+def get_q_and_k_for_given_input(
+    model: HookedTransformer, 
+    tokenizer: SimpleTokenizer,
+    parens: str, 
+    layer: int, 
+) -> Tuple[Float[Tensor, "seq_d_model"], Float[Tensor,  "seq_d_model"]]:
+    '''
+    Returns the queries and keys (both of shape [seq, d_model]) for the given parns input, in the attention head `layer.head`.
+    '''
+    names = [utils.get_act_name("q", layer), utils.get_act_name("k", layer)]
+    cache = get_activations(model, tokenizer.tokenize(parens), names)
+    qs, ks = cache[names[0]].squeeze(), cache[names[1]].squeeze()
+    return qs, ks
+
+
+
+tests.test_get_q_and_k_for_given_input(get_q_and_k_for_given_input, model, tokenizer)
+
+# %%
+
+layer = 0
+all_left_parens = "".join(["(" * 40])
+all_right_parens = "".join([")" * 40])
+
+model.reset_hooks()
+q0_all_left, k0_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, layer)
+q0_all_right, k0_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, layer)
+k0_avg = (k0_all_left + k0_all_right) / 2
+
+
+# Define hook function to patch in q or k vectors
+def hook_fn_patch_qk(
+    value: Float[Tensor, "batch seq head d_head"], 
+    hook: HookPoint, 
+    new_value: Float[Tensor, "... seq d_head"],
+    head_idx: Optional[int] = None
+) -> None:
+    if head_idx is not None:
+        value[..., head_idx, :] = new_value[..., head_idx, :]
+    else:
+        value[...] = new_value[...]
+
+
+# Define hook function to display attention patterns (using plotly)
+def hook_fn_display_attn_patterns(
+    pattern: Float[Tensor, "batch heads seqQ seqK"],
+    hook: HookPoint,
+    head_idx: int = 0
+) -> None:
+    avg_head_attn_pattern = pattern.mean(0)
+    labels = ["[start]", *[f"{i+1}" for i in range(40)], "[end]"]
+    display(cv.attention.attention_heads(
+        tokens=labels, 
+        attention=avg_head_attn_pattern,
+        attention_head_names=["0.0", "0.1"],
+        max_value=avg_head_attn_pattern.max()
+    ))
+
+# %%
+# Run our model on left parens, but patch in the average key values for left vs right parens
+# This is to give us a rough idea how the model behaves on average when the query is a left paren
+model.run_with_hooks(
+    tokenizer.tokenize(all_left_parens).to(device),
+    return_type=None,
+    fwd_hooks=[
+        (utils.get_act_name("k", layer), partial(hook_fn_patch_qk, new_value=k0_avg)),
+        (utils.get_act_name("pattern", layer), hook_fn_display_attn_patterns),
+    ]
+)
+
+def hook_fn_display_attn_patterns_for_single_query(
+    pattern: Float[Tensor, "batch heads seqQ seqK"],
+    hook: HookPoint,
+    head_idx: int = 0,
+    query_idx: int = 1
+):
+    bar(
+        utils.to_numpy(pattern[:, head_idx, query_idx].mean(0)), 
+        title=f"Average attn probabilities on data at posn 1, with query token = '('",
+        labels={"index": "Sequence position of key", "value": "Average attn over dataset"}, 
+        height=500, width=800, yaxis_range=[0, 0.1], template="simple_white"
+    )
+
+
+data_len_40 = BracketsDataset.with_length(data_tuples, 40).to(device)
+
+model.reset_hooks()
+model.run_with_hooks(
+    data_len_40.toks[data_len_40.isbal],
+    return_type=None,
+    fwd_hooks=[
+        (utils.get_act_name("q", 0), partial(hook_fn_patch_qk, new_value=q0_all_left)),
+        (utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns_for_single_query),
+    ]
+)
+# %%
+# W_OV = model.W_V[0,0] @ model.W_O[0,0]
+# r3 = model.W_E[3]
+# r4 = model.W_E[4]
+# t.nn.functional.cosine_similarity(r3@W_OV, r4@W_OV, dim=0)
+# t.nn.functional.cosine_similarity(r3, r4, dim=0)
+
+# model.W_in.shape
+
+#%%
+def cos_sim_with_MLP_weights(
+    model: HookedTransformer,
+    v: Float[Tensor, "d_model"],
+    layer: int,
+) -> Float[Tensor, "d_mlp"]:
+    '''
+    Returns a vector of length d_mlp, where the ith element is the cosine similarity
+    between v and the ith in-direction of the MLP in layer `layer`.
+
+    Recall that the in-direction of the MLPs are the columns of the W_in matrix.
+    '''
+    W_in = model.W_in[layer]
+    return t.nn.functional.cosine_similarity(W_in.T, v, dim=1)
+
+
+# def cos_sim_with_MLP_weights(model: HookedTransformer, v: Float[Tensor, "d_model"], layer: int) -> Float[Tensor, "d_mlp"]:
+#     '''
+#     Returns a vector of length d_mlp, where the ith element is the cosine similarity between v and the 
+#     ith in-direction of the MLP in layer `layer`.
+
+#     Recall that the in-direction of the MLPs are the columns of the W_in matrix.
+#     '''
+#     # SOLUTION
+#     v_unit = v / v.norm()
+#     W_in_unit = model.W_in[layer] / model.W_in[layer].norm(dim=0)
+
+#     return einops.einsum(v_unit, W_in_unit, "d_model, d_model d_mlp -> d_mlp")
+
+
+def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> float:
+    '''
+    Returns the average (over n_samples) cosine similarity between v and another
+    randomly chosen vector.
+
+    We can create random vectors from the standard N(0, I) distribution.
+    '''
+    random_vectors = t.randn(n_samples, v.shape[0]).to(v.device)
+    return t.nn.functional.cosine_similarity(random_vectors, v, dim=1).pow(2).mean().item()
+
+
+
+print("Avg squared cosine similarity of v_R with ...\n")
+
+# layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
+# layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).to(device)
+
+# v_R = model.W_E[4] @ layer0_ln_coefs.T @ (model.W_V[0,0] @ model.W_O[0,0])
+
+
+def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -> Float[Tensor, "d_model"]:
+	assert char in ("(", ")")
+	idx = tokenizer.t_to_i[char]
+	return model.W_E[idx]
+
+
+W_OV = model.W_V[0, 0] @ model.W_O[0, 0]
+layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=None)[0]
+layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).to(device)
+v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
+v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
+
+cos_sim_mlp0 = cos_sim_with_MLP_weights(model, v_R, 0)
+print(f"...MLP input directions in layer 0:  {cos_sim_mlp0.pow(2).mean():.6f}")
+
+cos_sim_mlp1 = cos_sim_with_MLP_weights(model, v_R, 1)
+print(f"...MLP input directions in layer 1:  {cos_sim_mlp1.pow(2).mean():.6f}")
+
+cos_sim_rand = avg_squared_cos_sim(v_R)
+print(f"...random vectors of len = d_model:  {cos_sim_rand:.6f}")
+
+
+#%%
