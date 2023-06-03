@@ -973,8 +973,8 @@ def calculate_and_show_scatter_embedding_vs_attn(
 
     
     # Get attention probs
-    attn_from_end_to_io = cache["pattern", 1][t.arange(z.size(0)),head,-1,dataset.word_idx["IO"]]
-    attn_from_end_to_s = cache["pattern", 1][t.arange(z.size(0)),head,-1,dataset.word_idx["S1"]]
+    attn_from_end_to_io = cache["pattern", layer][t.arange(z.size(0)),head,dataset.word_idx["end"],dataset.word_idx["IO"]]
+    attn_from_end_to_s = cache["pattern", layer][t.arange(z.size(0)),head,dataset.word_idx["end"],dataset.word_idx["S1"]]
     
     scatter_embedding_vs_attn(
         attn_from_end_to_io,
@@ -992,3 +992,91 @@ calculate_and_show_scatter_embedding_vs_attn(*nmh)
 nnmh = (11, 10)
 calculate_and_show_scatter_embedding_vs_attn(*nnmh)
 # %%
+print(model.blocks[2].attn.W_V.shape)
+print(model.blocks[2].attn.W_O.shape)
+print((model.blocks[2].attn.W_V[3] @ model.blocks[2].attn.W_O[3]).shape)
+print(model.W_U.shape)
+# %%
+# name_tokens = model.to_tokens(NAMES, prepend_bos=False)
+# print(name_tokens.shape)
+# name_embeddings: Float[Tensor, "names 1 d_model"] = model.W_E[name_tokens]
+# print(name_embeddings.shape)
+# names_normalized = model.blocks[0].ln1(name_embeddings)
+# print(model.blocks[0].attn.W_V.shape)
+# print(names_normalized.shape)
+# names_v = einops.einsum(model.blocks[0].attn.W_V, names_normalized, 'n_heads d_model d_head, names e d_model -> names e n_heads d_head')
+# print(model.blocks[0].attn.W_O.shape)
+# print(names_v.shape)
+# names_results = einops.einsum(model.blocks[0].attn.W_O, names_v, 'n_head d_head d_model, names e n_heads d_head -> names e n_heads d_model')
+# print(names_results.shape)
+# names_attn_out = names_results.sum(-2)
+# print(names_attn_out.shape)
+# resid_mid = names_attn_out + name_embeddings
+# resid_mid_normalized = model.blocks[0].ln2(name_embeddings)
+# names_post_mlp = model.blocks[0].mlp(resid_mid_normalized)
+# names_resid_post = names_post_mlp + name_embeddings
+# print(names_resid_post.shape)
+
+# names_attn = model.blocks[0].attn(names_normalized)
+# print(names_attn.shape)
+# %%
+def get_copying_scores(
+    model: HookedTransformer,
+    k: int = 5,
+    names: list = NAMES
+) -> Float[Tensor, "2 layer head"]:
+    '''
+    Gets copying scores (both positive and negative) as described in page 6 of the IOI paper, for every (layer, head) pair in the model.
+
+    Returns these in a 3D tensor (the first dimension is for positive vs negative).
+    '''
+    n_heads = model.cfg.n_heads
+    n_layers = model.cfg.n_layers
+    results = t.zeros((2, n_layers, n_heads), device=device)
+
+    # get residual stream state after first block for each name
+    name_tokens = model.to_tokens(names, prepend_bos=False)
+    name_embeddings: Float[Tensor, "names 1 d_model"] = model.W_E[name_tokens]
+
+    mlp = model.blocks[0].mlp
+    ln2 = model.blocks[0].ln2
+    names_resid_post = name_embeddings + mlp(ln2(name_embeddings))
+    names_resid_post = names_resid_post.squeeze(1)
+    
+    # get copying score for each layer, head pair
+    for l in range(n_layers):
+        for h in range(n_heads):
+            OV = model.blocks[l].attn.W_V[h] @ model.blocks[l].attn.W_O[h]
+            for idx, prefix in enumerate([1, -1]):
+                names_after_ov = einops.einsum(names_resid_post, prefix * OV, 'names d_v, d_v d_o -> names d_o')
+                names_after_ov = model.ln_final(names_after_ov)
+                logits = einops.einsum(names_after_ov, model.W_U, 'names d_model, d_model n_tokens -> names n_tokens')
+                top_logit_indices = t.topk(logits, k)[1]
+                matches = name_tokens == top_logit_indices
+                copy_score = sum(matches.any(1)).item() / len(names)
+                results[idx,l,h] = copy_score
+
+    return results
+
+copying_results = get_copying_scores(model)
+
+imshow(
+    copying_results, 
+    facet_col=0, 
+    facet_labels=["Positive copying scores", "Negative copying scores"],
+    title="Copying scores of attention heads' OV circuits",
+    width=800
+)
+
+
+heads = {"name mover": [(9, 9), (10, 0), (9, 6)], "negative name mover": [(10, 7), (11, 10)]}
+
+for i, name in enumerate(["name mover", "negative name mover"]):
+    make_table(
+        title=f"Copying Scores ({name} heads)",
+        colnames=["Head", "Score"],
+        cols=[
+            list(map(str, heads[name])) + ["[dark_orange bold]Average"],
+            [f"{copying_results[i, layer, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
+        ]
+    )
