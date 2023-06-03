@@ -521,8 +521,38 @@ def get_out_by_neuron(
 
     (Note, using * in jaxtyping indicates an optional dimension)
     '''
-    
-    pass
+
+    # want input into MLP, same as residual stream after layer's attn_heads
+    # names = utils.get_act_name("mlp_pre", layer)
+    # before_neuron = get_activations(model, data.toks, names) # (batch, pos, d_model)
+
+    # W_in = model.W_in[layer] # (d_model, neurons)
+    # b_in = model.b_in[layer] # (neurons,)
+
+    # before_act = einops.einsum(before_neuron, W_in, "b pos d_m, d_m neurons -> b pos neurons")
+    # # before_act = einops.einsum(before_neuron, W_in, "b pos d_m, neurons d_m -> b pos neurons")
+    # after_act = t.relu(before_act + b_in)  # (batch pos neurons)
+
+    # assert after_act.shape == (data.toks.shape[0], data.toks.shape[1], W_in.shape[1])
+
+    names = utils.get_act_name("mlp_post", layer)
+    after_act = get_activations(model, data.toks, names) # (batch, pos, neurons)
+
+    W_out = model.W_out[layer] # (neurons, d_model)
+
+    out = einops.einsum(after_act, W_out, "b pos neurons, neurons d_model -> b pos neurons d_model")
+    # out = einops.einsum(after_act, W_out, "b pos neurons, d_model neurons -> b pos neurons d_model")
+    if seq is not None:
+        out = out[:, seq]
+    return out
+
+    # if seq is None:
+    #     # out = t.zeros(size=(data.toks.shape[0], W_in.shape[1], model.cfg.d_model))
+    #     before_act = einops.einsum(before_neuron, W_in, "b pos d_m, d_m neurons -> b neurons")
+    # else:
+    #     # out = t.zeros(size=(data.toks.shape[0], W_in.shape[1], model.cfg.d_model))
+    #     before_act = einops.einsum(before_neuron, W_in, "b pos d_m, d_m neurons -> b pos neurons")
+
 
 def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset, layer: int) -> Float[Tensor, "batch neurons"]:
     '''
@@ -532,9 +562,303 @@ def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset,
     In other words we need to take the vector produced by the `get_out_by_neuron` function, and project it onto the 
     unbalanced direction for head 2.0 (at seq pos = 1).
     '''
-    pass
+    neuron_outs = get_out_by_neuron(model, data, layer, 1) # (batch neurons d_model)
+    unbalanced_dir = get_pre_20_dir(model, data) # (d_model)
+    return einops.einsum(neuron_outs, unbalanced_dir, "b n d_m, d_m -> b n")
 
 
 if MAIN:
     tests.test_get_out_by_neuron(get_out_by_neuron, model, data_mini)
     tests.test_get_out_by_neuron_in_20_dir(get_out_by_neuron_in_20_dir, model, data_mini)
+
+# %%
+def get_out_by_neuron_in_20_dir_less_memory(model: HookedTransformer, data: BracketsDataset, layer: int) -> Float[Tensor, "batch neurons"]:
+    '''
+    Has the same output as `get_out_by_neuron_in_20_dir`, but uses less memory (because it never stores
+    the output vector of each neuron individually).
+    '''
+    names = utils.get_act_name("mlp_post", layer)
+    after_act = get_activations(model, data.toks, names)[:,1] # (batch, neurons)
+
+    W_out = model.W_out[layer] # (neurons, d_model)
+
+    unbalanced_dir = get_pre_20_dir(model, data) # (d_model)
+    W_unbalanced = einops.einsum(W_out, unbalanced_dir, "n d_m, d_m -> n")
+
+    return einops.einsum(after_act, W_unbalanced, "b n, n -> b n")
+
+
+tests.test_get_out_by_neuron_in_20_dir_less_memory(get_out_by_neuron_in_20_dir_less_memory, model, data_mini)
+# %%
+for layer in range(2):
+    # Get neuron significances for head 2.0, sequence position #1 output
+    neurons_in_unbalanced_dir = get_out_by_neuron_in_20_dir_less_memory(model, data, layer)[utils.to_numpy(data.starts_open), :]
+    # Plot neurons' activations
+    plotly_utils.plot_neurons(neurons_in_unbalanced_dir, model, data, failure_types_dict, layer, renderer="browser")
+
+# %%
+def get_q_and_k_for_given_input(
+    model: HookedTransformer, 
+    tokenizer: SimpleTokenizer,
+    parens: str, 
+    layer: int, 
+) -> Tuple[Float[Tensor, "seq_d_model"], Float[Tensor,  "seq_d_model"]]:
+    '''
+    Returns the queries and keys (both of shape [seq, d_model]) for the given parns input, in the attention head `layer.head`.
+    '''
+    activation_cache = get_activations(model, tokenizer.tokenize(parens), [utils.get_act_name("k", layer), utils.get_act_name("q", layer)])
+    return (activation_cache[utils.get_act_name("q", layer)][0], activation_cache[utils.get_act_name("k", layer)][0])
+
+
+tests.test_get_q_and_k_for_given_input(get_q_and_k_for_given_input, model, tokenizer)
+# %%
+layer = 0
+all_left_parens = "".join(["(" * 40])
+all_right_parens = "".join([")" * 40])
+
+model.reset_hooks()
+q0_all_left, k0_all_left = get_q_and_k_for_given_input(model, tokenizer, all_left_parens, layer)
+q0_all_right, k0_all_right = get_q_and_k_for_given_input(model, tokenizer, all_right_parens, layer)
+k0_avg = (k0_all_left + k0_all_right) / 2
+
+
+# Define hook function to patch in q or k vectors
+def hook_fn_patch_qk(
+    value: Float[Tensor, "batch seq head d_head"], 
+    hook: HookPoint, 
+    new_value: Float[Tensor, "... seq d_head"],
+    head_idx: Optional[int] = None
+) -> None:
+    if head_idx is not None:
+        value[..., head_idx, :] = new_value[..., head_idx, :]
+    else:
+        value[...] = new_value[...]
+
+
+# Define hook function to display attention patterns (using plotly)
+def hook_fn_display_attn_patterns(
+    pattern: Float[Tensor, "batch heads seqQ seqK"],
+    hook: HookPoint,
+    head_idx: int = 0
+) -> None:
+    avg_head_attn_pattern = pattern.mean(0)
+    labels = ["[start]", *[f"{i+1}" for i in range(40)], "[end]"]
+    display(cv.attention.attention_heads(
+        tokens=labels, 
+        attention=avg_head_attn_pattern,
+        attention_head_names=["0.0", "0.1"],
+        max_value=avg_head_attn_pattern.max()
+    ))
+
+
+# Run our model on left parens, but patch in the average key values for left vs right parens
+# This is to give us a rough idea how the model behaves on average when the query is a left paren
+model.run_with_hooks(
+    tokenizer.tokenize(all_left_parens).to(device),
+    return_type=None,
+    fwd_hooks=[
+        (utils.get_act_name("k", layer), partial(hook_fn_patch_qk, new_value=k0_avg)),
+        (utils.get_act_name("pattern", layer), hook_fn_display_attn_patterns),
+    ]
+)
+# %%
+
+def hook_fn_display_attn_patterns_for_single_query(
+    pattern: Float[Tensor, "batch heads seqQ seqK"],
+    hook: HookPoint,
+    head_idx: int = 0,
+    query_idx: int = 1
+):
+    bar(
+        utils.to_numpy(pattern[:, head_idx, query_idx].mean(0)), 
+        title=f"Average attn probabilities on data at posn 1, with query token = '('",
+        labels={"index": "Sequence position of key", "value": "Average attn over dataset"}, 
+        height=500, width=800, yaxis_range=[0, 0.1], template="simple_white"
+    )
+
+
+data_len_40 = BracketsDataset.with_length(data_tuples, 40).to(device)
+
+model.reset_hooks()
+model.run_with_hooks(
+    data_len_40.toks[data_len_40.isbal],
+    return_type=None,
+    fwd_hooks=[
+        (utils.get_act_name("q", 0), partial(hook_fn_patch_qk, new_value=q0_all_left)),
+        (utils.get_act_name("pattern", 0), hook_fn_display_attn_patterns_for_single_query),
+    ]
+)
+# %%
+def embedding(model: HookedTransformer, tokenizer: SimpleTokenizer, char: str) -> Float[Tensor, "d_model"]:
+    assert char in ("(", ")")
+    idx = tokenizer.t_to_i[char]
+    return model.W_E[idx]
+
+
+# YOUR CODE HERE - define v_L and v_R, as described above.
+layernorm_approx = t.tensor(get_ln_fit(model, data, model.blocks[0].ln1, 1)[0].coef_).to(device=cfg.device) # ( is in pos 1
+W_ov = model.W_V[0,0] @ model.W_O[0,0] # hopefully this works lmao
+v_L = embedding(model, tokenizer, "(") @ layernorm_approx.T @ W_ov 
+v_R = embedding(model, tokenizer, ")") @ layernorm_approx.T @ W_ov
+print("Cosine similarity: ", t.cosine_similarity(v_L, v_R, dim=0).item())
+
+
+# %%
+# def cos_sim_with_MLP_weights(model: HookedTransformer, v: Float[Tensor, "d_model"], layer: int) -> Float[Tensor, "d_mlp"]:
+#     '''
+#     Returns a vector of length d_mlp, where the ith element is the cosine similarity between v and the 
+#     ith in-direction of the MLP in layer `layer`.
+
+#     Recall that the in-direction of the MLPs are the columns of the W_in matrix.
+#     '''
+#     W_in = model.W_in[layer] # (d_model, d_mlp)
+#     cosine_sims = t.cosine_similarity(einops.rearrange(W_in, "d_m n -> n d_m"), v).to(device=cfg.device)
+#     return cosine_sims
+
+# def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> float:
+#     '''
+#     Returns the average (over n_samples) cosine similarity between v and another randomly chosen vector.
+
+#     We can create random vectors from the standard N(0, I) distribution.
+#     '''
+#     random_vecs = t.zeros(size=(n_samples, v.shape[0])).to(device=cfg.device)
+#     return t.cosine_similarity(random_vecs, v) ** 2
+
+def cos_sim_with_MLP_weights(model: HookedTransformer, v: Float[Tensor, "d_model"], layer: int) -> Float[Tensor, "d_mlp"]:
+    '''
+    Returns a vector of length d_mlp, where the ith element is the cosine similarity between v and the 
+    ith in-direction of the MLP in layer `layer`.
+
+    Recall that the in-direction of the MLPs are the columns of the W_in matrix.
+    '''
+    # SOLUTION
+    v_unit = v / v.norm()
+    W_in_unit = model.W_in[layer] / model.W_in[layer].norm(dim=0)
+
+    return einops.einsum(v_unit, W_in_unit, "d_model, d_model d_mlp -> d_mlp")
+
+def avg_squared_cos_sim(v: Float[Tensor, "d_model"], n_samples: int = 1000) -> float:
+    '''
+    Returns the average (over n_samples) cosine similarity between v and another randomly chosen vector.
+
+    We can create random vectors from the standard N(0, I) distribution.
+    '''
+    # SOLUTION
+    v2 = t.randn(n_samples, v.shape[0]).to(device)
+    v2 /= v2.norm(dim=1, keepdim=True)
+
+    v1 = v / v.norm()
+
+    return (v1 * v2).pow(2).sum(1).mean().item()
+
+print("Avg squared cosine similarity of v_R with ...\n")
+
+cos_sim_mlp0 = cos_sim_with_MLP_weights(model, v_R, 0)
+print(f"...MLP input directions in layer 0:  {cos_sim_mlp0.pow(2).mean():.6f}")
+
+cos_sim_mlp1 = cos_sim_with_MLP_weights(model, v_R, 1)
+print(f"...MLP input directions in layer 1:  {cos_sim_mlp1.pow(2).mean():.6f}")
+
+cos_sim_rand = avg_squared_cos_sim(v_R)
+print(f"...random vectors of len = d_model:  {cos_sim_rand:.6f}")
+# %%
+# want to identify anywhere-negative failures, which head 2.1 detects
+# construct parens string going negative at places
+
+neg_parens = ["())(())()((())", "(()))(()", "(((()))())(())"] # 0 and 1 fail, 2 works
+neg_tokens = tokenizer.tokenize(neg_parens[2])
+
+attn_out_name = utils.get_act_name("pattern", 2)
+activation_cache = get_activations(model, neg_tokens, [attn_out_name])
+
+head_activation = activation_cache[attn_out_name][:,1]
+
+if MAIN:
+    attn_probs_21: Float[Tensor, "batch seqQ seqK"] = head_activation
+    attn_probs_21_open_query0 = attn_probs_21.mean(0)[0]
+
+    bar(
+        attn_probs_21_open_query0,
+        title="Avg Attention Probabilities for query 0, first token '(', head 2.1",
+        width=700, template="simple_white"
+    )
+# %%
+# identify important components for 2.1
+
+def get_pre_21_dir(model, data) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the direction propagated back through the OV matrix of 2.1
+    and then through the layernorm before the layer 2 attention heads.
+    
+    We know most of x_2[0] comes from x_1[1], so find direction of x_1[1]
+    that contributes to logit difference. Have to go back through another LN
+    From get_pre_final_ln_dir:
+    logit_diff = x_2[0] @ get_post_final_ln_dir
+    x_2[0] = LN(x_1[1]) @ W_OV @ pre_21_dir
+    (attn_probs is why you only care about x_1[1], but you don't need to operate
+    on attn_probs directly)
+    '''
+
+    w_ov = get_WOV(model, 2, 1) # (d_model, d_model)
+    # do layernorm regression again, this time caring about 1st sequence position
+    (ln_1_fit, r2) = get_ln_fit(model, data, layernorm=model.blocks[2].ln1)
+    # ln_1_fit.coef_ shape is (d_model, d_model)
+
+    pre_final_ln_dir = get_pre_final_ln_dir(model, data) # (d_model,)
+    # x_1[1] @ L_1.T @ W_OV @ pre_final_ln_dir = logit_dif, want x_1[1] in same dir as
+    # all following part for dot product maximization
+    return t.tensor(ln_1_fit.coef_.T).to(device=cfg.device) @ w_ov @ pre_final_ln_dir
+    
+if MAIN:
+    # YOUR CODE HERE - define `out_by_component_in_pre_21_unbalanced_dir` (for all components before head 2.0)
+    pre_21_dir = get_pre_21_dir(model, data)
+
+    # want embed, layer 0 heads+mlp, layer 1 heads+mlp
+    out_components_21 = get_out_by_components(model, data)[:7,:,1] # [7, dataset_size, emb in pos 1]
+
+    out_by_component_in_pre_21_unbalanced_dir = einops.einsum(pre_21_dir, out_components_21, 
+                                                       "emb, comp b emb -> comp b")
+
+    balanced_out_components = out_by_component_in_pre_21_unbalanced_dir[:, data.isbal].mean(dim=1)
+
+    out_by_component_in_pre_21_unbalanced_dir -= einops.repeat(balanced_out_components, "comp -> comp b", b=5000)
+    
+    plotly_utils.hists_per_comp(
+        out_by_component_in_pre_21_unbalanced_dir, 
+        data, xaxis_range=(-5, 12)
+    )
+# %%
+# Adversarial Approach 1: in head 0.0, query tokens 28-32 (parens in location 27-31) pay a ton of attention to positions 39 and 40
+# Try balanced string that is slightly unbalanced at the start but mostly correct at positions 39 and 40 (last two)? (nope)
+# answer: want negative elevation to occur at locations 27-31, where the ( that causes a negative elevation might pay more attention to a ) at the end (position 39 or 40)
+
+# unbalanced_string = "((((((((()))))))))()((((((()())())))))()" # two extra ( at start
+# unbalanced_string = "(((((((((()))))))))))(((((((((()))))))))" # works as adversarial
+
+# 28 brackets, then a )( unbalanced part, ( might pay too much attention to ) at end
+unbalanced_string = "(((((((((((((())))))))))))))\
+)(\
+((((()))))" # want two ) at positions 38 and 39
+
+def run_model_on_string(model: HookedTransformer, bracket_strings) -> Float[Tensor, "batch 2"]:
+    '''Return probability that each example is balanced'''
+    toks = tokenizer.tokenize(bracket_strings)
+    logits = model(toks)[:, 0]
+    return logits
+
+if MAIN:
+    # test_set = data
+    print(unbalanced_string.count("("))
+    print(unbalanced_string.count(")"))
+    print(is_balanced_forloop(unbalanced_string))
+    test_logits = run_model_on_string(model, [unbalanced_string])
+    print(test_logits.softmax(-1)[:, 1])
+    print(test_logits.argmax(-1).bool())
+
+# %%
+# test adversarial hypothesis
+
+def tallest_balanced_bracket(length: int) -> str:
+    return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
+
+example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
