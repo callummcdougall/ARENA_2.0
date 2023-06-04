@@ -729,7 +729,7 @@ def get_path_patch_head_to_final_resid_post(
     #cache the final value of the residual stream (ie resid post in the final layer)
     for layer in range(model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
-            hook_fn = partial(patch_head, clean_cache=clean_cache)
+            hook_fn = partial(patch_head, head_index=head, clean_cache=clean_cache)
             sender = 
     #Normally we would re-run the model on the clean input and patch in the cached value of the final residual stream, 
     # but in this case we don't need to because we can just unembed the final value of the residual stream directly without having to run another forward pass.
