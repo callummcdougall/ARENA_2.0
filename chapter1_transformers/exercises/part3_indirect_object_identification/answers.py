@@ -633,3 +633,638 @@ def get_act_patch_attn_head_all_pos_every(
 
     return results
 # %%
+from part3_indirect_object_identification.ioi_dataset import NAMES, IOIDataset
+# %%
+N = 25
+ioi_dataset = IOIDataset(
+    prompt_type="mixed",
+    N=N,
+    tokenizer=model.tokenizer,
+    prepend_bos=False,
+    seed=1,
+    device=str(device)
+)
+# %%
+abc_dataset = ioi_dataset.gen_flipped_prompts("ABB->XYZ, BAB->XYZ")
+# %%
+def format_prompt(sentence: str) -> str:
+    '''Format a prompt by underlining names (for rich print)'''
+    return re.sub("(" + "|".join(NAMES) + ")", lambda x: f"[u bold dark_orange]{x.group(0)}[/]", sentence) + "\n"
+
+
+def make_table(cols, colnames, title="", n_rows=5, decimals=4):
+    '''Makes and displays a table, from cols rather than rows (using rich print)'''
+    table = Table(*colnames, title=title)
+    rows = list(zip(*cols))
+    f = lambda x: x if isinstance(x, str) else f"{x:.{decimals}f}"
+    for row in rows[:n_rows]:
+        table.add_row(*list(map(f, row)))
+    rprint(table)
+# %%
+make_table(
+    colnames = ["IOI prompt", "IOI subj", "IOI indirect obj", "ABC prompt"],
+    cols = [
+        map(format_prompt, ioi_dataset.sentences), 
+        model.to_string(ioi_dataset.s_tokenIDs).split(), 
+        model.to_string(ioi_dataset.io_tokenIDs).split(), 
+        map(format_prompt, abc_dataset.sentences), 
+    ],
+    title = "Sentences from IOI vs ABC distribution",
+)
+# %%
+def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
+    '''
+    Returns logit difference between the correct and incorrect answer.
+
+    If per_prompt=True, return the array of differences rather than the average.
+    '''
+
+    # Only the final logits are relevant for the answer
+    # Get the logits corresponding to the indirect object / subject tokens respectively
+    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+    s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+    # Find logit difference
+    answer_logit_diff = io_logits - s_logits
+    return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+
+
+
+model.reset_hooks(including_permanent=True)
+
+ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
+abc_logits_original, abc_cache = model.run_with_cache(abc_dataset.toks)
+
+ioi_per_prompt_diff = logits_to_ave_logit_diff_2(ioi_logits_original, per_prompt=True)
+abc_per_prompt_diff = logits_to_ave_logit_diff_2(abc_logits_original, per_prompt=True)
+
+ioi_average_logit_diff = logits_to_ave_logit_diff_2(ioi_logits_original).item()
+abc_average_logit_diff = logits_to_ave_logit_diff_2(abc_logits_original).item()
+
+print(f"Average logit diff (IOI dataset): {ioi_average_logit_diff:.4f}")
+print(f"Average logit diff (ABC dataset): {abc_average_logit_diff:.4f}")
+
+make_table(
+    colnames = ["IOI prompt", "IOI logit diff", "ABC prompt", "ABC logit diff"],
+    cols = [
+        map(format_prompt, ioi_dataset.sentences), 
+        ioi_per_prompt_diff,
+        map(format_prompt, abc_dataset.sentences), 
+        abc_per_prompt_diff,
+    ],
+    title = "Sentences from IOI vs ABC distribution",
+)
+# %%
+def ioi_metric_2(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    clean_logit_diff: float = ioi_average_logit_diff,
+    corrupted_logit_diff: float = abc_average_logit_diff,
+    ioi_dataset: IOIDataset = ioi_dataset,
+) -> float:
+    '''
+    We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+    and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+    '''
+    patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+    return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+
+
+print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
+print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
+# %%
+def get_path_patch_head_to_final_resid_post(
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
+) -> Float[Tensor, "layer head"]:
+    # SOLUTION
+    '''
+    Performs path patching (see algorithm in appendix B of IOI paper), with:
+
+        sender head = (each head, looped through, one at a time)
+        receiver node = final value of residual stream
+
+    Returns:
+        tensor of metric values for every possible sender head
+    '''
+    model.reset_hooks()
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+
+    resid_post_hook_name = utils.get_act_name("resid_post", model.cfg.n_layers - 1)
+    resid_post_name_filter = lambda name: name == resid_post_hook_name
+
+
+    # ========== Step 1 ==========
+    # Gather activations on x_orig and x_new
+
+    # Note the use of names_filter for the run_with_cache function. Using it means we 
+    # only cache the things we need (in this case, just attn head outputs).
+    z_name_filter = lambda name: name.endswith("z")
+    if new_cache is None:
+        _, new_cache = model.run_with_cache(
+            new_dataset.toks, 
+            names_filter=z_name_filter, 
+            return_type=None
+        )
+    if orig_cache is None:
+        _, orig_cache = model.run_with_cache(
+            orig_dataset.toks, 
+            names_filter=z_name_filter, 
+            return_type=None
+        )
+
+
+    # Looping over every possible sender head (the receiver is always the final resid_post)
+    # Note use of itertools (gives us a smoother progress bar)
+    for (sender_layer, sender_head) in tqdm(list(itertools.product(range(model.cfg.n_layers), range(model.cfg.n_heads)))):
+
+        # ========== Step 2 ==========
+        # Run on x_orig, with sender head patched from x_new, every other head frozen
+
+        hook_fn = partial(
+            patch_or_freeze_head_vectors,
+            new_cache=new_cache, 
+            orig_cache=orig_cache,
+            head_to_patch=(sender_layer, sender_head),
+        )
+        model.add_hook(z_name_filter, hook_fn)
+
+        _, patched_cache = model.run_with_cache(
+            orig_dataset.toks, 
+            names_filter=resid_post_name_filter, 
+            return_type=None
+        )
+        # if (sender_layer, sender_head) == (9, 9):
+        #     return patched_cache
+        assert set(patched_cache.keys()) == {resid_post_hook_name}
+
+        # ========== Step 3 ==========
+        # Unembed the final residual stream value, to get our patched logits
+
+        patched_logits = model.unembed(model.ln_final(patched_cache[resid_post_hook_name]))
+
+        # Save the results
+        results[sender_layer, sender_head] = patching_metric(patched_logits)
+
+    return results
+# %%
+def patch_or_freeze_head_vectors(hook: HookPoint, 
+    new_cache: ActivationCache,
+    orig_cache: ActivationCache,
+    head_to_patch: Tuple[int, int], 
+)
+    '''
+    This helps implement step 2 of path patching. We freeze all head outputs (i.e. set them
+    to their values in orig_cache), except for head_to_patch (if it's in this layer) which
+    we patch with the value from new_cache.
+    head_to_patch: tuple of (layer, head)
+        we can use hook.layer() to check if the head to patch is in this layer
+    '''
+    # Setting using ..., otherwise changing orig_head_vector will edit cache value too
+    orig_head_vector[...] = orig_cache[hook.name][...]
+    if head_to_patch[0] == hook.layer():
+        orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
+    return orig_head_vector
+# %%
+def patch_head_input(
+    orig_activation: Float[Tensor, "batch pos head_idx d_head"],
+    hook: HookPoint,
+    patched_cache: ActivationCache,
+    head_list: List[Tuple[int, int]],
+) -> Float[Tensor, "batch pos head_idx d_head"]:
+    '''
+    Function which can patch any combination of heads in layers,
+    according to the heads in head_list.
+    '''
+    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+    orig_activation[:, :, heads_to_patch] = patched_cache[hook.name][:, :, heads_to_patch]
+    return orig_activation
+
+
+def get_path_patch_head_to_heads(
+    receiver_heads: List[Tuple[int, int]],
+    receiver_input: str,
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = None,
+    orig_cache: Optional[ActivationCache] = None,
+) -> Float[Tensor, "layer head"]:
+    '''
+    Performs path patching (see algorithm in appendix B of IOI paper), with:
+
+        sender head = (each head, looped through, one at a time)
+        receiver node = input to a later head (or set of heads)
+
+    The receiver node is specified by receiver_heads and receiver_input.
+    Example (for S-inhibition path patching the queries):
+        receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+        receiver_input = "v"
+
+    Returns:
+        tensor of metric values for every possible sender head
+    '''
+    # SOLUTION
+    model.reset_hooks()
+
+    assert receiver_input in ("k", "q", "v")
+    receiver_layers = set(next(zip(*receiver_heads)))
+    receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
+    receiver_hook_names_filter = lambda name: name in receiver_hook_names
+
+    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
+
+    # ========== Step 1 ==========
+    # Gather activations on x_orig and x_new
+
+    # Note the use of names_filter for the run_with_cache function. Using it means we 
+    # only cache the things we need (in this case, just attn head outputs).
+    z_name_filter = lambda name: name.endswith("z")
+    if new_cache is None:
+        _, new_cache = model.run_with_cache(
+            new_dataset.toks, 
+            names_filter=z_name_filter, 
+            return_type=None
+        )
+    if orig_cache is None:
+        _, orig_cache = model.run_with_cache(
+            orig_dataset.toks, 
+            names_filter=z_name_filter, 
+            return_type=None
+        )
+
+    # Note, the sender layer will always be before the final receiver layer, otherwise there will
+    # be no causal effect from sender -> receiver. So we only need to loop this far.
+    for (sender_layer, sender_head) in tqdm(list(itertools.product(
+        range(max(receiver_layers)),
+        range(model.cfg.n_heads)
+    ))):
+
+        # ========== Step 2 ==========
+        # Run on x_orig, with sender head patched from x_new, every other head frozen
+
+        hook_fn = partial(
+            patch_or_freeze_head_vectors,
+            new_cache=new_cache, 
+            orig_cache=orig_cache,
+            head_to_patch=(sender_layer, sender_head),
+        )
+        model.add_hook(z_name_filter, hook_fn) #, level=1)
+
+        _, patched_cache = model.run_with_cache(
+            orig_dataset.toks, 
+            names_filter=receiver_hook_names_filter,  
+            return_type=None
+        )
+        # model.reset_hooks(including_permanent=True)
+        assert set(patched_cache.keys()) == set(receiver_hook_names)
+
+        # ========== Step 3 ==========
+        # Run on x_orig, patching in the receiver node(s) from the previously cached value
+
+        hook_fn = partial(
+            patch_head_input, 
+            patched_cache=patched_cache, 
+            head_list=receiver_heads,
+        )
+        patched_logits = model.run_with_hooks(
+            orig_dataset.toks,
+            fwd_hooks = [(receiver_hook_names_filter, hook_fn)], 
+            return_type="logits"
+        )
+
+        # Save the results
+        results[sender_layer, sender_head] = patching_metric(patched_logits)
+
+    return results
+# %%
+def calculate_and_show_scatter_embedding_vs_attn(
+    layer: int,
+    head: int,
+    cache: ActivationCache = ioi_cache,
+    dataset: IOIDataset = ioi_dataset,
+) -> None:
+    '''
+    Creates and plots a figure equivalent to 3(c) in the paper.
+
+    This should involve computing the four 1D tensors:
+        attn_from_end_to_io
+        attn_from_end_to_s
+        projection_in_io_dir
+        projection_in_s_dir
+    and then calling the scatter_embedding_vs_attn function.
+    '''
+    # SOLUTION
+    # Get the value written to the residual stream at the end token by this head
+    z: Float[Tensor, "batch seq d_head"] = cache[utils.get_act_name("z", layer)][:, :, head]
+    N = z.size(0)
+    output: Float[Tensor, "batch seq d_model"] = z @ model.W_O[layer, head]
+    output_on_end_token: Float[Tensor, "batch d_model"] = output[t.arange(N), dataset.word_idx["end"]]
+
+    # Get the directions we'll be projecting onto
+    io_unembedding: Float[Tensor, "batch d_model"] = model.W_U.T[dataset.io_tokenIDs]
+    s_unembedding: Float[Tensor, "batch d_model"] = model.W_U.T[dataset.s_tokenIDs]
+
+    # Get the value of projections, by multiplying and summing over the d_model dimension
+    projection_in_io_dir: Float[Tensor, "batch"] = (output_on_end_token * io_unembedding).sum(-1)
+    projection_in_s_dir: Float[Tensor, "batch"] = (output_on_end_token * s_unembedding).sum(-1)
+
+    # Get attention probs, and index to get the probabilities from END -> IO / S
+    attn_probs: Float[Tensor, "batch q k"] = cache["pattern", layer][:, head]
+    attn_from_end_to_io = attn_probs[t.arange(N), dataset.word_idx["end"], dataset.word_idx["IO"]]
+    attn_from_end_to_s = attn_probs[t.arange(N), dataset.word_idx["end"], dataset.word_idx["S1"]]
+
+    # Show scatter plot
+    scatter_embedding_vs_attn(
+        attn_from_end_to_io, 
+        attn_from_end_to_s, 
+        projection_in_io_dir, 
+        projection_in_s_dir, 
+        layer, 
+        head
+    )
+# %%
+def get_copying_scores(
+    model: HookedTransformer,
+    k: int = 5,
+    names: list = NAMES
+) -> Float[Tensor, "2 layer head"]:
+    '''
+    Gets copying scores (both positive and negative) as described in page 6 of the IOI paper, for every (layer, head) pair in the model.
+
+    Returns these in a 3D tensor (the first dimension is for positive vs negative).
+    '''
+    # SOLUTION
+    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+
+    # Define components from our model (for typechecking, and cleaner code)
+    embed: Embed = model.embed
+    mlp0: MLP = model.blocks[0].mlp
+    ln0: LayerNorm = model.blocks[0].ln2
+    unembed: Unembed = model.unembed
+    ln_final: LayerNorm = model.ln_final
+
+    # Get embeddings for the names in our list
+    name_tokens: Int[Tensor, "batch 1"] = model.to_tokens(names, prepend_bos=False)
+    name_embeddings: Int[Tensor, "batch 1 d_model"] = embed(name_tokens)
+
+    # Get residual stream after applying MLP
+    resid_after_mlp1 = name_embeddings + mlp0(ln0(name_embeddings))
+
+    # Loop over all (layer, head) pairs
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+
+            # Get W_OV matrix
+            W_OV = model.W_V[layer, head] @ model.W_O[layer, head]
+
+            # Get residual stream after applying W_OV or -W_OV respectively
+            # (note, because of bias b_U, it matters that we do sign flip here, not later)
+            resid_after_OV_pos = resid_after_mlp1 @ W_OV
+            resid_after_OV_neg = resid_after_mlp1 @ -W_OV
+
+            # Get logits from value of residual stream
+            logits_pos: Float[Tensor, "batch d_vocab"] = unembed(ln_final(resid_after_OV_pos)).squeeze()
+            logits_neg: Float[Tensor, "batch d_vocab"] = unembed(ln_final(resid_after_OV_neg)).squeeze()
+
+            # Check how many are in top k
+            topk_logits: Int[Tensor, "batch k"] = t.topk(logits_pos, dim=-1, k=k).indices
+            in_topk = (topk_logits == name_tokens).any(-1)
+            # Check how many are in bottom k
+            bottomk_logits: Int[Tensor, "batch k"] = t.topk(logits_neg, dim=-1, k=k).indices
+            in_bottomk = (bottomk_logits == name_tokens).any(-1)
+
+            # Fill in results
+            results[:, layer, head] = t.tensor([in_topk.float().mean(), in_bottomk.float().mean()])
+
+    return results
+# %%
+copying_results = get_copying_scores(model)
+
+imshow(
+    copying_results, 
+    facet_col=0, 
+    facet_labels=["Positive copying scores", "Negative copying scores"],
+    title="Copying scores of attention heads' OV circuits",
+    width=800
+)
+
+
+heads = {"name mover": [(9, 9), (10, 0), (9, 6)], "negative name mover": [(10, 7), (11, 10)]}
+
+for i, name in enumerate(["name mover", "negative name mover"]):
+    make_table(
+        title=f"Copying Scores ({name} heads)",
+        colnames=["Head", "Score"],
+        cols=[
+            list(map(str, heads[name])) + ["[dark_orange bold]Average"],
+            [f"{copying_results[i, layer, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
+        ]
+    )
+# %%
+def get_attn_scores(
+    model: HookedTransformer, 
+    seq_len: int, 
+    batch: int, 
+    head_type: Literal["duplicate", "prev", "induction"]
+):
+    '''
+    Returns attention scores for sequence of duplicated tokens, for every head.
+    '''
+    # SOLUTION
+    rep_tokens = generate_repeated_tokens(model, seq_len, batch)
+
+    _, cache = model.run_with_cache(
+        rep_tokens,
+        return_type=None,
+        names_filter=lambda name: name.endswith("pattern")
+    )
+
+    # Get the right indices for the attention scores
+
+    if head_type == "duplicate":
+        src_indices = range(seq_len)
+        dest_indices = range(seq_len, 2 * seq_len)
+    elif head_type == "prev":
+        src_indices = range(seq_len)
+        dest_indices = range(1, seq_len + 1)
+    elif head_type == "induction": 
+        dest_indices = range(seq_len, 2 * seq_len)
+        src_indices = range(1, seq_len + 1)
+    else:
+        raise ValueError(f"Unknown head type {head_type}")
+
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    for layer in range(model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
+            attn_scores: Float[Tensor, "batch head dest src"] = cache["pattern", layer]
+            avg_attn_on_duplicates = attn_scores[:, head, dest_indices, src_indices].mean().item()
+            results[layer, head] = avg_attn_on_duplicates
+
+    return results
+# %%
+def plot_early_head_validation_results(seq_len: int = 50, batch: int = 50):
+    '''
+    Produces a plot that looks like Figure 18 in the paper.
+    '''
+    head_types = ["duplicate", "prev", "induction"]
+
+    results = t.stack([
+        get_attn_scores(model, seq_len, batch, head_type=head_type)
+        for head_type in head_types
+    ])
+
+    imshow(
+        results,
+        facet_col=0,
+        facet_labels=[
+            f"{head_type.capitalize()} token attention prob.<br>on sequences of random tokens"
+            for head_type in head_types
+        ],
+        labels={"x": "Head", "y": "Layer"},
+        width=1300,
+    )
+
+
+
+model.reset_hooks()
+plot_early_head_validation_results()
+# %%
+seq_len: int, 
+    batch: int = 1
+    '''
+    Generates a sequence of repeated random tokens (no start token).
+    '''
+    rep_tokens_half = t.randint(0, model.cfg.d_vocab, (batch, seq_len), dtype=t.int64)
+    rep_tokens = t.cat([rep_tokens_half, rep_tokens_half], dim=-1).to(device)
+    return rep_tokens
+# %%
+def get_heads_and_posns_to_keep(
+    means_dataset: IOIDataset,
+    model: HookedTransformer,
+    circuit: Dict[str, List[Tuple[int, int]]],
+    seq_pos_to_keep: Dict[str, str],
+) -> Dict[int, Bool[Tensor, "batch seq head"]]:
+    '''
+    Returns a dictionary mapping layers to a boolean mask giving the indices of the 
+    z output which *shouldn't* be mean-ablated.
+
+    The output of this function will be used for the hook function that does ablation.
+    '''
+    heads_and_posns_to_keep = {}
+    batch, seq, n_heads = len(means_dataset), means_dataset.max_len, model.cfg.n_heads
+
+    for layer in range(model.cfg.n_layers):
+
+        mask = t.zeros(size=(batch, seq, n_heads))
+
+        for (head_type, head_list) in circuit.items():
+            seq_pos = seq_pos_to_keep[head_type]
+            indices = means_dataset.word_idx[seq_pos]
+            for (layer_idx, head_idx) in head_list:
+                if layer_idx == layer:
+                    mask[:, indices, head_idx] = 1
+
+        heads_and_posns_to_keep[layer] = mask.bool()
+
+    return heads_and_posns_to_keep
+
+
+def hook_fn_mask_z(
+    z: Float[Tensor, "batch seq head d_head"],
+    hook: HookPoint,
+    heads_and_posns_to_keep: Dict[int, Bool[Tensor, "batch seq head"]],
+    means: Float[Tensor, "layer batch seq head d_head"],
+) -> Float[Tensor, "batch seq head d_head"]:
+    '''
+    Hook function which masks the z output of a transformer head.
+
+    heads_and_posns_to_keep
+        Dict created with the get_heads_and_posns_to_keep function. This tells
+        us where to mask.
+
+    means
+        Tensor of mean z values of the means_dataset over each group of prompts
+        with the same template. This tells us what values to mask with.
+    '''
+    # Get the mask for this layer, and add d_head=1 dimension so it broadcasts correctly
+    mask_for_this_layer = heads_and_posns_to_keep[hook.layer()].unsqueeze(-1).to(z.device)
+
+    # Set z values to the mean 
+    z = t.where(mask_for_this_layer, z, means[hook.layer()])
+
+    return z
+
+
+def compute_means_by_template(
+    means_dataset: IOIDataset, 
+    model: HookedTransformer
+) -> Float[Tensor, "layer batch seq head_idx d_head"]:
+    '''
+    Returns the mean of each head's output over the means dataset. This mean is
+    computed separately for each group of prompts with the same template (these
+    are given by means_dataset.groups).
+    '''
+    # Cache the outputs of every head
+    _, means_cache = model.run_with_cache(
+        means_dataset.toks.long(),
+        return_type=None,
+        names_filter=lambda name: name.endswith("z"),
+    )
+    # Create tensor to store means
+    n_layers, n_heads, d_head = model.cfg.n_layers, model.cfg.n_heads, model.cfg.d_head
+    batch, seq_len = len(means_dataset), means_dataset.max_len
+    means = t.zeros(size=(n_layers, batch, seq_len, n_heads, d_head), device=model.cfg.device)
+
+    # Get set of different templates for this data
+    for layer in range(model.cfg.n_layers):
+        z_for_this_layer: Float[Tensor, "batch seq head d_head"] = means_cache[utils.get_act_name("z", layer)]
+        for template_group in means_dataset.groups:
+            z_for_this_template = z_for_this_layer[template_group]
+            z_means_for_this_template = einops.reduce(z_for_this_template, "batch seq head d_head -> seq head d_head", "mean")
+            means[layer, template_group] = z_means_for_this_template
+
+    return means
+
+
+def add_mean_ablation_hook(
+    model: HookedTransformer, 
+    means_dataset: IOIDataset, 
+    circuit: Dict[str, List[Tuple[int, int]]] = CIRCUIT,
+    seq_pos_to_keep: Dict[str, str] = SEQ_POS_TO_KEEP,
+    is_permanent: bool = True,
+) -> HookedTransformer:
+    '''
+    Adds a permanent hook to the model, which ablates according to the circuit and 
+    seq_pos_to_keep dictionaries.
+
+    In other words, when the model is run on ioi_dataset, every head's output will 
+    be replaced with the mean over means_dataset for sequences with the same template,
+    except for a subset of heads and sequence positions as specified by the circuit
+    and seq_pos_to_keep dicts.
+    '''
+
+    model.reset_hooks(including_permanent=True)
+
+    # Compute the mean of each head's output on the ABC dataset, grouped by template
+    means = compute_means_by_template(means_dataset, model)
+
+    # Convert this into a boolean map
+    heads_and_posns_to_keep = get_heads_and_posns_to_keep(means_dataset, model, circuit, seq_pos_to_keep)
+
+    # Get a hook function which will patch in the mean z values for each head, at 
+    # all positions which aren't important for the circuit
+    hook_fn = partial(
+        hook_fn_mask_z, 
+        heads_and_posns_to_keep=heads_and_posns_to_keep, 
+        means=means
+    )
+
+    # Apply hook
+    model.add_hook(lambda name: name.endswith("z"), hook_fn, is_permanent=is_permanent)
+
+    return model
+# %%
