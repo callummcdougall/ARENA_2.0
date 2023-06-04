@@ -310,10 +310,10 @@ plot_square_as_board(
 )
 # %%
 black_mine_probe = full_linear_probe[black_to_play_index,...,1] - full_linear_probe[black_to_play_index,...,2]
-black_mine_probe_ = einops.rearrange(black_mine_probe, "d_model cols rows -> (cols rows) d_model")
+black_mine_probe = einops.rearrange(black_mine_probe, "d_model cols rows -> (cols rows) d_model")
 white_their_probe = full_linear_probe[white_to_play_index,...,1] - full_linear_probe[white_to_play_index,...,2]
-white_their_probe_ = einops.rearrange(white_their_probe, "d_model cols rows -> (cols rows) d_model")
-probes = t.cat((black_mine_probe_, white_their_probe_), dim=0)
+white_their_probe = einops.rearrange(white_their_probe, "d_model cols rows -> (cols rows) d_model")
+probes = t.cat((black_mine_probe, white_their_probe), dim=0)
 
 probes /= probes.norm(dim=-1, keepdim=True)
 cosine_similarities = einops.einsum(
@@ -326,5 +326,104 @@ imshow(
     title="Cosine Sim of B-W Linear Probe Directions by Cell",
     x=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
     y=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+)
+# %%
+
+### INTERVENING WITH THE PROBE
+
+blank_probe = linear_probe[..., blank_index] - (linear_probe[..., their_index] + linear_probe[..., my_index])/2
+my_probe = linear_probe[..., my_index] - linear_probe[..., their_index]
+
+tests.test_my_probes(blank_probe, my_probe, linear_probe)
+# %%
+pos = 20
+game_index = 0
+
+# Plot board state
+moves = focus_games_string[game_index, :pos+1]
+plot_single_board(moves)
+
+# Plot corresponding model predictions
+state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
+state.flatten()[stoi_indices] = focus_logits[game_index, pos].log_softmax(dim=-1)[1:]
+plot_square_as_board(state, zmax=0, diverging_scale=False, title="Log probs")
+# %%
+cell_r = 5
+cell_c = 4
+print(f"Flipping the color of cell {'ABCDEFGH'[cell_r]}{cell_c}")
+
+board = OthelloBoardState()
+board.update(moves.tolist())
+board_state = board.state.copy()
+valid_moves = board.get_valid_moves()
+flipped_board = copy.deepcopy(board)
+flipped_board.state[cell_r, cell_c] *= -1
+flipped_valid_moves = flipped_board.get_valid_moves()
+
+newly_legal = [string_to_label(move) for move in flipped_valid_moves if move not in valid_moves]
+newly_illegal = [string_to_label(move) for move in valid_moves if move not in flipped_valid_moves]
+print("newly_legal", newly_legal)
+print("newly_illegal", newly_illegal)
+# %%
+def apply_scale(resid: Float[Tensor, "batch=1 seq d_model"], flip_dir: Float[Tensor, "d_model"], scale: int, pos: int):
+    '''
+    Returns a version of the residual stream, modified by the amount `scale` in the 
+    direction `flip_dir` at the sequence position `pos`, in the way described above.
+    '''
+    flip_dir_normed = flip_dir / flip_dir.norm()
+    resid_pos = resid[:,pos]
+    resid_pos_flip_dir = t.dot(resid_pos[0], flip_dir_normed) * flip_dir_normed
+    resid[:, pos] -= (1 + scale)*resid_pos_flip_dir
+    return resid
+
+
+tests.test_apply_scale(apply_scale)
+# %%
+flip_dir = my_probe[:, cell_r, cell_c]
+
+big_flipped_states_list = []
+layer = 4
+scales = [0, 1, 2, 4, 8, 16]
+
+# Iterate through scales, generate a new facet plot for each possible scale
+for scale in scales:
+
+    # Hook function which will perform flipping in the "F4 flip direction"
+    def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
+        return apply_scale(resid, flip_dir, scale, pos)
+
+    # Calculate the logits for the board state, with the `flip_hook` intervention
+    # (note that we only need to use :pos+1 as input, because of causal attention)
+    flipped_logits: Tensor = model.run_with_hooks(
+        focus_games_int[game_index:game_index+1, :pos+1],
+        fwd_hooks=[
+            (utils.get_act_name("resid_post", layer), flip_hook),
+        ]
+    ).log_softmax(dim=-1)[0, pos]
+
+    flip_state = t.zeros((64,), dtype=t.float32, device=device) - 10.
+    flip_state[stoi_indices] = flipped_logits.log_softmax(dim=-1)[1:]
+    big_flipped_states_list.append(flip_state)
+
+
+flip_state_big = t.stack(big_flipped_states_list)
+state_big = einops.repeat(state.flatten(), "d -> b d", b=6)
+color = t.zeros((len(scales), 64)).cuda() + 0.2
+for s in newly_legal:
+    color[:, to_string(s)] = 1
+for s in newly_illegal:
+    color[:, to_string(s)] = -1
+
+scatter(
+    y=state_big, 
+    x=flip_state_big, 
+    title=f"Original vs Flipped {string_to_label(8*cell_r+cell_c)} at Layer {layer}", 
+    # labels={"x": "Flipped", "y": "Original"}, 
+    xaxis="Flipped", 
+    yaxis="Original", 
+
+    hover=[f"{r}{c}" for r in "ABCDEFGH" for c in range(8)], 
+    facet_col=0, facet_labels=[f"Translate by {i}x" for i in scales], 
+    color=color, color_name="Newly Legal", color_continuous_scale="Geyser"
 )
 # %%
