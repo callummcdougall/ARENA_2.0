@@ -841,3 +841,135 @@ patching_results = get_act_patch_resid_pre(model, corrupted_input, clean_cache, 
 
 line(patching_results, title="Layer Output Patching Effect on F0 Log Prob", line_labels=["attn", "mlp"], width=750)
 # %%
+
+### PART 3: NEURON INTERPRETABILITY: A DEEP DIVE
+
+### Direct Logit Attribution
+
+layer = 5
+neuron = 1393
+
+w_out = get_w_out(model, layer, neuron, normalize=False)
+state = t.zeros(8, 8, device=device)
+state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+plot_square_as_board(state, title=f"Output weights of Neuron L{layer}N{neuron} in the output logit basis", width=600)
+# %%
+c0_unembedding = t.nn.functional.normalize(model.W_U[:,to_int("C0")], dim=0)
+d1_unembedding = t.nn.functional.normalize(model.W_U[:,to_int("D1")], dim=0)
+
+print((c0_unembedding @ d1_unembedding).item())
+
+# %%
+w_out = get_w_out(model, layer, neuron, normalize=True)
+U, S, Vh = t.svd(model.W_U[:, 1:])
+
+print((w_out @ U).norm().item()**2)
+# %%
+neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
+
+imshow(
+    neuron_acts,
+    title=f"L{layer}N{neuron} Activations over 50 games",
+    labels={"x": "Move", "y": "Game"},
+    aspect="auto",
+    width=900
+)
+# %%
+imshow(
+    focus_states[4, :24],
+    facet_col=0,
+    facet_col_wrap=8,
+    facet_labels=[f"Move {i}" for i in range(1, 25)],
+    title="First 24 moves of fifth game",
+    color_continuous_scale="Greys",
+)
+
+# %%
+### Max Activation Dataset
+
+top_moves = neuron_acts > neuron_acts.quantile(0.99)
+
+focus_states_flipped_value = focus_states_flipped_value.to(device)
+board_state_at_top_moves = t.stack([
+    (focus_states_flipped_value == 2)[:, :-1][top_moves].float().mean(0),
+    (focus_states_flipped_value == 1)[:, :-1][top_moves].float().mean(0),
+    (focus_states_flipped_value == 0)[:, :-1][top_moves].float().mean(0)
+])
+
+plot_square_as_board(
+    board_state_at_top_moves, 
+    facet_col=0,
+    facet_labels=["Mine", "Theirs", "Blank"],
+    title=f"Aggregated top 30 moves for neuron L{layer}N{neuron}", 
+)
+# %%
+focus_states_flipped_pm1 = t.zeros_like(focus_states_flipped_value, device=device)
+focus_states_flipped_pm1[focus_states_flipped_value==2] = 1.
+focus_states_flipped_pm1[focus_states_flipped_value==1] = -1.
+
+board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+
+plot_square_as_board(
+    board_state_at_top_moves, 
+    title=f"Aggregated top 30 moves for neuron L{layer}N{neuron} (1 = theirs, -1 = mine)",
+)
+# %%
+### Investigating more neurons
+
+# Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+def get_w_out_batched(
+    model: HookedTransformer,
+    layer: int,
+    neurons: Tensor,
+    normalize: bool = False,
+) -> Float[Tensor, "neurons d_model"]:
+    '''
+    Returns the input weights for the given neuron.
+
+    If normalize is True, the weights are normalized to unit norm.
+    '''
+    neuron_w_out = model.W_out[layer, neurons, :].clone().detach()
+    if normalize:
+        return t.nn.functional.normalize(neuron_w_out, dim=0)
+    return neuron_w_out
+
+
+def calculate_neurons_output_weights(
+    model: HookedTransformer, 
+    probe: Float[Tensor, "d_model row col"], 
+    layer: int, 
+    neurons: List[int]
+) -> Float[Tensor, "neurons rows cols"]:
+    '''
+    Returns tensor of the output weights for the given list of neurons, at each square on the board,
+    projected along the corresponding probe directions.
+
+    Assume probe directions are normalized. You should also normalize the model weights.
+    '''
+    n_rows = probe.shape[1]
+    n_cols = probe.shape[2]
+    input_weights = t.zeros((n_rows, n_cols), device=device)
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            neuron_w_out = get_w_out(model, layer=layer, neuron=neuron, normalize=True)
+            input_weights[r, c] = probe[:, r, c] @ neuron_w_out
+
+    return input_weights
+
+top_layer_5_neurons = focus_cache["post", 5][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
+w_out_neurons = get_w_out_batched(model, 5, top_layer_5_neurons,normalize=True)
+
+output_weights_in_logit_basis = t.zeros((10, 8, 8), device="cpu")
+output_weights_in_logit_basis.flatten(1,2)[:,stoi_indices] = (w_out_neurons @ model.W_U[:, 1:]).clone().detach().cpu()
+
+plot_square_as_board(
+    output_weights_in_logit_basis, 
+    title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
+    facet_col=0, 
+    facet_labels=[f"L5N{n.item()}" for n in top_layer_5_neurons]
+)
+
+# %%
+
+### PART 4: TRAINING A 
