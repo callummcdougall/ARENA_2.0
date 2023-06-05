@@ -226,7 +226,7 @@ Each feature can have **importance** and **sparsity**. Recall our earlier defini
 This is realised in our toy model as follows:
 
 * **Importance** = the coefficient on the weighted mean squared error between the input and output, which we use for training the model
-    * In other words, our loss function is $L = \sum_x \sum_i I_i (x_i - x_i^')^2$, where $I_i$ is the importance of feature $i$.
+    * In other words, our loss function is $L = \sum_x \sum_i I_i (x_i - x_i')^2$, where $I_i$ is the importance of feature $i$.
 * **Sparsity** = the probability of the corresponding element in $x$ being non-zero
     * In other words, this affects the way our training data is generated (see the method `generate_batch` in the `Module` class below)
 
