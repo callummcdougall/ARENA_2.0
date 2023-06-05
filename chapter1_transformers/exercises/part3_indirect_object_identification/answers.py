@@ -321,3 +321,128 @@ for head_type in ["Positive", "Negative"]:
             attention_head_names=[f"{layer}.{head}" for layer, head in top_heads],
         )
     )
+
+# %%
+from transformer_lens import patching
+
+# %%
+clean_tokens = tokens
+# Swap each adjacent pair to get corrupted tokens
+indices = [i + 1 if i % 2 == 0 else i - 1 for i in range(len(tokens))]
+corrupted_tokens = clean_tokens[indices]
+
+print(
+    "Clean string 0:    ",
+    model.to_string(clean_tokens[0]),
+    "\n" "Corrupted string 0:",
+    model.to_string(corrupted_tokens[0]),
+)
+
+clean_logits, clean_cache = model.run_with_cache(clean_tokens)
+corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+
+clean_logit_diff = logits_to_ave_logit_diff(clean_logits, answer_tokens)
+print(f"Clean logit diff: {clean_logit_diff:.4f}")
+
+corrupted_logit_diff = logits_to_ave_logit_diff(corrupted_logits, answer_tokens)
+print(f"Corrupted logit diff: {corrupted_logit_diff:.4f}")
+# %%
+
+
+def ioi_metric(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
+    corrupted_logit_diff: float = corrupted_logit_diff,
+    clean_logit_diff: float = clean_logit_diff,
+) -> Float[Tensor, ""]:
+    """
+    Linear function of logit diff, calibrated so that it equals 0 when performance is
+    same as on corrupted input, and 1 when performance is same as on clean input.
+    """
+    current_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
+
+    return (current_logit_diff - corrupted_logit_diff) / (
+        clean_logit_diff - corrupted_logit_diff
+    )
+
+
+t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
+t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
+t.testing.assert_close(ioi_metric((clean_logits + corrupted_logits) / 2).item(), 0.5)
+# %%
+act_patch_resid_pre = patching.get_act_patch_resid_pre(
+    model=model,
+    corrupted_tokens=corrupted_tokens,
+    clean_cache=clean_cache,
+    patching_metric=ioi_metric,
+)
+
+labels = [f"{tok} {i}" for i, tok in enumerate(model.to_str_tokens(clean_tokens[0]))]
+
+imshow(
+    act_patch_resid_pre,
+    labels={"x": "Position", "y": "Layer"},
+    x=labels,
+    title="resid_pre Activation Patching",
+    width=600,
+)
+
+
+# %%
+def patch_residual_component(
+    corrupted_residual_component: Float[Tensor, "batch pos d_model"],
+    hook: HookPoint,
+    pos: int,
+    clean_cache: ActivationCache,
+) -> Float[Tensor, "batch pos d_model"]:
+    """
+    Patches a given sequence position in the residual stream, using the value
+    from the clean cache.
+    """
+    # Get the clean residual component
+    clean_residual_component = clean_cache[hook.name]
+    corrupted_residual_component[:, pos, :] = clean_residual_component[:, pos, :]
+    return corrupted_residual_component
+
+
+def get_act_patch_resid_pre(
+    model: HookedTransformer,
+    corrupted_tokens: Float[Tensor, "batch pos"],
+    clean_cache: ActivationCache,
+    patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float],
+) -> Float[Tensor, "layer pos"]:
+    """
+    Returns an array of results of patching each position at each layer in the residual
+    stream, using the value from the clean cache.
+
+    The results are calculated using the patching_metric function, which should be
+    called on the model's logit output.
+    """
+    seq_pos = corrupted_tokens.shape[-1]
+    n_layers = model.cfg.n_layers
+
+    patching_metrics = t.empty((n_layers, seq_pos)).to(device)
+
+    for layer in range(n_layers):
+        for pos in range(seq_pos):
+            hook_for_pos = partial(
+                patch_residual_component, pos=pos, clean_cache=clean_cache
+            )
+
+            patched_logits = model.run_with_hooks(
+                corrupted_tokens,
+                fwd_hooks=[(utils.get_act_name("resid_pre", layer), hook_for_pos)],
+            )
+
+            patching_metrics[layer, pos] = patching_metric(patched_logits)
+
+    return patching_metrics
+
+
+act_patch_resid_pre_own = get_act_patch_resid_pre(
+    model, corrupted_tokens, clean_cache, ioi_metric
+)
+
+t.testing.assert_close(act_patch_resid_pre, act_patch_resid_pre_own)
+
+#%%
