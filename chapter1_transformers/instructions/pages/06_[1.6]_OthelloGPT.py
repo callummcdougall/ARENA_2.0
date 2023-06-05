@@ -2315,6 +2315,7 @@ Can you guess what any of these neurons are doing? Does it help if you also plot
 
 ```python
 # Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+
 plot_square_as_board(
     output_weights_in_logit_basis, 
     title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
@@ -2328,6 +2329,35 @@ plot_square_as_board(
     facet_labels=[f"L5N{n.item()}" for n in top_neurons]
 )
 ```
+
+<details>
+<summary>Solution</summary>
+
+```python
+layer = 5
+top_neurons = focus_cache["post", layer].std(dim=[0, 1]).argsort(descending=True)[:10]
+board_states = []
+output_weights_in_logit_basis = []
+
+for neuron in top_neurons:
+
+    # Get output weights in logit basis
+    w_out = get_w_out(model, layer, neuron, normalize=False)
+    state = t.zeros(8, 8, device=device)
+    state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+    output_weights_in_logit_basis.append(state)
+    
+    # Get max activating dataset aggregations
+    neuron_acts = focus_cache["post", 5, "mlp"][:, :, neuron]
+    top_moves = neuron_acts > neuron_acts.quantile(0.99)
+    board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+    board_states.append(board_state_at_top_moves)
+
+
+output_weights_in_logit_basis = t.stack(output_weights_in_logit_basis)
+board_states = t.stack(board_states)
+```
+</details>
 
 How do you interpret the results?
 

@@ -635,7 +635,7 @@ $$
 Combining these, we get:
 
 $$
-L_i = \log \frac{e^{x_i}}{\sum_{j=1}^n e^{x_j}} = x_i - \log \sum_{j=1}^n e^{x_j}
+L_i = \log \frac{e^{x_i}}{\sum_{k=1}^n e^{x_k}} = x_i - \log \sum_{k=1}^n e^{x_k}
 $$
 
 Notice that the sum term on the right hand side is the same for all $i$, so we get:
@@ -1408,7 +1408,7 @@ def get_act_patch_resid_pre(
     # SOLUTION
     model.reset_hooks()
     seq_len = corrupted_tokens.size(1)
-    results = t.zeros(model.cfg.n_layers, seq_len, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, seq_len, device=device, dtype=t.float32)
 
     for layer in tqdm(range(model.cfg.n_layers)):
         for position in range(seq_len):
@@ -1552,7 +1552,7 @@ def get_act_patch_block_every(
     '''
     # SOLUTION
     model.reset_hooks()
-    results = t.zeros(3, model.cfg.n_layers, tokens.size(1), device="cuda", dtype=t.float32)
+    results = t.zeros(3, model.cfg.n_layers, tokens.size(1), device=device, dtype=t.float32)
 
     for component_idx, component in enumerate(["resid_pre", "attn_out", "mlp_out"]):
         for layer in tqdm(range(model.cfg.n_layers)):
@@ -1707,7 +1707,7 @@ def get_act_patch_attn_head_out_all_pos(
     '''
     # SOLUTION
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     for layer in tqdm(range(model.cfg.n_layers)):
         for head in range(model.cfg.n_heads):
@@ -1856,7 +1856,7 @@ def get_act_patch_attn_head_all_pos_every(
     called on the model's logit output.
     '''
     # SOLUTION
-    results = t.zeros(5, model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(5, model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
     # Loop over each component in turn
     for component_idx, component in enumerate(["z", "q", "k", "v", "pattern"]):
         for layer in tqdm(range(model.cfg.n_layers)):
@@ -2365,7 +2365,7 @@ def get_path_patch_head_to_final_resid_post(
         tensor of metric values for every possible sender head
     '''
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     # ========== Step 1 ==========
     # Gather activations on x_orig and x_new
@@ -2450,7 +2450,7 @@ def get_path_patch_head_to_final_resid_post(
         tensor of metric values for every possible sender head
     '''
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     resid_post_hook_name = utils.get_act_name("resid_post", model.cfg.n_layers - 1)
     resid_post_name_filter = lambda name: name == resid_post_hook_name
@@ -2689,7 +2689,7 @@ def get_path_patch_head_to_heads(
     receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
     receiver_hook_names_filter = lambda name: name in receiver_hook_names
 
-    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device=device, dtype=t.float32)
     
     # ========== Step 1 ==========
     # Gather activations on x_orig and x_new
@@ -3035,7 +3035,7 @@ def get_copying_scores(
     Omits the 0th layer, because this is before MLP0 (which we're claiming acts as an extended embedding).
     '''
     # SOLUTION
-    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device=device)
 
     # Define components from our model (for typechecking, and cleaner code)
     embed: Embed = model.embed
@@ -3199,7 +3199,7 @@ def get_attn_scores(
     else:
         raise ValueError(f"Unknown head type {head_type}")
 
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
     for layer in range(model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
             attn_scores: Float[Tensor, "batch head dest src"] = cache["pattern", layer]
