@@ -862,3 +862,4 @@ def tallest_balanced_bracket(length: int) -> str:
     return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
 
 example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
+# %%
