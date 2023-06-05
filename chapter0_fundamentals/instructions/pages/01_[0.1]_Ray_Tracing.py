@@ -863,7 +863,7 @@ Don't write it as a function right away. The most efficient way is to write and 
 
 You can either build up the output tensor using `torch.stack`, or you can initialize the output tensor to its final size and then assign to slices like `rays[:, 1, 1] = ...`. It's good practice to be able to do it both ways.
 
-Each y coordinate needs a ray with each corresponding z coordinate - in other words this is an outer product. The most elegant way to do this is with two calls to `einops.repeat`. You can also accomplish this with `unsqueeze`, `expand`, and `reshape` combined.
+Each y coordinate needs a ray with each corresponding z coordinate - more specifically, this is a cartesian product. The most elegant way to do this is with `torch.cartesian_prod`. Alternatively, you could use two calls to `einops.repeat`. You can also accomplish this with `unsqueeze`, `expand`, and `reshape` combined.
 </details>
 
 <details>
