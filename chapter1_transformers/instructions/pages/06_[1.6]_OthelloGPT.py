@@ -36,11 +36,12 @@ def section_0():
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/othello.png" width="350">
 
 
-Colab: [**exercises**](https://colab.research.google.com/drive/1w9zCWpE7xd1sDuMT_rsjARfFozeWiKF4) | [**solutions**](https://colab.research.google.com/drive/10tzGmOCQb3LoDB69vPFw71DV2d395hJl)
+Colab: [**exercises**](https://colab.research.google.com/drive/12YnrSDx0gbyhMKkcXoMvYZqu8oSgDEkM) | [**solutions**](https://colab.research.google.com/drive/1-b_RmzaGpnvKS_V6FFjylMYn4_JHVzXh)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
+
 
 
 # [1.6] OthelloGPT
@@ -306,70 +307,58 @@ Here are some more files, which we won't be using directly in these exercises, b
 
 
 ```python
-
-if MAIN:
-    cfg = HookedTransformerConfig(
-        n_layers = 8,
-        d_model = 512,
-        d_head = 64,
-        n_heads = 8,
-        d_mlp = 2048,
-        d_vocab = 61,
-        n_ctx = 59,
-        act_fn="gelu",
-        normalization_type="LNPre",
-        device=device,
-    )
-    model = HookedTransformer(cfg)
-
+cfg = HookedTransformerConfig(
+    n_layers = 8,
+    d_model = 512,
+    d_head = 64,
+    n_heads = 8,
+    d_mlp = 2048,
+    d_vocab = 61,
+    n_ctx = 59,
+    act_fn="gelu",
+    normalization_type="LNPre",
+    device=device,
+)
+model = HookedTransformer(cfg)
 ```
 
 ```python
-
-if MAIN:
-    sd = utils.download_file_from_hf("NeelNanda/Othello-GPT-Transformer-Lens", "synthetic_model.pth")
-    # champion_ship_sd = utils.download_file_from_hf("NeelNanda/Othello-GPT-Transformer-Lens", "championship_model.pth")
-    model.load_state_dict(sd)
-
+sd = utils.download_file_from_hf("NeelNanda/Othello-GPT-Transformer-Lens", "synthetic_model.pth")
+# champion_ship_sd = utils.download_file_from_hf("NeelNanda/Othello-GPT-Transformer-Lens", "championship_model.pth")
+model.load_state_dict(sd)
 ```
 
 ```python
 # An example input
+sample_input = t.tensor([[
+    20, 19, 18, 10,  2,  1, 27,  3, 41, 42, 34, 12,  4, 40, 11, 29, 43, 13, 48, 56, 
+    33, 39, 22, 44, 24,  5, 46,  6, 32, 36, 51, 58, 52, 60, 21, 53, 26, 31, 37,  9,
+    25, 38, 23, 50, 45, 17, 47, 28, 35, 30, 54, 16, 59, 49, 57, 14, 15, 55, 7
+]]).to(device)
 
-if MAIN:
-    sample_input = t.tensor([[
-        20, 19, 18, 10,  2,  1, 27,  3, 41, 42, 34, 12,  4, 40, 11, 29, 43, 13, 48, 56, 
-        33, 39, 22, 44, 24,  5, 46,  6, 32, 36, 51, 58, 52, 60, 21, 53, 26, 31, 37,  9,
-        25, 38, 23, 50, 45, 17, 47, 28, 35, 30, 54, 16, 59, 49, 57, 14, 15, 55, 7
-    ]]).to(device)
-    
-    # The argmax of the output (ie the most likely next move from each position)
-    sample_output = t.tensor([[
-        21, 41, 40, 34, 40, 41,  3, 11, 21, 43, 40, 21, 28, 50, 33, 50, 33,  5, 33,  5,
-        52, 46, 14, 46, 14, 47, 38, 57, 36, 50, 38, 15, 28, 26, 28, 59, 50, 28, 14, 28, 
-        28, 28, 28, 45, 28, 35, 15, 14, 30, 59, 49, 59, 15, 15, 14, 15,  8,  7,  8
-    ]]).to(device)
-    
-    assert (model(sample_input).argmax(dim=-1) == sample_output.to(device)).all()
+# The argmax of the output (ie the most likely next move from each position)
+sample_output = t.tensor([[
+    21, 41, 40, 34, 40, 41,  3, 11, 21, 43, 40, 21, 28, 50, 33, 50, 33,  5, 33,  5,
+    52, 46, 14, 46, 14, 47, 38, 57, 36, 50, 38, 15, 28, 26, 28, 59, 50, 28, 14, 28, 
+    28, 28, 28, 45, 28, 35, 15, 14, 30, 59, 49, 59, 15, 15, 14, 15,  8,  7,  8
+]]).to(device)
 
+assert (model(sample_input).argmax(dim=-1) == sample_output.to(device)).all()
 ```
 
 ## Loading Othello Content
 
 
 ```python
+os.chdir(section_dir)
 
-if MAIN:
-    os.chdir(section_dir)
-    
-    OTHELLO_ROOT = (section_dir / "othello_world").resolve()
-    OTHELLO_MECHINT_ROOT = (OTHELLO_ROOT / "mechanistic_interpretability").resolve()
-    
-    if not OTHELLO_ROOT.exists():
-        !git clone https://github.com/likenneth/othello_world
-    
-    sys.path.append(str(OTHELLO_MECHINT_ROOT))
+OTHELLO_ROOT = (section_dir / "othello_world").resolve()
+OTHELLO_MECHINT_ROOT = (OTHELLO_ROOT / "mechanistic_interpretability").resolve()
 
+if not OTHELLO_ROOT.exists():
+    !git clone https://github.com/likenneth/othello_world
+
+sys.path.append(str(OTHELLO_MECHINT_ROOT))
 ```
 
 ```python
@@ -384,39 +373,32 @@ We also load in the same set of games, in the same order, but in "string" format
 
 ```python
 # Load board data as ints (i.e. 0 to 60)
+board_seqs_int = t.tensor(np.load(OTHELLO_MECHINT_ROOT / "board_seqs_int_small.npy"), dtype=t.long)
+# Load board data as "strings" (i.e. 0 to 63 with middle squares skipped out)
+board_seqs_string = t.tensor(np.load(OTHELLO_MECHINT_ROOT / "board_seqs_string_small.npy"), dtype=t.long)
 
-if MAIN:
-    board_seqs_int = t.tensor(np.load(OTHELLO_MECHINT_ROOT / "board_seqs_int_small.npy"), dtype=t.long)
-    # Load board data as "strings" (i.e. 0 to 63 with middle squares skipped out)
-    board_seqs_string = t.tensor(np.load(OTHELLO_MECHINT_ROOT / "board_seqs_string_small.npy"), dtype=t.long)
-    
-    assert all([middle_sq not in board_seqs_string for middle_sq in [27, 28, 35, 36]])
-    assert board_seqs_int.max() == 60
-    
-    num_games, length_of_game = board_seqs_int.shape
-    print("Number of games:", num_games)
-    print("Length of game:", length_of_game)
+assert all([middle_sq not in board_seqs_string for middle_sq in [27, 28, 35, 36]])
+assert board_seqs_int.max() == 60
 
+num_games, length_of_game = board_seqs_int.shape
+print("Number of games:", num_games)
+print("Length of game:", length_of_game)
 ```
 
 ```python
 # Define possible indices (excluding the four center squares)
+stoi_indices = [i for i in range(64) if i not in [27, 28, 35, 36]]
 
-if MAIN:
-    stoi_indices = [i for i in range(64) if i not in [27, 28, 35, 36]]
-    
-    # Define our rows, and the function that converts an index into a (row, column) label, e.g. `E2`
-    alpha = "ABCDEFGH"
+# Define our rows, and the function that converts an index into a (row, column) label, e.g. `E2`
+alpha = "ABCDEFGH"
     
 def to_board_label(i):
     return f"{alpha[i//8]}{i%8}"
 
 # Get our list of board labels
 
-if MAIN:
-    board_labels = list(map(to_board_label, stoi_indices))
-    full_board_labels = list(map(to_board_label, range(64)))
-
+board_labels = list(map(to_board_label, stoi_indices))
+full_board_labels = list(map(to_board_label, range(64)))
 ```
 
 ## Running the model
@@ -426,14 +408,11 @@ Let's run our model on the first 30 moves:
 
 
 ```python
+moves_int = board_seqs_int[0, :30]
 
-if MAIN:
-    moves_int = board_seqs_int[0, :30]
-    
-    # This is implicitly converted to a batch of size 1
-    logits: Tensor = model(moves_int)
-    print("logits:", logits.shape)
-
+# This is implicitly converted to a batch of size 1
+logits: Tensor = model(moves_int)
+print("logits:", logits.shape)
 ```
 
 We take the final vector of logits. We convert it to log probs and we then remove the first element (corresponding to passing, and we've filtered out all games with passing) and get the 60 logits. This is 64-4 because the model's vocab is compressed, since the center 4 squares can't be played.
@@ -442,18 +421,15 @@ We then convert it to an 8 x 8 grid and plot it, with some tensor magic:
 
 
 ```python
+logit_vec = logits[0, -1]
+log_probs = logit_vec.log_softmax(-1)
+# Remove the "pass" move (the zeroth vocab item)
+log_probs = log_probs[1:]
+assert len(log_probs)==60
 
-if MAIN:
-    logit_vec = logits[0, -1]
-    log_probs = logit_vec.log_softmax(-1)
-    # Remove the "pass" move (the zeroth vocab item)
-    log_probs = log_probs[1:]
-    assert len(log_probs)==60
-    
-    # Set all cells to -13 by default, for a very negative log prob - this means the middle cells don't show up as mattering
-    temp_board_state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
-    temp_board_state.flatten()[stoi_indices] = log_probs
-
+# Set all cells to -13 by default, for a very negative log prob - this means the middle cells don't show up as mattering
+temp_board_state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
+temp_board_state.flatten()[stoi_indices] = log_probs
 ```
 
 <details>
@@ -479,9 +455,7 @@ def plot_square_as_board(state, diverging_scale=True, **kwargs):
     imshow(state, **kwargs)
     
 
-if MAIN:
-    plot_square_as_board(temp_board_state.reshape(8, 8), zmax=0, diverging_scale=False, title="Example Log Probs")
-
+plot_square_as_board(temp_board_state.reshape(8, 8), zmax=0, diverging_scale=False, title="Example Log Probs")
 ```
 
 > #### Recap of the useful objects we've defined (1/4)
@@ -515,10 +489,7 @@ Note that we don't see mid green <font color='#92B63A'>▉</font> in the plot be
 
 
 ```python
-
-if MAIN:
-    plot_single_board(int_to_label(moves_int))
-
+plot_single_board(int_to_label(moves_int))
 ```
 
 ## Making some utilities
@@ -530,12 +501,9 @@ Let's call these the **focus games**.
 
 
 ```python
-
-if MAIN:
-    num_games = 50
-    focus_games_int = board_seqs_int[:num_games]
-    focus_games_string = board_seqs_string[:num_games]
-
+num_games = 50
+focus_games_int = board_seqs_int[:num_games]
+focus_games_string = board_seqs_string[:num_games]
 ```
 
 A big stack of each move's board state and a big stack of the valid moves in each game (one hot encoded to be a nice tensor):
@@ -548,48 +516,40 @@ def one_hot(list_of_ints, num_classes=64):
     return out
 
 
-if MAIN:
-    focus_states = np.zeros((num_games, 60, 8, 8), dtype=np.float32)
-    focus_valid_moves = t.zeros((num_games, 60, 64), dtype=t.float32)
-    
-    for i in (range(num_games)):
-        board = OthelloBoardState()
-        for j in range(60):
-            board.umpire(focus_games_string[i, j].item())
-            focus_states[i, j] = board.state
-            focus_valid_moves[i, j] = one_hot(board.get_valid_moves())
-    
-    print("focus states:", focus_states.shape)
-    print("focus_valid_moves", tuple(focus_valid_moves.shape))
+focus_states = np.zeros((num_games, 60, 8, 8), dtype=np.float32)
+focus_valid_moves = t.zeros((num_games, 60, 64), dtype=t.float32)
 
+for i in (range(num_games)):
+    board = OthelloBoardState()
+    for j in range(60):
+        board.umpire(focus_games_string[i, j].item())
+        focus_states[i, j] = board.state
+        focus_valid_moves[i, j] = one_hot(board.get_valid_moves())
+
+print("focus states:", focus_states.shape)
+print("focus_valid_moves", tuple(focus_valid_moves.shape))
 ```
 
 To visualise this, let's plot the first 16 moves of the first game:
 
 
 ```python
-
-if MAIN:
-    imshow(
-        focus_states[0, :16],
-        facet_col=0,
-        facet_col_wrap=8,
-        facet_labels=[f"Move {i}" for i in range(1, 17)],
-        title="First 16 moves of first game",
-        color_continuous_scale="Greys",
-    )
-
+imshow(
+    focus_states[0, :16],
+    facet_col=0,
+    facet_col_wrap=8,
+    facet_labels=[f"Move {i}" for i in range(1, 17)],
+    title="First 16 moves of first game",
+    color_continuous_scale="Greys",
+)
 ```
 
 Lastly, a cache of every model activation and the logits:
 
 
 ```python
-
-if MAIN:
-    focus_logits, focus_cache = model.run_with_cache(focus_games_int[:, :-1].to(device))
-    focus_logits.shape
-
+focus_logits, focus_cache = model.run_with_cache(focus_games_int[:, :-1].to(device))
+focus_logits.shape
 ```
 
 > #### Recap of the useful objects we've defined (2/4)
@@ -645,32 +605,26 @@ This means that the options we want in our `linear_probe` are "empty", "theirs" 
 
 
 ```python
+full_linear_probe = t.load(OTHELLO_MECHINT_ROOT / "main_linear_probe.pth")
 
-if MAIN:
-    full_linear_probe = t.load(OTHELLO_MECHINT_ROOT / "main_linear_probe.pth")
-    
-    rows = 8
-    cols = 8 
-    options = 3
-    assert full_linear_probe.shape == (3, cfg.d_model, rows, cols, options)
-
+rows = 8
+cols = 8 
+options = 3
+assert full_linear_probe.shape == (3, cfg.d_model, rows, cols, options)
 ```
 
 ```python
+black_to_play_index = 0
+white_to_play_index = 1
+blank_index = 0
+their_index = 1
+my_index = 2
 
-if MAIN:
-    black_to_play_index = 0
-    white_to_play_index = 1
-    blank_index = 0
-    their_index = 1
-    my_index = 2
-    
-    # Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
-    linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
-    linear_probe[..., blank_index] = 0.5 * (full_linear_probe[black_to_play_index, ..., 0] + full_linear_probe[white_to_play_index, ..., 0])
-    linear_probe[..., their_index] = 0.5 * (full_linear_probe[black_to_play_index, ..., 1] + full_linear_probe[white_to_play_index, ..., 2])
-    linear_probe[..., my_index] = 0.5 * (full_linear_probe[black_to_play_index, ..., 2] + full_linear_probe[white_to_play_index, ..., 1])
-
+# Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
+linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
+linear_probe[..., blank_index] = 0.5 * (full_linear_probe[black_to_play_index, ..., 0] + full_linear_probe[white_to_play_index, ..., 0])
+linear_probe[..., their_index] = 0.5 * (full_linear_probe[black_to_play_index, ..., 1] + full_linear_probe[white_to_play_index, ..., 2])
+linear_probe[..., my_index] = 0.5 * (full_linear_probe[black_to_play_index, ..., 2] + full_linear_probe[white_to_play_index, ..., 1])
 ```
 
 On move 29 in game 0, we can apply the probe to the model's residual stream after layer 6. Move 29 is black to play.
@@ -679,11 +633,9 @@ Let's see what the probe thinks about the board state, and compare this to the a
 
 
 ```python
-
-if MAIN:
-    layer = 6
-    game_index = 0
-    move = 29
+layer = 6
+game_index = 0
+move = 29
     
 def plot_probe_outputs(layer, game_index, move, **kwargs):
     residual_stream = focus_cache["resid_post", layer][game_index, move]
@@ -692,42 +644,34 @@ def plot_probe_outputs(layer, game_index, move, **kwargs):
     probabilities = probe_out.softmax(dim=-1)
     plot_square_as_board(probabilities, facet_col=2, facet_labels=["P(Empty)", "P(Their's)", "P(Mine)"], **kwargs)
 
-
-if MAIN:
-    plot_probe_outputs(layer, game_index, move, title="Example probe outputs after move 29 (black to play)")
     
-    plot_single_board(int_to_label(focus_games_int[game_index, :move+1]))
-
+plot_probe_outputs(layer, game_index, move, title="Example probe outputs after move 29 (black to play)")
+    
+plot_single_board(int_to_label(focus_games_int[game_index, :move+1]))
 ```
 
 I got the best results intervening after layer 4, but interestingly here the model has *almost* figured out the board state by then, but is missing the fact that C5 and C6 are black and is confident that they're white. My guess is that the board state calculation circuits haven't quite finished and are doing some iterative reasoning - if those cells have been taken several times, maybe it needs a layer to track the next earliest time it was taken? I don't know, and figuring this out would be a great starter project if you want to explore!
 
 
 ```python
+layer = 4
+game_index = 0
+move = 29
 
-if MAIN:
-    layer = 4
-    game_index = 0
-    move = 29
-    
-    plot_probe_outputs(layer, game_index, move, title="Example probe outputs at layer 4 after move 29 (black to play)")
-
+plot_probe_outputs(layer, game_index, move, title="Example probe outputs at layer 4 after move 29 (black to play)")
 ```
 
 Now let's take one step forward - we should see that the representations totally flip. This is indeed what we find.
 
 
 ```python
+layer = 4
+game_index = 0
+move = 30
 
-if MAIN:
-    layer = 4
-    game_index = 0
-    move = 30
-    
-    plot_probe_outputs(layer, game_index, move, title="Example probe outputs at layer 4 after move 30 (white to play)")
-    
-    plot_single_board(focus_games_string[game_index, :31])
+plot_probe_outputs(layer, game_index, move, title="Example probe outputs at layer 4 after move 30 (white to play)")
 
+plot_single_board(focus_games_string[game_index, :31])
 ```
 
 Notice that the model gets the corner wrong in this case (incorrectly thinking that the corner is white rather than empty) - it's not a big deal, but interesting!
@@ -815,31 +759,26 @@ def state_stack_to_one_hot(state_stack):
 
 # We first convert the board states to be in terms of my (+1) and their (-1), rather than black and white
 
-if MAIN:
-    alternating = np.array([-1 if i%2 == 0 else 1 for i in range(focus_games_int.shape[1])])
-    flipped_focus_states = focus_states * alternating[None, :, None, None]
-    
-    # We now convert to one-hot encoded vectors
-    focus_states_flipped_one_hot = state_stack_to_one_hot(t.tensor(flipped_focus_states))
-    
-    # Take the argmax (i.e. the index of option empty/their/mine)
-    focus_states_flipped_value = focus_states_flipped_one_hot.argmax(dim=-1)
+alternating = np.array([-1 if i%2 == 0 else 1 for i in range(focus_games_int.shape[1])])
+flipped_focus_states = focus_states * alternating[None, :, None, None]
 
+# We now convert to one-hot encoded vectors
+focus_states_flipped_one_hot = state_stack_to_one_hot(t.tensor(flipped_focus_states))
+
+# Take the argmax (i.e. the index of option empty/their/mine)
+focus_states_flipped_value = focus_states_flipped_one_hot.argmax(dim=-1)
 ```
 
 Now we apply the probe to the residual stream at layer 6 (which involves taking a batch of dot products of `d_model`-length vectors):
 
 
 ```python
+probe_out = einops.einsum(
+    focus_cache["resid_post", 6], linear_probe,
+    "game move d_model, d_model row col options -> game move row col options"
+)
 
-if MAIN:
-    probe_out = einops.einsum(
-        focus_cache["resid_post", 6], linear_probe,
-        "game move d_model, d_model row col options -> game move row col options"
-    )
-    
-    probe_out_value = probe_out.argmax(dim=-1)
-
+probe_out_value = probe_out.argmax(dim=-1)
 ```
 
 The `probe_out_value` tensor tells us what the probe's prediction is for each `(game, move, row, col)`.
@@ -848,27 +787,31 @@ We can now compare this to the ground truth which we calculated in the previous 
 
 
 ```python
+correct_middle_odd_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
+accuracies_odd = einops.reduce(correct_middle_odd_answers.float(), "game move row col -> row col", "mean")
 
-if MAIN:
-    correct_middle_odd_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
-    accuracies_odd = einops.reduce(correct_middle_odd_answers.float(), "game move row col -> row col", "mean")
-    
-    correct_middle_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5]
-    accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
-    
-    plot_square_as_board(
-        1 - t.stack([accuracies_odd, accuracies], dim=0),
-        title="Average Error Rate of Linear Probe", 
-        facet_col=0, facet_labels=["Black to Play moves", "All Moves"], 
-        zmax=0.25, zmin=-0.25
-    )
+correct_middle_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5]
+accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
 
+plot_square_as_board(
+    1 - t.stack([accuracies_odd, accuracies], dim=0),
+    title="Average Error Rate of Linear Probe", 
+    facet_col=0, facet_labels=["Black to Play moves", "All Moves"], 
+    zmax=0.25, zmin=-0.25
+)
 ```
 
 Note that we can see the probe is worse near corners, as we anecdotally observed.
 
 
 ### Exercise - calculate probe cosine similarities
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-20 minutes on this exercise.
+```
 
 As another nice way of visualising how the "black to play" and "white to play" probes are similar, we can calculate the cosine similarity between each of the embedding vectors for both odd and even modes.
 
@@ -878,16 +821,14 @@ Remember, `full_linear_probe` has shape `(modes=3, d_model=512, rows=8, cols=8, 
 
 
 ```python
+# YOUR CODE HERE - define the `cosine_similarities` tensor, to be plotted
 
-if MAIN:
-    # YOUR CODE HERE - define the `cosine_similarities` tensor, to be plotted
-    imshow(
-        cosine_similarities,
-        title="Cosine Sim of B-W Linear Probe Directions by Cell",
-        x=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
-        y=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
-    )
-
+imshow(
+    cosine_similarities,
+    title="Cosine Sim of B-W Linear Probe Directions by Cell",
+    x=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+    y=[f"{L} (O)" for L in full_board_labels] + [f"{L} (E)" for L in full_board_labels],
+)
 ```
 
 <details>
@@ -952,11 +893,8 @@ You should define these tensors from the `linear_probe` tensor (recall that this
 
 
 ```python
-
-if MAIN:
-    # YOUR CODE HERE - define `blank_probe` and `my_probe`
-    tests.test_my_probes(blank_probe, my_probe, linear_probe)
-
+# YOUR CODE HERE - define `blank_probe` and `my_probe`
+tests.test_my_probes(blank_probe, my_probe, linear_probe)
 ```
 
 <details>
@@ -977,20 +915,17 @@ We'll take the 20th move in the 0th game as our example:
 
 
 ```python
+pos = 20
+game_index = 0
 
-if MAIN:
-    pos = 20
-    game_index = 0
-    
-    # Plot board state
-    moves = focus_games_string[game_index, :pos+1]
-    plot_single_board(moves)
-    
-    # Plot corresponding model predictions
-    state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
-    state.flatten()[stoi_indices] = focus_logits[game_index, pos].log_softmax(dim=-1)[1:]
-    plot_square_as_board(state, zmax=0, diverging_scale=False, title="Log probs")
+# Plot board state
+moves = focus_games_string[game_index, :pos+1]
+plot_single_board(moves)
 
+# Plot corresponding model predictions
+state = t.zeros((8, 8), dtype=t.float32, device=device) - 13.
+state.flatten()[stoi_indices] = focus_logits[game_index, pos].log_softmax(dim=-1)[1:]
+plot_square_as_board(state, zmax=0, diverging_scale=False, title="Log probs")
 ```
 
 Now, how does the game state (i.e. which moves are legal for white) change when `F4` is flipped from black to white?
@@ -1015,25 +950,22 @@ Let's verify this, using the `OthelloBoardState` class:
 
 
 ```python
+cell_r = 5
+cell_c = 4
+print(f"Flipping the color of cell {'ABCDEFGH'[cell_r]}{cell_c}")
 
-if MAIN:
-    cell_r = 5
-    cell_c = 4
-    print(f"Flipping the color of cell {'ABCDEFGH'[cell_r]}{cell_c}")
-    
-    board = OthelloBoardState()
-    board.update(moves.tolist())
-    board_state = board.state.copy()
-    valid_moves = board.get_valid_moves()
-    flipped_board = copy.deepcopy(board)
-    flipped_board.state[cell_r, cell_c] *= -1
-    flipped_valid_moves = flipped_board.get_valid_moves()
-    
-    newly_legal = [string_to_label(move) for move in flipped_valid_moves if move not in valid_moves]
-    newly_illegal = [string_to_label(move) for move in valid_moves if move not in flipped_valid_moves]
-    print("newly_legal", newly_legal)
-    print("newly_illegal", newly_illegal)
+board = OthelloBoardState()
+board.update(moves.tolist())
+board_state = board.state.copy()
+valid_moves = board.get_valid_moves()
+flipped_board = copy.deepcopy(board)
+flipped_board.state[cell_r, cell_c] *= -1
+flipped_valid_moves = flipped_board.get_valid_moves()
 
+newly_legal = [string_to_label(move) for move in flipped_valid_moves if move not in valid_moves]
+newly_illegal = [string_to_label(move) for move in valid_moves if move not in flipped_valid_moves]
+print("newly_legal", newly_legal)
+print("newly_illegal", newly_illegal)
 ```
 
 We can now intervene on the model's residual stream using the "my colour vs their colour" direction. I get the best results intervening after layer 4. This is a **linear intervention** - we are just changing a single dimension of the residual stream and keeping the others unchanged. This is a fairly simple intervention, and it's striking that it works!
@@ -1076,9 +1008,7 @@ def apply_scale(resid: Float[Tensor, "batch=1 seq d_model"], flip_dir: Float[Ten
     pass
 
 
-if MAIN:
-    tests.test_apply_scale(apply_scale)
-
+tests.test_apply_scale(apply_scale)
 ```
 
 <details>
@@ -1106,18 +1036,16 @@ Now, you can run the code below to see the output of your interventions. You sho
 
 
 ```python
+flip_dir = my_probe[:, cell_r, cell_c]
 
-if MAIN:
-    flip_dir = my_probe[:, cell_r, cell_c]
-    
-    big_flipped_states_list = []
-    layer = 4
-    scales = [0, 1, 2, 4, 8, 16]
-    
-    # Iterate through scales, generate a new facet plot for each possible scale
-    for scale in scales:
-    
-        # Hook function which will perform flipping in the "F4 flip direction"
+big_flipped_states_list = []
+layer = 4
+scales = [0, 1, 2, 4, 8, 16]
+
+# Iterate through scales, generate a new facet plot for each possible scale
+for scale in scales:
+
+    # Hook function which will perform flipping in the "F4 flip direction"
     def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
         return apply_scale(resid, flip_dir, scale, pos)
 
@@ -1135,28 +1063,26 @@ if MAIN:
     big_flipped_states_list.append(flip_state)
 
 
-if MAIN:
-    flip_state_big = t.stack(big_flipped_states_list)
-    state_big = einops.repeat(state.flatten(), "d -> b d", b=6)
-    color = t.zeros((len(scales), 64)).cuda() + 0.2
-    for s in newly_legal:
-        color[:, to_string(s)] = 1
-    for s in newly_illegal:
-        color[:, to_string(s)] = -1
-    
-    scatter(
-        y=state_big, 
-        x=flip_state_big, 
-        title=f"Original vs Flipped {string_to_label(8*cell_r+cell_c)} at Layer {layer}", 
-        # labels={"x": "Flipped", "y": "Original"}, 
-        xaxis="Flipped", 
-        yaxis="Original", 
-        
-        hover=[f"{r}{c}" for r in "ABCDEFGH" for c in range(8)], 
-        facet_col=0, facet_labels=[f"Translate by {i}x" for i in scales], 
-        color=color, color_name="Newly Legal", color_continuous_scale="Geyser"
-    )
+flip_state_big = t.stack(big_flipped_states_list)
+state_big = einops.repeat(state.flatten(), "d -> b d", b=6)
+color = t.zeros((len(scales), 64)).cuda() + 0.2
+for s in newly_legal:
+    color[:, to_string(s)] = 1
+for s in newly_illegal:
+    color[:, to_string(s)] = -1
 
+scatter(
+    y=state_big, 
+    x=flip_state_big, 
+    title=f"Original vs Flipped {string_to_label(8*cell_r+cell_c)} at Layer {layer}", 
+    # labels={"x": "Flipped", "y": "Original"}, 
+    xaxis="Flipped", 
+    yaxis="Original", 
+    
+    hover=[f"{r}{c}" for r in "ABCDEFGH" for c in range(8)], 
+    facet_col=0, facet_labels=[f"Translate by {i}x" for i in scales], 
+    color=color, color_name="Newly Legal", color_continuous_scale="Geyser"
+)
 ```
 
 <details>
@@ -1265,15 +1191,12 @@ Let's analyse move 20 in game 1, where we can see that the probe has perfect acc
 
 
 ```python
+game_index = 1
+move = 20
+layer = 6
 
-if MAIN:
-    game_index = 1
-    move = 20
-    layer = 6
-    
-    plot_single_board(focus_games_string[game_index, :move+1])
-    plot_probe_outputs(layer, game_index, move)
-
+plot_single_board(focus_games_string[game_index, :move+1])
+plot_probe_outputs(layer, game_index, move)
 ```
 
 We now plot the contributions of the attention and MLP layers to the `my_probe` direction. Strikingly, we see that the MLP layers are important for the vertical stripe that we just taken by the opponent, but that most of the rest seems to be done by the attention layers. 
@@ -1333,12 +1256,10 @@ def calculate_attn_and_mlp_probe_score_contributions(
     pass
 
 
-if MAIN:
-    attn_contributions, mlp_contributions = calculate_attn_and_mlp_probe_score_contributions(focus_cache, my_probe, layer, game_index, move)
-    
-    plot_contributions(attn_contributions, "Attention")
-    plot_contributions(mlp_contributions, "MLP")
+attn_contributions, mlp_contributions = calculate_attn_and_mlp_probe_score_contributions(focus_cache, my_probe, layer, game_index, move)
 
+plot_contributions(attn_contributions, "Attention")
+plot_contributions(mlp_contributions, "MLP")
 ```
 
 <details>
@@ -1389,14 +1310,12 @@ def calculate_accumulated_probe_score(
     pass
 
 
-if MAIN:
-    overall_contribution = calculate_accumulated_probe_score(focus_cache, my_probe, layer, game_index, move)
-    
-    imshow(
-        overall_contribution, 
-        title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
-    )
+overall_contribution = calculate_accumulated_probe_score(focus_cache, my_probe, layer, game_index, move)
 
+imshow(
+    overall_contribution, 
+    title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
+)
 ```
 
 <details>
@@ -1451,13 +1370,10 @@ Firstly, we'll compute the normalized version of the probes (normalization happe
 
 ```python
 # Scale the probes down to be unit norm per cell
-
-if MAIN:
-    blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
-    my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
-    # Set the center blank probes to 0, since they're never blank so the probe is meaningless
-    blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.
-
+blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
+my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
+# Set the center blank probes to 0, since they're never blank so the probe is meaningless
+blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.
 ```
 
 ### Exercise - calculate neuron input weights
@@ -1499,11 +1415,12 @@ def get_w_in(
     normalize: bool = False,
 ) -> Float[Tensor, "d_model"]:
     '''
-    Returns the input weights for the neuron in the list, at each square on the board.
+    Returns the input weights for the given neuron.
 
     If normalize is True, the weights are normalized to unit norm.
     '''
     pass
+
 
 def get_w_out(
     model: HookedTransformer,
@@ -1512,9 +1429,12 @@ def get_w_out(
     normalize: bool = False,
 ) -> Float[Tensor, "d_model"]:
     '''
-    Returns the input weights for the neuron in the list, at each square on the board.
+    Returns the input weights for the given neuron.
+
+    If normalize is True, the weights are normalized to unit norm.
     '''
     pass
+
 
 def calculate_neuron_input_weights(
     model: HookedTransformer, 
@@ -1523,12 +1443,13 @@ def calculate_neuron_input_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the input weights for each neuron in the list, at each square on the board,
+    Returns tensor of the input weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
     '''
     pass
+
 
 def calculate_neuron_output_weights(
     model: HookedTransformer, 
@@ -1537,7 +1458,7 @@ def calculate_neuron_output_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the output weights for each neuron in the list, at each square on the board,
+    Returns tensor of the output weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
@@ -1545,10 +1466,8 @@ def calculate_neuron_output_weights(
     pass
 
 
-if MAIN:
-    tests.test_calculate_neuron_input_weights(calculate_neuron_input_weights, model)
-    tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
-
+tests.test_calculate_neuron_input_weights(calculate_neuron_input_weights, model)
+tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
 ```
 
 <details>
@@ -1579,7 +1498,9 @@ def get_w_out(
     normalize: bool = False,
 ) -> Float[Tensor, "d_model"]:
     '''
-    Returns the input weights for the neuron in the list, at each square on the board.
+    Returns the output weights for the neuron in the list, at each square on the board.
+
+    If normalize is True, the weights are normalized to unit norm.
     '''
     # SOLUTION
     w_out = model.W_out[layer, neuron, :].detach().clone()
@@ -1593,7 +1514,7 @@ def calculate_neuron_input_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the input weights for each neuron in the list, at each square on the board,
+    Returns tensor of the input weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
@@ -1613,7 +1534,7 @@ def calculate_neuron_output_weights(
     neuron: int
 ) -> Float[Tensor, "rows cols"]:
     '''
-    Returns tensor of the output weights for each neuron in the list, at each square on the board,
+    Returns tensor of the output weights for the given neuron, at each square on the board,
     projected along the corresponding probe directions.
 
     Assume probe directions are normalized. You should also normalize the model weights.
@@ -1633,23 +1554,20 @@ Now, let's examine neuron `1393` in more detail. Can you interpret what it's doi
 
 
 ```python
+layer = 5
+neuron = 1393
 
-if MAIN:
-    layer = 5
-    neuron = 1393
-    
-    w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
-    w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
-    
-    imshow(
-        t.stack([w_in_L5N1393_blank, w_in_L5N1393_my]),
-        facet_col=0,
-        y=[i for i in "ABCDEFGH"],
-        title=f"Input weights in terms of the probe for neuron L{layer}N{neuron}",
-        facet_labels=["Blank In", "My In"],
-        width=750,
-    )
+w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
+w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
 
+imshow(
+    t.stack([w_in_L5N1393_blank, w_in_L5N1393_my]),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Input weights in terms of the probe for neuron L{layer}N{neuron}",
+    facet_labels=["Blank In", "My In"],
+    width=750,
+)
 ```
 
 <details>
@@ -1669,22 +1587,19 @@ We see that the input weights are well explained by this, while the output weigh
 
 
 ```python
+w_in_L5N1393 = get_w_in(model, layer, neuron, normalize=True)
+w_out_L5N1393 = get_w_out(model, layer, neuron, normalize=True)
 
-if MAIN:
-    w_in_L5N1393 = get_w_in(model, layer, neuron, normalize=True)
-    w_out_L5N1393 = get_w_out(model, layer, neuron, normalize=True)
-    
-    U, S, Vh = t.svd(t.cat([
-        my_probe.reshape(cfg.d_model, 64),
-        blank_probe.reshape(cfg.d_model, 64)
-    ], dim=1))
-    
-    # Remove the final four dimensions of U, as the 4 center cells are never blank and so the blank probe is meaningless there
-    probe_space_basis = U[:, :-4]
-    
-    print("Fraction of input weights in probe basis:", (w_in_L5N1393 @ probe_space_basis).norm().item()**2)
-    print("Fraction of output weights in probe basis:", (w_out_L5N1393 @ probe_space_basis).norm().item()**2)
+U, S, Vh = t.svd(t.cat([
+    my_probe.reshape(cfg.d_model, 64),
+    blank_probe.reshape(cfg.d_model, 64)
+], dim=1))
 
+# Remove the final four dimensions of U, as the 4 center cells are never blank and so the blank probe is meaningless there
+probe_space_basis = U[:, :-4]
+
+print("Fraction of input weights in probe basis:", (w_in_L5N1393 @ probe_space_basis).norm().item()**2)
+print("Fraction of output weights in probe basis:", (w_out_L5N1393 @ probe_space_basis).norm().item()**2)
 ```
 
 <details>
@@ -1703,37 +1618,34 @@ Lets try this on the layer 4 neurons with the top standard deviation (of activat
 
 
 ```python
+layer = 3
+top_layer_3_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
 
-if MAIN:
-    layer = 3
-    top_layer_3_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
-    
-    heatmaps_blank = []
-    heatmaps_my = []
-    
-    for neuron in top_layer_3_neurons:
-        neuron = neuron.item()
-        heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
-        heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
-    
-    imshow(
-        t.stack(heatmaps_blank),
-        facet_col=0,
-        y=[i for i in "ABCDEFGH"],
-        title=f"Cosine sim of Output weights and the 'blank color' probe for top layer {layer} neurons",
-        facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
-        width=1600, height=300,
-    )
-    
-    imshow(
-        t.stack(heatmaps_my),
-        facet_col=0,
-        y=[i for i in "ABCDEFGH"],
-        title=f"Cosine sim of Output weights and the 'my color' probe for top layer {layer} neurons",
-        facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
-        width=1600, height=300,
-    )
+heatmaps_blank = []
+heatmaps_my = []
 
+for neuron in top_layer_3_neurons:
+    neuron = neuron.item()
+    heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
+    heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
+
+imshow(
+    t.stack(heatmaps_blank),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the 'blank color' probe for top layer {layer} neurons",
+    facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+    width=1600, height=300,
+)
+
+imshow(
+    t.stack(heatmaps_my),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the 'my color' probe for top layer {layer} neurons",
+    facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+    width=1600, height=300,
+)
 ```
 
 These look interesting, but they don't seem to have super interpretable patterns in the same way that our previous neuron did. Can you think of a different statistical measure which might capture this better?
@@ -1762,37 +1674,34 @@ How does this change when we plot them for layer 4?
 
 
 ```python
+layer = 4
+top_layer_4_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
 
-if MAIN:
-    layer = 4
-    top_layer_4_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
-    
-    heatmaps_blank = []
-    heatmaps_my = []
-    
-    for neuron in top_layer_4_neurons:
-        neuron = neuron.item()
-        heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
-        heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
-    
-    imshow(
-        t.stack(heatmaps_blank),
-        facet_col=0,
-        y=[i for i in "ABCDEFGH"],
-        title=f"Cosine sim of Output weights and the blank color probe for top layer 4 neurons",
-        facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
-        width=1600, height=300,
-    )
-    
-    imshow(
-        t.stack(heatmaps_my),
-        facet_col=0,
-        y=[i for i in "ABCDEFGH"],
-        title=f"Cosine sim of Output weights and the my color probe for top layer 4 neurons",
-        facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
-        width=1600, height=300,
-    )
+heatmaps_blank = []
+heatmaps_my = []
 
+for neuron in top_layer_4_neurons:
+    neuron = neuron.item()
+    heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
+    heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
+
+imshow(
+    t.stack(heatmaps_blank),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the blank color probe for top layer 4 neurons",
+    facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
+    width=1600, height=300,
+)
+
+imshow(
+    t.stack(heatmaps_my),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the my color probe for top layer 4 neurons",
+    facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
+    width=1600, height=300,
+)
 ```
 
 Why is the blank output weights of the layer 4 neurons so striking?!
@@ -1817,31 +1726,28 @@ Let's test this out. Because of indexing (avoiding the middle 4 squares) it will
 
 
 ```python
+layer = 4
+top_layer_4_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
+W_U_norm = model.W_U / model.W_U.norm(dim=0, keepdim=True)
+W_U_norm = W_U_norm[:, 1:] # Get rid of the passing/dummy first element
+heatmaps_unembed = []
 
-if MAIN:
-    layer = 4
-    top_layer_4_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
-    W_U_norm = model.W_U / model.W_U.norm(dim=0, keepdim=True)
-    W_U_norm = W_U_norm[:, 1:] # Get rid of the passing/dummy first element
-    heatmaps_unembed = []
-    
-    for neuron in top_layer_4_neurons:
-        neuron = neuron.item()
-        w_out = get_w_out(model, layer, neuron)
-        # Fill in the `state` tensor with cosine sims, while skipping the middle 4 squares
-        state = t.zeros((8, 8), device=device)
-        state.flatten()[stoi_indices] = w_out @ W_U_norm
-        heatmaps_unembed.append(state)
-    
-    imshow(
-        t.stack(heatmaps_unembed),
-        facet_col=0,
-        y=[i for i in "ABCDEFGH"],
-        title=f"Cosine sim of Output weights and the unembed for top layer 4 neurons",
-        facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
-        width=1600, height=300,
-    )
+for neuron in top_layer_4_neurons:
+    neuron = neuron.item()
+    w_out = get_w_out(model, layer, neuron)
+    # Fill in the `state` tensor with cosine sims, while skipping the middle 4 squares
+    state = t.zeros((8, 8), device=device)
+    state.flatten()[stoi_indices] = w_out @ W_U_norm
+    heatmaps_unembed.append(state)
 
+imshow(
+    t.stack(heatmaps_unembed),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the unembed for top layer 4 neurons",
+    facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
+    width=1600, height=300,
+)
 ```
 
 Great! We've validated our hypothesis that the neurons in this layer are directly computing "blankness" and feeding this output directly into the unembedding, in order to raise the logit score for blank cells (since being blank is necessary for being legal to play in).
@@ -1905,39 +1811,30 @@ First, we can plot the original and corrupted boards, to visualize this:
 
 
 ```python
+game_index = 4
+move = 20
 
-if MAIN:
-    game_index = 4
-    move = 20
-    
-    plot_single_board(focus_games_string[game_index, :move+1], title="Original Game (black plays E0)")
-    plot_single_board(focus_games_string[game_index, :move].tolist()+[16], title="Corrupted Game (blank plays C0)")
-
+plot_single_board(focus_games_string[game_index, :move+1], title="Original Game (black plays E0)")
+plot_single_board(focus_games_string[game_index, :move].tolist()+[16], title="Corrupted Game (blank plays C0)")
 ```
 
 Next, let's define our clean and corrupted inputs as token strings, to be fed into our model:
 
 
 ```python
-
-if MAIN:
-    clean_input = focus_games_int[game_index, :move+1].clone()
-    corrupted_input = focus_games_int[game_index, :move+1].clone()
-    corrupted_input[-1] = to_int("C0")
-    print("Clean:     ", ", ".join(int_to_label(corrupted_input)))
-    print("Corrupted: ", ", ".join(int_to_label(clean_input)))
-
+clean_input = focus_games_int[game_index, :move+1].clone()
+corrupted_input = focus_games_int[game_index, :move+1].clone()
+corrupted_input[-1] = to_int("C0")
+print("Clean:     ", ", ".join(int_to_label(corrupted_input)))
+print("Corrupted: ", ", ".join(int_to_label(clean_input)))
 ```
 
 ```python
+clean_logits, clean_cache = model.run_with_cache(clean_input)
+corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_input)
 
-if MAIN:
-    clean_logits, clean_cache = model.run_with_cache(clean_input)
-    corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_input)
-    
-    clean_log_probs = clean_logits.log_softmax(dim=-1)
-    corrupted_log_probs = corrupted_logits.log_softmax(dim=-1)
-
+clean_log_probs = clean_logits.log_softmax(dim=-1)
+corrupted_log_probs = corrupted_logits.log_softmax(dim=-1)
 ```
 
 ### Exercise - create a patching metric
@@ -1953,8 +1850,9 @@ Finally, we'll create a patching metric. This is a function we'll apply to our o
 
 We want our patching metric to satisfy the following conditions:
 
-* Should have value **zero** when the logits are the same as in the clean distribution.
-* Should have value **one** when the logits are the same as in the corrupted distribution.
+* Should have value **one** when the logits are the same as in the clean distribution.
+* Should have value **zero** when the logits are the same as in the corrupted distribution.
+    * *Note - we sometimes use the opposite convention. Either might be justified, depending on the context. Here, you should think of a value of 1 meaning "100% of performance is preserved", and 0 as "performance is gone".*
 * Should be a **linear** function of the log probs.
     * **Important note** - this is *not* the same as being a linear function of the logits. Can you see why?
 * Should just be a function of the logits for the `F0` token, at the final game move (since this is the only move that changes between clean and corrupted).
@@ -1964,14 +1862,12 @@ This should be enough for you to uniquely define your patching metric. Also, not
 
 
 ```python
+f0_index = to_int("F0")
+clean_f0_log_prob = clean_log_probs[0, -1, f0_index]
+corrupted_f0_log_prob = corrupted_log_probs[0, -1, f0_index]
 
-if MAIN:
-    f0_index = to_int("F0")
-    clean_f0_log_prob = clean_log_probs[0, -1, f0_index]
-    corrupted_f0_log_prob = corrupted_log_probs[0, -1, f0_index]
-    
-    print("Clean log prob", clean_f0_log_prob.item())
-    print("Corrupted log prob", corrupted_f0_log_prob.item(), "\n")
+print("Clean log prob", clean_f0_log_prob.item())
+print("Corrupted log prob", corrupted_f0_log_prob.item(), "\n")
     
 def patching_metric(patched_logits: Float[Tensor, "batch=1 seq=21 d_vocab=61"]):
     '''
@@ -1983,9 +1879,7 @@ def patching_metric(patched_logits: Float[Tensor, "batch=1 seq=21 d_vocab=61"]):
     pass
 
 
-if MAIN:
-    tests.test_patching_metric(patching_metric, clean_log_probs, corrupted_log_probs)
-
+tests.test_patching_metric(patching_metric, clean_log_probs, corrupted_log_probs)
 ```
 
 <details>
@@ -2050,7 +1944,7 @@ def get_act_patch_resid_pre(
     corrupted_input: Float[Tensor, "batch pos"], 
     clean_cache: ActivationCache, 
     patching_metric: Callable[[Float[Tensor, "batch seq d_model"]], Float[Tensor, ""]]
-) -> Float[Tensor, "2 d_model"]:
+) -> Float[Tensor, "2 n_layers"]:
     '''
     Returns an array of results, corresponding to the results of patching at
     each (attn_out, mlp_out) for all layers in the model.
@@ -2086,7 +1980,7 @@ def get_act_patch_resid_pre(
     corrupted_input: Float[Tensor, "batch pos"], 
     clean_cache: ActivationCache, 
     patching_metric: Callable[[Float[Tensor, "batch seq d_model"]], Float[Tensor, ""]]
-) -> Float[Tensor, "2 d_model"]:
+) -> Float[Tensor, "2 n_layers"]:
     '''
     Returns an array of results, corresponding to the results of patching at
     each (attn_out, mlp_out) for all layers in the model.
@@ -2110,12 +2004,9 @@ def get_act_patch_resid_pre(
 
 
 ```python
+patching_results = get_act_patch_resid_pre(model, corrupted_input, clean_cache, patching_metric)
 
-if MAIN:
-    patching_results = get_act_patch_resid_pre(model, corrupted_input, clean_cache, patching_metric)
-    
-    line(patching_results, title="Layer Output Patching Effect on F0 Log Prob", line_labels=["attn", "mlp"], width=750)
-
+line(patching_results, title="Layer Output Patching Effect on F0 Log Prob", line_labels=["attn", "mlp"], width=750)
 ```
 
 <details>
@@ -2199,16 +2090,13 @@ Note that this is purely weights based analysis, we're not yet looking at actual
 
 
 ```python
+layer = 5
+neuron = 1393
 
-if MAIN:
-    layer = 5
-    neuron = 1393
-    
-    w_out = get_w_out(model, layer, neuron, normalize=False)
-    state = t.zeros(8, 8, device=device)
-    state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
-    plot_square_as_board(state, title=f"Output weights of Neuron L{layer}N{neuron} in the output logit basis", width=600)
-
+w_out = get_w_out(model, layer, neuron, normalize=False)
+state = t.zeros(8, 8, device=device)
+state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+plot_square_as_board(state, title=f"Output weights of Neuron L{layer}N{neuron} in the output logit basis", width=600)
 ```
 
 Here we immediately see that boosting `C0` is an important part of what happens (which fits with our earlier hypothesis about the diagonal pattern which this MLP was picking up on), but that it also boosts `D1`, which is surprising! (`D1` is filled in our hypothesis, so must be illegal!)
@@ -2274,10 +2162,7 @@ If you're confused by this, then you should go to the [How much variance does th
 
 
 ```python
-
-if MAIN:
-    # YOUR CODE HERE - compute the fraction of variance of neuron output vector explained by unembedding subspace
-
+# YOUR CODE HERE - compute the fraction of variance of neuron output vector explained by unembedding subspace
 ```
 
 <details>
@@ -2299,18 +2184,15 @@ Another quick sanity check is just plotting what the neuron activations look lik
 
 
 ```python
+neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
 
-if MAIN:
-    neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
-    
-    imshow(
-        neuron_acts,
-        title=f"L{layer}N{neuron} Activations over 50 games",
-        labels={"x": "Move", "y": "Game"},
-        aspect="auto",
-        width=900
-    )
-
+imshow(
+    neuron_acts,
+    title=f"L{layer}N{neuron} Activations over 50 games",
+    labels={"x": "Move", "y": "Game"},
+    aspect="auto",
+    width=900
+)
 ```
 
 ### Exercise - figure out what's going on with one of these games
@@ -2355,24 +2237,21 @@ Doing this properly across many games is effort, but here we have cached outputs
 
 
 ```python
+top_moves = neuron_acts > neuron_acts.quantile(0.99)
 
-if MAIN:
-    top_moves = neuron_acts > neuron_acts.quantile(0.99)
-    
-    focus_states_flipped_value = focus_states_flipped_value.to(device)
-    board_state_at_top_moves = t.stack([
-        (focus_states_flipped_value == 2)[:, :-1][top_moves].float().mean(0),
-        (focus_states_flipped_value == 1)[:, :-1][top_moves].float().mean(0),
-        (focus_states_flipped_value == 0)[:, :-1][top_moves].float().mean(0)
-    ])
-    
-    plot_square_as_board(
-        board_state_at_top_moves, 
-        facet_col=0,
-        facet_labels=["Mine", "Theirs", "Blank"],
-        title=f"Aggregated top 30 moves for neuron L{layer}N{neuron}", 
-    )
+focus_states_flipped_value = focus_states_flipped_value.to(device)
+board_state_at_top_moves = t.stack([
+    (focus_states_flipped_value == 2)[:, :-1][top_moves].float().mean(0),
+    (focus_states_flipped_value == 1)[:, :-1][top_moves].float().mean(0),
+    (focus_states_flipped_value == 0)[:, :-1][top_moves].float().mean(0)
+])
 
+plot_square_as_board(
+    board_state_at_top_moves, 
+    facet_col=0,
+    facet_labels=["Mine", "Theirs", "Blank"],
+    title=f"Aggregated top 30 moves for neuron L{layer}N{neuron}", 
+)
 ```
 
 Note that the blank cells show up with high frequency - this is one of the kinds of things [you have to watch out for](https://arxiv.org/abs/2104.07143), since exactly how you've defined your dataset will affect the features of the max activating dataset you end up finding.
@@ -2381,19 +2260,16 @@ We mostly care about the "mine vs theirs" distinction here because it's the most
 
 
 ```python
+focus_states_flipped_pm1 = t.zeros_like(focus_states_flipped_value, device=device)
+focus_states_flipped_pm1[focus_states_flipped_value==2] = 1.
+focus_states_flipped_pm1[focus_states_flipped_value==1] = -1.
 
-if MAIN:
-    focus_states_flipped_pm1 = t.zeros_like(focus_states_flipped_value, device=device)
-    focus_states_flipped_pm1[focus_states_flipped_value==2] = 1.
-    focus_states_flipped_pm1[focus_states_flipped_value==1] = -1.
-    
-    board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
-    
-    plot_square_as_board(
-        board_state_at_top_moves, 
-        title=f"Aggregated top 30 moves for neuron L{layer}N{neuron} (1 = theirs, -1 = mine)",
-    )
+board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
 
+plot_square_as_board(
+    board_state_at_top_moves, 
+    title=f"Aggregated top 30 moves for neuron L{layer}N{neuron} (1 = theirs, -1 = mine)",
+)
 ```
 
 We see that, for all moves in the max activating dataset, `D1` is theirs and `E2` is mine. This is moderately strong evidence that our neuron is doing the thing we think it's doing.
@@ -2438,22 +2314,19 @@ Can you guess what any of these neurons are doing? Does it help if you also plot
 
 
 ```python
-
-if MAIN:
-    # Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
-    plot_square_as_board(
-        output_weights_in_logit_basis, 
-        title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
-        facet_col=0, 
-        facet_labels=[f"L5N{n.item()}" for n in top_neurons]
-    )
-    plot_square_as_board(
-        board_states, 
-        title=f"Aggregated top 30 moves for each top 10 neuron in layer 5", 
-        facet_col=0, 
-        facet_labels=[f"L5N{n.item()}" for n in top_neurons]
-    )
-
+# Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+plot_square_as_board(
+    output_weights_in_logit_basis, 
+    title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
+    facet_col=0, 
+    facet_labels=[f"L5N{n.item()}" for n in top_neurons]
+)
+plot_square_as_board(
+    board_states, 
+    title=f"Aggregated top 30 moves for each top 10 neuron in layer 5", 
+    facet_col=0, 
+    facet_labels=[f"L5N{n.item()}" for n in top_neurons]
+)
 ```
 
 How do you interpret the results?
@@ -2482,15 +2355,13 @@ Remember we're using `GELU`, which can be negative.
 
 
 ```python
+c0 = focus_states_flipped_pm1[:, :, 2, 0]
+d1 = focus_states_flipped_pm1[:, :, 3, 1]
+e2 = focus_states_flipped_pm1[:, :, 4, 2]
 
-if MAIN:
-    c0 = focus_states_flipped_pm1[:, :, 2, 0]
-    d1 = focus_states_flipped_pm1[:, :, 3, 1]
-    e2 = focus_states_flipped_pm1[:, :, 4, 2]
-    
-    label = (c0==0) & (d1==-1) & (e2==1)
-    
-    neuron_acts = focus_cache["post", 5][:, :, 1393]
+label = (c0==0) & (d1==-1) & (e2==1)
+
+neuron_acts = focus_cache["post", 5][:, :, 1393]
     
 def make_spectrum_plot(
     neuron_acts: Float[Tensor, "batch"],
@@ -2507,10 +2378,7 @@ def make_spectrum_plot(
         color_discrete_sequence=px.colors.qualitative.Bold
     ).show()
 
-
-if MAIN:
-    make_spectrum_plot(neuron_acts.flatten(), label[:, :-1].flatten())
-
+make_spectrum_plot(neuron_acts.flatten(), label[:, :-1].flatten())
 ```
 
 ### Exercise - investigate this spectrum plot
@@ -2610,17 +2478,14 @@ One important thing to make clear: we're not training our model in the standard 
 
 
 ```python
-
-if MAIN:
-    imshow(
-        focus_states[0, :16],
-        facet_col=0,
-        facet_col_wrap=8,
-        facet_labels=[f"Move {i}" for i in range(1, 17)],
-        title="First 16 moves of first game",
-        color_continuous_scale="Greys",
-    )
-
+imshow(
+    focus_states[0, :16],
+    facet_col=0,
+    facet_col_wrap=8,
+    facet_labels=[f"Move {i}" for i in range(1, 17)],
+    title="First 16 moves of first game",
+    color_continuous_scale="Greys",
+)
 ```
 
 Now, we'll create a **dataclass** to store our probe training args. This is a great way to keep all our variables in one place (and also it works well with VSCode's autocompletion features!). Also, note a cool feature of dataclasses - you can define attributes in terms of previous attributes (e.g. see the `length` attribute).
@@ -2851,65 +2716,59 @@ class LitLinearProbe(pl.LightningModule):
 
 ```python
 # Create the model & training system
+args = ProbeTrainingArgs()
+litmodel = LitLinearProbe(model, args)
 
-if MAIN:
-    args = ProbeTrainingArgs()
-    litmodel = LitLinearProbe(model, args)
-    
-    # You can choose either logger
-    logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
-    # logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
-    
-    # Train the model
-    trainer = pl.Trainer(
-        max_epochs=args.max_epochs,
-        logger=logger,
-        log_every_n_steps=1,
-    )
-    trainer.fit(model=litmodel)
+# You can choose either logger
+logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
+# logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
 
+# Train the model
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs,
+    logger=logger,
+    log_every_n_steps=1,
+)
+trainer.fit(model=litmodel)
 ```
 
 Finally, let's perform the same accuracy plot from before, and see how well it works.
 
 
 ```python
+black_to_play_index = 0
+white_to_play_index = 1
+blank_index = 0
+their_index = 1
+my_index = 2
 
-if MAIN:
-    black_to_play_index = 0
-    white_to_play_index = 1
-    blank_index = 0
-    their_index = 1
-    my_index = 2
-    
-    # Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
-    my_linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
-    my_linear_probe[..., blank_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 0] + litmodel.linear_probe[white_to_play_index, ..., 0])
-    my_linear_probe[..., their_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 1] + litmodel.linear_probe[white_to_play_index, ..., 2])
-    my_linear_probe[..., my_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 2] + litmodel.linear_probe[white_to_play_index, ..., 1])
-    
-    # Getting the probe's output, and then its predictions
-    probe_out = einops.einsum(
-        focus_cache["resid_post", 6], my_linear_probe,
-        "game move d_model, d_model row col options -> game move row col options"
-    )
-    probe_out_value = probe_out.argmax(dim=-1)
-    
-    # Getting the correct answers in the odd cases
-    correct_middle_odd_answers = (probe_out_value == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
-    accuracies_odd = einops.reduce(correct_middle_odd_answers.float(), "game move row col -> row col", "mean")
-    
-    # Getting the correct answers in all cases
-    correct_middle_answers = (probe_out_value == focus_states_flipped_value[:, :-1])[:, 5:-5]
-    accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
-    
-    plot_square_as_board(
-        1 - t.stack([accuracies_odd, accuracies], dim=0), 
-        title="Average Error Rate of Linear Probe", 
-        facet_col=0, facet_labels=["Black to Play moves", "All Moves"], 
-        zmax=0.25, zmin=-0.25
-    )
+# Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
+my_linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
+my_linear_probe[..., blank_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 0] + litmodel.linear_probe[white_to_play_index, ..., 0])
+my_linear_probe[..., their_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 1] + litmodel.linear_probe[white_to_play_index, ..., 2])
+my_linear_probe[..., my_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 2] + litmodel.linear_probe[white_to_play_index, ..., 1])
 
+# Getting the probe's output, and then its predictions
+probe_out = einops.einsum(
+    focus_cache["resid_post", 6], my_linear_probe,
+    "game move d_model, d_model row col options -> game move row col options"
+)
+probe_out_value = probe_out.argmax(dim=-1)
+
+# Getting the correct answers in the odd cases
+correct_middle_odd_answers = (probe_out_value == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
+accuracies_odd = einops.reduce(correct_middle_odd_answers.float(), "game move row col -> row col", "mean")
+
+# Getting the correct answers in all cases
+correct_middle_answers = (probe_out_value == focus_states_flipped_value[:, :-1])[:, 5:-5]
+accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
+
+plot_square_as_board(
+    1 - t.stack([accuracies_odd, accuracies], dim=0), 
+    title="Average Error Rate of Linear Probe", 
+    facet_col=0, facet_labels=["Black to Play moves", "All Moves"], 
+    zmax=0.25, zmin=-0.25
+)
 ```
 
 If you did this correctly, you should get comparable performance to the original probes we used above (maybe not quite as good, depending on how long you trained for). As a reference, when I trained according to the default values in `args`, my loss came down to about 38 (starting at 300) and error rate was below 5% everywhere (and was largest on the edges and corners).
