@@ -238,8 +238,8 @@ def make_fourier_basis(p: int) -> Tuple[Tensor, List[str]]:
 
 #%%
 # test requires python 3.10 or higher, didn't run but seems fine
-if MAIN:
-    tests.test_make_fourier_basis(make_fourier_basis)
+# if MAIN:
+#     tests.test_make_fourier_basis(make_fourier_basis)
 # %%
 
 if MAIN:
@@ -267,8 +267,8 @@ def fft1d(x: t.Tensor) -> t.Tensor:
     return einops.einsum(x, fourier_basis, '... p, q p -> ... q')
 
 #%%
-if MAIN:
-    tests.test_fft1d(fft1d)
+# if MAIN:
+#     tests.test_fft1d(fft1d)
 # %%
 
 if MAIN:
@@ -293,8 +293,8 @@ def fourier_2d_basis_term(i: int, j: int) -> Float[Tensor, "p p"]:
     return einops.einsum(fourier_basis[i,:], fourier_basis[j], 'p, q -> p q')
 
 #%%
-if MAIN:
-    tests.test_fourier_2d_basis_term(fourier_2d_basis_term)
+# if MAIN:
+#     tests.test_fourier_2d_basis_term(fourier_2d_basis_term)
 # %%
 if MAIN:
     x_term = 4
@@ -328,8 +328,8 @@ def fft2d(tensor: t.Tensor) -> t.Tensor:
 
     return out
 #%%
-if MAIN:
-    tests.test_fft2d(fft2d)
+# if MAIN:
+#     tests.test_fft2d(fft2d)
 # %%
 if MAIN:
     example_fn = sum([
@@ -432,4 +432,655 @@ if MAIN:
         title=f'Contribution to attn score (pre-softmax) for each head, in Fourier Basis', 
         hover=fourier_basis_names
     )
+# %%
+
+# SECTION 2
+
+# fourier_basis @ W_E gives a linear combination of fourier basis vectors for each item in vocab?
+if MAIN:
+    line(
+        (fourier_basis @ W_E).pow(2).sum(1), 
+        hover=fourier_basis_names,
+        title='Norm of embedding of each Fourier Component',
+        xaxis='Fourier Component',
+        yaxis='Norm'
+    )
+# %%
+
+top_k = 5
+inputs_heatmap(
+    neuron_acts_post_sq[..., :top_k], 
+    title=f'Activations for first {top_k} neurons',
+    animation_frame=2,
+    animation_name='Neuron'
+)
+imshow_fourier(
+    neuron_acts_post_fourier_basis[..., :top_k], 
+    title=f'Activations for first {top_k} neurons',
+    animation_frame=2,
+    animation_name='Neuron'
+)
+# %%
+if MAIN:
+    neuron_acts_centered = neuron_acts_post_sq - neuron_acts_post_sq.mean(dim=(0,1), keepdims=True)
+    neuron_acts_centered_fourier = fft2d(neuron_acts_centered)
+    imshow_fourier(
+        neuron_acts_centered_fourier.pow(2).mean(-1),
+        title=f"Norms of 2D Fourier components of centered neuron activations",
+    )
+# %%
+def arrange_by_2d_freqs(tensor):
+    '''
+    Takes a tensor of shape (p, p, ...) and returns a tensor of shape
+    (p//2 - 1, 3, 3, ...) representing the Fourier coefficients sorted by
+    frequency (each slice contains const, linear and quadratic terms).
+
+    In other words, if the first two dimensions of the original tensor
+    correspond to indexing by 2D Fourier frequencies as follows:
+
+        1           cos(w_1*x)            sin(w_1*x)           ...
+        cos(w_1*y)  cos(w_1*x)cos(w_1*y)  sin(w_1*x)cos(w_1*y) ...
+        sin(w_1*y)  cos(w_1*x)sin(w_1*y)  sin(w_1*x)sin(w_1*y) ...
+        cos(w_2*y)  cos(w_1*x)cos(w_2*y)  sin(w_1*x)cos(w_2*y) ...
+        ...
+
+    Then the (k-1)-th slice of the new tensor are the terms corresponding to 
+    the following 2D Fourier frequencies:
+
+        1           cos(w_k*x)            sin(w_k*x)           ...
+        cos(w_k*y)  cos(w_k*x)cos(w_k*y)  sin(w_k*x)cos(w_k*y) ...
+        sin(w_k*y)  cos(w_k*x)sin(w_k*y)  sin(w_k*x)sin(w_k*y) ...
+
+    for k = 1, 2, ..., p//2.
+
+    Note we omit the constant term, i.e. the 0th slice has frequency k=1.
+    '''
+    idx_2d_y_all = []
+    idx_2d_x_all = []
+    for freq in range(1, p//2):
+        idx_1d = [0, 2*freq-1, 2*freq]
+        idx_2d_x_all.append([idx_1d for _ in range(3)])
+        idx_2d_y_all.append([[i]*3 for i in idx_1d])
+    return tensor[idx_2d_y_all, idx_2d_x_all]
+
+
+def find_neuron_freqs(
+    fourier_neuron_acts: Float[Tensor, "p p d_mlp"]
+) -> Tuple[Float[Tensor, "d_mlp"], Float[Tensor, "d_mlp"]]:
+    '''
+    Returns the tensors `neuron_freqs` and `neuron_frac_explained`, 
+    containing the frequencies that explain the most variance of each 
+    neuron and the fraction of variance explained, respectively.
+    '''
+    fourier_neuron_acts_by_freq = arrange_by_2d_freqs(fourier_neuron_acts)
+    assert fourier_neuron_acts_by_freq.shape == (p//2-1, 3, 3, d_mlp)
+
+    sum_of_squares = einops.einsum(fourier_neuron_acts_by_freq, fourier_neuron_acts_by_freq, 'q a b d_mlp, q a b d_mlp -> q d_mlp')
+
+    neuron_freqs = t.argmax(sum_of_squares, dim=0)+1
+
+    # sum of squares of all fourier coefficients for this neuron
+    total_variance = einops.einsum(fourier_neuron_acts, fourier_neuron_acts, 'x y neuron, x y neuron -> neuron')
+
+    # variance of neuron's highest activation / total variance
+    neuron_frac_explained = sum_of_squares.max(0)[0] / total_variance
+
+    return neuron_freqs, neuron_frac_explained
+
+
+neuron_freqs, neuron_frac_explained = find_neuron_freqs(neuron_acts_centered_fourier)
+key_freqs, neuron_freq_counts = t.unique(neuron_freqs, return_counts=True)
+
+assert key_freqs.tolist() == [14, 35, 41, 42, 52]
+# %%
+
+fraction_of_activations_positive_at_posn2 = (cache['pre', 0][:, -1] > 0).float().mean(0)
+
+scatter(
+    x=neuron_freqs, 
+    y=neuron_frac_explained,
+    xaxis="Neuron frequency", 
+    yaxis="Frac explained", 
+    colorbar_title="Frac positive",
+    title="Fraction of neuron activations explained by key freq",
+    color=utils.to_numpy(fraction_of_activations_positive_at_posn2)
+)
+# %%
+
+# To represent that they are in a special sixth cluster, we set the frequency of these neurons to -1
+neuron_freqs[neuron_frac_explained < 0.85] = -1.
+key_freqs_plus = t.concatenate([key_freqs, -key_freqs.new_ones((1,))])
+
+for i, k in enumerate(key_freqs_plus):
+    print(f'Cluster {i}: freq k={k}, {(neuron_freqs==k).sum()} neurons')
+# %%
+fourier_norms_in_each_cluster = []
+for freq in key_freqs:
+    fourier_norms_in_each_cluster.append(
+        einops.reduce(
+            neuron_acts_centered_fourier.pow(2)[..., neuron_freqs==freq], 
+            'batch_y batch_x neuron -> batch_y batch_x', 
+            'mean'
+        )
+    )
+
+imshow_fourier(
+    t.stack(fourier_norms_in_each_cluster), 
+    title=f'Norm of 2D Fourier components of neuron activations in each cluster',
+    facet_col=0,
+    facet_labels=[f"Freq={freq}" for freq in key_freqs]
+)
+# %%
+def project_onto_direction(batch_vecs: t.Tensor, v: t.Tensor) -> t.Tensor:
+    '''
+    Returns the component of each vector in `batch_vecs` in the direction of `v`.
+
+    batch_vecs.shape = (n, ...)
+    v.shape = (n,)
+    '''
+
+    # Get tensor of components of each vector in v-direction
+
+    # didn't actually need to normalise lol but it's ok
+
+    v_normalised = t.nn.functional.normalize(v.float(), dim=0)
+    dot_prod = einops.einsum(v_normalised, batch_vecs, 'n, n ... ->...')
+
+    projected = einops.einsum(dot_prod, v_normalised, '..., n -> n ...')
+    return projected
+
+    # Use these components as coefficients of v in our projections
+
+#%%
+# tests.test_project_onto_direction(project_onto_direction)
+# %%
+
+def project_onto_frequency(batch_vecs: t.Tensor, freq: int) -> t.Tensor:
+    '''
+    Returns the projection of each vector in `batch_vecs` onto the
+    2D Fourier basis directions corresponding to frequency `freq`.
+
+    batch_vecs.shape = (p**2, ...)
+    '''
+    assert batch_vecs.shape[0] == p**2
+
+    const = fourier_2d_basis_term(0,0).reshape((p**2,))
+    cosx = fourier_2d_basis_term(2*freq,0).reshape((p**2,))
+    cosy = fourier_2d_basis_term(0,2*freq).reshape((p**2,))
+    sinx = fourier_2d_basis_term(2*freq-1,0).reshape((p**2,))
+    siny = fourier_2d_basis_term(0,2*freq-1).reshape((p**2,))
+    cosxcosy = fourier_2d_basis_term(2*freq,2*freq).reshape((p**2,))
+    cosxsiny = fourier_2d_basis_term(2*freq,2*freq-1).reshape((p**2,))
+    sinxsiny = fourier_2d_basis_term(2*freq-1,2*freq-1).reshape((p**2,))
+    sinxcosy = fourier_2d_basis_term(2*freq-1,2*freq).reshape((p**2,))
+    
+    fourier_basis = [const, cosx, cosy, sinx, siny, cosxcosy, cosxsiny, sinxsiny, sinxcosy]
+
+    # projection = 0
+    # for basis in fourier_basis:
+    #     projection += project_onto_direction(batch_vecs, basis)
+
+    projection = sum([project_onto_direction(batch_vecs, basis) for basis in fourier_basis])
+    # directions are vectors of length p**2
+
+    return projection
+
+    # return sum([
+    #     project_onto_direction(
+    #         batch_vecs,
+    #         fourier_2d_basis_term(i, j).flatten(),
+    #     )
+    #     for i in [0, 2*freq-1, 2*freq] for j in [0, 2*freq-1, 2*freq]
+    # ])
+#%%
+# tests.test_project_onto_frequency(project_onto_frequency)
+# %%
+
+logits_in_freqs = []
+
+for freq in key_freqs:
+
+    # Get all neuron activations corresponding to this frequency
+    filtered_neuron_acts = neuron_acts_post[:, neuron_freqs==freq]
+
+    # Project onto const/linear/quadratic terms in 2D Fourier basis
+    filtered_neuron_acts_in_freq = project_onto_frequency(filtered_neuron_acts, freq)
+
+    # Calcluate new logits, from these filtered neuron activations
+    logits_in_freq = filtered_neuron_acts_in_freq @ W_logit[neuron_freqs==freq]
+
+    logits_in_freqs.append(logits_in_freq)
+
+# We add on neurons in the always firing cluster, unfiltered
+logits_always_firing = neuron_acts_post[:, neuron_freqs==-1] @ W_logit[neuron_freqs==-1]
+logits_in_freqs.append(logits_always_firing)
+
+# Print new losses
+print('Loss with neuron activations ONLY in key freq (inclusing always firing cluster)\n{:.6e}\n'.format( 
+    test_logits(
+        sum(logits_in_freqs), 
+        bias_correction=True, 
+        original_logits=original_logits
+    )
+))
+print('Loss with neuron activations ONLY in key freq (exclusing always firing cluster)\n{:.6e}\n'.format( 
+    test_logits(
+        sum(logits_in_freqs[:-1]), 
+        bias_correction=True, 
+        original_logits=original_logits
+    )
+))
+print('Original loss\n{:.6e}'.format(original_loss))
+
+# %%
+
+print('Loss with neuron activations excluding none:     {:.9f}'.format(original_loss.item()))
+for c, freq in enumerate(key_freqs_plus):
+    print('Loss with neuron activations excluding freq={}:  {:.9f}'.format(
+        freq, 
+        test_logits(
+            sum(logits_in_freqs) - logits_in_freqs[c], 
+            bias_correction=True, 
+            original_logits=original_logits
+        )
+    ))
+# %%
+imshow_fourier(
+    einops.reduce(neuron_acts_centered_fourier.pow(2), 'y x neuron -> y x', 'mean'), 
+    title='Norm of Fourier Components of Neuron Acts'
+)
+
+# Rearrange logits, so the first two dims represent (x, y) in modular arithmetic equation
+original_logits_sq = einops.rearrange(original_logits, "(x y) z -> x y z", x=p)
+original_logits_fourier = fft2d(original_logits_sq)
+
+imshow_fourier(
+    einops.reduce(original_logits_fourier.pow(2), 'y x z -> y x', 'mean'), 
+    title='Norm of Fourier Components of Logits'
+)
+# %%
+
+def get_trig_sum_directions(k: int) -> Tuple[Float[Tensor, "p p"], Float[Tensor, "p p"]]:
+    '''
+    Given frequency k, returns the normalized vectors in the 2D Fourier basis 
+    representing the directions:
+
+        cos(ω_k * (x + y))
+        sin(ω_k * (x + y))
+
+    respectively.
+    '''
+    # cos(x + y) = cos(x)cos(y) - sin(x)sin(y)
+    # sin(x + y) = cos(x)sin(y) + sin(x)cos(y)
+
+    cosxcosy = fourier_2d_basis_term(2*k, 2*k)
+    sinxsiny = fourier_2d_basis_term(2*k-1,2*k-1)
+    cosxsiny = fourier_2d_basis_term(2*k,2*k-1)
+    sinxcosy = fourier_2d_basis_term(2*k-1,2*k)
+
+    cosxy = (cosxcosy - sinxsiny) / np.sqrt(2)
+    sinxy = (cosxsiny + sinxcosy) / np.sqrt(2)
+
+    return cosxy, sinxy
+#%%
+
+# tests.test_get_trig_sum_directions(get_trig_sum_directions)
+# %%
+trig_logits = []
+
+for k in key_freqs:
+
+    cos_xplusy_direction, sin_xplusy_direction = get_trig_sum_directions(k)
+
+    cos_xplusy_projection = project_onto_direction(
+        original_logits,
+        cos_xplusy_direction.flatten()
+    )
+
+    sin_xplusy_projection = project_onto_direction(
+        original_logits,
+        sin_xplusy_direction.flatten()
+    )
+
+    trig_logits.extend([cos_xplusy_projection, sin_xplusy_projection])
+
+trig_logits = sum(trig_logits)
+
+print(f'Loss with just x+y components: {test_logits(trig_logits, True, original_logits):.4e}')
+print(f"Original Loss: {original_loss:.4e}")
+# %%
+
+US = W_logit @ fourier_basis.T
+
+imshow_div(
+    US,
+    x=fourier_basis_names,
+    yaxis='Neuron index',
+    title='W_logit in the Fourier Basis',
+    height=800,
+    width=600
+)
+# %%
+US_sorted = t.concatenate([
+    US[neuron_freqs==freq] for freq in key_freqs_plus
+])
+hline_positions = np.cumsum([(neuron_freqs == freq).sum().item() for freq in key_freqs]).tolist() + [cfg.d_mlp]
+
+imshow_div(
+    US_sorted,
+    x=fourier_basis_names, 
+    yaxis='Neuron',
+    title='W_logit in the Fourier Basis (rearranged by neuron cluster)',
+    hline_positions = hline_positions,
+    hline_labels = [f"Cluster: {freq=}" for freq in key_freqs.tolist()] + ["No freq"],
+    height=800,
+    width=600
+)
+# %%
+
+cos_components = []
+sin_components = []
+
+for k in key_freqs:
+    σu_sin = US[:, 2*k]
+    σu_cos = US[:, 2*k-1]
+
+    logits_in_cos_dir = neuron_acts_post_sq @ σu_cos
+    logits_in_sin_dir = neuron_acts_post_sq @ σu_sin
+
+    cos_components.append(fft2d(logits_in_cos_dir))
+    sin_components.append(fft2d(logits_in_sin_dir))
+
+for title, components in zip(['Cosine', 'Sine'], [cos_components, sin_components]):
+    imshow_fourier(
+        t.stack(components),
+        title=f'{title} components of neuron activations in Fourier basis',
+        animation_frame=0,
+        animation_name="Frequency",
+        animation_labels=key_freqs.tolist()
+    )
+# %%
+
+
+epochs = full_run_data['epochs']
+
+# Define a dictionary to store our metrics in
+metric_cache = {}
+
+
+def get_metrics(model: HookedTransformer, metric_cache, metric_fn, name, reset=False):
+    '''
+    Define a metric (by metric_fn) and add it to the cache, with the name `name`.
+
+    If `reset` is True, then the metric will be recomputed, even if it is already in the cache.
+    '''
+    if reset or (name not in metric_cache) or (len(metric_cache[name])==0):
+        metric_cache[name]=[]
+        for c, sd in enumerate(tqdm((full_run_data['state_dicts']))):
+            model = load_in_state_dict(model, sd)
+            out = metric_fn(model)
+            if type(out)==t.Tensor:
+                out = utils.to_numpy(out)
+            metric_cache[name].append(out)
+        model = load_in_state_dict(model, full_run_data['state_dicts'][400])
+        try:
+            metric_cache[name] = t.tensor(metric_cache[name])
+        except:
+            metric_cache[name] = t.tensor(np.array(metric_cache[name]))
+
+
+plot_metric = partial(lines, x=epochs, xaxis='Epoch', log_y=True)
+
+
+def test_loss(model):
+    logits = model(all_data)[:, -1, :-1]
+    return test_logits(logits, False, mode='test')
+
+get_metrics(model, metric_cache, test_loss, 'test_loss')
+
+
+def train_loss(model):
+    logits = model(all_data)[:, -1, :-1]
+    return test_logits(logits, False, mode='train')
+
+get_metrics(model, metric_cache, train_loss, 'train_loss')
+# %%
+
+def excl_loss(model: HookedTransformer, key_freqs: list) -> list:
+    '''
+    Returns the excluded loss (i.e. subtracting the components of logits corresponding to 
+    cos(w_k(x+y)) and sin(w_k(x+y)), for each frequency k in key_freqs.
+    '''
+    excl_loss_list = []
+    logits = model(all_data)[:, -1, :-1]
+    for k in key_freqs:
+        # returns vectors in 2D fourier space corresponding to cos(w_k(x+y)) and sin(w_k(x+y))
+        cosk, sink = get_trig_sum_directions(k)
+        # project logits onto these vectors, and subtract this from logits?
+        cosk_projection = project_onto_direction(logits, cosk.flatten())
+        sink_projection = project_onto_direction(logits, sink.flatten())
+        logits_excl = logits - cosk_projection - sink_projection
+        loss = test_logits(logits_excl, bias_correction=False, mode='train').item()
+        excl_loss_list.append(loss)
+    return excl_loss_list     
+#%%
+
+tests.test_excl_loss(excl_loss, model, key_freqs)
+# %%
+excl_loss = partial(excl_loss, key_freqs=key_freqs)
+get_metrics(model, metric_cache, excl_loss, 'excl_loss')
+
+lines(
+    t.concat([
+        metric_cache['excl_loss'].T, 
+        metric_cache['train_loss'][None, :],  
+        metric_cache['test_loss'][None, :]
+    ], axis=0), 
+    labels=[f'excl {freq}' for freq in key_freqs]+['train', 'test'], 
+    title='Excluded Loss for each trig component',
+    log_y=True,
+    x=full_run_data['epochs'],
+    xaxis='Epoch',
+    yaxis='Loss'
+)
+# %%
+def fourier_embed(model: HookedTransformer):
+    '''
+    Returns norm of Fourier transform of the model's embedding matrix.
+    '''
+    # embed = model.W_E[:-1]
+    # transformed_embed = fourier_basis.T @ embed
+    # #return transformed_embed.norm(dim=-1)
+    # return einops.reduce(transformed_embed.pow(2), 'p e -> p', 'sum')
+    W_E_fourier = fourier_basis.T @ model.W_E[:-1]
+    return einops.reduce(W_E_fourier.pow(2), 'vocab d_model -> vocab', 'sum')
+
+tests.test_fourier_embed(fourier_embed, model)
+# %%
+
+# Plot every 200 epochs so it's not overwhelming
+get_metrics(model, metric_cache, fourier_embed, 'fourier_embed')
+
+animate_lines(
+    metric_cache['fourier_embed'][::2],
+    snapshot_index = epochs[::2],
+    snapshot='Epoch',
+    hover=fourier_basis_names,
+    animation_group='x',
+    title='Norm of Fourier Components in the Embedding Over Training',
+)
+# %%
+def embed_SVD(model: HookedTransformer) -> t.Tensor:
+    '''
+    Returns vector S, where W_E = U @ diag(S) @ V.T in singular value decomp.
+    '''
+    _, S, _ = t.svd(model.W_E[:,:-1])
+    return S
+
+
+tests.test_embed_SVD(embed_SVD, model)
+# %%
+get_metrics(model, metric_cache, embed_SVD, 'embed_SVD')
+
+animate_lines(
+    metric_cache['embed_SVD'],
+    snapshot_index = epochs,
+    snapshot='Epoch',
+    title='Singular Values of the Embedding During Training',
+    xaxis='Singular Number',
+    yaxis='Singular Value',
+)
+# %%
+
+def tensor_trig_ratio(model: HookedTransformer, mode: str):
+    '''
+    Returns the fraction of variance of the (centered) activations which
+    is explained by the Fourier directions corresponding to cos(ω(x+y))
+    and sin(ω(x+y)) for all the key frequencies.
+    '''
+    logits, cache = model.run_with_cache(all_data)
+    logits = logits[:, -1, :-1]
+
+    if mode == "neuron_pre":
+        tensor = cache['pre', 0][:, -1]
+    elif mode == "neuron_post":
+        tensor = cache['post', 0][:, -1]
+    elif mode == "logit":
+        tensor = logits
+    else:
+        raise ValueError(f"{mode} is not a valid mode")
+
+    # Python 3.10 has match/case statements (-:
+    # match mode:
+    #     case 'neuron_pre': tensor = cache['pre', 0][:, -1]
+    #     case 'neuron_post': tensor = cache['post', 0][:, -1]
+    #     case 'logit': tensor = logits
+    #     case _: raise ValueError(f"{mode} is not a valid mode")
+
+    tensor_centered = tensor - einops.reduce(tensor, 'xy index -> 1 index', 'mean')
+    tensor_var = einops.reduce(tensor_centered.pow(2), 'xy index -> index', 'sum')
+    tensor_trig_vars = []
+
+    for freq in key_freqs:
+        cos_xplusy_direction, sin_xplusy_direction = get_trig_sum_directions(freq)
+        cos_xplusy_projection_var = project_onto_direction(
+            tensor_centered, cos_xplusy_direction.flatten()
+        ).pow(2).sum(0)
+        sin_xplusy_projection_var = project_onto_direction(
+            tensor_centered, sin_xplusy_direction.flatten()
+        ).pow(2).sum(0)
+
+        tensor_trig_vars.extend([cos_xplusy_projection_var, sin_xplusy_projection_var])
+
+    return utils.to_numpy(sum(tensor_trig_vars)/tensor_var)
+
+
+
+for mode in ['neuron_pre', 'neuron_post', 'logit']:
+    get_metrics(
+        model, 
+        metric_cache, 
+        partial(tensor_trig_ratio, mode=mode), 
+        f"{mode}_trig_ratio", 
+        reset=True
+    )
+
+lines_list = []
+line_labels = []
+for mode in ['neuron_pre', 'neuron_post', 'logit']:
+    tensor = metric_cache[f"{mode}_trig_ratio"]
+    lines_list.append(einops.reduce(tensor, 'epoch index -> epoch', 'mean'))
+    line_labels.append(f"{mode}_trig_frac")
+
+plot_metric(
+    lines_list, 
+    labels=line_labels, 
+    log_y=False,
+    yaxis='Ratio',
+    title='Fraction of logits and neurons explained by trig terms',
+)
+# %%
+def get_frac_explained(model: HookedTransformer):
+    _, cache = model.run_with_cache(all_data, return_type=None)
+
+    returns = []
+
+    for neuron_type in ['pre', 'post']:
+        neuron_acts = cache[neuron_type, 0][:, -1].clone().detach()
+        neuron_acts_centered = neuron_acts - neuron_acts.mean(0)
+        neuron_acts_fourier = fft2d(
+            einops.rearrange(neuron_acts_centered, "(x y) neuron -> x y neuron", x=p)
+        )
+
+        # Calculate the sum of squares over all inputs, for each neuron
+        square_of_all_terms = einops.reduce(
+            neuron_acts_fourier.pow(2), "x y neuron -> neuron", "sum"
+        )
+
+        frac_explained = t.zeros(d_mlp).to(device)
+        frac_explained_quadratic_terms = t.zeros(d_mlp).to(device)
+
+        for freq in key_freqs_plus:
+            # Get Fourier activations for neurons in this frequency cluster
+            # We arrange by frequency (i.e. each freq has a 3x3 grid with const, linear & quadratic terms)
+            acts_fourier = arrange_by_2d_freqs(neuron_acts_fourier[..., neuron_freqs==freq])
+
+            # Calculate the sum of squares over all inputs, after filtering for just this frequency
+            # Also calculate the sum of squares for just the quadratic terms in this frequency
+            if freq==-1:
+                squares_for_this_freq = squares_for_this_freq_quadratic_terms = einops.reduce(
+                    acts_fourier[:, 1:, 1:].pow(2), "freq x y neuron -> neuron", "sum"
+                )
+            else:
+                squares_for_this_freq = einops.reduce(
+                    acts_fourier[freq-1].pow(2), "x y neuron -> neuron", "sum"
+                )
+                squares_for_this_freq_quadratic_terms = einops.reduce(
+                    acts_fourier[freq-1, 1:, 1:].pow(2), "x y neuron -> neuron", "sum"
+                )
+
+            frac_explained[neuron_freqs==freq] = squares_for_this_freq / square_of_all_terms[neuron_freqs==freq]
+            frac_explained_quadratic_terms[neuron_freqs==freq] = squares_for_this_freq_quadratic_terms / square_of_all_terms[neuron_freqs==freq]
+
+        returns.extend([frac_explained, frac_explained_quadratic_terms])
+
+    frac_active = (neuron_acts > 0).float().mean(0)
+
+    return t.nan_to_num(t.stack(returns + [neuron_freqs, frac_active], axis=0))
+
+
+
+get_metrics(model, metric_cache, get_frac_explained, 'get_frac_explained')
+
+frac_explained_pre = metric_cache['get_frac_explained'][:, 0]
+frac_explained_quadratic_pre = metric_cache['get_frac_explained'][:, 1]
+frac_explained_post = metric_cache['get_frac_explained'][:, 2]
+frac_explained_quadratic_post = metric_cache['get_frac_explained'][:, 3]
+neuron_freqs_ = metric_cache['get_frac_explained'][:, 4]
+frac_active = metric_cache['get_frac_explained'][:, 5]
+
+animate_scatter(
+    t.stack([frac_explained_quadratic_pre, frac_explained_quadratic_post], dim=1)[:200:5],
+    color=neuron_freqs_[:200:5], 
+    color_name='freq',
+    snapshot='epoch',
+    snapshot_index=epochs[:200:5],
+    xaxis='Quad ratio pre',
+    yaxis='Quad ratio post',
+    color_continuous_scale='viridis',
+    title='Fraction of variance explained by quadratic terms (up to epoch 20K)'
+)
+
+animate_scatter(
+    t.stack([neuron_freqs_, frac_explained_pre, frac_explained_post], dim=1)[:200:5],
+    color=frac_active[:200:5],
+    color_name='frac_active',
+    snapshot='epoch',
+    snapshot_index=epochs[:200:5],
+    xaxis='Freq',
+    yaxis='Frac explained',
+    hover=list(range(d_mlp)),
+    color_continuous_scale='viridis',
+    title='Fraction of variance explained by this frequency (up to epoch 20K)'
+)
 # %%
