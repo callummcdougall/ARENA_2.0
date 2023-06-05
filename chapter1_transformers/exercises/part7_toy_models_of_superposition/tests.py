@@ -3,16 +3,10 @@ import sys
 from pathlib import Path
 import torch as t
 import torch.nn.functional as F
-import part7_toy_models_of_superposition.solutions as solutions
-from typing import Type
 
-# Make sure exercises are in the path
-chapter = r"chapter1_transformers"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part7_toy_models_of_superposition"
-if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
-
-def test_model(Model: Type[solutions.Model], config = solutions.Config(10, 5, 2)):
+def test_model(Model):
+    import part7_toy_models_of_superposition.solutions as solutions
+    config = solutions.Config(10, 5, 2)
     # get actual
     model = Model(config)
     t.manual_seed(0)
