@@ -427,3 +427,123 @@ scatter(
     color=color, color_name="Newly Legal", color_continuous_scale="Geyser"
 )
 # %%
+
+### PART 2: LOOKING FOR MODULAR CIRCUITS
+
+### Probing Across Layers
+
+game_index = 1
+move = 20
+layer = 6
+
+plot_single_board(focus_games_string[game_index, :move+1])
+plot_probe_outputs(layer, game_index, move)
+# %%
+def plot_contributions(contributions, component: str):
+    imshow(
+        contributions,
+        facet_col=0,
+        y=list("ABCDEFGH"),
+        facet_labels=[f"Layer {i}" for i in range(7)],
+        title=f"{component} Layer Contributions to my vs their (Game {game_index} Move {move})",
+        aspect="equal",
+        width=1400,
+        height=350
+    )
+
+def calculate_attn_and_mlp_probe_score_contributions(
+    focus_cache: ActivationCache, 
+    my_probe: Float[Tensor, "d_model rows cols"],
+    layer: int,
+    game_index: int, 
+    move: int
+) -> Tuple[Float[Tensor, "layers rows cols"], Float[Tensor, "layers rows cols"]]:
+
+    n_rows = my_probe.shape[1]
+    n_cols = my_probe.shape[2]
+    
+    attn_contributions = t.zeros((layer + 1, n_rows, n_cols), device=device)
+    mlp_contributions = t.zeros((layer + 1, n_rows, n_cols), device=device)
+
+    for l in range(layer + 1):
+        attn_out = focus_cache["attn_out", l][game_index, move]
+        mlp_out = focus_cache["mlp_out", l][game_index, move]
+        attn_contributions[l] = einops.einsum(attn_out, my_probe, "d_model, d_model rows cols -> rows cols")
+        mlp_contributions[l] = einops.einsum(mlp_out, my_probe, "d_model, d_model rows cols -> rows cols")
+
+    return attn_contributions, mlp_contributions
+
+
+attn_contributions, mlp_contributions = calculate_attn_and_mlp_probe_score_contributions(focus_cache, my_probe, layer, game_index, move)
+
+plot_contributions(attn_contributions, "Attention")
+plot_contributions(mlp_contributions, "MLP")
+# %%
+def calculate_accumulated_probe_score(
+    focus_cache: ActivationCache, 
+    my_probe: Float[Tensor, "d_model rows cols"],
+    layer: int,
+    game_index: int, 
+    move: int
+) -> Float[Tensor, "rows cols"]:
+    resid_post = focus_cache["resid_post", layer][game_index, move]
+    resid_contribution = einops.einsum(resid_post, my_probe, "d_model, d_model rows cols -> rows cols")
+
+    return resid_contribution
+
+
+overall_contribution = calculate_accumulated_probe_score(focus_cache, my_probe, layer, game_index, move)
+print(overall_contribution.shape)
+imshow(
+    overall_contribution, 
+    title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
+)
+# %%
+def calculate_attn_and_mlp_probe_score_contributions(
+    focus_cache: ActivationCache, 
+    blank_probe: Float[Tensor, "d_model rows cols"],
+    layer: int,
+    game_index: int, 
+    move: int
+) -> Tuple[Float[Tensor, "layers rows cols"], Float[Tensor, "layers rows cols"]]:
+
+    n_rows = blank_probe.shape[1]
+    n_cols = blank_probe.shape[2]
+    
+    attn_contributions = t.zeros((layer + 1, n_rows, n_cols), device=device)
+    mlp_contributions = t.zeros((layer + 1, n_rows, n_cols), device=device)
+
+    for l in range(layer + 1):
+        attn_out = focus_cache["attn_out", l][game_index, move]
+        mlp_out = focus_cache["mlp_out", l][game_index, move]
+        attn_contributions[l] = einops.einsum(attn_out, blank_probe, "d_model, d_model rows cols -> rows cols")
+        mlp_contributions[l] = einops.einsum(mlp_out, blank_probe, "d_model, d_model rows cols -> rows cols")
+
+    return attn_contributions, mlp_contributions
+
+
+attn_contributions, mlp_contributions = calculate_attn_and_mlp_probe_score_contributions(focus_cache, blank_probe, layer, game_index, move)
+
+plot_contributions(attn_contributions, "Attention")
+plot_contributions(mlp_contributions, "MLP")
+# %%
+def calculate_accumulated_probe_score(
+    focus_cache: ActivationCache, 
+    blank_probe: Float[Tensor, "d_model rows cols"],
+    layer: int,
+    game_index: int, 
+    move: int
+) -> Float[Tensor, "rows cols"]:
+    resid_post = focus_cache["resid_post", layer][game_index, move]
+    resid_contribution = einops.einsum(resid_post, blank_probe, "d_model, d_model rows cols -> rows cols")
+
+    return resid_contribution
+
+
+overall_contribution = calculate_accumulated_probe_score(focus_cache, blank_probe, layer, game_index, move)
+print(overall_contribution.shape)
+imshow(
+    overall_contribution, 
+    title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
+)
+# %%
