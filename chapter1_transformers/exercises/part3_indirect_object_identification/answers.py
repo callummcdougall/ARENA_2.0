@@ -700,16 +700,20 @@ def patch_head(
         corrupted_head_vector: Float[Tensor, "batch seq n_head d_head"],
         hook: HookPoint,
         head_index: int,
-        clean_cache: ActivationCache
-    ):
-    corrupted_head_vector[:,:,head_index,:] = clean_cache[hook.name][:,:,head_index,:]
+        new_cache: ActivationCache
+    ) -> Float[Tensor, "batch seq n_head d_head"]:
+    assert new_cache[hook.name].shape == corrupted_head_vector.shape, f"new_cache[hook.name].shape = {new_cache[hook.name].shape}\ncorrupted_head_vector.shape = {corrupted_head_vector.shape}\nhook.name = {hook.name}"
+    corrupted_head_vector[:,:,head_index,:] = new_cache[hook.name][:,:,head_index,:]
     return corrupted_head_vector
 
 def freeze_head(
         head_to_freeze: Float[Tensor, "batch seq n_head d_head"],
         hook: HookPoint,
-
-    ):
+        head_index: int,
+        orig_cache: ActivationCache
+    ) -> Float[Tensor, "batch seq n_head d_head"]:
+    head_to_freeze[:,:,head_index,:] = orig_cache[hook.name][:,:,head_index,:]
+    return head_to_freeze
 
 def get_path_patch_head_to_final_resid_post(
     model: HookedTransformer,
@@ -719,20 +723,32 @@ def get_path_patch_head_to_final_resid_post(
     new_cache: Optional[ActivationCache] = abc_cache,
     orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
-    #run the model on clean and corrupted inputs. Cache the head outputs.
+    
+    model.reset_hooks()
     if new_cache is None:
-        new_logits, new_cache = model.run_with_cache(new_dataset.toks)
+        _, new_cache = model.run_with_cache(new_dataset.toks, names_filter=lambda name: name.endswith("z"))
     if orig_cache is None:
-        orig_logits, orig_cache = model.run_with_cache(orig_dataset.toks)
+        _, orig_cache = model.run_with_cache(orig_dataset.toks, names_filter=lambda name: name.endswith("z"))
 
-    #run the model on clean input, with the sender head patched from the corrupted input, and every other head froxen to their values on the clean input
-    #cache the final value of the residual stream (ie resid post in the final layer)
-    for layer in range(model.cfg.n_layers):
-        for head in range(model.cfg.n_heads):
-            hook_fn = partial(patch_head, head_index=head, clean_cache=clean_cache)
-            sender = 
-    #Normally we would re-run the model on the clean input and patch in the cached value of the final residual stream, 
-    # but in this case we don't need to because we can just unembed the final value of the residual stream directly without having to run another forward pass.
+    result = t.zeros((model.cfg.n_layers, model.cfg.n_heads))
+    layers = list(range(model.cfg.n_layers))
+    heads = list(range(model.cfg.n_heads))
+    for layer in layers:
+        for head in heads:
+            model.reset_hooks()
+            fwd_hooks = [(f"blocks.{f_layer}.attn.hook_z", partial(freeze_head, head_index=f_head, orig_cache=orig_cache)) for f_head in heads for f_layer in layers if not (f_head==head and f_layer==layer)]
+
+            hook_fn_1 = partial(patch_head, head_index=head, new_cache=new_cache)
+            patch = (f"blocks.{layer}.attn.hook_z", hook_fn_1)
+            fwd_hooks.append(patch)
+
+            for hook in fwd_hooks:
+                model.add_hook(*hook, level=1)
+
+            logits, out_cache = model.run_with_cache(orig_dataset.toks, return_type="logits", names_filter=lambda name: name.endswith("hook_resid_post"))
+            #logits = model.unembed(model.ln_final(out_cache[f"blocks.{model.cfg.n_layers-1}.hook_resid_post"]))
+            result[layer, head] = patching_metric(logits)
+    return result
 
 path_patch_head_to_final_resid_post = get_path_patch_head_to_final_resid_post(model, ioi_metric_2)
 
@@ -742,4 +758,78 @@ imshow(
     labels={"x":"Head", "y":"Layer", "color": "Logit diff. variation"},
     coloraxis=dict(colorbar_ticksuffix = "%"),
     width=600,
+)
+
+
+# %%
+def get_path_patch_head_to_heads(
+    receiver_heads: List[Tuple[int, int]],
+    receiver_input: str,
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = None,
+    orig_cache: Optional[ActivationCache] = None,
+) -> Float[Tensor, "layer head"]:
+    '''
+    Performs path patching (see algorithm in appendix B of IOI paper), with:
+
+        sender head = (each head, looped through, one at a time)
+        receiver node = input to a later head (or set of heads)
+
+    The receiver node is specified by receiver_heads and receiver_input.
+    Example (for S-inhibition path patching the queries):
+        receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+        receiver_input = "v"
+
+    Returns:
+        tensor of metric values for every possible sender head
+    '''
+    model.reset_hooks()
+    if new_cache is None:
+        _, new_cache = model.run_with_cache(new_dataset.toks)
+    if orig_cache is None:
+        _, orig_cache = model.run_with_cache(orig_dataset.toks)
+
+    layers = list(range(model.cfg.n_layers))
+    heads = list(range(model.cfg.n_heads))
+    results = t.zeros(len(layers), len(heads))
+    for s_layer in tqdm(layers):
+        for s_head in tqdm(heads):
+            model.reset_hooks()
+            fwd_hooks = [(f"blocks.{f_layer}.attn.hook_z", partial(freeze_head, head_index=f_head, orig_cache=orig_cache)) for f_head in heads for f_layer in layers if (f_layer!=s_layer or f_head!=s_head)]
+
+            hook_fn_1 = partial(patch_head, head_index=s_head, new_cache=new_cache)
+            fwd_hooks.append((f"blocks.{s_layer}.attn.hook_z", hook_fn_1))
+
+            for hook in fwd_hooks:
+                model.add_hook(*hook, level=1)
+
+            _, patched_cache = model.run_with_cache(orig_dataset.toks, names_filter=lambda name: name.endswith(receiver_input))
+
+            model.reset_hooks()
+
+            fwd_fn = [(f"blocks.{r_layer}.attn.hook_{receiver_input}", partial(patch_head, head_index=r_head, new_cache=patched_cache)) for r_layer, r_head in receiver_heads]
+
+            logits = model.run_with_hooks(orig_dataset.toks, fwd_hooks=fwd_fn, return_type="logits")
+            results[s_layer, s_head] = patching_metric(logits)
+    return results
+
+
+model.reset_hooks()
+
+s_inhibition_value_path_patching_results = get_path_patch_head_to_heads(
+    receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
+    receiver_input = "v",
+    model = model,
+    patching_metric = ioi_metric_2
+)
+
+imshow(
+    100 * s_inhibition_value_path_patching_results,
+    title="Direct effect on S-Inhibition Heads' values", 
+    labels={"x": "Head", "y": "Layer", "color": "Logit diff.<br>variation"},
+    width=600,
+    coloraxis=dict(colorbar_ticksuffix = "%"),
 )
