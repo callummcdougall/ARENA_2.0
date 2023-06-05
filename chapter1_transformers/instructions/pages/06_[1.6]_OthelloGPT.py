@@ -463,7 +463,7 @@ plot_square_as_board(temp_board_state.reshape(8, 8), zmax=0, diverging_scale=Fal
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 
@@ -559,13 +559,13 @@ focus_logits.shape
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > 
 > New:
 > 
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -701,10 +701,10 @@ Trying to locate this circuit might be a fun bonus exercise!
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -1103,10 +1103,10 @@ The fact that we see the model's predictions for `G4` and `D2` change (with `G4`
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -1575,7 +1575,7 @@ imshow(
 
 It seems to represent `(C0==BLANK) & (D1==THEIRS) & (E2==MINE)`.
 
-This is useful for the model, because if all three of these conditions hold, then `E2` is a legal move (because it flips `D1`).
+This is useful for the model, because if all three of these conditions hold, then `C0` is a legal move (because it flips `D1`).
 </details>
 
 
