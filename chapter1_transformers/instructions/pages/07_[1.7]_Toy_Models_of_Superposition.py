@@ -234,13 +234,10 @@ The justification for using $W^T W$ is as follows: we can think of $W$ (which is
 
 
 ```python
+W = t.randn(2, 5)
+W_normed = W / W.norm(dim=0, keepdim=True)
 
-if MAIN:
-    W = t.randn(2, 5)
-    W_normed = W / W.norm(dim=0, keepdim=True)
-    
-    imshow(W_normed.T @ W_normed, title="Cosine similarities of each pair of 2D feature embeddings", width=600)
-
+imshow(W_normed.T @ W_normed, title="Cosine similarities of each pair of 2D feature embeddings", width=600)
 ```
 
 To put it another way - if the columns of $W$ were orthogonal, then $W^T W$ would be the identity (i.e. $W^{-1} = W^T$). This can't actually be the case because $W$ is a 2x5 matrix, but its columns can be "nearly orthgonal" in the sense of having pairwise cosine similarities close to -1.
@@ -250,10 +247,7 @@ Another nice thing about using two bottleneck dimensions is that we get to visua
 
 
 ```python
-
-if MAIN:
-    plot_W(W_normed)
-
+plot_W(W_normed)
 ```
 
 Compare this plot to the `imshow` plot above, and make sure you understand what's going on here (and how the two plots relate to each other). A lot of the subsequent exercises run with this idea of a geometric interpretation of the model's features and bottleneck dimensions.
@@ -309,16 +303,13 @@ You should also fill in the `forward` function, to calculate the output (again, 
 ```python
 @dataclass
 class Config:
+    n_instances: int
+    n_features: int = 5
+    n_hidden: int = 2
+    # We optimize n_instances models in a single training loop to let us sweep over
+    # sparsity or importance curves  efficiently. You should treat `n_instances` as 
+    # kinda like a batch dimension, but one which is built into our training setup.
 
-if MAIN:
-      n_instances: int
-      n_features: int = 5
-      n_hidden: int = 2
-      # We optimize n_instances models in a single training loop to let us sweep over
-  # sparsity or importance curves  efficiently. You should treat `n_instances` as 
-
-if MAIN:
-      # kinda like a batch dimension, but one which is built into our training setup.
      
 class Model(nn.Module):
 
@@ -363,9 +354,7 @@ class Model(nn.Module):
 
 
 
-if MAIN:
-    tests.test_model(Model)
-
+tests.test_model(Model)
 ```
 
 <details>
@@ -445,19 +434,13 @@ The details of training aren't very conceptually important, so we've given you c
 
 ```python
 def linear_lr(step, steps):
-
-if MAIN:
-      return (1 - (step / steps))
+    return (1 - (step / steps))
     
 def constant_lr(*_):
-
-if MAIN:
-      return 1.0
+    return 1.0
     
 def cosine_decay_lr(step, steps):
-
-if MAIN:
-      return np.cos(0.5 * np.pi * step / (steps - 1))
+    return np.cos(0.5 * np.pi * step / (steps - 1))
     
 def optimize(
     model: Model, 
@@ -506,47 +489,33 @@ A few notes:
 
 
 ```python
-
-if MAIN:
-    config = Config(
-        n_instances = 10,
-        n_features = 5,
-        n_hidden = 2,
-    )
+config = Config(
+    n_instances = 10,
+    n_features = 5,
+    n_hidden = 2,
+)
     
 importance = (0.9**t.arange(config.n_features))
 
-if MAIN:
-    feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
+feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
     
 line(importance, width=600, height=400, title="Importance of each feature (same over all instances)", labels={"y": "Feature importance", "x": "Feature"})
 
-if MAIN:
-    line(feature_probability, width=600, height=400, title="Feature probability (varied over instances)", labels={"y": "Probability", "x": "Instance"})
-
+line(feature_probability, width=600, height=400, title="Feature probability (varied over instances)", labels={"y": "Probability", "x": "Instance"})
 ```
 
 ```python
-
-if MAIN:
-    model = Model(
-        config=config,
-        device=device,
+model = Model(
+    config=config,
+    device=device,
     importance=importance[None, :],
     feature_probability=feature_probability[:, None]
 )
 
 
-if MAIN:
-    optimize(model)
+optimize(model)
 
-```
-
-```python
-
-if MAIN:
-    plot_Ws_from_model(model, config)
-
+plot_Ws_from_model(model, config)
 ```
 
 ### Exercise - interpret these diagrams
@@ -589,24 +558,19 @@ Now that we've got our pentagon plots and started to get geometric intuition for
 
 
 ```python
-
-if MAIN:
-    config = Config(
-        n_instances = 20,
-        n_features = 100,
-        n_hidden = 20,
-    )
+config = Config(
+    n_instances = 20,
+    n_features = 100,
+    n_hidden = 20,
+)
     
 importance = (100 ** -t.linspace(0, 1, config.n_features))
 
-if MAIN:
-    feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
+feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
     
 line(importance, width=600, height=400, title="Importance of each feature (same over all instances)", labels={"y": "Feature importance", "x": "Feature"})
 
-if MAIN:
-    line(feature_probability, width=600, height=400, title="Feature probability (varied over instances)", labels={"y": "Probability", "x": "Instance"})
-
+line(feature_probability, width=600, height=400, title="Feature probability (varied over instances)", labels={"y": "Probability", "x": "Instance"})
 ```
 
 Here, we're going to use a different kind of visualisation:
@@ -622,27 +586,17 @@ See the section [Basic Results](https://transformer-circuits.pub/2022/toy_model/
 
 
 ```python
-
-if MAIN:
-    model = Model(
-        config=config,
-        device=device,
+model = Model(
+    config=config,
+    device=device,
     importance = importance[None, :],
     feature_probability = feature_probability[:, None]
 )
 
+optimize(model)
 
-if MAIN:
-    optimize(model)
-
-```
-
-```python
-
-if MAIN:
-    fig = render_features(model, np.s_[::2])
-    fig.update_layout(width=1200, height=2000)
-
+fig = render_features(model, np.s_[::2])
+fig.update_layout(width=1200, height=2000)
 ```
 
 ## Other concepts
@@ -696,45 +650,36 @@ If you run the code below, you'll also plot the total number of "dimensions per 
 
 
 ```python
+config = Config(
+    n_features = 200,
+    n_hidden = 20,
+    n_instances = 20,
+)
 
-if MAIN:
-    config = Config(
-        n_features = 200,
-        n_hidden = 20,
-        n_instances = 20,
-    )
-    
-    feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
-    
-    model = Model(
-        config=config,
-        device=device,
+feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
+
+model = Model(
+    config=config,
+    device=device,
     # For this experiment, use constant importance.
     feature_probability = feature_probability[:, None]
 )
 
+optimize(model)
 
-if MAIN:
-    optimize(model)
-
-```
-
-```python
-
-if MAIN:
-    fig = px.line(
-        x=1/model.feature_probability[:, 0].cpu(),
-        y=(model.config.n_hidden/(t.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
-        log_x=True,
-        markers=True,
-        template="ggplot2",
-        height=600,
-        width=1000,
-        title=""
-    )
-    fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
-    fig.update_yaxes(title=f"m/||W||_F^2")
-
+fig = px.line(
+    x=1/model.feature_probability[:, 0].cpu(),
+    y=(model.config.n_hidden/(t.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
+    log_x=True,
+    markers=True,
+    template="ggplot2",
+    height=600,
+    width=1000,
+    title=""
+)
+fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
+fig.update_yaxes(title=f"m/||W||_F^2")
+fig.show()
 ```
 
 Surprisingly, we find that this graph is "sticky" at $1$ and $1/2$. On inspection, the $1/2$ "sticky point" seems to correspond to a precise geometric arrangement where features come in "antipodal pairs", each being exactly the negative of the other, allowing two features to be packed into each hidden dimension. It appears that antipodal pairs are so effective that the model preferentially uses them over a wide range of the sparsity regime.
@@ -772,44 +717,40 @@ def compute_dimensionality(W):
     return dim_fracs.cpu()
 
 
+dim_fracs = compute_dimensionality(model.W.transpose(-1, -2))
 
-if MAIN:
-    dim_fracs = compute_dimensionality(model.W.transpose(-1, -2))
-    
-    
-    density = model.feature_probability[:, 0].cpu()
-    W = model.W.detach()
-    
-    for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
-        val = a/b
-        fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
-    
-    for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
-        val = a/b
-        fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
-    
-    for i in range(len(W)):
-        fracs_ = dim_fracs[i]
-        N = fracs_.shape[0]
-        xs = 1/density
-        if i!= len(W)-1:
-            dx = xs[i+1]-xs[i]
-        fig.add_trace(
-            go.Scatter(
-                x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
-                y=fracs_,
-                marker=dict(
-                    color='black',
-                    size=1,
-                    opacity=0.5,
-                ),
-                mode='markers',
-            )
+
+density = model.feature_probability[:, 0].cpu()
+W = model.W.detach()
+
+for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
+    val = a/b
+    fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
+
+for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
+    val = a/b
+    fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
+
+for i in range(len(W)):
+    fracs_ = dim_fracs[i]
+    N = fracs_.shape[0]
+    xs = 1/density
+    if i!= len(W)-1:
+        dx = xs[i+1]-xs[i]
+    fig.add_trace(
+        go.Scatter(
+            x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
+            y=fracs_,
+            marker=dict(
+                color='black',
+                size=1,
+                opacity=0.5,
+            ),
+            mode='markers',
         )
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(showgrid=False)
-    fig.update_layout(showlegend=False)
-
+    )
+fig.update_xaxes(showgrid=False).update_yaxes(showgrid=False).update_layout(showlegend=False)
+fig.show()
 ```
 
 What's going on here? It turns out that the model likes to create specific weight geometries and kind of jumps between the different configurations.
@@ -844,10 +785,6 @@ Here are some other papers or blog posts you might want to read, which build on 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/socialsecurity.png" width="750">
 
 * [Open questions](https://transformer-circuits.pub/2022/toy_model/index.html#open-questions) from the original Anthropic paper. What do you think about them? Do any seem tractible to you?
-
-
-
-
 """, unsafe_allow_html=True)
 
 section_0()
