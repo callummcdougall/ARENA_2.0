@@ -844,7 +844,7 @@ optimize(model)
 plot_Ws_from_model(model, config)
 ```
 
-### Exercise - plot the second and third figures
+### Exercise - generate the other feature correlation plots
 
 ```c
 Difficulty: 🟠🟠⚪⚪⚪
@@ -855,7 +855,7 @@ You should spend up to ~10 minutes on this exercise.
 It should just involve changing the parameters in your code above.
 ```
 
-You should now plot the second and third figures (keeping the same importance and feature probability). You may not get exactly the same results as the paper, but they should still roughly match (e.g. you should see no antipodal pairs in the code above, but you should see at least some when you test the anticorrelated sets).
+You should now plot the second and third figures in the [set of feature correlation plots](https://transformer-circuits.pub/2022/toy_model/index.html#geometry-organization) (keeping the same importance and feature probability). You may not get exactly the same results as the paper, but they should still roughly match (e.g. you should see no antipodal pairs in the code above, but you should see at least some when you test the anticorrelated sets).
 
 <details>
 <summary>Solution</summary>
