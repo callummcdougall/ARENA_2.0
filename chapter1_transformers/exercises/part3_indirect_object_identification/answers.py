@@ -17,6 +17,7 @@ from jaxtyping import Float, Int, Bool
 from typing import List, Optional, Callable, Tuple, Dict, Literal, Set
 from functools import partial
 from IPython.display import display, HTML
+import rich
 from rich.table import Table, Column
 from rich import print as rprint
 import circuitsvis as cv
@@ -329,12 +330,18 @@ def ioi_metric(
     Linear function of logit diff, calibrated so that it equals 0 when performance is 
     same as on corrupted input, and 1 when performance is same as on clean input.
     '''
-    pass
+    epsilon = 1e-6
+    recoved_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
+    return (recoved_logit_diff - corrupted_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
 
 
 t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
 t.testing.assert_close(ioi_metric(corrupted_logits).item(), 0.0)
 t.testing.assert_close(ioi_metric((clean_logits + corrupted_logits) / 2).item(), 0.5)
+# %%
+from transformer_lens import patching
+
+
 # %%
 act_patch_resid_pre = patching.get_act_patch_resid_pre(
     model = model,
@@ -352,3 +359,5 @@ imshow(
     title="resid_pre Activation Patching",
     width=600
 )
+
+# %%
