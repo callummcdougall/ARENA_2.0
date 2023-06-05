@@ -46,5 +46,10 @@ This page contains links to a bunch of things (blog posts, diagrams, tables) whi
 * TransformerLens documentation page:
     * [Homepage](https://neelnanda-io.github.io/TransformerLens/index.html)
     * [Table of model properties](https://neelnanda-io.github.io/TransformerLens/model_properties_table.html)
-* Callum McDougall's [TransformerLens architecture & hook names diagram](https://link.excalidraw.com/l/9KwMnW35Xt8/6PEWgOPSxXH)
-""")
+
+## Diagrams
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-full-red.png" width="1200">
+
+Link to excalidraw [here](https://link.excalidraw.com/l/9KwMnW35Xt8/6PEWgOPSxXH).
+""", unsafe_allow_html=True)

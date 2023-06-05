@@ -495,21 +495,21 @@ if MAIN:
 	for scale in scales:
 	
 		# Hook function which will perform flipping in the "F4 flip direction"
-	def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
-		return apply_scale(resid, flip_dir, scale, pos)
+		def flip_hook(resid: Float[Tensor, "batch=1 seq d_model"], hook: HookPoint):
+			return apply_scale(resid, flip_dir, scale, pos)
 
-	# Calculate the logits for the board state, with the `flip_hook` intervention
-	# (note that we only need to use :pos+1 as input, because of causal attention)
-	flipped_logits: Tensor = model.run_with_hooks(
-		focus_games_int[game_index:game_index+1, :pos+1],
-		fwd_hooks=[
-			(utils.get_act_name("resid_post", layer), flip_hook),
-		]
-	).log_softmax(dim=-1)[0, pos]
+		# Calculate the logits for the board state, with the `flip_hook` intervention
+		# (note that we only need to use :pos+1 as input, because of causal attention)
+		flipped_logits: Tensor = model.run_with_hooks(
+			focus_games_int[game_index:game_index+1, :pos+1],
+			fwd_hooks=[
+				(utils.get_act_name("resid_post", layer), flip_hook),
+			]
+		).log_softmax(dim=-1)[0, pos]
 
-	flip_state = t.zeros((64,), dtype=t.float32, device=device) - 10.
-	flip_state[stoi_indices] = flipped_logits.log_softmax(dim=-1)[1:]
-	big_flipped_states_list.append(flip_state)
+		flip_state = t.zeros((64,), dtype=t.float32, device=device) - 10.
+		flip_state[stoi_indices] = flipped_logits.log_softmax(dim=-1)[1:]
+		big_flipped_states_list.append(flip_state)
 
 
 if MAIN:

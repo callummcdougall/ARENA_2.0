@@ -463,7 +463,7 @@ plot_square_as_board(temp_board_state.reshape(8, 8), zmax=0, diverging_scale=Fal
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 
@@ -559,13 +559,13 @@ focus_logits.shape
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > 
 > New:
 > 
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -701,10 +701,10 @@ Trying to locate this circuit might be a fun bonus exercise!
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -1103,10 +1103,10 @@ The fact that we see the model's predictions for `G4` and `D2` change (with `G4`
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -1575,7 +1575,7 @@ imshow(
 
 It seems to represent `(C0==BLANK) & (D1==THEIRS) & (E2==MINE)`.
 
-This is useful for the model, because if all three of these conditions hold, then `E2` is a legal move (because it flips `D1`).
+This is useful for the model, because if all three of these conditions hold, then `C0` is a legal move (because it flips `D1`).
 </details>
 
 
@@ -2315,6 +2315,7 @@ Can you guess what any of these neurons are doing? Does it help if you also plot
 
 ```python
 # Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+
 plot_square_as_board(
     output_weights_in_logit_basis, 
     title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
@@ -2328,6 +2329,35 @@ plot_square_as_board(
     facet_labels=[f"L5N{n.item()}" for n in top_neurons]
 )
 ```
+
+<details>
+<summary>Solution</summary>
+
+```python
+layer = 5
+top_neurons = focus_cache["post", layer].std(dim=[0, 1]).argsort(descending=True)[:10]
+board_states = []
+output_weights_in_logit_basis = []
+
+for neuron in top_neurons:
+
+    # Get output weights in logit basis
+    w_out = get_w_out(model, layer, neuron, normalize=False)
+    state = t.zeros(8, 8, device=device)
+    state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+    output_weights_in_logit_basis.append(state)
+    
+    # Get max activating dataset aggregations
+    neuron_acts = focus_cache["post", 5, "mlp"][:, :, neuron]
+    top_moves = neuron_acts > neuron_acts.quantile(0.99)
+    board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+    board_states.append(board_state_at_top_moves)
+
+
+output_weights_in_logit_basis = t.stack(output_weights_in_logit_basis)
+board_states = t.stack(board_states)
+```
+</details>
 
 How do you interpret the results?
 

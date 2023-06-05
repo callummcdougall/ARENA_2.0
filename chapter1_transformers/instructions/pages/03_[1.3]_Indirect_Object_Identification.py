@@ -296,7 +296,7 @@ model = HookedTransformer.from_pretrained(
 
 This argument means we redefine the matrices $W_Q$, $W_K$, $W_V$ and $W_O$ in the model (without changing the model's actual behaviour).
 
-For example, we know that instead of working with $W_Q$ and $W_K$ individually, the only matrix we actually need to use in the model is the low-rank matrix $W_Q W_K^T$ (note that I'm using the convention of matrix multiplication on the right, which matches the code in transformerlens and previous exercises in this series, but doesn't match Anthropic's Mathematical Frameworks paper). So if we perform singular value decomposition $W_Q W_K^T = U S V^T$, then we see that we can just as easily define $W_Q = U \sqrt{S}$ and $W_K = $V \sqrt{S}$ and use these instead. This means that $W_Q$ and $W_K$ both have orthogonal columns with matching norms. You can investigate this yourself (e.g. using the code below). This is arguably a more interpretable setup, because now there's no obvious asymmetry between the keys and queries.
+For example, we know that instead of working with $W_Q$ and $W_K$ individually, the only matrix we actually need to use in the model is the low-rank matrix $W_Q W_K^T$ (note that I'm using the convention of matrix multiplication on the right, which matches the code in transformerlens and previous exercises in this series, but doesn't match Anthropic's Mathematical Frameworks paper). So if we perform singular value decomposition $W_Q W_K^T = U S V^T$, then we see that we can just as easily define $W_Q = U \sqrt{S}$ and $W_K = V \sqrt{S}$ and use these instead. This means that $W_Q$ and $W_K$ both have orthogonal columns with matching norms. You can investigate this yourself (e.g. using the code below). This is arguably a more interpretable setup, because now there's no obvious asymmetry between the keys and queries.
 
 There's also some fiddlyness with how biases are handled in this factorisation, which is why the comments above don't hold absolutely (see the documnentation for more info).
 
@@ -635,7 +635,7 @@ $$
 Combining these, we get:
 
 $$
-L_i = \log \frac{e^{x_i}}{\sum_{j=1}^n e^{x_j}} = x_i - \log \sum_{j=1}^n e^{x_j}
+L_i = \log \frac{e^{x_i}}{\sum_{k=1}^n e^{x_k}} = x_i - \log \sum_{k=1}^n e^{x_k}
 $$
 
 Notice that the sum term on the right hand side is the same for all $i$, so we get:
@@ -837,7 +837,7 @@ Once you have the solution, you can plot your results.
 Key for the plot below: `n_pre` means the residual stream at the start of layer n, `n_mid` means the residual stream after the attention part of layer n (`n_post` is the same as `n+1_pre` so is not included)
 
 * `layer` is the layer for which we input the residual stream (this is used to identify *which* layer norm scaling factor we want)
-* `incl_mid` is whether to include the residual stream in the middle of a layer, ie after attention & before MLP
+* `incl_mid` is whether to include the residual stream in the middle of a layer, i.e. after attention & before MLP
 * `pos_slice` is the subset of the positions used. See `utils.Slice` for details on the syntax.
 * `return_labels` is whether to return the labels for each component returned (useful for plotting)
 </details>
@@ -1100,9 +1100,11 @@ The obvious limitation to the techniques used above is that they only look at th
 
 The technique we'll use to investigate this is called **activation patching**. This was first introduced in [David Bau and Kevin Meng's excellent ROME paper](https://rome.baulab.info/), there called causal tracing.
 
-The setup of activation patching is to take two runs of the model on two different inputs, the clean run and the corrupted run. The clean run outputs the correct answer and the corrupted run does not. The key idea is that we give the model the corrupted input, but then **intervene** on a specific activation and **patch** in the corresponding activation from the clean run (ie replace the corrupted activation with the clean activation), and then continue the run. And we then measure how much the output has updated towards the correct answer.
+The setup of activation patching is to take two runs of the model on two different inputs, the clean run and the corrupted run. The clean run outputs the correct answer and the corrupted run does not. The key idea is that we give the model the corrupted input, but then **intervene** on a specific activation and **patch** in the corresponding activation from the clean run (i.e. replace the corrupted activation with the clean activation), and then continue the run. And we then measure how much the output has updated towards the correct answer.
 
 We can then iterate over many possible activations and look at how much they affect the corrupted run. If patching in an activation significantly increases the probability of the correct answer, this allows us to *localise* which activations matter.
+
+In other words, this is a **noising** algorithm (unlike last section which was mostly **denoising**).
 
 The ability to localise is a key move in mechanistic interpretability - if the computation is diffuse and spread across the entire model, it is likely much harder to form a clean mechanistic story for what's going on. But if we can identify precisely which parts of the model matter, we can then zoom in and determine what they represent and how they connect up with each other, and ultimately reverse engineer the underlying circuit that they represent.
 
@@ -1406,7 +1408,7 @@ def get_act_patch_resid_pre(
     # SOLUTION
     model.reset_hooks()
     seq_len = corrupted_tokens.size(1)
-    results = t.zeros(model.cfg.n_layers, seq_len, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, seq_len, device=device, dtype=t.float32)
 
     for layer in tqdm(range(model.cfg.n_layers)):
         for position in range(seq_len):
@@ -1550,7 +1552,7 @@ def get_act_patch_block_every(
     '''
     # SOLUTION
     model.reset_hooks()
-    results = t.zeros(3, model.cfg.n_layers, tokens.size(1), device="cuda", dtype=t.float32)
+    results = t.zeros(3, model.cfg.n_layers, tokens.size(1), device=device, dtype=t.float32)
 
     for component_idx, component in enumerate(["resid_pre", "attn_out", "mlp_out"]):
         for layer in tqdm(range(model.cfg.n_layers)):
@@ -1705,7 +1707,7 @@ def get_act_patch_attn_head_out_all_pos(
     '''
     # SOLUTION
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     for layer in tqdm(range(model.cfg.n_layers)):
         for head in range(model.cfg.n_heads):
@@ -1854,7 +1856,7 @@ def get_act_patch_attn_head_all_pos_every(
     called on the model's logit output.
     '''
     # SOLUTION
-    results = t.zeros(5, model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(5, model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
     # Loop over each component in turn
     for component_idx, component in enumerate(["z", "q", "k", "v", "pattern"]):
         for layer in tqdm(range(model.cfg.n_layers)):
@@ -2363,7 +2365,7 @@ def get_path_patch_head_to_final_resid_post(
         tensor of metric values for every possible sender head
     '''
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     # ========== Step 1 ==========
     # Gather activations on x_orig and x_new
@@ -2429,6 +2431,28 @@ imshow(
 
 
 ```python
+def patch_or_freeze_head_vectors(
+	orig_head_vector: Float[Tensor, "batch pos head_index d_head"],
+	hook: HookPoint, 
+	new_cache: ActivationCache,
+	orig_cache: ActivationCache,
+	head_to_patch: Tuple[int, int], 
+) -> Float[Tensor, "batch pos head_index d_head"]:
+	'''
+	This helps implement step 2 of path patching. We freeze all head outputs (i.e. set them
+	to their values in orig_cache), except for head_to_patch (if it's in this layer) which
+	we patch with the value from new_cache.
+
+	head_to_patch: tuple of (layer, head)
+		we can use hook.layer() to check if the head to patch is in this layer
+	'''
+	# Setting using ..., otherwise changing orig_head_vector will edit cache value too
+	orig_head_vector[...] = orig_cache[hook.name][...]
+	if head_to_patch[0] == hook.layer():
+		orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
+	return orig_head_vector
+
+
 def get_path_patch_head_to_final_resid_post(
     model: HookedTransformer,
     patching_metric: Callable,
@@ -2448,7 +2472,7 @@ def get_path_patch_head_to_final_resid_post(
         tensor of metric values for every possible sender head
     '''
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     resid_post_hook_name = utils.get_act_name("resid_post", model.cfg.n_layers - 1)
     resid_post_name_filter = lambda name: name == resid_post_hook_name
@@ -2505,25 +2529,6 @@ def get_path_patch_head_to_final_resid_post(
         results[sender_layer, sender_head] = patching_metric(patched_logits)
 
     return results
-```
-```python
-    hook: HookPoint, 
-    new_cache: ActivationCache,
-    orig_cache: ActivationCache,
-    head_to_patch: Tuple[int, int], 
-    '''
-    This helps implement step 2 of path patching. We freeze all head outputs (i.e. set them
-    to their values in orig_cache), except for head_to_patch (if it's in this layer) which
-    we patch with the value from new_cache.
-    head_to_patch: tuple of (layer, head)
-        we can use hook.layer() to check if the head to patch is in this layer
-    '''
-    # Setting using ..., otherwise changing orig_head_vector will edit cache value too
-    orig_head_vector[...] = orig_cache[hook.name][...]
-    if head_to_patch[0] == hook.layer():
-        orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
-    return orig_head_vector
-
 ```
 </details>
 
@@ -2687,7 +2692,7 @@ def get_path_patch_head_to_heads(
     receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
     receiver_hook_names_filter = lambda name: name in receiver_hook_names
 
-    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device=device, dtype=t.float32)
     
     # ========== Step 1 ==========
     # Gather activations on x_orig and x_new
@@ -3033,7 +3038,7 @@ def get_copying_scores(
     Omits the 0th layer, because this is before MLP0 (which we're claiming acts as an extended embedding).
     '''
     # SOLUTION
-    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device=device)
 
     # Define components from our model (for typechecking, and cleaner code)
     embed: Embed = model.embed
@@ -3197,7 +3202,7 @@ def get_attn_scores(
     else:
         raise ValueError(f"Unknown head type {head_type}")
 
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
     for layer in range(model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
             attn_scores: Float[Tensor, "batch head dest src"] = cache["pattern", layer]
