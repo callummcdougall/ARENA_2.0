@@ -130,7 +130,7 @@ def cosine_decay_lr(step, steps):
 	return np.cos(0.5 * np.pi * step / (steps - 1))
 	
 def optimize(
-	model: Model, 
+	model, 
 	n_batch=1024,
 	steps=10_000,
 	print_freq=100,
@@ -214,9 +214,8 @@ if MAIN:
 		n_hidden = 20,
 	)
 	
-importance = (100 ** -t.linspace(0, 1, config.n_features))
+	importance = (100 ** -t.linspace(0, 1, config.n_features))
 
-if MAIN:
 	feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
 	
 	line(importance, width=600, height=400, title="Importance of each feature (same over all instances)", labels={"y": "Feature importance", "x": "Feature"})
