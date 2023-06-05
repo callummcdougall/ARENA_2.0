@@ -739,7 +739,6 @@ Some notes on the shapes of the objects in the diagram:
 * `W_U` has shape `(d_model, 2)`, and so `logits` has shape `(seq_len, 2)`.
 * We get `P(unbalanced)` by taking the 0th element of the softmaxed logits, for sequence position 0.
 
-
 ### Stage 1: Translating through softmax
 
 Let's get `P(unbalanced)` as a function of the logits. Luckily, this is easy. Since we're doing the softmax over two elements, it simplifies to the sigmoid of the difference of the two logits:
@@ -749,7 +748,6 @@ $$
 $$
 
 Since sigmoid is monotonic, a large value of $\hat{y}_0$ follows from logits with a large $\text{logit}_0 - \text{logit}_1$. From now on, we'll only ask "What leads to a large difference in logits?"
-
 
 ### Stage 2: Translating through linear
 
@@ -769,6 +767,16 @@ logit_diff = (final_LN_output @ W_U)[0, 0] - (final_LN_output @ W_U)[0, 1]
 (recall that the `(i, j)`th element of matrix `AB` is `A[i, :] @ B[:, j]`)
 
 So a high difference in the logits follows from a high dot product of the output of the LayerNorm with the corresponding unembedding vector. We'll call this the `post_final_ln_dir`, i.e. the **unbalanced direction** for values in the residual stream *after* the final layernorm.
+
+### Summary
+
+We can use the logit diff as a measure of how strongly our model is classifying a bracket string as unbalanced (higher logit diff = more certain that the string is unbalanced). 
+
+We can approximate logit diff as a linear function of `pre_final_ln_dir` (because the unembedding is linear, and the layernorm is approximately linear). This means we can approximate logit diff as the **dot product** of `post_final_ln_dir` with the residual stream value before the final layernorm. If we could find this `post_final_ln_dir`, then we could start to answer other questions like which components' output had the highest dot product with this value.
+
+The diagram below shows how we can step back through the model to find our **unbalanced direction** `pre_final_ln_dir`. Notation: $x_2$ refers to the residual stream value after layer 2's attention heads and MLPs (i.e. just before the last layernorm), and $L_{final}$ is the linear approximation of the final layernorm.
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/brackets-untitled.png" width="1100">
 
 
 ### Exercise - get the `post_final_ln_dir`
@@ -1010,15 +1018,6 @@ def get_pre_final_ln_dir(model: HookedTransformer, data: BracketsDataset) -> Flo
 
 tests.test_get_pre_final_ln_dir(get_pre_final_ln_dir, model, data_mini)
 ```
-
-<details>
-<summary>Help - I'm confused about how to compute this vector.</summary>
-
-The diagram below should help explain the steps of the computation. The key is that we can (approximately) write the final `logit_diff` term as the dot product of the vector `x_2[0]` (i.e. the vector in the zeroth position of the residual stream, just before the final layer norm) and some fixed vector (labelled the **unbalanced direction** in the diagram below).
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bracket-transformer-first-attr-soln3.png">
-
-</details>
 
 <details>
 <summary>Solution</summary>
@@ -1488,7 +1487,7 @@ If we make the simplification that the vector moved to sequence position 0 by he
 
 Here is an annotated diagram to help better explain exactly what we're doing.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bracket_transformer-elevation-circuit-1.png" width="900">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bracket_transformer-elevation-circuit-2.png" width="900">
 
 
 #### Exercise - calculate the pre-head 2.0 unbalanced direction
@@ -2090,11 +2089,11 @@ This shows that the attention pattern is almost exactly uniform over all tokens.
 Before we connect all the pieces together, let's list the facts that we know about our model so far (going chronologically from our observations):
 
 > * Attention head `2.0` seems to be largely responsible for classifying brackets as unbalanced when they have non-zero net elevation (i.e. have a different number of left and right parens).
-    * Attention head `2.0` attends strongly to the sequence position $i=1$, in other words it's pretty much just moving the residual stream vector from position 1 to position 0 (and applying matrix $W_{OV}$).
-    * So there must be earlier components of the model which write to sequence position 1, in a way which influences the model to make correct classifications (via the path through head `2.0`).
-* There are several neurons in `MLP0` and `MLP1` which seem to calculate a nonlinear function of the open parens proportion - some of them are strongly activating when the proportion is strictly greater than $1/2$, others when it is strictly smaller than $1/2$.
-* If the query token in attention head `0.0` is an open paren, then it attends to all key positions **after** $i$ with roughly equal magnitude.
-    * In particular, this holds for the sequence position $i=1$, which attends approximately uniformly to all sequence positions.
+>     * Attention head `2.0` attends strongly to the sequence position $i=1$, in other words it's pretty much just moving the residual stream vector from position 1 to position 0 (and applying matrix $W_{OV}$).
+>     * So there must be earlier components of the model which write to sequence position 1, in a way which influences the model to make correct classifications (via the path through head `2.0`).
+> * There are several neurons in `MLP0` and `MLP1` which seem to calculate a nonlinear function of the open parens proportion - some of them are strongly activating when the proportion is strictly greater than $1/2$, others when it is strictly smaller than $1/2$.
+> * If the query token in attention head `0.0` is an open paren, then it attends to all key positions **after** $i$ with roughly equal magnitude.
+>     * In particular, this holds for the sequence position $i=1$, which attends approximately uniformly to all sequence positions.
 
 Based on all this, can you formulate a hypothesis for how the elevation circuit works, which ties all three of these observations together?
 
@@ -2149,10 +2148,7 @@ $$
 \end{aligned}
 $$
 
-where ${\color{orange}LeftParen}$ and ${\color{orange}RightParen}$ are the token embeddings for left and right parens respectively.
-
-
-
+where $\color{orange}{LeftParen}$ and $\color{orange}{RightParen}$ are the token embeddings for left and right parens respectively.
 
 Finally, we have an ability to formulate a test for our hypothesis in terms of the expression above:
 
@@ -2196,7 +2192,6 @@ layer0_ln_fit = get_ln_fit(model, data, layernorm=model.blocks[0].ln1, seq_pos=N
 layer0_ln_coefs = t.from_numpy(layer0_ln_fit.coef_).to(device)
 v_L = embedding(model, tokenizer, "(") @ layer0_ln_coefs.T @ W_OV
 v_R = embedding(model, tokenizer, ")") @ layer0_ln_coefs.T @ W_OV
-
 ```
 </details>
 
