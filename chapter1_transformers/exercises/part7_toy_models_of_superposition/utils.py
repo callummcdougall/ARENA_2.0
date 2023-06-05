@@ -5,13 +5,31 @@ from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 from matplotlib import colors  as mcolors
 from matplotlib import collections  as mc
+import einops
+
+def custom_colors(n):
+    assert n <= 5, "Only supports up to 5 colors."
+    single_colors = np.array([
+        [1.0, 0, 0, 1],
+        [0, 0, 1, 1],
+        [0, 0.55, 0, 1],
+        [1, 0.5, 0, 1],
+        [0.5, 0, 1, 1],
+    ])[:n]
+    repeated_colors = einops.repeat(single_colors, "colors rgba -> (colors pair) rgba", pair=2)
+    return repeated_colors
 
 def plot_Ws_from_model(model, config):
     cfg = model.config
     WA = model.W.detach().transpose(-1, -2)
-    N = len(WA[:,0])
+    n_features = config.n_features
     sel = range(config.n_instances) # can be used to highlight specific sparsity levels
-    plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.viridis(model.importance[0].cpu().numpy()))
+    n_uncorrelated = n_features - 2 * (config.n_correlated_pairs + config.n_anticorrelated_pairs)
+    uncorrelated_colors = plt.cm.viridis(model.importance[0][:n_uncorrelated].cpu())
+    correlated_colors = custom_colors(config.n_correlated_pairs + config.n_anticorrelated_pairs)
+    main_colors = np.concatenate([correlated_colors, uncorrelated_colors])
+    main_cycler = plt.cycler("color", main_colors)
+    plt.rcParams["axes.prop_cycle"] = plt.cycler("color", main_cycler)
     plt.rcParams['figure.dpi'] = 200
     fig, axs = plt.subplots(1,len(sel), figsize=(2*len(sel),2))
     for i, ax in zip(sel, axs):
