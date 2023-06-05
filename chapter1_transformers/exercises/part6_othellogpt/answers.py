@@ -547,3 +547,92 @@ imshow(
     title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
 )
 # %%
+model.W_out.shape
+# %%
+### Reading off neuron weights
+
+def get_w_in(
+    model: HookedTransformer,
+    layer: int,
+    neuron: int,
+    normalize: bool = False,
+) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the input weights for the given neuron.
+
+    If normalize is True, the weights are normalized to unit norm.
+    '''
+    neuron_w_in = model.W_in[layer, :, neuron].clone().detach()
+    if normalize:
+        return t.nn.functional.normalize(neuron_w_in, dim=0)
+    return neuron_w_in
+
+
+def get_w_out(
+    model: HookedTransformer,
+    layer: int,
+    neuron: int,
+    normalize: bool = False,
+) -> Float[Tensor, "d_model"]:
+    '''
+    Returns the input weights for the given neuron.
+
+    If normalize is True, the weights are normalized to unit norm.
+    '''
+    neuron_w_out = model.W_out[layer, neuron, :].clone().detach()
+    if normalize:
+        return t.nn.functional.normalize(neuron_w_out, dim=0)
+    return neuron_w_out
+
+
+def calculate_neuron_input_weights(
+    model: HookedTransformer, 
+    probe: Float[Tensor, "d_model row col"], 
+    layer: int, 
+    neuron: int
+) -> Float[Tensor, "rows cols"]:
+    '''
+    Returns tensor of the input weights for the given neuron, at each square on the board,
+    projected along the corresponding probe directions.
+
+    Assume probe directions are normalized. You should also normalize the model weights.
+    '''
+    n_rows = probe.shape[1]
+    n_cols = probe.shape[2]
+    input_weights = t.zeros((n_rows, n_cols), device=device)
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            neuron_w_in = get_w_in(model, layer=layer, neuron=neuron, normalize=True)
+            input_weights[r, c] = probe[:, r, c] @ neuron_w_in
+
+    return input_weights
+
+
+def calculate_neuron_output_weights(
+    model: HookedTransformer, 
+    probe: Float[Tensor, "d_model row col"], 
+    layer: int, 
+    neuron: int
+) -> Float[Tensor, "rows cols"]:
+    '''
+    Returns tensor of the output weights for the given neuron, at each square on the board,
+    projected along the corresponding probe directions.
+
+    Assume probe directions are normalized. You should also normalize the model weights.
+    '''
+    n_rows = probe.shape[1]
+    n_cols = probe.shape[2]
+    input_weights = t.zeros((n_rows, n_cols), device=device)
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            neuron_w_out = get_w_out(model, layer=layer, neuron=neuron, normalize=True)
+            input_weights[r, c] = probe[:, r, c] @ neuron_w_out
+
+    return input_weights
+
+
+tests.test_calculate_neuron_input_weights(calculate_neuron_input_weights, model)
+tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
+# %%
