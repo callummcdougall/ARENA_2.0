@@ -1219,6 +1219,15 @@ Fill in the function `ioi_metric` below, to create the required metric. Note tha
 
 **Important note** - this function needs to return a scalar tensor, rather than a float. If not, then some of the patching functions later on won't work. The type signature of this is `Float[Tensor, ""]`.
 
+**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). Our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" is that a component isn't important, and so replacing its values with those on the corrupted input won't make the model worse. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
+
+<details>
+<summary>More on noising vs. denoising</summary>
+
+Although algorithms like activation and path patching generally use noising, it has some problems relative to denoising.
+
+The results of denoising are much stronger, because showing that a component or set of components is sufficient for a task is a big deal. On the other hand, the complexity of transformers and interdependence of components means that noising a model can have unpredictable consequences. If loss goes up when we ablate a component, it doesn't necessarily mean that this component was necessary for the task. As an example, ablating MLP0 in gpt2-small seems to make performance much worse on basically any task (because it acts as a kind of extended embedding; more on this later in these exercises), but it's not doing anything important which is *specfic* for the IOI task.
+</details>
 
 ```python
 def ioi_metric(
@@ -1928,7 +1937,7 @@ OK, let's zoom out and reconsolidate. Here's a recap of the most important obser
 
 <br>
 
-* All the action is on `S2` until layer 7 and then transitions to `END`. And that attention layers matter a lot, MLP layers not so much (apart from MLP0, likely as an extended embedding).
+* All the action is on `S2` until layer 7 and then transitions to `END`. And that attention layers matter a lot, MLP layers not so much (apart from MLP0, likely as an [extended embedding](https://www.lesswrong.com/s/yivyHaCAmMJ3CqSyj/p/XNjRwEX9kxbpzWFWd#:~:text=GPT%2D2%20Small%E2%80%99s%20performance%20is%20ruined%20if%20you%20ablate%20MLP0)).
     * We discovered this by doing **activation patching** on `resid_pre`, `attn_out`, and `mlp_out`.
     * <span style="color:darkorange">**This suggests that there is a cluster of heads in layers 7 & 8, which move information from `S2` to `END`. We deduce that this information is how heads `9.9`, `9.6` and `10.0` know to attend to `IO`.**</span>
     * The question then becomes *"what is this information, how does it end up in the `S2` token, and how does `END` know to attend to it?"*
@@ -2243,9 +2252,9 @@ Terminology note - we call head $D$ the **sender node**, and head $G$ the **rece
 
 Let's make this concrete, and take a simple 3-layer transformer with 2 heads per layer. Let's perform path patching on the edge from head `0.0` to `2.0` (terminology note: `0.0` is the **sender**, and `2.0` is the **receiver**). Note that here, we're considering "direct paths" as anything that doesn't go through another attention head (so it can go through any combination of MLPs). Intuitively, the nodes (attention heads) are the only things that can move information around in the model, and this is the thing we want to study. In contrast, MLPs just perform information processing, and they're not as interesting for this task.
 
-Our 3-step process (reading from right to left) looks like:
+Our 3-step process looks like the diagram below (remember green is corrupted, grey is clean).
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-alg-transformers-4.png" width="700">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-alg-transformers-6.png" width="700">
 
 (Note - in this diagram, the uncoloured nodes indicate we aren't doing any patching; we're just allowing them to be computed from the values of nodes which are downstream of it.)
 
@@ -2961,6 +2970,7 @@ A few notes:
 
 * You can use `model.to_tokens` to convert the names to tokens. Remember to use `prepend_bos=False`, since you just want the tokens of names so you can embed them. Note that this function will treat the list of names as a batch of single-token inputs, which works fine for our purposes.
 * You can apply MLPs and layernorms as functions, by just indexing the model's blocks (e.g. use `model.blocks[i].mlp` or `model.blocks[j].ln1` as a function). Remember that `ln1` is the layernorm that comes before attention, and `ln2` comes before the MLP.
+* Remember that you need to apply MLP0 before you apply the OV matrix (which is why we omit the 0th layer in our scores). The reason for this is that ablating MLP0 has a strangely large effect in gpt2-small relative to ablating other MLPs, possibly because it's acting as an extended embedding (see [here](https://www.lesswrong.com/s/yivyHaCAmMJ3CqSyj/p/XNjRwEX9kxbpzWFWd#:~:text=GPT%2D2%20Small%E2%80%99s%20performance%20is%20ruined%20if%20you%20ablate%20MLP0) for an explanation).
 
 Also, you shouldn't expect to get exactly the same results as the paper (because some parts of this experiment have been set up very slightly different), although you probably shouldn't be off by more than 10%.
 
@@ -2970,11 +2980,13 @@ def get_copying_scores(
     model: HookedTransformer,
     k: int = 5,
     names: list = NAMES
-) -> Float[Tensor, "2 layer head"]:
+) -> Float[Tensor, "2 layer-1 head"]:
     '''
     Gets copying scores (both positive and negative) as described in page 6 of the IOI paper, for every (layer, head) pair in the model.
     
     Returns these in a 3D tensor (the first dimension is for positive vs negative).
+
+    Omits the 0th layer, because this is before MLP0 (which we're claiming acts as an extended embedding).
     '''
     pass
 
@@ -3012,11 +3024,13 @@ def get_copying_scores(
     model: HookedTransformer,
     k: int = 5,
     names: list = NAMES
-) -> Float[Tensor, "2 layer head"]:
+) -> Float[Tensor, "2 layer-1 head"]:
     '''
     Gets copying scores (both positive and negative) as described in page 6 of the IOI paper, for every (layer, head) pair in the model.
     
     Returns these in a 3D tensor (the first dimension is for positive vs negative).
+
+    Omits the 0th layer, because this is before MLP0 (which we're claiming acts as an extended embedding).
     '''
     # SOLUTION
     results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device="cuda")
@@ -3036,7 +3050,7 @@ def get_copying_scores(
     resid_after_mlp1 = name_embeddings + mlp0(ln0(name_embeddings))
 
     # Loop over all (layer, head) pairs
-    for layer in range(model.cfg.n_layers):
+    for layer in range(1, model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
 
             # Get W_OV matrix
@@ -3059,7 +3073,7 @@ def get_copying_scores(
             in_bottomk = (bottomk_logits == name_tokens).any(-1)
 
             # Fill in results
-            results[:, layer, head] = t.tensor([in_topk.float().mean(), in_bottomk.float().mean()])
+            results[:, layer-1, head] = t.tensor([in_topk.float().mean(), in_bottomk.float().mean()])
 
     return results
 ```

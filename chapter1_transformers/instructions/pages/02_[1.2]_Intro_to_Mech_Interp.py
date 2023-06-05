@@ -533,7 +533,7 @@ When doing interpretability, it's always good to begin by visualising your data,
 
 Let's visualize the attention pattern of all the heads in layer 0, using [Alan Cooney's CircuitsVis library](https://github.com/alan-cooney/CircuitsVis) (based on Anthropic's PySvelte library). If you did the previous set of exercises, you'll have seen this library before.
 
-We will use the function `cv.attention.attention_patterns`, which takes two important arguments:
+We will use the function `cv.attention.attention_patterns`, which takes the following arguments:
 
 * `attention`: Attention head activations. 
     * This should be a tensor of shape `[nhead, seq_dest, seq_src]`, i.e. the `[i, :, :]`th element is the grid of attention patterns (probabilities) for the `i`th attention head.
@@ -542,8 +542,9 @@ We will use the function `cv.attention.attention_patterns`, which takes two impo
     * Sequence length must match that inferred from `attention`.
     * This is used to label the grid.
     * We get this by using the `gpt2_small.to_str_tokens` method.
+* `attention_head_names`: Optional list of names for the heads.
 
-(Another optional argument is `attention_head_names`, which is useful if you don't just want the heads to show up as "Head 0", "Head 1", ... in the visualisation. Also, note that we can use `cv.attention.attention_patterns` too, which has the same syntax but presents information differently, and can be more helpful in some cases.)
+There are also other circuitsvis functions, e.g. `cv.attention.attention_pattern` (for just a single head) or `cv.attention.attention_heads` (which has the same syntax and but presents the information in a different form).
 
 <details>
 <summary>Help - my <code>attention_heads</code> plots are behaving weirdly (e.g. they continually shrink after I plot them).</summary>
@@ -575,7 +576,7 @@ This visualization is interactive! Try hovering over a token or head, and click 
 
 ```python
 print(type(gpt2_cache))
-attention_pattern = gpt2_cache["pattern", 0, "attn"]
+attention_pattern = gpt2_cache["pattern", 0]
 print(attention_pattern.shape)
 gpt2_str_tokens = gpt2_small.to_str_tokens(gpt2_text)
 
@@ -589,7 +590,41 @@ display(cv.attention.attention_patterns(
 
 Hover over heads to see the attention patterns; click on a head to lock it. Hover over each token to see which other tokens it attends to (or which other tokens attend to it - you can see this by changing the dropdown to `Destination <- Source`).
 
+<details>
+<summary>Other circuitsvis functions - neuron activations</summary>
 
+The `circuitsvis` library also has a number of cool visualisations for **neuron activations**. Here are some more of them (you don't have to understand them all now, but you can come back to them later).
+
+The function below visualises neuron activations. The example shows just one sequence, but it can also show multiple sequences (if `tokens` is a list of lists of strings, and `activations` is a list of tensors).
+
+```python
+neuron_activations_for_all_layers = t.stack([
+    gpt2_cache["post", layer] for layer in range(gpt2_small.cfg.n_layers)
+], dim=1)
+# shape = (seq_pos, layers, neurons)
+
+cv.activations.text_neuron_activations(
+    tokens=gpt2_str_tokens,
+    activations=neuron_activations_for_all_layers
+)
+```
+
+The next function shows which words each of the neurons activates most / least on (note that it requires some weird indexing to work correctly).
+
+neuron_activations_for_all_layers_rearranged = utils.to_numpy(einops.rearrange(neuron_activations_for_all_layers, "seq layers neurons -> 1 layers seq neurons"))
+
+```python
+cv.topk_tokens.topk_tokens(
+    # Some weird indexing required here ¯\_(ツ)_/¯
+    tokens=[gpt2_str_tokens], 
+    activations=neuron_activations_for_all_layers_rearranged,
+    max_k=7, 
+    first_dimension_name="Layer", 
+    third_dimension_name="Neuron",
+    first_dimension_labels=list(range(12))
+)
+```
+</details>
 
 
 """, unsafe_allow_html=True)
