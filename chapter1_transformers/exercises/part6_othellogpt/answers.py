@@ -547,8 +547,12 @@ imshow(
     title=f"Overall Probe Score after Layer {layer} for<br>my vs their (Game {game_index} Move {move})",
 )
 # %%
-model.W_out.shape
-# %%
+# Scale the probes down to be unit norm per cell
+blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
+my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
+# Set the center blank probes to 0, since they're never blank so the probe is meaningless
+blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.# %%
+
 ### Reading off neuron weights
 
 def get_w_in(
@@ -635,4 +639,120 @@ def calculate_neuron_output_weights(
 
 tests.test_calculate_neuron_input_weights(calculate_neuron_input_weights, model)
 tests.test_calculate_neuron_output_weights(calculate_neuron_output_weights, model)
+# %%
+layer = 5
+neuron = 1393
+
+w_in_L5N1393_blank = calculate_neuron_input_weights(model, blank_probe_normalised, layer, neuron)
+w_in_L5N1393_my = calculate_neuron_input_weights(model, my_probe_normalised, layer, neuron)
+
+imshow(
+    t.stack([w_in_L5N1393_blank, w_in_L5N1393_my]),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Input weights in terms of the probe for neuron L{layer}N{neuron}",
+    facet_labels=["Blank In", "My In"],
+    width=750,
+)
+# %%
+w_in_L5N1393 = get_w_in(model, layer, neuron, normalize=True)
+w_out_L5N1393 = get_w_out(model, layer, neuron, normalize=True)
+
+U, S, Vh = t.svd(t.cat([
+    my_probe.reshape(cfg.d_model, 64),
+    blank_probe.reshape(cfg.d_model, 64)
+], dim=1))
+
+# Remove the final four dimensions of U, as the 4 center cells are never blank and so the blank probe is meaningless there
+probe_space_basis = U[:, :-4]
+
+print("Fraction of input weights in probe basis:", (w_in_L5N1393 @ probe_space_basis).norm().item()**2)
+print("Fraction of output weights in probe basis:", (w_out_L5N1393 @ probe_space_basis).norm().item()**2)
+# %%
+def kurtosis(tensor: Tensor, reduced_axes, fisher=True):
+    '''
+    Computes the kurtosis of a tensor over specified dimensions.
+    '''
+    return (((tensor - tensor.mean(dim=reduced_axes, keepdim=True)) / tensor.std(dim=reduced_axes, keepdim=True))**4).mean(dim=reduced_axes, keepdim=False) - fisher*3
+
+layer = 3
+top_layer_3_neurons = einops.reduce(focus_cache["post", layer][:, 3:-3], "game move neuron -> neuron", reduction=kurtosis).argsort(descending=True)[:10]
+
+heatmaps_blank = []
+heatmaps_my = []
+
+for neuron in top_layer_3_neurons:
+    neuron = neuron.item()
+    heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
+    heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
+
+imshow(
+    t.stack(heatmaps_blank),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the 'blank color' probe for top layer {layer} neurons",
+    facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+    width=1600, height=300,
+)
+
+imshow(
+    t.stack(heatmaps_my),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the 'my color' probe for top layer {layer} neurons",
+    facet_labels=[f"L3N{n.item()}" for n in top_layer_3_neurons],
+    width=1600, height=300,
+)
+# %%
+layer = 4
+top_layer_4_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
+
+heatmaps_blank = []
+heatmaps_my = []
+
+for neuron in top_layer_4_neurons:
+    neuron = neuron.item()
+    heatmaps_blank.append(calculate_neuron_output_weights(model, blank_probe_normalised, layer, neuron))
+    heatmaps_my.append(calculate_neuron_output_weights(model, my_probe_normalised, layer, neuron))
+
+imshow(
+    t.stack(heatmaps_blank),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the blank color probe for top layer 4 neurons",
+    facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
+    width=1600, height=300,
+)
+
+imshow(
+    t.stack(heatmaps_my),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the my color probe for top layer 4 neurons",
+    facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
+    width=1600, height=300,
+)
+# %%
+layer = 4
+top_layer_4_neurons = focus_cache["post", layer][:, 3:-3].std(dim=[0, 1]).argsort(descending=True)[:10]
+W_U_norm = model.W_U / model.W_U.norm(dim=0, keepdim=True)
+W_U_norm = W_U_norm[:, 1:] # Get rid of the passing/dummy first element
+heatmaps_unembed = []
+
+for neuron in top_layer_4_neurons:
+    neuron = neuron.item()
+    w_out = get_w_out(model, layer, neuron)
+    # Fill in the `state` tensor with cosine sims, while skipping the middle 4 squares
+    state = t.zeros((8, 8), device=device)
+    state.flatten()[stoi_indices] = w_out @ W_U_norm
+    heatmaps_unembed.append(state)
+
+imshow(
+    t.stack(heatmaps_unembed),
+    facet_col=0,
+    y=[i for i in "ABCDEFGH"],
+    title=f"Cosine sim of Output weights and the unembed for top layer 4 neurons",
+    facet_labels=[f"L4N{n.item()}" for n in top_layer_4_neurons],
+    width=1600, height=300,
+)
 # %%
