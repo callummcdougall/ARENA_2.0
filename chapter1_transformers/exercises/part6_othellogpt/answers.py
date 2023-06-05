@@ -756,3 +756,88 @@ imshow(
     width=1600, height=300,
 )
 # %%
+
+### Activation Patching
+
+game_index = 4
+move = 20
+
+plot_single_board(focus_games_string[game_index, :move+1], title="Original Game (black plays E0)")
+plot_single_board(focus_games_string[game_index, :move].tolist()+[16], title="Corrupted Game (black plays C0)")
+# %%
+clean_input = focus_games_int[game_index, :move+1].clone()
+corrupted_input = focus_games_int[game_index, :move+1].clone()
+corrupted_input[-1] = to_int("C0")
+print("Clean:     ", ", ".join(int_to_label(corrupted_input)))
+print("Corrupted: ", ", ".join(int_to_label(clean_input)))
+# %%
+clean_logits, clean_cache = model.run_with_cache(clean_input)
+corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_input)
+
+clean_log_probs = clean_logits.log_softmax(dim=-1)
+corrupted_log_probs = corrupted_logits.log_softmax(dim=-1)
+# %%
+f0_index = to_int("F0")
+clean_f0_log_prob = clean_log_probs[0, -1, f0_index]
+corrupted_f0_log_prob = corrupted_log_probs[0, -1, f0_index]
+
+print("Clean log prob", clean_f0_log_prob.item())
+print("Corrupted log prob", corrupted_f0_log_prob.item(), "\n")
+
+def patching_metric(patched_logits: Float[Tensor, "batch=1 seq=21 d_vocab=61"]):
+    '''
+    Function of patched logits, calibrated so that it equals 0 when performance is 
+    same as on corrupted input, and 1 when performance is same as on clean input.
+
+    Should be linear function of the logits for the F0 token at the final move.
+    '''
+    patched_f0_log_prob = patched_logits.log_softmax(-1)[0, -1, f0_index]
+    return (patched_f0_log_prob - corrupted_f0_log_prob) / (clean_f0_log_prob - corrupted_f0_log_prob)
+
+tests.test_patching_metric(patching_metric, clean_log_probs, corrupted_log_probs)
+# %%
+def patch_final_move_output(
+    activation: Float[Tensor, "batch seq d_model"], 
+    hook: HookPoint,
+    clean_cache: ActivationCache,
+) -> Float[Tensor, "batch seq d_model"]:
+    '''
+    Hook function which patches activations at the final sequence position.
+
+    Note, we only need to patch in the final sequence position, because the
+    prior moves in the clean and corrupted input are identical (and this is
+    an autoregressive model).
+    '''
+    # SOLUTION
+    activation[0, -1, :] = clean_cache[hook.name][0, -1, :]
+    return activation
+
+def get_act_patch_resid_pre(
+    model: HookedTransformer, 
+    corrupted_input: Float[Tensor, "batch pos"], 
+    clean_cache: ActivationCache, 
+    patching_metric: Callable[[Float[Tensor, "batch seq d_model"]], Float[Tensor, ""]]
+) -> Float[Tensor, "2 n_layers"]:
+    '''
+    Returns an array of results, corresponding to the results of patching at
+    each (attn_out, mlp_out) for all layers in the model.
+    '''
+    # SOLUTION
+    model.reset_hooks()
+    results = t.zeros(2, model.cfg.n_layers, device=device, dtype=t.float32)
+    hook_fn = partial(patch_final_move_output, clean_cache=clean_cache)
+
+    for i, activation in enumerate(["attn_out", "mlp_out"]):
+        for layer in tqdm(range(model.cfg.n_layers)):
+            patched_logits = model.run_with_hooks(
+                corrupted_input, 
+                fwd_hooks = [(utils.get_act_name(activation, layer), hook_fn)], 
+            )
+            results[i, layer] = patching_metric(patched_logits)
+
+    return results
+# %%
+patching_results = get_act_patch_resid_pre(model, corrupted_input, clean_cache, patching_metric)
+
+line(patching_results, title="Layer Output Patching Effect on F0 Log Prob", line_labels=["attn", "mlp"], width=750)
+# %%
