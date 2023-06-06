@@ -883,12 +883,12 @@ def make_rays_2d(num_pixels_y: int, num_pixels_z: int, y_limit: float, z_limit: 
     '''
     # SOLUTION
     n_pixels = num_pixels_y * num_pixels_z
-    ygrid = t.linspace(-y_limit, y_limit, num_pixels_y)
-    zgrid = t.linspace(-z_limit, z_limit, num_pixels_z)
-    rays = t.zeros((n_pixels, 2, 3), dtype=t.float32)
-    rays[:, 1, 0] = 1
-    rays[:, 1, 1] = einops.repeat(ygrid, "y -> (y z)", z=num_pixels_z)
-    rays[:, 1, 2] = einops.repeat(zgrid, "z -> (y z)", y=num_pixels_y)
+    rays = t.zeros((n_pixels, 2, 3))
+    y_vals = t.linspace(-y_limit, y_limit, num_pixels_y)
+    z_vals = t.linspace(-z_limit, z_limit, num_pixels_z)
+
+    rays[:, 1] = t.cartesian_prod(t.ones((1,)), y_vals, z_vals)
+
     return rays
 ```
 </details>
