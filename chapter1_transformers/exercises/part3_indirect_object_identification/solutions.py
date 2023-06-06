@@ -73,7 +73,7 @@ if MAIN:
 		"After Martin and Amy went to the park,{} gave a drink to",
 	]
 	name_pairs = [
-		(" Mary", " John"),
+		(" John", " Mary"),
 		(" Tom", " James"),
 		(" Dan", " Sid"),
 		(" Martin", " Amy"),
