@@ -217,7 +217,7 @@ fig.update_layout(width=1200, height=2000)
 
 
 # %%
-def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_batch instances fetures"]:
+def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_batch instances features"]:
     '''
     Generates a batch of data.
 
@@ -251,7 +251,237 @@ def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_bat
     )
 
     # YOUR CODE HERE - compute batch_correlated and batch_anticorrelated, and stack all three batches together
+    feat = t.rand((n_batch, self.config.n_instances, 2*n_correlated_pairs), device=self.W.device)
+    feat_seeds = t.rand((n_batch, self.config.n_instances, n_correlated_pairs), device=self.W.device)
+    feat_seeds = einops.repeat(feat_seeds, "b i cp -> b i (cp 2)")
+    feat_is_present = feat_seeds <= self.feature_probability
+    batch_correlated = t.where(
+        feat_is_present, 
+        feat, 
+        t.zeros((), device=self.W.device),
+    )
+
+    feat = t.rand((n_batch, self.config.n_instances, 2*n_anticorrelated_pairs), device=self.W.device)
+    feat_seeds_1 = t.rand((n_batch, self.config.n_instances, n_anticorrelated_pairs), device=self.W.device)
+    feat_seeds_2 = t.rand((n_batch, self.config.n_instances, n_anticorrelated_pairs), device=self.W.device)
+    feat_is_present_1 = feat_seeds_1 <= self.feature_probability
+    feat_is_present_2 = feat_seeds_2 <= self.feature_probability
+    present_in_both = feat_is_present_1 & feat_is_present_2
+    seed_3 = t.rand((n_batch, self.config.n_instances, n_anticorrelated_pairs), device=self.W.device) > .5
+    feat_is_present_1 = t.where(present_in_both & seed_3, False, feat_is_present_1)
+    feat_is_present_2 = t.where(present_in_both & (~seed_3), False, feat_is_present_2)
     
 
+    feat_is_present = t.cat((feat_is_present_1, feat_is_present_2), dim=-1)
+    feat_is_present = einops.rearrange(feat_is_present, "b i (t f) -> b i (f t)", t=2)
+    batch_anticorrelated = t.where(
+        feat_is_present, 
+        feat, 
+        t.zeros((), device=self.W.device),
+    )
+
+    return t.cat((batch_correlated, batch_anticorrelated, batch_uncorrelated), dim=-1)
 
 Model.generate_batch = generate_correlated_batch
+
+
+# %%
+config = Config(
+    n_instances = 10,
+    n_features = 4,
+    n_hidden = 2,
+    n_correlated_pairs = 1,
+    n_anticorrelated_pairs = 1,
+)
+
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+batch = model.generate_batch(n_batch = 1)
+
+imshow(
+    batch.squeeze(),
+    labels={"x": "Feature", "y": "Instance"}, 
+    title="Feature heatmap (first two features correlated, last two anticorrelated)"
+)
+
+
+# %%
+feature_probability = (20 ** -t.linspace(0.5, 1, config.n_instances))
+model.feature_probability = feature_probability[:, None].to(device)
+
+batch = model.generate_batch(n_batch = 10000)
+
+corr0, corr1, anticorr0, anticorr1 = batch.unbind(dim=-1)
+corr0_is_active = corr0 != 0
+corr1_is_active = corr1 != 0
+anticorr0_is_active = anticorr0 != 0
+anticorr1_is_active = anticorr1 != 0
+
+assert (corr0_is_active == corr1_is_active).all(), "Correlated features should be active together"
+assert (corr0_is_active.float().mean(0).cpu() - feature_probability).abs().mean() < 0.01, "Each correlated feature should be active with probability `feature_probability`"
+
+assert (anticorr0_is_active & anticorr1_is_active).int().sum().item() == 0, "Anticorrelated features should never be active together"
+assert (anticorr0_is_active.float().mean(0).cpu() - feature_probability).abs().mean() < 0.01, "Each anticorrelated feature should be active with probability `feature_probability`"
+
+
+# %%
+config = Config(
+    n_instances = 5,
+    n_features = 4,
+    n_hidden = 2,
+    n_correlated_pairs = 2,
+    n_anticorrelated_pairs = 0,
+)
+
+# All same importance
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+# We use very low feature probabilities, from 5% down to 0.25%
+feature_probability = (400 ** -t.linspace(0.5, 1, 5))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+optimize(model)
+
+plot_Ws_from_model(model, config)
+
+
+# %%
+config = Config(
+    n_instances = 5,
+    n_features = 4,
+    n_hidden = 2,
+    n_correlated_pairs = 0,
+    n_anticorrelated_pairs = 2,
+)
+
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+feature_probability = (400 ** -t.linspace(0.8, 1, 5))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+optimize(model)
+
+plot_Ws_from_model(model, config)
+
+
+# %%
+config = Config(
+    n_instances = 5,
+    n_features = 6,
+    n_hidden = 2,
+    n_correlated_pairs = 3,
+    n_anticorrelated_pairs = 0,
+)
+
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+feature_probability = (400 ** -t.linspace(0.5, 1, 5))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+optimize(model)
+
+plot_Ws_from_model(model, config)
+
+
+# %%
+config = Config(
+    n_features = 200,
+    n_hidden = 20,
+    n_instances = 20,
+)
+
+feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
+
+model = Model(
+    config=config,
+    device=device,
+    # For this experiment, use constant importance.
+    feature_probability = feature_probability[:, None]
+)
+
+optimize(model)
+
+fig = px.line(
+    x=1/model.feature_probability[:, 0].cpu(),
+    y=(model.config.n_hidden/(t.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
+    log_x=True,
+    markers=True,
+    template="ggplot2",
+    height=600,
+    width=1000,
+    title=""
+)
+fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
+fig.update_yaxes(title=f"m/||W||_F^2")
+fig.show()
+
+
+# %%
+@t.no_grad()
+def compute_dimensionality(W):
+    norms = t.linalg.norm(W, 2, dim=-1) 
+    W_unit = W / t.clamp(norms[:, :, None], 1e-6, float('inf'))
+
+    interferences = (t.einsum('eah,ebh->eab', W_unit, W)**2).sum(-1)
+
+    dim_fracs = (norms**2/interferences)
+    return dim_fracs.cpu()
+
+
+dim_fracs = compute_dimensionality(model.W.transpose(-1, -2))
+
+
+density = model.feature_probability[:, 0].cpu()
+W = model.W.detach()
+
+for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
+    val = a/b
+    fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
+
+for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
+    val = a/b
+    fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
+
+for i in range(len(W)):
+    fracs_ = dim_fracs[i]
+    N = fracs_.shape[0]
+    xs = 1/density
+    if i!= len(W)-1:
+        dx = xs[i+1]-xs[i]
+    fig.add_trace(
+        go.Scatter(
+            x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
+            y=fracs_,
+            marker=dict(
+                color='black',
+                size=1,
+                opacity=0.5,
+            ),
+            mode='markers',
+        )
+    )
+fig.update_xaxes(showgrid=False).update_yaxes(showgrid=False).update_layout(showlegend=False)
+fig.show()
