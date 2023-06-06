@@ -227,7 +227,7 @@ This is realised in our toy model as follows:
 
 * **Importance** = the coefficient on the weighted mean squared error between the input and output, which we use for training the model
     * In other words, our loss function is $L = \sum_x \sum_i I_i (x_i - x_i')^2$, where $I_i$ is the importance of feature $i$.
-* **Sparsity** = the probability of the corresponding element in $x$ being non-zero
+* **Sparsity** = the probability of the corresponding element in $x$ being zero
     * In other words, this affects the way our training data is generated (see the method `generate_batch` in the `Module` class below)
 
 The justification for using $W^T W$ is as follows: we can think of $W$ (which is a matrix of shape `(2, 5)`) as a grid of "overlap values" between the features and bottleneck dimensions. The values of the 5x5 matrix $W^T W$ are the dot products between the 2D representations of each pair of features. To make this intuition clearer, imagine each of the columns of $W$ were unit vectors, then $W^T W$ would be a matrix of cosine similarities between the features (with diagonal elements equal to 1, because the similarity of a feature with itself is 1). To see this for yourself:

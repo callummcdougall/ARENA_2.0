@@ -1221,7 +1221,7 @@ Fill in the function `ioi_metric` below, to create the required metric. Note tha
 
 **Important note** - this function needs to return a scalar tensor, rather than a float. If not, then some of the patching functions later on won't work. The type signature of this is `Float[Tensor, ""]`.
 
-**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). Our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" is that a component isn't important, and so replacing its values with those on the corrupted input won't make the model worse. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
+**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). We might say that our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" that the component isn't important now has a different implication - replacing its values with those on the corrupted input won't prevent the model from being able to perform the task. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
 
 <details>
 <summary>More on noising vs. denoising</summary>
@@ -1503,7 +1503,7 @@ def get_act_patch_block_every(
     corrupted_tokens: Float[Tensor, "batch pos"], 
     clean_cache: ActivationCache, 
     patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float]
-) -> Float[Tensor, "layer pos"]:
+) -> Float[Tensor, "3 layer pos"]:
     '''
     Returns an array of results of patching each position at each layer in the residual
     stream, using the value from the clean cache.
@@ -1514,9 +1514,6 @@ def get_act_patch_block_every(
     pass
 
 
-```
-
-```python
 act_patch_block_every_own = get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
 
 t.testing.assert_close(act_patch_block_every, act_patch_block_every_own)
