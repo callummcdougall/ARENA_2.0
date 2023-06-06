@@ -576,9 +576,22 @@ focus_logits.shape
 >     * Shape of logits is `(num_games=50, num_moves=59, d_vocab=61)` (59 because we never predict the first move, 61 because we have 60 moves + 1 for pass).
 >     * This gives us 3000 moves in total.
 
+## What is a probe?
+
+From the [MI Dynalist notes](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#q=probe):
+
+> **[Probing](https://arxiv.org/pdf/1610.01644.pdf)** is a technique for identifying directions in network activation space that correspond to a concept/feature.
+> 
+> In spirit, you give the network a bunch of inputs with that feature, and a bunch without it. You train a linear map on a specific activation (eg the output of layer 5) which distinguishes these two sets, giving a 1D linear map (a **probe**), corresponding to a direction in activation space, which likely corresponds to that feature.
+
+Probes can be a very valuable tool to help us better understand the concepts represented in our model. However, there are two big caveats to keep in mind:
+
+1. Probes give us a direction, but they don't give us a causal story about how that direction got into the model in the first place, or how the model is using that direction.
+2. Probes (especially nonlinear probes) can be hiding a lot of computation under their surface.
+
+In the original paper analysing Othello, the authors used nonlinear probing to find important directions. This went against a fundamental intuition - that models fundamentally store things in linear ways, and so we should be able to access them with linear probes. In these exercises, we'll be using linear probes.
 
 ## Using the probe
-
 
 The training of this probe was kind of a mess, and I'd do a bunch of things differently if doing it again.
 
