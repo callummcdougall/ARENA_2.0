@@ -20,10 +20,8 @@ update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "
 def imshow(tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
-    if "facet_labels" in kwargs_pre:
-        facet_labels = kwargs_pre.pop("facet_labels")
-    else:
-        facet_labels = None
+    facet_labels = kwargs_pre.pop("facet_labels", None)
+    border = kwargs_pre.pop("border", False)
     if "color_continuous_scale" not in kwargs_pre:
         kwargs_pre["color_continuous_scale"] = "RdBu"
     if "color_continuous_midpoint" not in kwargs_pre:
@@ -37,6 +35,9 @@ def imshow(tensor, renderer=None, **kwargs):
             facet_labels = reorder_list_in_plotly_way(facet_labels, kwargs_pre["facet_col_wrap"])
         for i, label in enumerate(facet_labels):
             fig.layout.annotations[i]['text'] = label
+    if border:
+        fig.update_xaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.show(renderer=renderer)
 
 

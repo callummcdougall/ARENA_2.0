@@ -149,10 +149,7 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == '__main__'
 
-
-if MAIN:
-    reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
-
+reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
 ```
 
 
@@ -313,26 +310,20 @@ You can run the code below to see some more of GPT-2's tokenizer's vocabulary:
 
 
 ```python
-
-if MAIN:
-    sorted_vocab = sorted(list(reference_gpt2.tokenizer.vocab.items()), key=lambda n: n[1])
-    print(sorted_vocab[:20])
-    print()
-    print(sorted_vocab[250:270])
-    print()
-    print(sorted_vocab[990:1010])
-    print()
-
+sorted_vocab = sorted(list(reference_gpt2.tokenizer.vocab.items()), key=lambda n: n[1])
+print(sorted_vocab[:20])
+print()
+print(sorted_vocab[250:270])
+print()
+print(sorted_vocab[990:1010])
+print()
 ```
 
 As you get to the end of the vocabulary, you'll be producing some pretty weird-looking esoteric tokens (because you'll already have exhausted all of the short frequently-occurring ones):
 
 
 ```python
-
-if MAIN:
-    print(sorted_vocab[-20:])
-
+print(sorted_vocab[-20:])
 ```
 
 Transformers in the `transformer_lens` library have a `to_tokens` method that converts text to numbers. It also prepends them with a special token called BOS (beginning of sequence) to indicate the start of a sequence. You can disable this with the `prepend_bos=False` argument.
@@ -363,13 +354,10 @@ There are a few funky and frustrating things about tokenization, which causes it
 
 
 ```python
-
-if MAIN:
-    print(reference_gpt2.to_str_tokens("Ralph"))
-    print(reference_gpt2.to_str_tokens(" Ralph"))
-    print(reference_gpt2.to_str_tokens(" ralph"))
-    print(reference_gpt2.to_str_tokens("ralph"))
-
+print(reference_gpt2.to_str_tokens("Ralph"))
+print(reference_gpt2.to_str_tokens(" Ralph"))
+print(reference_gpt2.to_str_tokens(" ralph"))
+print(reference_gpt2.to_str_tokens("ralph"))
 ```
 
 #### Arithmetic is a mess.
@@ -379,10 +367,7 @@ Length is inconsistent, common numbers bundle together.
 
 
 ```python
-
-if MAIN:
-    print(reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000"))
-
+print(reference_gpt2.to_str_tokens("56873+3184623=123456789-1000000000"))
 ```
 
 > ### Key Takeaways
@@ -403,14 +388,11 @@ The sequence gets tokenized, so it has shape `[batch, seq_len]`. Here, the batch
 
 
 ```python
-
-if MAIN:
-    reference_text = "I am an amazing autoregressive, decoder-only, GPT-2 style transformer. One day I will exceed human level intelligence and take over the world!"
-    tokens = reference_gpt2.to_tokens(reference_text).to(device)
-    print(tokens)
-    print(tokens.shape)
-    print(reference_gpt2.to_str_tokens(tokens))
-
+reference_text = "I am an amazing autoregressive, decoder-only, GPT-2 style transformer. One day I will exceed human level intelligence and take over the world!"
+tokens = reference_gpt2.to_tokens(reference_text).to(device)
+print(tokens)
+print(tokens.shape)
+print(reference_gpt2.to_str_tokens(tokens))
 ```
 
 #### **Step 2:** Map tokens to logits
@@ -420,11 +402,8 @@ From our input of shape `[batch, seq_len]`, we get output of shape `[batch, seq_
 
 
 ```python
-
-if MAIN:
-    logits, cache = reference_gpt2.run_with_cache(tokens)
-    print(logits.shape)
-
+logits, cache = reference_gpt2.run_with_cache(tokens)
+print(logits.shape)
 ```
 
 (`run_with_cache` tells the model to cache all intermediate activations. This isn't important right now; we'll look at it in more detail later.)
@@ -437,23 +416,17 @@ This doesn't change the shape, it is still `[batch, seq_len, vocab_size]`.
 
 
 ```python
-
-if MAIN:
-    probs = logits.softmax(dim=-1)
-    print(probs.shape)
-
+probs = logits.softmax(dim=-1)
+print(probs.shape)
 ```
 
 #### **Bonus step:** What is the most likely next token at each position?
 
 
 ```python
+most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(logits.argmax(dim=-1)[0])
 
-if MAIN:
-    most_likely_next_tokens = reference_gpt2.tokenizer.batch_decode(logits.argmax(dim=-1)[0])
-    
-    print(list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens)))
-
+print(list(zip(reference_gpt2.to_str_tokens(tokens), most_likely_next_tokens)))
 ```
 
 We can see that, in a few cases (particularly near the end of the sequence), the model accurately predicts the next token in the sequence. We might guess that `"take over the world"` is a common phrase that the model has seen in training, which is why the model can predict it.
@@ -463,12 +436,9 @@ We can see that, in a few cases (particularly near the end of the sequence), the
 
 
 ```python
-
-if MAIN:
-    next_token = logits[0, -1].argmax(dim=-1)
-    next_char = reference_gpt2.to_string(next_token)
-    print(repr(next_char))
-
+next_token = logits[0, -1].argmax(dim=-1)
+next_char = reference_gpt2.to_string(next_token)
+print(repr(next_char))
 ```
 
 Note that we're indexing `logits[0, -1]`. This is because logits have shape `[1, sequence_length, vocab_size]`, so this indexing returns the vector of length `vocab_size` representing the model's prediction for what token follows the **last** token in the input sequence.
@@ -482,21 +452,18 @@ There are more efficient ways to do this (e.g. where we cache some of the values
 
 
 ```python
+print(f"Sequence so far: {reference_gpt2.to_string(tokens)[0]!r}")
 
-if MAIN:
-    print(f"Sequence so far: {reference_gpt2.to_string(tokens)[0]!r}")
-    
-    for i in range(10):
-        print(f"{tokens.shape[-1]+1}th char = {next_char!r}")
-        # Define new input sequence, by appending the previously generated token
-        tokens = t.cat([tokens, next_token[None, None]], dim=-1)
-        # Pass our new sequence through the model, to get new output
-        logits = reference_gpt2(tokens)
-        # Get the predicted token at the end of our sequence
-        next_token = logits[0, -1].argmax(dim=-1)
-        # Decode and print the result
-        next_char = reference_gpt2.to_string(next_token)
-
+for i in range(10):
+    print(f"{tokens.shape[-1]+1}th char = {next_char!r}")
+    # Define new input sequence, by appending the previously generated token
+    tokens = t.cat([tokens, next_token[None, None]], dim=-1)
+    # Pass our new sequence through the model, to get new output
+    logits = reference_gpt2(tokens)
+    # Get the predicted token at the end of our sequence
+    next_token = logits[0, -1].argmax(dim=-1)
+    # Decode and print the result
+    next_char = reference_gpt2.to_string(next_token)
 ```
 
 ## Key takeaways
@@ -786,26 +753,20 @@ Run the following code to print all the activation shapes of the reference model
 
 
 ```python
-
-if MAIN:
-    for activation_name, activation in cache.items():
-        # Only print for first layer
-        if ".0." in activation_name or "blocks" not in activation_name:
-            print(f"{activation_name:30} {tuple(activation.shape)}")
-
+for activation_name, activation in cache.items():
+    # Only print for first layer
+    if ".0." in activation_name or "blocks" not in activation_name:
+        print(f"{activation_name:30} {tuple(activation.shape)}")
 ```
 
 #### Print All Parameters Shapes of Reference Model
 
 
 ```python
-
-if MAIN:
-    for name, param in reference_gpt2.named_parameters():
-        # Only print for first layer
-        if ".0." in name or "blocks" not in name:
-            print(f"{name:18} {tuple(param.shape)}")
-
+for name, param in reference_gpt2.named_parameters():
+    # Only print for first layer
+    if ".0." in name or "blocks" not in name:
+        print(f"{name:18} {tuple(param.shape)}")
 ```
 
 [This diagram](https://mermaid.ink/svg/pako:eNrdV1FP2zAQ_itWpI1tasSIeApdJaYWJqGNIRA8UBS5sdNadeLUdkJbwn_fOUkJ6ZoCm9R2y4N955yT786fz-cHyxeEWq41lDgeoatuP0LwqGRQDPSttopxhJSecfplLxCRthWbU9c5jKd7nSuJIxUIGVL5lQt_3N431p2-VXzGPD7HSnVpgGgY6xm6Z0SP3M_xtDWibDjSRjxaYW1gQcOFdCUlYFHZSKoY8WJJb_vWk9wmLF2gHAhJqLS1iF0nniIlOCNowLE_PgqxHLIof5U70N6HeZ12_rdydvXTytsDxxh_UHTSQsQLwZp_bO-bWeDrnW3b3Vt057pu7qNtdzJMSFZgCxmB973G97FQunIElG16UgW5kl7LBR4doPc0VPFR2T1v0ZruJev17QrK5ah9zGl9KAKeYg6ASTVOI7KCWAiWCGXguJbY1yikOIJosZRBbAczCADJ8u_DuuX95pbs4NliFShvPA7gBtBmlYMArFL-VUJhrSP0Flqgt3Z_1jYwLq2rk7o6rqvGN0_5AihXf3FSV2MwpDKqD57W1XldhU8mXDdQvGKFyUI33rWhznWWAmHSzfFkRDHxGJkaxhi5nktPl3LlfX5QUIJwOkQiQCnmCUUp9bWQKpsD9PlOQF_sx_OsWIIiq4OwHXTLW9HAg5wWIpFSmVuqFoJzCA0YVsCC8ywnpUgM8IW47WO1mbkXhrkX2QTATnaFuSdLzCVCo1gKksAhgrmIhuWsVnE8IRwRFGI1zp6lg0XwC20jnlVOgY8XeXtWcwx4IwId4mlW5iMAWUq7AdA-bSbKmSHKWTYGzOOdIcrfFVoOevHYW1cWOU11kbO2MIJK9qlQBXmbqeG1BZqzsxWa81-UaCGPX1tfNRByJfnyykcule_mbvRiVeMsQs7ykLMoK-6JG70hHqJPjZwFunoBoCpufZu97zXjgoDBYW8iBl0Gq1qWAaW05a1uo17JzXzVC_HdOwQAfxx_720E3eW345-933bNlkFYLSukQH1GLNd6MJD6lh7RkPYtF0RCA2yuArDlHsE0iQnWtEcY1M2WG2CuaMvCiRaXs8i3XC0TujDqMgz7PyytHn8BSKkJUQ) shows the name of all activations and parameters in a fully general transformer model from transformerlens (except for a few at the start and end, like the embedding and unembedding). Lots of this won't make sense at first, but you can return to this diagram later and check that you understand most/all parts of it.
@@ -818,10 +779,7 @@ The config object contains all the hyperparameters of the model. We can print th
 
 ```python
 # As a reference - note there's a lot of stuff we don't care about in here, to do with library internals or other architectures
-
-if MAIN:
-    print(reference_gpt2.cfg)
-
+print(reference_gpt2.cfg)
 ```
 
 We define a stripped down config for our model:
@@ -842,10 +800,8 @@ class Config:
     n_layers: int = 12
 
 
-if MAIN:
-    cfg = Config()
-    print(cfg)
-
+cfg = Config()
+print(cfg)
 ```
 
 ## Tests
@@ -932,10 +888,8 @@ class LayerNorm(nn.Module):
         pass
 
 
-if MAIN:
-    rand_float_test(LayerNorm, [2, 4, 768])
-    load_gpt2_test(LayerNorm, reference_gpt2.ln_final, cache["resid_post", 11])
-
+rand_float_test(LayerNorm, [2, 4, 768])
+load_gpt2_test(LayerNorm, reference_gpt2.ln_final, cache["resid_post", 11])
 ```
 
 <details>
@@ -987,10 +941,8 @@ class Embed(nn.Module):
         pass
 
 
-if MAIN:
-    rand_int_test(Embed, [2, 4])
-    load_gpt2_test(Embed, reference_gpt2.embed, tokens)
-
+rand_int_test(Embed, [2, 4])
+load_gpt2_test(Embed, reference_gpt2.embed, tokens)
 ```
 
 <details>
@@ -1046,10 +998,8 @@ class PosEmbed(nn.Module):
         pass
 
 
-if MAIN:
-    rand_int_test(PosEmbed, [2, 4])
-    load_gpt2_test(PosEmbed, reference_gpt2.pos_embed, tokens)
-
+rand_int_test(PosEmbed, [2, 4])
+load_gpt2_test(PosEmbed, reference_gpt2.pos_embed, tokens)
 ```
 
 <details>
@@ -1156,14 +1106,11 @@ First, it's useful to visualize and play around with attention patterns - what e
 import circuitsvis as cv
 from IPython.display import display
 
-
-if MAIN:
-    html = cv.attention.attention_patterns(
-        tokens=reference_gpt2.to_str_tokens(reference_text), 
-        attention=cache["pattern", 0][0]
-    )
-    display(html)
-
+html = cv.attention.attention_patterns(
+    tokens=reference_gpt2.to_str_tokens(reference_text), 
+    attention=cache["pattern", 0][0]
+)
+display(html)
 ```
 
 """, unsafe_allow_html=True)
@@ -1258,10 +1205,8 @@ class Attention(nn.Module):
         pass
 
 
-if MAIN:
-    rand_float_test(Attention, [2, 4, 768])
-    load_gpt2_test(Attention, reference_gpt2.blocks[0].attn, cache["normalized", 0, "ln1"])
-
+rand_float_test(Attention, [2, 4, 768])
+load_gpt2_test(Attention, reference_gpt2.blocks[0].attn, cache["normalized", 0, "ln1"])
 ```
 
 <details>
@@ -1408,10 +1353,8 @@ class MLP(nn.Module):
         pass
 
 
-if MAIN:
-    rand_float_test(MLP, [2, 4, 768])
-    load_gpt2_test(MLP, reference_gpt2.blocks[0].mlp, cache["normalized", 0, "ln2"])
-
+rand_float_test(MLP, [2, 4, 768])
+load_gpt2_test(MLP, reference_gpt2.blocks[0].mlp, cache["normalized", 0, "ln2"])
 ```
 
 <details>
@@ -1476,10 +1419,8 @@ class TransformerBlock(nn.Module):
         pass
 
 
-if MAIN:
-    rand_float_test(TransformerBlock, [2, 4, 768])
-    load_gpt2_test(TransformerBlock, reference_gpt2.blocks[0], cache["resid_pre", 0])
-
+rand_float_test(TransformerBlock, [2, 4, 768])
+load_gpt2_test(TransformerBlock, reference_gpt2.blocks[0], cache["resid_pre", 0])
 ```
 
 <details>
@@ -1534,10 +1475,8 @@ class Unembed(nn.Module):
         pass
 
 
-if MAIN:
-    rand_float_test(Unembed, [2, 4, 768])
-    load_gpt2_test(Unembed, reference_gpt2.unembed, cache["ln_final.hook_normalized"])
-
+rand_float_test(Unembed, [2, 4, 768])
+load_gpt2_test(Unembed, reference_gpt2.unembed, cache["ln_final.hook_normalized"])
 ```
 
 <details>
@@ -1591,10 +1530,8 @@ class DemoTransformer(nn.Module):
         pass
 
 
-if MAIN:
-    rand_int_test(DemoTransformer, [2, 4])
-    load_gpt2_test(DemoTransformer, reference_gpt2, tokens)
-
+rand_int_test(DemoTransformer, [2, 4])
+load_gpt2_test(DemoTransformer, reference_gpt2, tokens)
 ```
 
 <details>
@@ -1627,13 +1564,10 @@ class DemoTransformer(nn.Module):
 
 
 ```python
+demo_gpt2 = DemoTransformer(Config(debug=False)).to(device)
+demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False)
 
-if MAIN:
-    demo_gpt2 = DemoTransformer(Config(debug=False)).to(device)
-    demo_gpt2.load_state_dict(reference_gpt2.state_dict(), strict=False)
-    
-    demo_logits = demo_gpt2(tokens)
-
+demo_logits = demo_gpt2(tokens)
 ```
 
 Let's take a test string, and calculate the loss!
@@ -1666,29 +1600,23 @@ def get_log_probs(
     return log_probs_for_tokens
 
 
-
-if MAIN:
-    pred_log_probs = get_log_probs(demo_logits, tokens)
-    print(f"Avg cross entropy loss: {-pred_log_probs.mean():.4f}")
-    print(f"Avg cross entropy loss for uniform distribution: {math.log(demo_gpt2.cfg.d_vocab):4f}")
-    print(f"Avg probability assigned to correct token: {pred_log_probs.exp().mean():4f}")
-
+pred_log_probs = get_log_probs(demo_logits, tokens)
+print(f"Avg cross entropy loss: {-pred_log_probs.mean():.4f}")
+print(f"Avg cross entropy loss for uniform distribution: {math.log(demo_gpt2.cfg.d_vocab):4f}")
+print(f"Avg probability assigned to correct token: {pred_log_probs.exp().mean():4f}")
 ```
 
 We can also greedily generate text, by taking the most likely next token and continually appending it to our prompt before feeding it back into the model:
 
 
 ```python
+test_string = '''The Total Perspective Vortex derives its picture of the whole Universe on the principle of'''
+for i in tqdm(range(100)):
+    test_tokens = reference_gpt2.to_tokens(test_string).to(device)
+    demo_logits = demo_gpt2(test_tokens)
+    test_string += reference_gpt2.tokenizer.decode(demo_logits[-1, -1].argmax())
 
-if MAIN:
-    test_string = '''The Total Perspective Vortex derives its picture of the whole Universe on the principle of'''
-    for i in tqdm(range(100)):
-        test_tokens = reference_gpt2.to_tokens(test_string).to(device)
-        demo_logits = demo_gpt2(test_tokens)
-        test_string += reference_gpt2.tokenizer.decode(demo_logits[-1, -1].argmax())
-    
-    print(test_string)
-
+print(test_string)
 ```
 
 In later sections, we'll learn to generate text in slightly more interesting ways than just argmaxing the output.
@@ -1739,20 +1667,17 @@ For our purposes, we'll train 2L 4 heads per layer model, with context length 25
 
 
 ```python
-
-if MAIN:
-    model_cfg = Config(
-        debug=False, 
-        d_model=256, 
-        n_heads=4, 
-        d_head=64, 
-        d_mlp=1024, 
-        n_layers=2, 
-        n_ctx=256, 
-        d_vocab=reference_gpt2.cfg.d_vocab
-    )
-    model = DemoTransformer(model_cfg)
-
+model_cfg = Config(
+    debug=False, 
+    d_model=256, 
+    n_heads=4, 
+    d_head=64, 
+    d_mlp=1024, 
+    n_layers=2, 
+    n_ctx=256, 
+    d_vocab=reference_gpt2.cfg.d_vocab
+)
+model = DemoTransformer(model_cfg)
 ```
 
 ## Training Args
@@ -1776,9 +1701,7 @@ class TransformerTrainingArgs():
     log_every_n_steps: int = 1
 
 
-if MAIN:
-    args = TransformerTrainingArgs()
-
+args = TransformerTrainingArgs()
 ```
 
 
@@ -1789,36 +1712,27 @@ We load in a tiny dataset I made, with the first 10K entries in the Pile (inspir
 
 
 ```python
-
-if MAIN:
-    dataset = datasets.load_dataset("NeelNanda/pile-10k", split="train").remove_columns("meta")
-    print(dataset)
-    print(dataset[0]['text'][:100])
-
+dataset = datasets.load_dataset("NeelNanda/pile-10k", split="train").remove_columns("meta")
+print(dataset)
+print(dataset[0]['text'][:100])
 ```
 
 `tokenize_and_concatenate` is a useful function which takes our dataset of strings, and returns a dataset of token IDs ready to feed into the model. We then create a dataloader from this tokenized dataset.
 
 
 ```python
-
-if MAIN:
-    tokenized_dataset = tokenize_and_concatenate(dataset, reference_gpt2.tokenizer, streaming=False, max_length=model.cfg.n_ctx, column_name="text", add_bos_token=True, num_proc=4)
-    data_loader = DataLoader(tokenized_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
-
+tokenized_dataset = tokenize_and_concatenate(dataset, reference_gpt2.tokenizer, streaming=False, max_length=model.cfg.n_ctx, column_name="text", add_bos_token=True, num_proc=4)
+data_loader = DataLoader(tokenized_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 ```
 
 When we iterate through `data_loader`, we will find dictionaries with the single key `"tokens"`, which maps to a tensor of token IDs with shape `(batch, seq_len)`.
 
 
 ```python
+first_batch = data_loader.dataset[:args.batch_size]
 
-if MAIN:
-    first_batch = data_loader.dataset[:args.batch_size]
-    
-    print(first_batch.keys())
-    print(first_batch['tokens'].shape)
-
+print(first_batch.keys())
+print(first_batch['tokens'].shape)
 ```
 
 ## Training Loop
@@ -1943,19 +1857,16 @@ class LitTransformer(pl.LightningModule):
 
 
 ```python
+litmodel = LitTransformer(args, model, data_loader)
+logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
 
-if MAIN:
-    litmodel = LitTransformer(args, model, data_loader)
-    logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
-    
-    trainer = pl.Trainer(
-        max_epochs=args.max_epochs,
-        logger=logger,
-        log_every_n_steps=args.log_every_n_steps
-    )
-    trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
-    wandb.finish()
-
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs,
+    logger=logger,
+    log_every_n_steps=args.log_every_n_steps
+)
+trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
+wandb.finish()
 ```
 
 > Note - to see these patterns more clearly in Weights and Biases, you can click on the **edit panel** of your plot (the small pencil symbol at the top-right), then move the **smoothing** slider to the right.
@@ -1972,13 +1883,10 @@ When it starts out, your model will be outputting random noise, which might look
 
 
 ```python
+d_vocab = model.cfg.d_vocab
 
-if MAIN:
-    d_vocab = model.cfg.d_vocab
-    
-    print(f"d_vocab = {d_vocab}")
-    print(f"Cross entropy loss on uniform distribution = {math.log(d_vocab)}")
-
+print(f"d_vocab = {d_vocab}")
+print(f"Cross entropy loss on uniform distribution = {math.log(d_vocab)}")
 ```
 
 The next thing we might expect the model to learn is the frequencies of words in the english language. After all, small common tokens like `" and"` or `" the"` might appear much more frequently than others. This would give us an average cross entropy loss of:
@@ -1993,19 +1901,16 @@ We can evaluate this quantity as follows:
 
 
 ```python
+toks = tokenized_dataset[:]["tokens"].flatten()
 
-if MAIN:
-    toks = tokenized_dataset[:]["tokens"].flatten()
-    
-    d_vocab = model.cfg.d_vocab
-    freqs = t.bincount(toks, minlength=d_vocab)
-    probs = freqs.float() / freqs.sum()
-    
-    distn = t.distributions.categorical.Categorical(probs=probs)
-    entropy = distn.entropy()
-    
-    print(f"Entropy of training data = {entropy}")
+d_vocab = model.cfg.d_vocab
+freqs = t.bincount(toks, minlength=d_vocab)
+probs = freqs.float() / freqs.sum()
 
+distn = t.distributions.categorical.Categorical(probs=probs)
+entropy = distn.entropy()
+
+print(f"Entropy of training data = {entropy}")
 ```
 
 After unigram frequencies, the next thing our model usually learns is **bigram frequencies** (i.e. the frequency of pairs of adjacent tokens in the training data). For instance, `"I"` and `" am"` are common tokens, but their bigram frequency is much higher than it would be if they occurred independently. Bigram frequencies actually take you pretty far, since they also help with:
@@ -2084,17 +1989,12 @@ Once you've done that, you can work through the `TransformerSampler` class below
 
 
 ```python
+model_cfg = Config()
+model = DemoTransformer(model_cfg).to(device)
+model.load_state_dict(reference_gpt2.state_dict(), strict=False)
 
-if MAIN:
-    model_cfg = Config()
-    model = DemoTransformer(model_cfg).to(device)
-    model.load_state_dict(reference_gpt2.state_dict(), strict=False)
-    
-    tokenizer = reference_gpt2.tokenizer
+tokenizer = reference_gpt2.tokenizer
 
-```
-
-```python
 class TransformerSampler:
 
     def __init__(self, model: DemoTransformer, tokenizer: GPT2TokenizerFast):
@@ -2266,21 +2166,18 @@ A few hints:
 
 
 ```python
+sampler = TransformerSampler(model, tokenizer)
 
-if MAIN:
-    sampler = TransformerSampler(model, tokenizer)
-    
-    prompt = "Jingle bells, jingle bells, jingle all the way"
-    print(f"Greedy decoding with prompt: {prompt!r}\n")
-    
-    output = sampler.sample(prompt, max_tokens_generated=8, temperature=0.0)
-    print(f"Your model said: {output!r}\n")
-    
-    expected = "Jingle bells, jingle bells, jingle all the way up to the top of the mountain."
-    assert output == expected
-    
-    print("Tests passed!")
+prompt = "Jingle bells, jingle bells, jingle all the way"
+print(f"Greedy decoding with prompt: {prompt!r}\n")
 
+output = sampler.sample(prompt, max_tokens_generated=8, temperature=0.0)
+print(f"Your model said: {output!r}\n")
+
+expected = "Jingle bells, jingle bells, jingle all the way up to the top of the mountain."
+assert output == expected
+
+print("Tests passed!")
 ```
 
 <details>
@@ -2512,34 +2409,31 @@ Implement basic sampling in the `TransformerSampler` class above, then run the c
 
 
 ```python
+prompt = "John and Mary went to the"
+input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+logits = model(input_ids)[0, -1]
 
-if MAIN:
-    prompt = "John and Mary went to the"
-    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    logits = model(input_ids)[0, -1]
-    
-    expected_top_5 = {
-        " church": 0.0648,
-        " house": 0.0367,
-        " temple": 0.0145,
-        " same": 0.0104,
-        " Church": 0.0097
-    }
-    frequency_of_top_5 = defaultdict(int)
-    
-    N = 10_000
-    for _ in tqdm(range(N)):
-        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
-        frequency_of_top_5[tokenizer.decode(token)] += 1
-    
-    for word in expected_top_5:
-        expected_freq = expected_top_5[word]
-        observed_freq = frequency_of_top_5[word] / N
-        print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
-        assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
-    
-    print("Tests passed!")
+expected_top_5 = {
+    " church": 0.0648,
+    " house": 0.0367,
+    " temple": 0.0145,
+    " same": 0.0104,
+    " Church": 0.0097
+}
+frequency_of_top_5 = defaultdict(int)
 
+N = 10_000
+for _ in tqdm(range(N)):
+    token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits)
+    frequency_of_top_5[tokenizer.decode(token)] += 1
+
+for word in expected_top_5:
+    expected_freq = expected_top_5[word]
+    observed_freq = frequency_of_top_5[word] / N
+    print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
+    assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
+
+print("Tests passed!")
 ```
 
 <details>
@@ -2573,20 +2467,17 @@ Temperature sounds fancy, but it's literally just dividing the logits by the tem
 
 
 ```python
+logits = t.tensor([1, 2]).log()
 
-if MAIN:
-    logits = t.tensor([1, 2]).log()
-    
-    cold_logits = TransformerSampler.apply_temperature(logits, temperature=0.001)
-    print('A low temperature "sharpens" or "peaks" the distribution: ', cold_logits)
-    t.testing.assert_close(cold_logits, 1000.0 * logits)
-    
-    hot_logits = TransformerSampler.apply_temperature(logits, temperature=1000.0)
-    print("A high temperature flattens the distribution: ", hot_logits)
-    t.testing.assert_close(hot_logits, 0.001 * logits)
-    
-    print("Tests passed!")
+cold_logits = TransformerSampler.apply_temperature(logits, temperature=0.001)
+print('A low temperature "sharpens" or "peaks" the distribution: ', cold_logits)
+t.testing.assert_close(cold_logits, 1000.0 * logits)
 
+hot_logits = TransformerSampler.apply_temperature(logits, temperature=1000.0)
+print("A high temperature flattens the distribution: ", hot_logits)
+t.testing.assert_close(hot_logits, 0.001 * logits)
+
+print("Tests passed!")
 ```
 
 <details>
@@ -2635,18 +2526,15 @@ Look at the documentation page for `t.bincount`. You might need to use the `minl
 
 
 ```python
+bieber_prompt = "And I was like Baby, baby, baby, oh Like, Baby, baby, baby, no Like, Baby, baby, baby, oh I thought you'd always be mine, mine"
+input_ids = tokenizer.encode(bieber_prompt, return_tensors="pt")
+logits = t.ones(tokenizer.vocab_size)
+penalized_logits = TransformerSampler.apply_frequency_penalty(input_ids.squeeze(), logits, 2.0)
 
-if MAIN:
-    bieber_prompt = "And I was like Baby, baby, baby, oh Like, Baby, baby, baby, no Like, Baby, baby, baby, oh I thought you'd always be mine, mine"
-    input_ids = tokenizer.encode(bieber_prompt, return_tensors="pt")
-    logits = t.ones(tokenizer.vocab_size)
-    penalized_logits = TransformerSampler.apply_frequency_penalty(input_ids.squeeze(), logits, 2.0)
-    
-    assert penalized_logits[5156].item() == -11, "Expected 6 occurrences of ' baby' with leading space, 1-2*6=-11"
-    assert penalized_logits[14801].item() == -5, "Expected 3 occurrences of ' Baby' with leading space, 1-2*3=-5"
-    
-    print("Tests passed!")
+assert penalized_logits[5156].item() == -11, "Expected 6 occurrences of ' baby' with leading space, 1-2*6=-11"
+assert penalized_logits[14801].item() == -5, "Expected 3 occurrences of ' Baby' with leading space, 1-2*3=-5"
 
+print("Tests passed!")
 ```
 
 <details>
@@ -2674,30 +2562,27 @@ Note: your model can generate newlines or non-printing characters, so calling `p
 
 
 ```python
+sampler = TransformerSampler(model, tokenizer)
 
-if MAIN:
-    sampler = TransformerSampler(model, tokenizer)
-    
-    N_RUNS = 1
-    your_prompt = "Jingle bells, jingle bells, jingle all the way"
-    cases = [
-        ("High freq penalty", dict(frequency_penalty=100.0)),
-        ("Negative freq penalty", dict(frequency_penalty=-3.0)),
-        ("Too hot!", dict(temperature=2.0)),
-        ("Pleasantly cool", dict(temperature=0.7)),
-        ("Pleasantly warm", dict(temperature=0.9)),
-        ("Too cold!", dict(temperature=0.01)),
-    ]
-    
-    table = Table("Name", "Kwargs", "Output", title="Sampling - Manual Testing")
-    
-    for (name, kwargs) in cases:
-        for i in range(N_RUNS):
-            output = sampler.sample(your_prompt, max_tokens_generated=24, **kwargs)
-            table.add_row(name, repr(kwargs), repr(output) + "\n")
-    
-    rprint(table)
+N_RUNS = 1
+your_prompt = "Jingle bells, jingle bells, jingle all the way"
+cases = [
+    ("High freq penalty", dict(frequency_penalty=100.0)),
+    ("Negative freq penalty", dict(frequency_penalty=-3.0)),
+    ("Too hot!", dict(temperature=2.0)),
+    ("Pleasantly cool", dict(temperature=0.7)),
+    ("Pleasantly warm", dict(temperature=0.9)),
+    ("Too cold!", dict(temperature=0.01)),
+]
 
+table = Table("Name", "Kwargs", "Output", title="Sampling - Manual Testing")
+
+for (name, kwargs) in cases:
+    for i in range(N_RUNS):
+        output = sampler.sample(your_prompt, max_tokens_generated=24, **kwargs)
+        table.add_row(name, repr(kwargs), repr(output) + "\n")
+
+rprint(table)
 ```
 
 ## Top-K Sampling
@@ -2721,34 +2606,31 @@ Implement the method `sample_top_k` now. Your implementation should stay in log-
 
 
 ```python
+prompt = "John and Mary went to the"
+input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+logits = model(input_ids)[0, -1]
 
-if MAIN:
-    prompt = "John and Mary went to the"
-    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    logits = model(input_ids)[0, -1]
-    
-    expected_top_5 = {
-        " church": 0.0648,
-        " house": 0.0367,
-        " temple": 0.0145,
-        " same": 0.0104,
-        " Church": 0.0097
-    }
-    topk_5_sum = sum(expected_top_5.values())
-    
-    observed_freqs = defaultdict(int)
-    
-    N = 10000
-    for _ in tqdm(range(N)):
-        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits, top_k=5)
-        observed_freqs[tokenizer.decode(token)] += 1
-    
-    for word in expected_top_5:
-        expected_freq = expected_top_5[word] / topk_5_sum
-        observed_freq = observed_freqs[word] / N
-        print(f"Word: {word!r:<9}. Expected freq = {expected_freq:.4f}, observed freq = {observed_freq:.4f}")
-        assert abs(observed_freq - expected_freq) < 0.015, "Try increasing N if this fails by a small amount."
+expected_top_5 = {
+    " church": 0.0648,
+    " house": 0.0367,
+    " temple": 0.0145,
+    " same": 0.0104,
+    " Church": 0.0097
+}
+topk_5_sum = sum(expected_top_5.values())
 
+observed_freqs = defaultdict(int)
+
+N = 10000
+for _ in tqdm(range(N)):
+    token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits, top_k=5)
+    observed_freqs[tokenizer.decode(token)] += 1
+
+for word in expected_top_5:
+    expected_freq = expected_top_5[word] / topk_5_sum
+    observed_freq = observed_freqs[word] / N
+    print(f"Word: {word!r:<9}. Expected freq = {expected_freq:.4f}, observed freq = {observed_freq:.4f}")
+    assert abs(observed_freq - expected_freq) < 0.015, "Try increasing N if this fails by a small amount."
 ```
 
 <details>
@@ -2777,14 +2659,11 @@ The paper claims they used `top_k=40` and best of 10 samples.
 
 
 ```python
+sampler = TransformerSampler(model, tokenizer)
 
-if MAIN:
-    sampler = TransformerSampler(model, tokenizer)
-    
-    your_prompt = "In a shocking finding, scientist discovered a herd of unicorns living in a remote, previously unexplored valley, in the Andes Mountains. Even more surprising to the researchers was the fact that the unicorns spoke perfect English."
-    output = sampler.sample(your_prompt, temperature=0.7, top_k=40, max_tokens_generated=64)
-    rprint(f"Your model said:\n\n[bold dark_orange]{output}")
-
+your_prompt = "In a shocking finding, scientist discovered a herd of unicorns living in a remote, previously unexplored valley, in the Andes Mountains. Even more surprising to the researchers was the fact that the unicorns spoke perfect English."
+output = sampler.sample(your_prompt, temperature=0.7, top_k=40, max_tokens_generated=64)
+rprint(f"Your model said:\n\n[bold dark_orange]{output}")
 ```
 
 ## Top-p aka Nucleus Sampling
@@ -2827,31 +2706,28 @@ Once you've decided which probabilities to keep, it's easiest to sample from the
 
 
 ```python
+prompt = "John and Mary went to the"
+input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+logits = model(input_ids)[0, -1]
 
-if MAIN:
-    prompt = "John and Mary went to the"
-    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    logits = model(input_ids)[0, -1]
-    
-    expected_top_10pct = {
-        " church": 0.0648,
-        " house": 0.0367, # These are the two most likely tokens, and add up to >10%
-    }
-    top_10pct_sum = sum(expected_top_10pct.values())
-    
-    observed_freqs = defaultdict(int)
-    
-    N = 10000
-    for _ in tqdm(range(N)):
-        token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits, top_p=0.1)
-        observed_freqs[tokenizer.decode(token)] += 1
-    
-    for word in expected_top_10pct:
-        expected_freq = expected_top_10pct[word] / top_10pct_sum
-        observed_freq = observed_freqs[word] / N
-        print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
-        assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
+expected_top_10pct = {
+    " church": 0.0648,
+    " house": 0.0367, # These are the two most likely tokens, and add up to >10%
+}
+top_10pct_sum = sum(expected_top_10pct.values())
 
+observed_freqs = defaultdict(int)
+
+N = 10000
+for _ in tqdm(range(N)):
+    token = TransformerSampler.sample_next_token(input_ids.squeeze(), logits, top_p=0.1)
+    observed_freqs[tokenizer.decode(token)] += 1
+
+for word in expected_top_10pct:
+    expected_freq = expected_top_10pct[word] / top_10pct_sum
+    observed_freq = observed_freqs[word] / N
+    print(f"Word: {word!r:<9}. Expected freq {expected_freq:.4f}, observed freq {observed_freq:.4f}")
+    assert abs(observed_freq - expected_freq) < 0.01, "Try increasing N if this fails by a small amount."
 ```
 
 <details>
@@ -2880,14 +2756,11 @@ def sample_top_p(logits: t.Tensor, top_p: float, min_tokens_to_keep: int = 1) ->
 
 
 ```python
+sampler = TransformerSampler(model, tokenizer)
 
-if MAIN:
-    sampler = TransformerSampler(model, tokenizer)
-    
-    your_prompt = "Eliezer Shlomo Yudkowsky (born September 11, 1979) is an American decision and artificial intelligence (AI) theorist and writer, best known for"
-    output = sampler.sample(your_prompt, temperature=0.7, top_p=0.95, max_tokens_generated=64)
-    rprint(f"Your model said:\n\n[bold dark_orange]{output}")
-
+your_prompt = "Eliezer Shlomo Yudkowsky (born September 11, 1979) is an American decision and artificial intelligence (AI) theorist and writer, best known for"
+output = sampler.sample(your_prompt, temperature=0.7, top_p=0.95, max_tokens_generated=64)
+rprint(f"Your model said:\n\n[bold dark_orange]{output}")
 ```
 
 ## Beam search
@@ -3105,83 +2978,71 @@ Example usage of the `Beams` class, and the `print` method (not the logitsums ar
 
 
 ```python
-
-if MAIN:
-    beams = Beams(
-        model, 
-        tokenizer,
-        logprob_sums = t.tensor([-10.0, -15.0, -20.0]).to(device),
-        tokens = t.tensor([
-            [5661, 318, 262, 2368],
-            [5661, 318, 262, 1218],
-            [5661, 318, 262, 717],
-        ]).to(device)
-    )
-    
-    beams.print()
-
-```
-
-And here are some unit tests for your `generate` and `filter` methods:
-
-
-```python
-
-if MAIN:
-    print("Testing generate, without no_repeat_ngram_size argument:")
-    new_beams = beams.generate(toks_per_beam=2)
-    new_beams.print()
-    assert new_beams.logprobs_and_completions[0][1] == "this is the third time"
-
-```
-
-```python
-
-if MAIN:
-    print("Testing generate, with no_repeat_ngram_size argument:")
-    
-    bigram_beams = Beams(
-        model, 
-        tokenizer,
-        logprob_sums = t.tensor([-0.0]).to(device),
-        tokens = t.tensor([[530, 734, 530, 734]]).to(device)
-        # tokens are " one two one two"
-    )
-    
-    # With no_repeat_ngram_size=1, should not generate the token " one" or " two"
-    new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=1)
-    new_bigram_beams.print()
-    assert all([not (completion[1].endswith(" one") or completion[1].endswith(" two")) for completion in new_bigram_beams.logprobs_and_completions])
-    
-    # With no_repeat_ngram_size=2, it can generate " two" (which it should), but not " one"
-    new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=2)
-    new_bigram_beams.print()
-    assert all([not completion[1].endswith(" one") for completion in new_bigram_beams.logprobs_and_completions])
-    assert any([not completion[1].endswith(" two") for completion in new_bigram_beams.logprobs_and_completions])
-    
-    print("All tests for `generate` passed!")
-
-```
-
-```python
-
-if MAIN:
-    logprob_sums = t.tensor([-1.0, -2.0]).to(device)
+beams = Beams(
+    model, 
+    tokenizer,
+    logprob_sums = t.tensor([-10.0, -15.0, -20.0]).to(device),
     tokens = t.tensor([
-        [19485, 13],
-        [19485, tokenizer.eos_token_id]
+        [5661, 318, 262, 2368],
+        [5661, 318, 262, 1218],
+        [5661, 318, 262, 717],
     ]).to(device)
-    
-    beams_with_eos = Beams(model, tokenizer, logprob_sums, tokens)
-    best_beams, early_terminations = beams_with_eos.filter(2)
-    
-    t.testing.assert_close(best_beams.logprob_sums, logprob_sums[[0]])
-    t.testing.assert_close(best_beams.tokens, tokens[[0]])
-    
-    assert early_terminations.logprobs_and_completions == [(-2.0, "Stop" + tokenizer.eos_token)]
-    
-    print("All tests for `filter` passed!")
+)
 
+beams.print()
+```
+
+And here are some unit tests for your `generate` and `filter` methods.
+
+First, tests for `generate`:
+
+```python
+print("Testing generate, without no_repeat_ngram_size argument:")
+new_beams = beams.generate(toks_per_beam=2)
+new_beams.print()
+assert new_beams.logprobs_and_completions[0][1] == "this is the third time"
+
+print("Testing generate, with no_repeat_ngram_size argument:")
+bigram_beams = Beams(
+    model, 
+    tokenizer,
+    logprob_sums = t.tensor([-0.0]).to(device),
+    tokens = t.tensor([[530, 734, 530, 734]]).to(device)
+    # tokens are " one two one two"
+)
+    
+# With no_repeat_ngram_size=1, should not generate the token " one" or " two"
+new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=1)
+new_bigram_beams.print()
+assert all([not (completion[1].endswith(" one") or completion[1].endswith(" two")) for completion in new_bigram_beams.logprobs_and_completions])
+
+# With no_repeat_ngram_size=2, it can generate " two" (which it should), but not " one"
+new_bigram_beams = bigram_beams.generate(toks_per_beam=3, no_repeat_ngram_size=2)
+new_bigram_beams.print()
+assert all([not completion[1].endswith(" one") for completion in new_bigram_beams.logprobs_and_completions])
+assert any([not completion[1].endswith(" two") for completion in new_bigram_beams.logprobs_and_completions])
+
+print("All tests for `generate` passed!")
+```
+
+Now, tests for `filter`:
+
+```python
+logprob_sums = t.tensor([-1.0, -2.0]).to(device)
+tokens = t.tensor([
+    [19485, 13],
+    [19485, tokenizer.eos_token_id]
+]).to(device)
+
+beams_with_eos = Beams(model, tokenizer, logprob_sums, tokens)
+best_beams, early_terminations = beams_with_eos.filter(2)
+
+t.testing.assert_close(best_beams.logprob_sums, logprob_sums[[0]])
+t.testing.assert_close(best_beams.tokens, tokens[[0]])
+
+assert early_terminations.logprobs_and_completions == [(-2.0, "Stop" + tokenizer.eos_token)]
+
+print("All tests for `filter` passed!")
 ```
 
 <details>
@@ -3254,30 +3115,27 @@ Once you've passed both these unit tests, you can try implementing the full beam
 
 
 ```python
+TransformerSampler.beam_search = beam_search
 
-if MAIN:
-    TransformerSampler.beam_search = beam_search
-    
-    sampler = TransformerSampler(model, tokenizer)
-    
-    prompt = "The ships hung in the sky in much the same way that"
-    orig_len = len(tokenizer.encode(prompt))
-    
-    final_logitsums_and_completions = sampler.beam_search(
-        prompt=prompt, 
-        num_return_sequences=3,
-        num_beams=40,
-        max_new_tokens=60, 
-        no_repeat_ngram_size=2,
-        verbose=False
-    )
-    
-    # Print all the best output
-    for logprob_sum, text in final_logitsums_and_completions:
-        avg_logprob_as_prob = t.tensor(logprob_sum / (len(tokenizer.encode(text)) - orig_len)).exp().item()
-        print("=" * 25 + f" Avg logprob (as probability) = {avg_logprob_as_prob:.3f} " + "=" * 25)
-        rprint("Best output:\n\n[bold dark_orange]" + text)
+sampler = TransformerSampler(model, tokenizer)
 
+prompt = "The ships hung in the sky in much the same way that"
+orig_len = len(tokenizer.encode(prompt))
+
+final_logitsums_and_completions = sampler.beam_search(
+    prompt=prompt, 
+    num_return_sequences=3,
+    num_beams=40,
+    max_new_tokens=60, 
+    no_repeat_ngram_size=2,
+    verbose=False
+)
+
+# Print all the best output
+for logprob_sum, text in final_logitsums_and_completions:
+    avg_logprob_as_prob = t.tensor(logprob_sum / (len(tokenizer.encode(text)) - orig_len)).exp().item()
+    print("=" * 25 + f" Avg logprob (as probability) = {avg_logprob_as_prob:.3f} " + "=" * 25)
+    rprint("Best output:\n\n[bold dark_orange]" + text)
 ```
 
 <details>
