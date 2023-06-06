@@ -113,7 +113,9 @@ class Model(nn.Module):
 
 
 tests.test_model(Model)
+
 # %%
+
 def linear_lr(step, steps):
     return (1 - (step / steps))
 
@@ -123,6 +125,16 @@ def constant_lr(*_):
 def cosine_decay_lr(step, steps):
     return np.cos(0.5 * np.pi * step / (steps - 1))
 
+
+def bad_rotation(W):
+    val_0 = model.W.abs()[:,0,:]
+    val_1 = model.W.abs()[:,1,:]
+    
+    val = val_0 * val_1
+    length = (val_0 ** 2 + val_1 ** 2).sqrt()
+    return (val / length).mean(axis=1)
+
+
 def optimize(
     model: Model, 
     n_batch=1024,
@@ -130,7 +142,8 @@ def optimize(
     print_freq=100,
     lr=1e-3,
     lr_scale=constant_lr,
-    hooks=[]
+    hooks=[],
+    force_priviliged_base=None,
 ):
     cfg = model.config
 
@@ -146,19 +159,28 @@ def optimize(
             batch = model.generate_batch(n_batch)
             out = model(batch)
             error = (model.importance*(batch.abs() - out)**2)
-            loss = einops.reduce(error, 'b i f -> i', 'mean').sum()
-            loss.backward()
+            
+            loss = einops.reduce(error, 'b i f -> i', 'mean')
+            if force_priviliged_base is not None:
+                full_loss = loss + bad_rotation(W) * force_priviliged_base
+            else:
+                full_loss = loss
+                
+            full_loss = full_loss.sum()
+            full_loss.backward()
             opt.step()
 
             if hooks:
-                hook_data = dict(model=model, step=step, opt=opt, error=error, loss=loss, lr=step_lr)
+                hook_data = dict(model=model, step=step, opt=opt, error=error, loss=full_loss, lr=step_lr)
                 for h in hooks: h(hook_data)
             if step % print_freq == 0 or (step + 1 == steps):
                 progress_bar.set_postfix(
-                    loss=loss.item() / cfg.n_instances,
+                    loss=full_loss.item() / cfg.n_instances,
                     lr=step_lr,
                 )
-                
+
+    print("FINAL LOSS", loss.sum().item())
+
 # %%
 config = Config(
     n_instances = 10,
@@ -170,10 +192,10 @@ importance = (0.9**t.arange(config.n_features))
 
 feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
 
-line(importance, width=600, height=400, title="Importance of each feature (same over all instances)", labels={"y": "Feature importance", "x": "Feature"})
+# line(importance, width=600, height=400, title="Importance of each feature (same over all instances)", labels={"y": "Feature importance", "x": "Feature"})
 
-line(feature_probability, width=600, height=400, title="Feature probability (varied over instances)", labels={"y": "Probability", "x": "Instance"})
-# %%
+# line(feature_probability, width=600, height=400, title="Feature probability (varied over instances)", labels={"y": "Probability", "x": "Instance"})
+
 model = Model(
     config=config,
     device=device,
@@ -182,13 +204,14 @@ model = Model(
 )
 
 
-optimize(model)
+optimize(model, force_priviliged_base=0.005)
+
+plot_Ws_from_model(model, config)
+print(model.b_final.round(decimals=3))
 
 # %%
-plot_Ws_from_model(model, config)
 
-print(model.b_final.round(decimals=2))
-print(model.W[4].round(decimals=2))
+# print(model.W.abs().min(axis=0)[0].round(decimals=2))
 # %%
 config = Config(
     n_instances = 20,
@@ -211,7 +234,7 @@ model = Model(
     feature_probability = feature_probability[:, None]
 )
 
-optimize(model)
+optimize(model, force_priviliged_base=0.005)
 
 fig = render_features(model, np.s_[::2])
 fig.update_layout(width=1200, height=2000)
@@ -358,7 +381,7 @@ model = Model(
     feature_probability=feature_probability[:, None]
 )
 
-optimize(model)
+optimize(model, force_priviliged_base=0.0001)
 
 plot_Ws_from_model(model, config)
 # %%
@@ -382,7 +405,7 @@ model = Model(
     feature_probability=feature_probability[:, None]
 )
 
-optimize(model)
+optimize(model, force_priviliged_base=0.0001)
 
 plot_Ws_from_model(model, config)
 # %%
@@ -406,7 +429,7 @@ model = Model(
     feature_probability=feature_probability[:, None]
 )
 
-optimize(model)
+optimize(model, force_priviliged_base=0.0005)
 
 plot_Ws_from_model(model, config)
 # %%
