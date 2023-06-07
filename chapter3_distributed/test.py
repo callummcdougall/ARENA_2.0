@@ -341,3 +341,20 @@ def test_broadcast_ring(broadcast_impl):
     fake_dist = test_scaffold(broadcast_impl, 16)
     assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
     assert all(len(fake_dist.writes[i]) == 1 for i in range(fake_dist.world_size-1))
+
+def test_allreduce_butterfly(allreduce_impl):
+    fake_dist = test_scaffold(allreduce_impl, 16)
+    assert all(len(fake_dist.reads[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
+    assert all(len(fake_dist.writes[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
+    for k, v in fake_dist.writes.items():
+        rank = bin(k)[2:].zfill(len(bin(fake_dist.world_size - 1)[2:]))
+        for i in range(len(rank)):
+            partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
+            partner_rank = int(partner_rank, 2)
+            assert partner_rank in v
+    for k, v in fake_dist.reads.items():
+        rank = bin(k)[2:].zfill(len(bin(fake_dist.world_size - 1)[2:]))
+        for i in range(len(rank)):
+            partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
+            partner_rank = int(partner_rank, 2)
+            assert partner_rank in v
