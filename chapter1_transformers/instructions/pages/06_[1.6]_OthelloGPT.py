@@ -281,7 +281,7 @@ To get started, let's load in the model that we'll be using for this chapter. A 
 
 #### Vocab size & context window
 
-Games are $60$ moves, but the model can only take in $59$. It's trained to predict the next move, so they give it the first $59$ moves ($0\leq...<59$) and evaluate the predictions for each next move ($1\leq...<60$). There is no Beginning of Sequence token, and the model never tries to predict the first move of the game. This is why `d_vocab = 61` (one per possible square you can play - an 8x8 board minus the middle 4 squares which are already occupied) and `n_ctx = 59` (the context window length).
+Games are $60$ moves, but the model can only take in $59$. It's trained to predict the next move, so they give it the first $59$ moves ($0\leq...<59$) and evaluate the predictions for each next move ($1\leq...<60$). There is no Beginning of Sequence token, and the model never tries to predict the first move of the game. This is why `d_vocab = 61` (one per possible square you can play - an 8x8 board minus the middle 4 squares which are already occupied, plus one for the "pass" move) and `n_ctx = 59` (the context window length).
 
 The vocabulary is denoted `A0, A1, ..., A7, B0, ..., H7` (with the letters referring to rows and numbers to columns), with the middle squares `D3, D4, E3, E4` being the occupied ones which aren't included in the vocabulary. The games with a pass are filtered out, so all games end after 60 moves.
 
