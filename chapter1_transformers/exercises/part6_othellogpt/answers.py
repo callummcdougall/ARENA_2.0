@@ -3,6 +3,8 @@
 # %%
 import os
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = ""
 import sys
 import torch as t
 import torch.nn as nn
@@ -52,7 +54,7 @@ from neel_plotly import scatter, line
 import part6_othellogpt.tests as tests
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
-
+# device = "cpu"
 t.set_grad_enabled(False)
 
 MAIN = __name__ == "__main__"
@@ -972,4 +974,198 @@ plot_square_as_board(
 
 # %%
 
-### PART 4: TRAINING A 
+### PART 4: TRAINING A PROBE
+
+imshow(
+    focus_states[0, :16],
+    facet_col=0,
+    facet_col_wrap=8,
+    facet_labels=[f"Move {i}" for i in range(1, 17)],
+    title="First 16 moves of first game",
+    color_continuous_scale="Greys",
+)
+# %%
+@dataclass
+class ProbeTrainingArgs():
+
+    # Which layer, and which positions in a game sequence to probe
+    layer: int = 6
+    pos_start: int = 5
+    pos_end: int = model.cfg.n_ctx - 5
+    length: int = pos_end - pos_start
+    alternating: Tensor = t.tensor([1 if i%2 == 0 else -1 for i in range(length)], device=device)
+
+    # Game state (options are blank/mine/theirs)
+    options: int = 3
+    rows: int = 8
+    cols: int = 8
+
+    # Standard training hyperparams
+    max_epochs: int = 8
+    num_games: int = 50000
+
+    # Hyperparams for optimizer
+    batch_size: int = 256
+    lr: float = 1e-4
+    betas: Tuple[float, float] = (0.9, 0.99)
+    wd: float = 0.01
+
+    # Misc.
+    probe_name: str = "main_linear_probe"
+
+    # The first mode is blank or not, the second mode is next or prev GIVEN that it is not blank
+    modes = 3
+
+    # Code to get randomly initialized probe
+    def setup_linear_probe(self, model: HookedTransformer):
+        linear_probe = t.randn(
+            self.modes, model.cfg.d_model, self.rows, self.cols, self.options, requires_grad=False, device=device
+        ) / np.sqrt(model.cfg.d_model)
+        linear_probe.requires_grad = True
+        return linear_probe
+# %%
+def seq_to_state_stack(str_moves):
+    board = OthelloBoardState()
+    states = []
+    for move in str_moves:
+        board.umpire(move)
+        states.append(np.copy(board.state))
+    states = np.stack(states, axis=0)
+    return states
+# %%
+class LitLinearProbe(pl.LightningModule):
+    def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
+        super().__init__()
+        self.model = model
+        self.args = args
+        self.linear_probe = args.setup_linear_probe(model)
+        pl.seed_everything(42, workers=True)
+
+    def training_step(self, batch: Int[Tensor, "game_idx"], batch_idx: int) -> t.Tensor:
+
+        games_int = board_seqs_int[batch.cpu()]
+        games_str = board_seqs_string[batch.cpu()]
+        state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
+        state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
+        state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
+        batch_size = self.args.batch_size
+        game_len = self.args.length
+
+        # games_int = tensor of game sequences, each of length 60
+        # This is the input to our model
+        assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
+
+        # state_stack_one_hot = tensor of one-hot encoded states for each game
+        # We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
+        assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
+
+        # run model in inference mode and get residual stream (post attn and MLP)
+        with t.inference_mode():
+            _, cache = self.model.run_with_cache(games_int[:,:-1])
+        resid_post = cache["resid_post", self.args.layer][:, self.args.pos_start: self.args.pos_end]
+
+        # take the batched inner product of residual stream vectors with probe directions
+        probe_projection = einops.einsum(
+            self.linear_probe, 
+            resid_post, 
+            "modes d_model rows cols options, batch game_len d_model -> modes batch game_len rows cols options"
+        )
+        # print(f"{probe_projection=}")
+
+        # convert result from logits to logprobs (over option=3)
+        logprobs = probe_projection.log_softmax(-1)
+        # print(f"{logprobs=}")
+
+        # Multiply the logprob tensor with state_stack_one_hot and sum over final dimension
+        mean_correct_logprobs = einops.reduce(
+            logprobs * state_stack_one_hot.float(),
+            "modes batch game_len rows cols options -> modes game_len rows cols",
+            "mean"
+        ) * self.args.options
+        # print(f"{correct_logprobs=}")
+
+        # print(f"{mean_correct_logprobs=}")
+        loss_odd = -einops.reduce(
+            mean_correct_logprobs[0,0::2],
+            "game_len rows cols -> ",
+            "sum"
+        )
+        loss_even = -einops.reduce(
+            mean_correct_logprobs[1,1::2],
+            "game_len rows cols -> ",
+            "sum"
+        )
+        loss_all = -einops.reduce(
+            mean_correct_logprobs[2],
+            "game_len rows cols -> ",
+            "sum"
+        )
+        return loss_odd + loss_even + loss_all
+
+
+
+    def train_dataloader(self):
+        '''
+        Returns `games_int` and `state_stack_one_hot` tensors.
+        '''
+        n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
+        full_train_indices = t.randperm(self.args.num_games)[:n_indices]
+        full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
+        return full_train_indices
+
+
+    def configure_optimizers(self):
+        optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
+        return optimizer
+# %%
+
+# Create the model & training system
+args = ProbeTrainingArgs()
+litmodel = LitLinearProbe(model, args)
+
+# You can choose either logger
+logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
+# logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
+
+# Train the model
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs,
+    logger=logger,
+    log_every_n_steps=1,
+)
+trainer.fit(model=litmodel)
+# %%
+black_to_play_index = 0
+white_to_play_index = 1
+blank_index = 0
+their_index = 1
+my_index = 2
+
+# Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
+my_linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
+my_linear_probe[..., blank_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 0] + litmodel.linear_probe[white_to_play_index, ..., 0])
+my_linear_probe[..., their_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 1] + litmodel.linear_probe[white_to_play_index, ..., 2])
+my_linear_probe[..., my_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 2] + litmodel.linear_probe[white_to_play_index, ..., 1])
+
+# Getting the probe's output, and then its predictions
+probe_out = einops.einsum(
+    focus_cache["resid_post", 6], my_linear_probe,
+    "game move d_model, d_model row col options -> game move row col options"
+)
+probe_out_value = probe_out.argmax(dim=-1)
+
+# Getting the correct answers in the odd cases
+correct_middle_odd_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5:2]
+accuracies_odd = einops.reduce(correct_middle_odd_answers.float(), "game move row col -> row col", "mean")
+
+# Getting the correct answers in all cases
+correct_middle_answers = (probe_out_value.cpu() == focus_states_flipped_value[:, :-1])[:, 5:-5]
+accuracies = einops.reduce(correct_middle_answers.float(), "game move row col -> row col", "mean")
+
+plot_square_as_board(
+    1 - t.stack([accuracies_odd, accuracies], dim=0), 
+    title="Average Error Rate of Linear Probe", 
+    facet_col=0, facet_labels=["Black to Play moves", "All Moves"], 
+    zmax=0.25, zmin=-0.25
+)
+# %%
