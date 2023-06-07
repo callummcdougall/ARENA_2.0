@@ -296,7 +296,7 @@ model = HookedTransformer.from_pretrained(
 
 This argument means we redefine the matrices $W_Q$, $W_K$, $W_V$ and $W_O$ in the model (without changing the model's actual behaviour).
 
-For example, we know that instead of working with $W_Q$ and $W_K$ individually, the only matrix we actually need to use in the model is the low-rank matrix $W_Q W_K^T$ (note that I'm using the convention of matrix multiplication on the right, which matches the code in transformerlens and previous exercises in this series, but doesn't match Anthropic's Mathematical Frameworks paper). So if we perform singular value decomposition $W_Q W_K^T = U S V^T$, then we see that we can just as easily define $W_Q = U \sqrt{S}$ and $W_K = $V \sqrt{S}$ and use these instead. This means that $W_Q$ and $W_K$ both have orthogonal columns with matching norms. You can investigate this yourself (e.g. using the code below). This is arguably a more interpretable setup, because now there's no obvious asymmetry between the keys and queries.
+For example, we know that instead of working with $W_Q$ and $W_K$ individually, the only matrix we actually need to use in the model is the low-rank matrix $W_Q W_K^T$ (note that I'm using the convention of matrix multiplication on the right, which matches the code in transformerlens and previous exercises in this series, but doesn't match Anthropic's Mathematical Frameworks paper). So if we perform singular value decomposition $W_Q W_K^T = U S V^T$, then we see that we can just as easily define $W_Q = U \sqrt{S}$ and $W_K = V \sqrt{S}$ and use these instead. This means that $W_Q$ and $W_K$ both have orthogonal columns with matching norms. You can investigate this yourself (e.g. using the code below). This is arguably a more interpretable setup, because now there's no obvious asymmetry between the keys and queries.
 
 There's also some fiddlyness with how biases are handled in this factorisation, which is why the comments above don't hold absolutely (see the documnentation for more info).
 
@@ -635,7 +635,7 @@ $$
 Combining these, we get:
 
 $$
-L_i = \log \frac{e^{x_i}}{\sum_{j=1}^n e^{x_j}} = x_i - \log \sum_{j=1}^n e^{x_j}
+L_i = \log \frac{e^{x_i}}{\sum_{k=1}^n e^{x_k}} = x_i - \log \sum_{k=1}^n e^{x_k}
 $$
 
 Notice that the sum term on the right hand side is the same for all $i$, so we get:
@@ -837,7 +837,7 @@ Once you have the solution, you can plot your results.
 Key for the plot below: `n_pre` means the residual stream at the start of layer n, `n_mid` means the residual stream after the attention part of layer n (`n_post` is the same as `n+1_pre` so is not included)
 
 * `layer` is the layer for which we input the residual stream (this is used to identify *which* layer norm scaling factor we want)
-* `incl_mid` is whether to include the residual stream in the middle of a layer, ie after attention & before MLP
+* `incl_mid` is whether to include the residual stream in the middle of a layer, i.e. after attention & before MLP
 * `pos_slice` is the subset of the positions used. See `utils.Slice` for details on the syntax.
 * `return_labels` is whether to return the labels for each component returned (useful for plotting)
 </details>
@@ -1100,9 +1100,11 @@ The obvious limitation to the techniques used above is that they only look at th
 
 The technique we'll use to investigate this is called **activation patching**. This was first introduced in [David Bau and Kevin Meng's excellent ROME paper](https://rome.baulab.info/), there called causal tracing.
 
-The setup of activation patching is to take two runs of the model on two different inputs, the clean run and the corrupted run. The clean run outputs the correct answer and the corrupted run does not. The key idea is that we give the model the corrupted input, but then **intervene** on a specific activation and **patch** in the corresponding activation from the clean run (ie replace the corrupted activation with the clean activation), and then continue the run. And we then measure how much the output has updated towards the correct answer.
+The setup of activation patching is to take two runs of the model on two different inputs, the clean run and the corrupted run. The clean run outputs the correct answer and the corrupted run does not. The key idea is that we give the model the corrupted input, but then **intervene** on a specific activation and **patch** in the corresponding activation from the clean run (i.e. replace the corrupted activation with the clean activation), and then continue the run. And we then measure how much the output has updated towards the correct answer.
 
 We can then iterate over many possible activations and look at how much they affect the corrupted run. If patching in an activation significantly increases the probability of the correct answer, this allows us to *localise* which activations matter.
+
+In other words, this is a **noising** algorithm (unlike last section which was mostly **denoising**).
 
 The ability to localise is a key move in mechanistic interpretability - if the computation is diffuse and spread across the entire model, it is likely much harder to form a clean mechanistic story for what's going on. But if we can identify precisely which parts of the model matter, we can then zoom in and determine what they represent and how they connect up with each other, and ultimately reverse engineer the underlying circuit that they represent.
 
@@ -1219,7 +1221,7 @@ Fill in the function `ioi_metric` below, to create the required metric. Note tha
 
 **Important note** - this function needs to return a scalar tensor, rather than a float. If not, then some of the patching functions later on won't work. The type signature of this is `Float[Tensor, ""]`.
 
-**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). Our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" is that a component isn't important, and so replacing its values with those on the corrupted input won't make the model worse. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
+**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). We might say that our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" that the component isn't important now has a different implication - replacing its values with those on the corrupted input won't prevent the model from being able to perform the task. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
 
 <details>
 <summary>More on noising vs. denoising</summary>
@@ -1406,7 +1408,7 @@ def get_act_patch_resid_pre(
     # SOLUTION
     model.reset_hooks()
     seq_len = corrupted_tokens.size(1)
-    results = t.zeros(model.cfg.n_layers, seq_len, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, seq_len, device=device, dtype=t.float32)
 
     for layer in tqdm(range(model.cfg.n_layers)):
         for position in range(seq_len):
@@ -1501,7 +1503,7 @@ def get_act_patch_block_every(
     corrupted_tokens: Float[Tensor, "batch pos"], 
     clean_cache: ActivationCache, 
     patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float]
-) -> Float[Tensor, "layer pos"]:
+) -> Float[Tensor, "3 layer pos"]:
     '''
     Returns an array of results of patching each position at each layer in the residual
     stream, using the value from the clean cache.
@@ -1512,9 +1514,6 @@ def get_act_patch_block_every(
     pass
 
 
-```
-
-```python
 act_patch_block_every_own = get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
 
 t.testing.assert_close(act_patch_block_every, act_patch_block_every_own)
@@ -1550,7 +1549,7 @@ def get_act_patch_block_every(
     '''
     # SOLUTION
     model.reset_hooks()
-    results = t.zeros(3, model.cfg.n_layers, tokens.size(1), device="cuda", dtype=t.float32)
+    results = t.zeros(3, model.cfg.n_layers, tokens.size(1), device=device, dtype=t.float32)
 
     for component_idx, component in enumerate(["resid_pre", "attn_out", "mlp_out"]):
         for layer in tqdm(range(model.cfg.n_layers)):
@@ -1705,7 +1704,7 @@ def get_act_patch_attn_head_out_all_pos(
     '''
     # SOLUTION
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     for layer in tqdm(range(model.cfg.n_layers)):
         for head in range(model.cfg.n_heads):
@@ -1854,7 +1853,7 @@ def get_act_patch_attn_head_all_pos_every(
     called on the model's logit output.
     '''
     # SOLUTION
-    results = t.zeros(5, model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(5, model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
     # Loop over each component in turn
     for component_idx, component in enumerate(["z", "q", "k", "v", "pattern"]):
         for layer in tqdm(range(model.cfg.n_layers)):
@@ -2133,9 +2132,7 @@ def make_table(cols, colnames, title="", n_rows=5, decimals=4):
         table.add_row(*list(map(f, row)))
     rprint(table)
 
-```
 
-```python
 make_table(
     colnames = ["IOI prompt", "IOI subj", "IOI indirect obj", "ABC prompt"],
     cols = [
@@ -2256,7 +2253,7 @@ Our 3-step process looks like the diagram below (remember green is corrupted, gr
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-alg-transformers-6.png" width="700">
 
-(Note - in this diagram, the uncoloured nodes indicate we aren't doing any patching; we're just allowing them to be computed from the values of nodes which are downstream of it.)
+(Note - in this diagram, the uncoloured nodes indicate we aren't doing any patching; we're just allowing them to be computed from the values of nodes which are upstream of it.)
 
 
 Why does this work? If you stare at the middle picture above for long enough, you'll realise that the contribution from every non-direct path from `0.0` $\to$ `2.0` is the same as it would be on the clean distribution, while all the direct paths' contributions are the same as they would be on the corrupted distribution. 
@@ -2363,7 +2360,7 @@ def get_path_patch_head_to_final_resid_post(
         tensor of metric values for every possible sender head
     '''
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     # ========== Step 1 ==========
     # Gather activations on x_orig and x_new
@@ -2429,6 +2426,28 @@ imshow(
 
 
 ```python
+def patch_or_freeze_head_vectors(
+	orig_head_vector: Float[Tensor, "batch pos head_index d_head"],
+	hook: HookPoint, 
+	new_cache: ActivationCache,
+	orig_cache: ActivationCache,
+	head_to_patch: Tuple[int, int], 
+) -> Float[Tensor, "batch pos head_index d_head"]:
+	'''
+	This helps implement step 2 of path patching. We freeze all head outputs (i.e. set them
+	to their values in orig_cache), except for head_to_patch (if it's in this layer) which
+	we patch with the value from new_cache.
+
+	head_to_patch: tuple of (layer, head)
+		we can use hook.layer() to check if the head to patch is in this layer
+	'''
+	# Setting using ..., otherwise changing orig_head_vector will edit cache value too
+	orig_head_vector[...] = orig_cache[hook.name][...]
+	if head_to_patch[0] == hook.layer():
+		orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
+	return orig_head_vector
+
+
 def get_path_patch_head_to_final_resid_post(
     model: HookedTransformer,
     patching_metric: Callable,
@@ -2448,7 +2467,7 @@ def get_path_patch_head_to_final_resid_post(
         tensor of metric values for every possible sender head
     '''
     model.reset_hooks()
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
 
     resid_post_hook_name = utils.get_act_name("resid_post", model.cfg.n_layers - 1)
     resid_post_name_filter = lambda name: name == resid_post_hook_name
@@ -2505,25 +2524,6 @@ def get_path_patch_head_to_final_resid_post(
         results[sender_layer, sender_head] = patching_metric(patched_logits)
 
     return results
-```
-```python
-    hook: HookPoint, 
-    new_cache: ActivationCache,
-    orig_cache: ActivationCache,
-    head_to_patch: Tuple[int, int], 
-    '''
-    This helps implement step 2 of path patching. We freeze all head outputs (i.e. set them
-    to their values in orig_cache), except for head_to_patch (if it's in this layer) which
-    we patch with the value from new_cache.
-    head_to_patch: tuple of (layer, head)
-        we can use hook.layer() to check if the head to patch is in this layer
-    '''
-    # Setting using ..., otherwise changing orig_head_vector will edit cache value too
-    orig_head_vector[...] = orig_cache[hook.name][...]
-    if head_to_patch[0] == hook.layer():
-        orig_head_vector[:, :, head_to_patch[1]] = new_cache[hook.name][:, :, head_to_patch[1]]
-    return orig_head_vector
-
 ```
 </details>
 
@@ -2687,7 +2687,7 @@ def get_path_patch_head_to_heads(
     receiver_hook_names = [utils.get_act_name(receiver_input, layer) for layer in receiver_layers]
     receiver_hook_names_filter = lambda name: name in receiver_hook_names
 
-    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(max(receiver_layers), model.cfg.n_heads, device=device, dtype=t.float32)
     
     # ========== Step 1 ==========
     # Gather activations on x_orig and x_new
@@ -3033,7 +3033,7 @@ def get_copying_scores(
     Omits the 0th layer, because this is before MLP0 (which we're claiming acts as an extended embedding).
     '''
     # SOLUTION
-    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+    results = t.zeros((2, model.cfg.n_layers, model.cfg.n_heads), device=device)
 
     # Define components from our model (for typechecking, and cleaner code)
     embed: Embed = model.embed
@@ -3197,7 +3197,7 @@ def get_attn_scores(
     else:
         raise ValueError(f"Unknown head type {head_type}")
 
-    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device="cuda", dtype=t.float32)
+    results = t.zeros(model.cfg.n_layers, model.cfg.n_heads, device=device, dtype=t.float32)
     for layer in range(model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
             attn_scores: Float[Tensor, "batch head dest src"] = cache["pattern", layer]
@@ -3376,65 +3376,6 @@ where `hook_name` can be a string or a filter function mapping strings to boolea
 
 
 ```python
-
-    
-def hook_fn_mask_z(
-    z: Float[Tensor, "batch seq head d_head"],
-    hook: HookPoint,
-    heads_and_posns_to_keep: Dict[int, Bool[Tensor, "batch seq head"]],
-    means: Float[Tensor, "layer batch seq head d_head"],
-) -> Float[Tensor, "batch seq head d_head"]:
-    '''
-    Hook function which masks the z output of a transformer head.
-
-    heads_and_posns_to_keep
-        Dict created with the get_heads_and_posns_to_keep function. This tells
-        us where to mask.
-
-    means
-        Tensor of mean z values of the means_dataset over each group of prompts
-        with the same template. This tells us what values to mask with.
-    '''
-    # Get the mask for this layer, and add d_head=1 dimension so it broadcasts correctly
-    mask_for_this_layer = heads_and_posns_to_keep[hook.layer()].unsqueeze(-1).to(z.device)
-
-    # Set z values to the mean 
-    z = t.where(mask_for_this_layer, z, means[hook.layer()])
-
-    return z
-
-
-def compute_means_by_template(
-    means_dataset: IOIDataset, 
-    model: HookedTransformer
-) -> Float[Tensor, "layer batch seq head_idx d_head"]:
-    '''
-    Returns the mean of each head's output over the means dataset. This mean is
-    computed separately for each group of prompts with the same template (these
-    are given by means_dataset.groups).
-    '''
-    # Cache the outputs of every head
-    _, means_cache = model.run_with_cache(
-        means_dataset.toks.long(),
-        return_type=None,
-        names_filter=lambda name: name.endswith("z"),
-    )
-    # Create tensor to store means
-    n_layers, n_heads, d_head = model.cfg.n_layers, model.cfg.n_heads, model.cfg.d_head
-    batch, seq_len = len(means_dataset), means_dataset.max_len
-    means = t.zeros(size=(n_layers, batch, seq_len, n_heads, d_head), device=model.cfg.device)
-
-    # Get set of different templates for this data
-    for layer in range(model.cfg.n_layers):
-        z_for_this_layer: Float[Tensor, "batch seq head d_head"] = means_cache[utils.get_act_name("z", layer)]
-        for template_group in means_dataset.groups:
-            z_for_this_template = z_for_this_layer[template_group]
-            z_means_for_this_template = einops.reduce(z_for_this_template, "batch seq head d_head -> seq head d_head", "mean")
-            means[layer, template_group] = z_means_for_this_template
-
-    return means
-
-
 def add_mean_ablation_hook(
     model: HookedTransformer, 
     means_dataset: IOIDataset, 
@@ -3451,28 +3392,7 @@ def add_mean_ablation_hook(
     except for a subset of heads and sequence positions as specified by the circuit
     and seq_pos_to_keep dicts.
     '''
-    
-    model.reset_hooks(including_permanent=True)
-
-    # Compute the mean of each head's output on the ABC dataset, grouped by template
-    means = compute_means_by_template(means_dataset, model)
-    
-    # Convert this into a boolean map
-    heads_and_posns_to_keep = get_heads_and_posns_to_keep(means_dataset, model, circuit, seq_pos_to_keep)
-
-    # Get a hook function which will patch in the mean z values for each head, at 
-    # all positions which aren't important for the circuit
-    hook_fn = partial(
-        hook_fn_mask_z, 
-        heads_and_posns_to_keep=heads_and_posns_to_keep, 
-        means=means
-    )
-
-    # Apply hook
-    model.add_hook(lambda name: name.endswith("z"), hook_fn, is_permanent=is_permanent)
-
-    return model
-
+    pass
 ```
 
 To test whether your function works, you can use the function provided to you, and see if the logit difference from your implementation of the circuit matches this one:

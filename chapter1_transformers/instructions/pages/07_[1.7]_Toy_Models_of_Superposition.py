@@ -227,7 +227,7 @@ This is realised in our toy model as follows:
 
 * **Importance** = the coefficient on the weighted mean squared error between the input and output, which we use for training the model
     * In other words, our loss function is $L = \sum_x \sum_i I_i (x_i - x_i')^2$, where $I_i$ is the importance of feature $i$.
-* **Sparsity** = the probability of the corresponding element in $x$ being non-zero
+* **Sparsity** = the probability of the corresponding element in $x$ being zero
     * In other words, this affects the way our training data is generated (see the method `generate_batch` in the `Module` class below)
 
 The justification for using $W^T W$ is as follows: we can think of $W$ (which is a matrix of shape `(2, 5)`) as a grid of "overlap values" between the features and bottleneck dimensions. The values of the 5x5 matrix $W^T W$ are the dot products between the 2D representations of each pair of features. To make this intuition clearer, imagine each of the columns of $W$ were unit vectors, then $W^T W$ would be a matrix of cosine similarities between the features (with diagonal elements equal to 1, because the similarity of a feature with itself is 1). To see this for yourself:
@@ -295,7 +295,7 @@ A few things to note:
     * Note that feature probability is used in the `generate_batch` function, to get our training data.
 
 
-You should fill in the `__init__` function, which defines `self.W` and `self.b_final` (see the type annotations). Make sure that `W` is initialized with the [Xavier normal method](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1a86191a828a085e1c720dbce185d6c307.html).
+You should fill in the `__init__` function, which defines `self.W` and `self.b_final` (see the type annotations). Make sure that `W` is initialized with the [Xavier normal method](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1a86191a828a085e1c720dbce185d6c307.html).  `b_final` can be initialized with zeros.
 
 You should also fill in the `forward` function, to calculate the output (again, the type annotations should be helpful here).
 
@@ -303,12 +303,15 @@ You should also fill in the `forward` function, to calculate the output (again, 
 ```python
 @dataclass
 class Config:
-    n_instances: int
-    n_features: int = 5
-    n_hidden: int = 2
     # We optimize n_instances models in a single training loop to let us sweep over
     # sparsity or importance curves  efficiently. You should treat `n_instances` as 
     # kinda like a batch dimension, but one which is built into our training setup.
+    n_instances: int
+    n_features: int = 5
+    n_hidden: int = 2
+    # Ignore the correlation arguments for now.
+    n_correlated_pairs: int = 0
+    n_anticorrelated_pairs: int = 0
 
      
 class Model(nn.Module):
@@ -340,13 +343,15 @@ class Model(nn.Module):
     ) -> Float[Tensor, "... instances features"]:
         pass
 
-    def generate_batch(self, n_batch):
+    def generate_batch(self, n_batch) -> Float[Tensor, "n_batch instances features"]:
         '''
-        Generates a batch of data
-        '''
+        Generates a batch of data. We'll return to this function later when we apply correlations.
+        '''    
         feat = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+        feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+        feat_is_present = feat_seeds <= self.feature_probability
         batch = t.where(
-            t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device) <= self.feature_probability,
+            feat_is_present,
             feat,
             t.zeros((), device=self.W.device),
         )
@@ -408,13 +413,15 @@ class Model(nn.Module):
         return out
 
 
-    def generate_batch(self, n_batch):
+    def generate_batch(self, n_batch) -> Float[Tensor, "n_batch instances features"]:
         '''
-        Generates a batch of data
-        '''
+        Generates a batch of data. We'll return to this function later when we apply correlations.
+        '''    
         feat = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+        feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+        feat_is_present = feat_seeds <= self.feature_probability
         batch = t.where(
-            t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device) <= self.feature_probability,
+            feat_is_present,
             feat,
             t.zeros((), device=self.W.device),
         )
@@ -599,20 +606,319 @@ fig = render_features(model, np.s_[::2])
 fig.update_layout(width=1200, height=2000)
 ```
 
-## Other concepts
-
-
-#### Correlated or anticorrelated feature sets
+## Correlated or anticorrelated feature sets
 
 One major thing we haven't considered in our experiments is **correlation**. We could guess that superposition is even more common when features are **anticorrelated** (for a similar reason as why it's more common when features are sparse). Most real-world features are anticorrelated (e.g. the feature "this is a sorted Python list" and "this is some text in an edgy teen vampire romance novel" are probably anticorrelated - that is, unless you've been reading some pretty weird fanfics).
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/correlated2.png" width="900">
+In this section, you'll define a new data-generating function for correlated features, and run the same experiments as in the first section.
+
+### Exercise - implement `generate_correlated_batch`
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠⚪⚪⚪
+
+You should spend up to 20-30 minutes on this exercise.
+
+It's not conceptually important, and it's quite fiddly / delicate, so you should look at the solutions if you get stuck.
+```
+
+You should implement the function `generate_correlated_batch`, which will replace the `generate_batch` function you were given at the start of these exercises. You can start by copying the code from `generate_batch`.
+
+Before implementing the function, you should read the [experimental details in Anthropic's paper](https://transformer-circuits.pub/2022/toy_model/index.html#geometry-correlated-setup), where they describe how they setup correlated and anticorrelated sets. TLDR, we have:
+
+* Correlated feature pairs, where features co-occur
+    * i.e. they always all occur or none of them occur
+    * We can simulate this by using the same random seed for each feature in a pair
+* Anticorrelated feature pairs, where features never co-occur
+    * i.e. if one feature occurs, the other must not occur
+    * We can simulate this by having a random seed for "is a feature pair all zero", and a random seed for "which feature in the pair is active" (used if the feature pair isn't all zero)
+
+**Important note** - we're using a different convention to the Anthropic paper. They have both features in an anticorrelated pair set to zero with probability $1-p$, and with probability $p$ we choose one of the features in the pair to set to zero. The problem with this is that the "true feature probability" is $p/2$, not $p$. You should make sure that each feature actually occurs with probability $p$, which means setting the pair to zero with probability $1-2p$. You can assume $p$ will always be less than $1/2$.
+
+```python
+def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_batch instances fetures"]:
+    '''
+    Generates a batch of data.
+
+    There are `n_correlated_pairs` pairs of correlated features (i.e. they always co-occur), and 
+    `n_anticorrelated` pairs of anticorrelated features (i.e. they never co-occur; they're
+    always opposite).
+
+    So the total number of features defined this way is `2 * n_correlated_pairs + 2 * n_anticorrelated`.
+
+    You should stack the features in the order (correlated, anticorrelated, uncorrelated), where
+    the uncorrelated ones are all the remaining features.
+
+    Note, we assume the feature probability varies across instances but not features, i.e. all features
+    in each instance have the same probability of being present.
+    '''
+    n_correlated_pairs = self.config.n_correlated_pairs
+    n_anticorrelated_pairs = self.config.n_anticorrelated_pairs
+
+    n_uncorrelated = self.config.n_features - 2 * (n_correlated_pairs + n_anticorrelated_pairs)
+    assert n_uncorrelated >= 0, "Need to have number of paired correlated + anticorrelated features <= total features"
+    assert self.feature_probability.shape == (self.config.n_instances, 1), "Feature probability should not vary across features in a single instance."
+
+    # Define uncorrelated features, the standard way
+    feat = t.rand((n_batch, self.config.n_instances, n_uncorrelated), device=self.W.device)
+    feat_seeds = t.rand((n_batch, self.config.n_instances, n_uncorrelated), device=self.W.device)
+    feat_is_present = feat_seeds <= self.feature_probability
+    batch_uncorrelated = t.where(
+        feat_is_present,
+        feat,
+        t.zeros((), device=self.W.device),
+    )
+
+    # YOUR CODE HERE - compute batch_correlated and batch_anticorrelated, and stack all three batches together
+    pass
 
 
-#### Neuron superposition vs bottleneck superposition
+Model.generate_batch = generate_correlated_batch
+```
 
-We've mainly discussed what Neel refers to as **bottleneck superposition**, when a low-dimensional space is forced to act as a kind of "storage" for a higher-dimensional space. This happens in transformers, e.g. with the residual stream as the lower-dimensional space, and the space of all possible features as the (much) higher-dimensional space. We've not considered **neuron superposition**, which is what happens when there are more features represented in neuron activation space than there are neurons. For more on this, see the next section!
+<details>
+<summary>Solution</summary>
 
+```python
+def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_batch instances fetures"]:
+    '''
+    Generates a batch of data.
+
+    There are `n_correlated_pairs` pairs of correlated features (i.e. they always co-occur), and 
+    `n_anticorrelated` pairs of anticorrelated features (i.e. they never co-occur; they're
+    always opposite).
+
+    So the total number of features defined this way is `2 * n_correlated_pairs + 2 * n_anticorrelated`.
+
+    You should stack the features in the order (correlated, anticorrelated, uncorrelated), where
+    the uncorrelated ones are all the remaining features.
+
+    Note, we assume the feature probability varies across instances but not features, i.e. all features
+    in each instance have the same probability of being present.
+    '''
+    n_correlated_pairs = self.config.n_correlated_pairs
+    n_anticorrelated_pairs = self.config.n_anticorrelated_pairs
+
+    n_uncorrelated = self.config.n_features - 2 * (n_correlated_pairs + n_anticorrelated_pairs)
+    assert n_uncorrelated >= 0, "Need to have number of paired correlated + anticorrelated features <= total features"
+    assert self.feature_probability.shape == (self.config.n_instances, 1), "Feature probability should not vary across features in a single instance."
+
+    # Define uncorrelated features, the standard way
+    feat = t.rand((n_batch, self.config.n_instances, n_uncorrelated), device=self.W.device)
+    feat_seeds = t.rand((n_batch, self.config.n_instances, n_uncorrelated), device=self.W.device)
+    feat_is_present = feat_seeds <= self.feature_probability
+    batch_uncorrelated = t.where(
+        feat_is_present,
+        feat,
+        t.zeros((), device=self.W.device),
+    )
+
+    # SOLUTION
+    # Define correlated features: have the same sample determine if they're zero or not
+    feat = t.rand((n_batch, self.config.n_instances, 2 * n_correlated_pairs), device=self.W.device)
+    feat_set_seeds = t.rand((n_batch, self.config.n_instances, n_correlated_pairs), device=self.W.device)
+    feat_set_is_present = feat_set_seeds <= self.feature_probability
+    feat_is_present = einops.repeat(
+        feat_set_is_present,
+        "batch instances features -> batch instances (features pair)", pair=2
+    )
+    batch_correlated = t.where(
+        feat_is_present, 
+        feat,
+        t.zeros((), device=self.W.device),
+    )
+
+    # Define anticorrelated features: have them all be zero with probability `feature_probability`, and
+    # have a single feature randomly chosen if they aren't all zero
+    feat = t.rand((n_batch, self.config.n_instances, 2 * n_anticorrelated_pairs), device=self.W.device)
+    # First, generate seeds (both for entire feature set, and for features within the set)
+    feat_set_seeds = t.rand((n_batch, self.config.n_instances, n_anticorrelated_pairs), device=self.W.device)
+    first_feat_seeds = t.rand((n_batch, self.config.n_instances, n_anticorrelated_pairs), device=self.W.device)
+    # Create boolean mask for whether the entire set is zero
+    # Note: the *2 here didn't seem to be used by the paper, but it makes more sense imo! You can leave it out and still get good results.
+    feat_set_is_present = feat_set_seeds <= 2 * self.feature_probability
+    # Where it's not zero, create boolean mask for whether the first element is zero
+    first_feat_is_present = first_feat_seeds <= 0.5
+    # Now construct our actual features and stack them together, then rearrange
+    first_feats = t.where(
+        feat_set_is_present & first_feat_is_present, 
+        feat[:, :, :n_anticorrelated_pairs],
+        t.zeros((), device=self.W.device)
+    )
+    second_feats = t.where(
+        feat_set_is_present & (~first_feat_is_present), 
+        feat[:, :, n_anticorrelated_pairs:],
+        t.zeros((), device=self.W.device)
+    )
+    batch_anticorrelated = einops.rearrange(
+        t.concat([first_feats, second_feats], dim=-1),
+        "batch instances (pair features) -> batch instances (features pair)", pair=2
+    )
+
+    return t.concat([batch_correlated, batch_anticorrelated, batch_uncorrelated], dim=-1)
+```
+
+</details>
+
+Once you've completed this function, try running the code below. You should see that the correlated features (the two columns on the left) always co-occur, and the two anticorrelated features (on the right) never do.
+
+<details>
+<summary>Example output you should be getting</summary>
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/example_output_2.png" width="700">
+</details>
+
+```python
+config = Config(
+    n_instances = 10,
+    n_features = 4,
+    n_hidden = 2,
+    n_correlated_pairs = 1,
+    n_anticorrelated_pairs = 1,
+)
+
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+batch = model.generate_batch(n_batch = 1)
+
+imshow(
+    batch.squeeze(),
+    labels={"x": "Feature", "y": "Instance"}, 
+    title="Feature heatmap (first two features correlated, last two anticorrelated)"
+)
+```
+
+The code below tests your function, by generating a large number of batches and measuring them statistically.
+
+```python
+feature_probability = (20 ** -t.linspace(0.5, 1, config.n_instances))
+model.feature_probability = feature_probability[:, None].to(device)
+
+batch = model.generate_batch(n_batch = 10000)
+
+corr0, corr1, anticorr0, anticorr1 = batch.unbind(dim=-1)
+corr0_is_active = corr0 != 0
+corr1_is_active = corr1 != 0
+anticorr0_is_active = anticorr0 != 0
+anticorr1_is_active = anticorr1 != 0
+
+assert (corr0_is_active == corr1_is_active).all(), "Correlated features should be active together"
+assert (corr0_is_active.float().mean(0).cpu() - feature_probability).abs().mean() < 0.01, "Each correlated feature should be active with probability `feature_probability`"
+
+assert (anticorr0_is_active & anticorr1_is_active).int().sum().item() == 0, "Anticorrelated features should never be active together"
+assert (anticorr0_is_active.float().mean(0).cpu() - feature_probability).abs().mean() < 0.01, "Each anticorrelated feature should be active with probability `feature_probability`"
+```
+
+Now, let's try making some plots with two pairs of correlated features (matching the [first figure](https://transformer-circuits.pub/2022/toy_model/index.html#geometry-organization) in the Anthropic paper):
+
+```python
+config = Config(
+    n_instances = 5,
+    n_features = 4,
+    n_hidden = 2,
+    n_correlated_pairs = 2,
+    n_anticorrelated_pairs = 0,
+)
+
+# All same importance
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+# We use very low feature probabilities, from 5% down to 0.25%
+feature_probability = (400 ** -t.linspace(0.5, 1, 5))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+optimize(model)
+
+plot_Ws_from_model(model, config)
+```
+
+### Exercise - generate the other feature correlation plots
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to ~10 minutes on this exercise.
+
+It should just involve changing the parameters in your code above.
+```
+
+You should now plot the second and third figures in the [set of feature correlation plots](https://transformer-circuits.pub/2022/toy_model/index.html#geometry-organization) (keeping the same importance and feature probability). You may not get exactly the same results as the paper, but they should still roughly match (e.g. you should see no antipodal pairs in the code above, but you should see at least some when you test the anticorrelated sets).
+
+<details>
+<summary>Solution</summary>
+
+For the first plot:
+
+```python
+config = Config(
+    n_instances = 5,
+    n_features = 4,
+    n_hidden = 2,
+    n_correlated_pairs = 0,
+    n_anticorrelated_pairs = 2,
+)
+
+# All same importance
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+# We use low feature probabilities, from 5% down to 0.25%
+feature_probability = (400 ** -t.linspace(0.5, 1, 5))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+optimize(model)
+
+plot_Ws_from_model(model, config)
+```
+
+For the second plot:
+
+```python
+config = Config(
+    n_instances = 5,
+    n_features = 6,
+    n_hidden = 2,
+    n_correlated_pairs = 3,
+    n_anticorrelated_pairs = 0,
+)
+
+# All same importance
+importance = t.ones(config.n_features, dtype=t.float, device=device)
+# We use low feature probabilities, from 5% down to 0.25%
+feature_probability = (400 ** -t.linspace(0.5, 1, 5))
+
+model = Model(
+    config=config,
+    device=device,
+    importance=importance[None, :],
+    feature_probability=feature_probability[:, None]
+)
+
+optimize(model)
+
+plot_Ws_from_model(model, config)
+```
+
+</details>
 
 ## Summary - what have we learned?
 
@@ -689,7 +995,7 @@ It turns out that antipodal pairs are just the tip of the iceberg. Hiding undern
 How can we discover these geometric configurations? Consider the following metric, which the authors named the **dimensionality** of a feature:
 
 $$
-D_i = \frac{\big\|W_i\big\|^2}{\sum_{j\neq i} \big( \hat{W_i} \cdot W_j \big)^2}
+D_i = \frac{\big\|W_i\big\|^2}{\sum_{j} \big( \hat{W_i} \cdot W_j \big)^2}
 $$
 
 Intuitively, this is a measure of what "fraction of a dimension" a specific feature gets. Let's try and get a few intuitions for this metric:
@@ -765,6 +1071,8 @@ Note that we should take care not to read too much significance into these resul
 ## Further Reading
 
 Here are some other papers or blog posts you might want to read, which build on the ideas we discussed in this section.
+
+There are also a number of papers here which study individual neurons. So far, we've mainly discussed what Neel refers to as **bottleneck superposition**, when a low-dimensional space is forced to act as a kind of "storage" for a higher-dimensional space. This happens in transformers, e.g. with the residual stream as the lower-dimensional space, and the space of all possible features as the (much) higher-dimensional space. We've not considered **neuron superposition**, which is what happens when there are more features represented in neuron activation space than there are neurons.
 
 * [Superposition, Memorization, and Double Descent](https://www.alignmentforum.org/posts/6Ks6p33LQyfFkNtYE/paper-superposition-memorization-and-double-descent)
     * Anthropic's follow up to theis superposition paper.

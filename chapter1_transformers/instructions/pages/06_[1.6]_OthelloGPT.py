@@ -281,7 +281,7 @@ To get started, let's load in the model that we'll be using for this chapter. A 
 
 #### Vocab size & context window
 
-Games are $60$ moves, but the model can only take in $59$. It's trained to predict the next move, so they give it the first $59$ moves ($0\leq...<59$) and evaluate the predictions for each next move ($1\leq...<60$). There is no Beginning of Sequence token, and the model never tries to predict the first move of the game. This is why `d_vocab = 61` (one per possible square you can play - an 8x8 board minus the middle 4 squares which are already occupied) and `n_ctx = 59` (the context window length).
+Games are $60$ moves, but the model can only take in $59$. It's trained to predict the next move, so they give it the first $59$ moves ($0\leq...<59$) and evaluate the predictions for each next move ($1\leq...<60$). There is no Beginning of Sequence token, and the model never tries to predict the first move of the game. This is why `d_vocab = 61` (one per possible square you can play - an 8x8 board minus the middle 4 squares which are already occupied, plus one for the "pass" move) and `n_ctx = 59` (the context window length).
 
 The vocabulary is denoted `A0, A1, ..., A7, B0, ..., H7` (with the letters referring to rows and numbers to columns), with the middle squares `D3, D4, E3, E4` being the occupied ones which aren't included in the vocabulary. The games with a pass are filtered out, so all games end after 60 moves.
 
@@ -463,7 +463,7 @@ plot_square_as_board(temp_board_state.reshape(8, 8), zmax=0, diverging_scale=Fal
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 
@@ -559,13 +559,13 @@ focus_logits.shape
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > 
 > New:
 > 
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -576,9 +576,22 @@ focus_logits.shape
 >     * Shape of logits is `(num_games=50, num_moves=59, d_vocab=61)` (59 because we never predict the first move, 61 because we have 60 moves + 1 for pass).
 >     * This gives us 3000 moves in total.
 
+## What is a probe?
+
+From the [MI Dynalist notes](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#q=probe):
+
+> **[Probing](https://arxiv.org/pdf/1610.01644.pdf)** is a technique for identifying directions in network activation space that correspond to a concept/feature.
+> 
+> In spirit, you give the network a bunch of inputs with that feature, and a bunch without it. You train a linear map on a specific activation (eg the output of layer 5) which distinguishes these two sets, giving a 1D linear map (a **probe**), corresponding to a direction in activation space, which likely corresponds to that feature.
+
+Probes can be a very valuable tool to help us better understand the concepts represented in our model. However, there are two big caveats to keep in mind:
+
+1. Probes give us a direction, but they don't give us a causal story about how that direction got into the model in the first place, or how the model is using that direction.
+2. Probes (especially nonlinear probes) can be hiding a lot of computation under their surface.
+
+In the original paper analysing Othello, the authors used nonlinear probing to find important directions. This went against a fundamental intuition - that models fundamentally store things in linear ways, and so we should be able to access them with linear probes. In these exercises, we'll be using linear probes.
 
 ## Using the probe
-
 
 The training of this probe was kind of a mess, and I'd do a bunch of things differently if doing it again.
 
@@ -701,10 +714,10 @@ Trying to locate this circuit might be a fun bonus exercise!
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -1103,10 +1116,10 @@ The fact that we see the model's predictions for `G4` and `D2` change (with `G4`
 > * **`model` is an 8-layer autoregressive transformer.**
 >     * It has been trained to predict legal Othello moves (all with the same probability).
 >     * It gets fed a sequence of type `int` (i.e. integers from 0 to 60, where 0 represents "pass" (not present in our data) and the other numbers represent the 60 moves, excluding 4 middle squares).
-> * **`board_seqs_int`, `board_seqs_str` are different representations of all 10000 of our games.**
+> * **`board_seqs_int`, `board_seqs_string` are different representations of all 10000 of our games.**
 >     * Both have shape `(num_games=10000, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
-> * **`focus_games_int`, `focus_games_str` - different representations of our "focus games".**
+> * **`focus_games_int`, `focus_games_string` - different representations of our "focus games".**
 >     * Both have shape `(num_games=50, num_moves=60)`.
 >     * The former has labels from 1 to 60, the latter from 0 to 63 excluding the middle squares.
 > * **`focus_states` tells us what the board state is at any point.**
@@ -1575,7 +1588,7 @@ imshow(
 
 It seems to represent `(C0==BLANK) & (D1==THEIRS) & (E2==MINE)`.
 
-This is useful for the model, because if all three of these conditions hold, then `E2` is a legal move (because it flips `D1`).
+This is useful for the model, because if all three of these conditions hold, then `C0` is a legal move (because it flips `D1`).
 </details>
 
 
@@ -2315,6 +2328,7 @@ Can you guess what any of these neurons are doing? Does it help if you also plot
 
 ```python
 # Your code here - investigate the top 10 neurons by std dev of activations, see what you can find!
+
 plot_square_as_board(
     output_weights_in_logit_basis, 
     title=f"Output weights of top 10 neurons in layer 5, in the output logit basis",
@@ -2328,6 +2342,35 @@ plot_square_as_board(
     facet_labels=[f"L5N{n.item()}" for n in top_neurons]
 )
 ```
+
+<details>
+<summary>Solution</summary>
+
+```python
+layer = 5
+top_neurons = focus_cache["post", layer].std(dim=[0, 1]).argsort(descending=True)[:10]
+board_states = []
+output_weights_in_logit_basis = []
+
+for neuron in top_neurons:
+
+    # Get output weights in logit basis
+    w_out = get_w_out(model, layer, neuron, normalize=False)
+    state = t.zeros(8, 8, device=device)
+    state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
+    output_weights_in_logit_basis.append(state)
+    
+    # Get max activating dataset aggregations
+    neuron_acts = focus_cache["post", 5, "mlp"][:, :, neuron]
+    top_moves = neuron_acts > neuron_acts.quantile(0.99)
+    board_state_at_top_moves = focus_states_flipped_pm1[:, :-1][top_moves].float().mean(0)
+    board_states.append(board_state_at_top_moves)
+
+
+output_weights_in_logit_basis = t.stack(output_weights_in_logit_basis)
+board_states = t.stack(board_states)
+```
+</details>
 
 How do you interpret the results?
 
