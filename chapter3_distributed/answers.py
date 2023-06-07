@@ -25,16 +25,24 @@ from test import test_broadcast_tree
 def broadcast_tree():
     tensor = torch.tensor([dist.get_rank()], dtype=torch.float32)
     curr_mult = 1
-    while curr_mult * 2 < dist.get_world_size():
-        print(f"[rank {dist.get_rank()} curr_mult {curr_mult}]")
+    while curr_mult < dist.get_world_size():
         if dist.get_rank() < curr_mult:
-            print(f"{dist.get_rank()} -> {dist.get_rank() + curr_mult}")
             dist.send(tensor, dist.get_rank() + curr_mult)
         elif dist.get_rank() < curr_mult * 2:
-            print(f"{dist.get_rank()} <- {dist.get_rank() - curr_mult}")
             dist.recv(tensor, dist.get_rank() - curr_mult)
         curr_mult *= 2
         dist.barrier()
 
 if __name__ == '__main__':
     test_broadcast_tree(broadcast_tree)
+#%%
+from test import test_broadcast_ring
+
+def broadcast_ring():
+    tensor = torch.tensor([dist.get_rank()], dtype=torch.float32)
+    for i in range(1, dist.get_world_size()):
+        if dist.get_rank() == i-1:
+            dist.send(tensor, i)
+        elif dist.get_rank() == i:
+            dist.recv(tensor, i-1)
+        dist.barrier()

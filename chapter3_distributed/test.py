@@ -4,6 +4,7 @@ import math
 import threading
 
 import torch.distributed
+import tqdm
 
 from torch.distributed import ReduceOp
 
@@ -52,6 +53,8 @@ class DistWithRank(Dist):
                 assert len(self.source_dest_tensors[i][j]['to_write']) == 0, f"Incomplete recvs: {self.source_dest_tensors[i][j]['to_write']}"
 
     def write_to(self, tensor, rank):
+        assert rank >= 0 and rank < self.get_world_size(), f"Invalid rank: {rank}"
+        assert rank != self.get_rank(), f"Cannot write to self"
         self.writes[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
             if len(self.source_dest_tensors[rank][self.get_rank()]['to_read']) > 0:
@@ -61,6 +64,8 @@ class DistWithRank(Dist):
             else:
                 self.source_dest_tensors[self.get_rank()][rank]['to_write'].append(tensor)
     def read_from(self, tensor, rank):
+        assert rank >= 0 and rank < self.get_world_size(), f"Invalid rank: {rank}"
+        assert rank != self.get_rank(), f"Cannot read from self"
         self.reads[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
             if len(self.source_dest_tensors[rank][self.get_rank()]['to_write']) > 0:
@@ -328,6 +333,11 @@ def test_broadcast_naive(broadcast_impl):
     assert all(len(fake_dist.writes[i]) == fake_dist.world_size - 1 for i in range(fake_dist.world_size) if i == 0)
 
 def test_broadcast_tree(broadcast_impl):
-    fake_dist = test_scaffold(broadcast_impl, 8)
-    # assert all(len(fake_dist.writes[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
-    # assert all(len(fake_dist.reads[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == 0)
+    fake_dist = test_scaffold(broadcast_impl, 16)
+    assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
+    assert all(len(fake_dist.writes[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == 0)
+
+def test_broadcast_ring(broadcast_impl):
+    fake_dist = test_scaffold(broadcast_impl, 16)
+    assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
+    assert all(len(fake_dist.writes[i]) == 1 for i in range(fake_dist.world_size-1))
