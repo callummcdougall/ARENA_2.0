@@ -7,8 +7,10 @@
     "python.analysis.extraPaths": [
         // "${workspaceFolder}/chapter0_fundamentals",
         // "${workspaceFolder}/chapter0_fundamentals/exercises",
-        "${workspaceFolder}/chapter1_transformers",
-        "${workspaceFolder}/chapter1_transformers/exercises",
-        "${workspaceFolder}/chapter1_transformers/exercises/part6_othellogpt/othello_world/mechanistic_interpretability",
+        // "${workspaceFolder}/chapter1_transformers",
+        // "${workspaceFolder}/chapter1_transformers/exercises",
+        // "${workspaceFolder}/chapter1_transformers/exercises/part6_othellogpt/othello_world/mechanistic_interpretability",
+        "${workspaceFolder}/chapter2_rl",
+        "${workspaceFolder}/chapter2_rl/exercises",
     ]
 }

@@ -634,6 +634,8 @@ Before implementing the function, you should read the [experimental details in A
     * i.e. if one feature occurs, the other must not occur
     * We can simulate this by having a random seed for "is a feature pair all zero", and a random seed for "which feature in the pair is active" (used if the feature pair isn't all zero)
 
+**Important note** - we're using a different convention to the Anthropic paper. They have both features in an anticorrelated pair set to zero with probability $1-p$, and with probability $p$ we choose one of the features in the pair to set to zero. The problem with this is that the "true feature probability" is $p/2$, not $p$. You should make sure that each feature actually occurs with probability $p$, which means setting the pair to zero with probability $1-2p$. You can assume $p$ will always be less than $1/2$.
+
 ```python
 def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_batch instances fetures"]:
     '''
@@ -993,7 +995,7 @@ It turns out that antipodal pairs are just the tip of the iceberg. Hiding undern
 How can we discover these geometric configurations? Consider the following metric, which the authors named the **dimensionality** of a feature:
 
 $$
-D_i = \frac{\big\|W_i\big\|^2}{\sum_{j\neq i} \big( \hat{W_i} \cdot W_j \big)^2}
+D_i = \frac{\big\|W_i\big\|^2}{\sum_{j} \big( \hat{W_i} \cdot W_j \big)^2}
 $$
 
 Intuitively, this is a measure of what "fraction of a dimension" a specific feature gets. Let's try and get a few intuitions for this metric:
