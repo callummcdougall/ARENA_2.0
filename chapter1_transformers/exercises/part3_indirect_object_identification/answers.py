@@ -22,6 +22,7 @@ from rich.table import Table, Column
 from rich import print as rprint
 import circuitsvis as cv
 from pathlib import Path
+
 # %%
 from transformer_lens.hook_points import HookPoint
 from transformer_lens import utils, HookedTransformer, ActivationCache
@@ -140,10 +141,13 @@ def logits_to_ave_logit_diff(
     last_logits = logits[:, -1, :]
 
     batch_index = t.arange(batch)
-    diff_logits = last_logits[batch_index, answer_tokens[:, 0]] - last_logits[batch_index, answer_tokens[:, 1]]
+    diff_logits = (
+        last_logits[batch_index, answer_tokens[:, 0]]
+        - last_logits[batch_index, answer_tokens[:, 1]]
+    )
     if per_prompt:
         return diff_logits
-    
+
     else:
         return diff_logits.mean()
 
@@ -186,17 +190,28 @@ print(f"Logit difference directions shape:", logit_diff_directions.shape)
 
 # %%
 
+
 def residual_stack_to_logit_diff(
-    residual_stack: Float[Tensor, "... batch d_model"], 
+    residual_stack: Float[Tensor, "... batch d_model"],
     cache: ActivationCache,
     logit_diff_directions: Float[Tensor, "batch d_model"] = logit_diff_directions,
 ) -> Float[Tensor, "..."]:
-    '''
-    Gets the avg logit difference between the correct and incorrect answer for a given 
+    """
+    Gets the avg logit difference between the correct and incorrect answer for a given
     stack of components in the residual stream.
-    '''
-    scaled_residual_stack = cache.apply_ln_to_stack(residual_stack=residual_stack, layer=-1, pos_slice=-1)
-    return einops.reduce(einops.einsum(scaled_residual_stack, logit_diff_directions, "... batch d_model, batch d_model -> ... batch"), "... batch -> ...", "mean")
+    """
+    scaled_residual_stack = cache.apply_ln_to_stack(
+        residual_stack=residual_stack, layer=-1, pos_slice=-1
+    )
+    return einops.reduce(
+        einops.einsum(
+            scaled_residual_stack,
+            logit_diff_directions,
+            "... batch d_model, batch d_model -> ... batch",
+        ),
+        "... batch -> ...",
+        "mean",
+    )
 
 
 # t.testing.assert_close(
@@ -206,108 +221,121 @@ def residual_stack_to_logit_diff(
 
 # %%
 
-accumulated_residual, labels = cache.accumulated_resid(layer=-1, incl_mid=True, pos_slice=-1, return_labels=True)
+accumulated_residual, labels = cache.accumulated_resid(
+    layer=-1, incl_mid=True, pos_slice=-1, return_labels=True
+)
 # accumulated_residual has shape (component, batch, d_model)
 
-logit_lens_logit_diffs: Float[Tensor, "component"] = residual_stack_to_logit_diff(accumulated_residual, cache)
+logit_lens_logit_diffs: Float[Tensor, "component"] = residual_stack_to_logit_diff(
+    accumulated_residual, cache
+)
 
 line(
-    logit_lens_logit_diffs, 
+    logit_lens_logit_diffs,
     hovermode="x unified",
     title="Logit Difference From Accumulated Residual Stream",
     labels={"x": "Layer", "y": "Logit Diff"},
     xaxis_tickvals=labels,
-    width=800
+    width=800,
 )
 
 # %%
 
-per_layer_residual, labels = cache.decompose_resid(layer=-1, pos_slice=-1, return_labels=True)
+per_layer_residual, labels = cache.decompose_resid(
+    layer=-1, pos_slice=-1, return_labels=True
+)
 per_layer_logit_diffs = residual_stack_to_logit_diff(per_layer_residual, cache)
 
 line(
-    per_layer_logit_diffs, 
+    per_layer_logit_diffs,
     hovermode="x unified",
     title="Logit Difference From Each Layer",
     labels={"x": "Layer", "y": "Logit Diff"},
     xaxis_tickvals=labels,
-    width=800
+    width=800,
 )
 # %%
 
-per_layer_residual, labels = cache.decompose_resid(layer=-1, pos_slice=-1, return_labels=True)
+per_layer_residual, labels = cache.decompose_resid(
+    layer=-1, pos_slice=-1, return_labels=True
+)
 per_layer_logit_diffs = residual_stack_to_logit_diff(per_layer_residual, cache)
 
 line(
-    per_layer_logit_diffs, 
+    per_layer_logit_diffs,
     hovermode="x unified",
     title="Logit Difference From Each Layer",
     labels={"x": "Layer", "y": "Logit Diff"},
     xaxis_tickvals=labels,
-    width=800
+    width=800,
 )
 # %%
 
-per_head_residual, labels = cache.stack_head_results(layer=-1, pos_slice=-1, return_labels=True)
+per_head_residual, labels = cache.stack_head_results(
+    layer=-1, pos_slice=-1, return_labels=True
+)
 per_head_residual = einops.rearrange(
-    per_head_residual, 
-    "(layer head) ... -> layer head ...", 
-    layer=model.cfg.n_layers
+    per_head_residual, "(layer head) ... -> layer head ...", layer=model.cfg.n_layers
 )
 per_head_logit_diffs = residual_stack_to_logit_diff(per_head_residual, cache)
 
 imshow(
-    per_head_logit_diffs, 
-    labels={"x":"Head", "y":"Layer"}, 
+    per_head_logit_diffs,
+    labels={"x": "Head", "y": "Layer"},
     title="Logit Difference From Each Head",
-    width=600
+    width=600,
 )
+
 
 # %%
 def topk_of_Nd_tensor(tensor: Float[Tensor, "rows cols"], k: int):
-    '''
+    """
     Helper function: does same as tensor.topk(k).indices, but works over 2D tensors.
     Returns a list of indices, i.e. shape [k, tensor.ndim].
 
     Example: if tensor is 2D array of values for each head in each layer, this will
     return a list of heads.
-    '''
+    """
     i = t.topk(tensor.flatten(), k).indices
     return np.array(np.unravel_index(utils.to_numpy(i), tensor.shape)).T.tolist()
 
 
-
 k = 3
 
+prompt = 4
 for head_type in ["Positive", "Negative"]:
-
     # Get the heads with largest (or smallest) contribution to the logit difference
-    top_heads = topk_of_Nd_tensor(per_head_logit_diffs * (1 if head_type=="Positive" else -1), k)
+    top_heads = topk_of_Nd_tensor(
+        per_head_logit_diffs * (1 if head_type == "Positive" else -1), k
+    )
 
     # Get all their attention patterns
-    attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack([
-        cache["pattern", layer][:, head].mean(0)
-        for layer, head in top_heads
-    ])
+    attn_patterns_for_important_heads: Float[Tensor, "head q k"] = t.stack(
+        [cache["pattern", layer][:, head][prompt] for layer, head in top_heads]
+    )
 
     # Display results
     display(HTML(f"<h2>Top {k} {head_type} Logit Attribution Heads</h2>"))
-    display(cv.attention.attention_patterns(
-        attention = attn_patterns_for_important_heads,
-        tokens = model.to_str_tokens(tokens[0]),
-        attention_head_names = [f"{layer}.{head}" for layer, head in top_heads],
-    ))
+    display(
+        cv.attention.attention_patterns(
+            attention=attn_patterns_for_important_heads,
+            tokens=model.to_str_tokens(tokens[prompt]),
+            attention_head_names=[f"{layer}.{head}" for layer, head in top_heads],
+        )
+    )
 
 # %%
 
 clean_tokens = tokens
 # Swap each adjacent pair to get corrupted tokens
-indices = [i+1 if i % 2 == 0 else i-1 for i in range(len(tokens))]
+indices = [i + 1 if i % 2 == 0 else i - 1 for i in range(len(tokens))]
 corrupted_tokens = clean_tokens[indices]
 
 print(
-    "Clean string 0:    ", model.to_string(clean_tokens[0]), "\n"
-    "Corrupted string 0:", model.to_string(corrupted_tokens[0])
+    "Clean string 0:    ",
+    model.to_string(clean_tokens[0]),
+    "\n" "Corrupted string 0:",
+    model.to_string(corrupted_tokens[0]),
 )
 
 clean_logits, clean_cache = model.run_with_cache(clean_tokens)
@@ -320,19 +348,22 @@ corrupted_logit_diff = logits_to_ave_logit_diff(corrupted_logits, answer_tokens)
 print(f"Corrupted logit diff: {corrupted_logit_diff:.4f}")
 # %%
 
+
 def ioi_metric(
-    logits: Float[Tensor, "batch seq d_vocab"], 
+    logits: Float[Tensor, "batch seq d_vocab"],
     answer_tokens: Float[Tensor, "batch 2"] = answer_tokens,
     corrupted_logit_diff: float = corrupted_logit_diff,
     clean_logit_diff: float = clean_logit_diff,
 ) -> Float[Tensor, ""]:
-    '''
-    Linear function of logit diff, calibrated so that it equals 0 when performance is 
+    """
+    Linear function of logit diff, calibrated so that it equals 0 when performance is
     same as on corrupted input, and 1 when performance is same as on clean input.
-    '''
+    """
     epsilon = 1e-6
     recoved_logit_diff = logits_to_ave_logit_diff(logits, answer_tokens)
-    return (recoved_logit_diff - corrupted_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+    return (recoved_logit_diff - corrupted_logit_diff) / (
+        clean_logit_diff - corrupted_logit_diff
+    )
 
 
 t.testing.assert_close(ioi_metric(clean_logits).item(), 1.0)
@@ -344,54 +375,284 @@ from transformer_lens import patching
 
 # %%
 act_patch_resid_pre = patching.get_act_patch_resid_pre(
-    model = model,
-    corrupted_tokens = corrupted_tokens,
-    clean_cache = clean_cache,
-    patching_metric = ioi_metric
+    model=model,
+    corrupted_tokens=corrupted_tokens,
+    clean_cache=clean_cache,
+    patching_metric=ioi_metric,
 )
 
 labels = [f"{tok} {i}" for i, tok in enumerate(model.to_str_tokens(clean_tokens[0]))]
 
 imshow(
-    act_patch_resid_pre, 
+    act_patch_resid_pre,
     labels={"x": "Position", "y": "Layer"},
     x=labels,
     title="resid_pre Activation Patching",
-    width=600
+    width=600,
 )
 
 # %%
+import functools
+
+# %%
+
 
 def patch_residual_component(
     corrupted_residual_component: Float[Tensor, "batch pos d_model"],
-    hook: HookPoint, 
-    pos: int, 
-    clean_cache: ActivationCache
+    hook: HookPoint,
+    pos: int,
+    clean_cache: ActivationCache,
 ) -> Float[Tensor, "batch pos d_model"]:
-    '''
+    """
     Patches a given sequence position in the residual stream, using the value
     from the clean cache.
-    '''
-    pass
+    """
+    corrupted_residual_component = corrupted_residual_component.clone()
+    clean_residual_component = clean_cache[hook.name][:, pos]
+    corrupted_residual_component[:, pos, :] = clean_residual_component[:, :]
+    return corrupted_residual_component
 
 def get_act_patch_resid_pre(
-    model: HookedTransformer, 
-    corrupted_tokens: Float[Tensor, "batch pos"], 
-    clean_cache: ActivationCache, 
-    patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float]
+    model: HookedTransformer,
+    corrupted_tokens: Float[Tensor, "batch pos"],
+    clean_cache: ActivationCache,
+    patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float],
 ) -> Float[Tensor, "layer pos"]:
-    '''
+    """
     Returns an array of results of patching each position at each layer in the residual
     stream, using the value from the clean cache.
 
     The results are calculated using the patching_metric function, which should be
     called on the model's logit output.
-    '''
-    pass
+    """
+    result = t.zeros(model.cfg.n_layers, corrupted_tokens.shape[-1], device=model.cfg.device)
+    for layer in range(model.cfg.n_layers):
+        for pos in range(corrupted_tokens.shape[-1]):
+            hook_fn = functools.partial(
+                patch_residual_component, pos=pos, clean_cache=clean_cache
+            )
+            logits = model.run_with_hooks(
+                corrupted_tokens,
+                fwd_hooks=[(utils.get_act_name("resid_pre", layer), hook_fn)],
+                return_type="logits",
+            )
+            result[layer, pos] = patching_metric(logits)
+    return result
 
 
-act_patch_resid_pre_own = get_act_patch_resid_pre(model, corrupted_tokens, clean_cache, ioi_metric)
+act_patch_resid_pre_own = get_act_patch_resid_pre(
+    model, corrupted_tokens, clean_cache, ioi_metric
+)
 
 t.testing.assert_close(act_patch_resid_pre, act_patch_resid_pre_own)
+
+# %%
+
+imshow(
+    act_patch_resid_pre_own, 
+    x=labels, 
+    title="Logit Difference From Patched Residual Stream", 
+    labels={"x":"Sequence Position", "y":"Layer"},
+    width=600 # If you remove this argument, the plot will usually fill the available space
+)
+# %%
+act_patch_block_every = patching.get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
+
+imshow(
+    act_patch_block_every,
+    x=labels, 
+    facet_col=0, # This argument tells plotly which dimension to split into separate plots
+    facet_labels=["Residual Stream", "Attn Output", "MLP Output"], # Subtitles of separate plots
+    title="Logit Difference From Patched Attn Head Output", 
+    labels={"x": "Sequence Position", "y": "Layer"},
+    width=1000,
+)
+# %%
+from part3_indirect_object_identification.ioi_dataset import NAMES, IOIDataset
+# %%
+N = 25
+ioi_dataset = IOIDataset(
+    prompt_type="mixed",
+    N=N,
+    tokenizer=model.tokenizer,
+    prepend_bos=False,
+    seed=1,
+    device=str(device)
+)
+# %%
+abc_dataset = ioi_dataset.gen_flipped_prompts("ABB->XYZ, BAB->XYZ")
+# %%
+def format_prompt(sentence: str) -> str:
+    '''Format a prompt by underlining names (for rich print)'''
+    return re.sub("(" + "|".join(NAMES) + ")", lambda x: f"[u bold dark_orange]{x.group(0)}[/]", sentence) + "\n"
+
+
+def make_table(cols, colnames, title="", n_rows=5, decimals=4):
+    '''Makes and displays a table, from cols rather than rows (using rich print)'''
+    table = Table(*colnames, title=title)
+    rows = list(zip(*cols))
+    f = lambda x: x if isinstance(x, str) else f"{x:.{decimals}f}"
+    for row in rows[:n_rows]:
+        table.add_row(*list(map(f, row)))
+    rprint(table)
+# %%
+make_table(
+    colnames = ["IOI prompt", "IOI subj", "IOI indirect obj", "ABC prompt"],
+    cols = [
+        map(format_prompt, ioi_dataset.sentences), 
+        model.to_string(ioi_dataset.s_tokenIDs).split(), 
+        model.to_string(ioi_dataset.io_tokenIDs).split(), 
+        map(format_prompt, abc_dataset.sentences), 
+    ],
+    title = "Sentences from IOI vs ABC distribution",
+)
+# %%
+def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset = ioi_dataset, per_prompt=False):
+    '''
+    Returns logit difference between the correct and incorrect answer.
+
+    If per_prompt=True, return the array of differences rather than the average.
+    '''
+
+    # Only the final logits are relevant for the answer
+    # Get the logits corresponding to the indirect object / subject tokens respectively
+    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+    s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+    # Find logit difference
+    answer_logit_diff = io_logits - s_logits
+    return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+
+
+
+model.reset_hooks(including_permanent=True)
+
+ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
+abc_logits_original, abc_cache = model.run_with_cache(abc_dataset.toks)
+
+ioi_per_prompt_diff = logits_to_ave_logit_diff_2(ioi_logits_original, per_prompt=True)
+abc_per_prompt_diff = logits_to_ave_logit_diff_2(abc_logits_original, per_prompt=True)
+
+ioi_average_logit_diff = logits_to_ave_logit_diff_2(ioi_logits_original).item()
+abc_average_logit_diff = logits_to_ave_logit_diff_2(abc_logits_original).item()
+
+print(f"Average logit diff (IOI dataset): {ioi_average_logit_diff:.4f}")
+print(f"Average logit diff (ABC dataset): {abc_average_logit_diff:.4f}")
+
+make_table(
+    colnames = ["IOI prompt", "IOI logit diff", "ABC prompt", "ABC logit diff"],
+    cols = [
+        map(format_prompt, ioi_dataset.sentences), 
+        ioi_per_prompt_diff,
+        map(format_prompt, abc_dataset.sentences), 
+        abc_per_prompt_diff,
+    ],
+    title = "Sentences from IOI vs ABC distribution",
+)
+# %%
+def ioi_metric_2(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    clean_logit_diff: float = ioi_average_logit_diff,
+    corrupted_logit_diff: float = abc_average_logit_diff,
+    ioi_dataset: IOIDataset = ioi_dataset,
+) -> float:
+    '''
+    We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset), 
+    and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+    '''
+    patched_logit_diff = logits_to_ave_logit_diff_2(logits, ioi_dataset)
+    return (patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)
+
+
+print(f"IOI metric (IOI dataset): {ioi_metric_2(ioi_logits_original):.4f}")
+print(f"IOI metric (ABC dataset): {ioi_metric_2(abc_logits_original):.4f}")
+# %%
+
+
+# %%
+
+# Cache all activations from clean and corrupted dataset
+# done above already
+# full dataset or just single prompt?
+ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
+abc_logits_original, abc_cache = model.run_with_cache(abc_dataset.toks)
+
+# Hook function replacing output
+
+# def hook(node, cache(clean or corrupted):
+#         return cache[node]
+
+def corrupted_patch_head(
+    cur_out: Float[Tensor, "batch seq head_idx d_model"],
+    hook: HookPoint,
+    cache: ActivationCache,
+    head_num: int
+) -> Float[Tensor, "batch seq head_idx d_model"]:
+    cur_out_clone = cur_out.clone()
+    cur_out_clone[:, :, head_num, :] = cache[hook.name][head_num]
+    assert cur_out.shape == cur_out_clone.shape
+    return cur_out_clone
+
+def original_patch_head(
+    cur_out: Float[Tensor, "batch seq head_idx d_model"],
+    hook: HookPoint,
+    cache: ActivationCache,
+) -> Float[Tensor, "batch seq head_idx d_model"]:
+    result = cache[hook.name]
+    assert cur_out.shape == result.shape
+    return result
+
+
+
+def get_path_patch_head_to_final_resid_post(
+    model: HookedTransformer,
+    patching_metric: Callable,
+    new_dataset: IOIDataset = abc_dataset,
+    orig_dataset: IOIDataset = ioi_dataset,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
+) -> Float[Tensor, "layer head"]:
+    
+    result = t.zeros((model.cfg.n_layers, model.cfg.n_heads), device=device)
+
+    if not clean_cache:
+        _, cache = model.run_with_cache(orig_dataset.toks)
+    if not new_cache:
+        _, new_cache = model.run_with_cache(new_dataset.toks)
+    for layer in tqdm(range(model.cfg.n_layers)):
+        for head in range(model.cfg.n_heads):
+            model.reset_hooks()
+            fwd_hooks = []
+            corrupted_hook = partial(corrupted_patch_head, cache=new_cache, head_num=head)
+            fwd_hooks.append((utils.get_act_name("result", layer), corrupted_hook))
+            def should_reset_activations(name: str) -> bool:
+                is_source = name == utils.get_act_name("result", layer)
+                # is_residule = "resid" in name
+                # is_after_destination = False
+                # return not (is_source or is_residule or is_after_destination)
+                is_ok_block_type = "result" in name or "mlp_out" in name
+                result = is_ok_block_type and not is_source
+                # rprint(f"\t{name=} {layer=} {head=} {result=}")
+                return result
+            freeze_hook = partial(original_patch_head, cache=orig_cache)
+            fwd_hooks.append((should_reset_activations, freeze_hook))
+            # print(f" {layer=} {head=} {len(fwd_hooks)=} {fwd_hooks=}")
+            logits = model.run_with_hooks(
+                orig_dataset.toks,
+                fwd_hooks=fwd_hooks,
+                return_type="logits",
+            )
+            result[layer, head] = patching_metric(logits)
+    return result
+
+
+path_patch_head_to_final_resid_post = get_path_patch_head_to_final_resid_post(model, ioi_metric_2)
+
+imshow(
+    100 * path_patch_head_to_final_resid_post,
+    title="Direct effect on logit difference",
+    labels={"x":"Head", "y":"Layer", "color": "Logit diff. variation"},
+    coloraxis=dict(colorbar_ticksuffix = "%"),
+    width=600,
+)
 
 # %%
