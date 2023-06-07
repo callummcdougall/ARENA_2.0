@@ -1,5 +1,6 @@
 import collections
 import inspect
+import math
 import threading
 
 import torch.distributed
@@ -8,7 +9,8 @@ from torch.distributed import ReduceOp
 
 
 class Dist:
-    def __init__(self, world_size=3):
+    def __init__(self, world_size):
+        self.rank_map = {}
         self.distributed = torch.distributed
         self.world_size = world_size
         self.source_dest_tensors = {i: {j: {'to_read': [], 'to_write': []} for j in range(self.world_size)} for i in range(self.world_size)}
@@ -20,15 +22,16 @@ class Dist:
         self.writes = collections.defaultdict(list)
 
     def with_rank(self, rank):
-        return DistWithRank(rank, self.source_dest_tensors, self.source_dest_tensors_lock, self.barrier_lock, self.proc_barrier, self.reads, self.writes)
+        return DistWithRank(self.world_size, rank, self.rank_map, self.source_dest_tensors, self.source_dest_tensors_lock, self.barrier_lock, self.proc_barrier, self.reads, self.writes)
 
     def get_world_size(self):
         return self.world_size
 
 class DistWithRank(Dist):
-    def __init__(self, rank, source_dest_tensors, source_dest_tensors_lock, barrier, proc_barrier, reads, writes):
-        super().__init__()
-        self.rank = rank
+    def __init__(self, world_size, rank, rank_map, source_dest_tensors, source_dest_tensors_lock, barrier, proc_barrier, reads, writes):
+        super().__init__(world_size)
+        self.rank_map = rank_map
+        self.rank_map[threading.get_ident()] = rank
         self.source_dest_tensors = source_dest_tensors
         self.source_dest_tensors_lock = source_dest_tensors_lock
         self.barrier_lock = barrier
@@ -42,31 +45,30 @@ class DistWithRank(Dist):
         return self
     def __exit__(self, exc_type, exc_value, traceback):
         self.restore_torch()
-        for i in range(self.world_size):
-            for j in range(self.world_size):
+        for i in range(self.get_world_size()):
+            for j in range(self.get_world_size()):
                 # if len(self.source_dest_tensors[i][j]['to_read']) > 0 and len(self.source_dest_tensors[j][i]['to_write']) > 0:  # we don't worry about this case because of the lock
                 assert len(self.source_dest_tensors[i][j]['to_read']) == 0, f"Incomplete sends: {self.source_dest_tensors[i][j]['to_read']}"
                 assert len(self.source_dest_tensors[i][j]['to_write']) == 0, f"Incomplete recvs: {self.source_dest_tensors[i][j]['to_write']}"
 
     def write_to(self, tensor, rank):
-        self.writes[self.rank].append(rank)
+        self.writes[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
-            if len(self.source_dest_tensors[rank][self.rank]['to_read']) > 0:
-                assert self.source_dest_tensors[rank][self.rank]['to_read'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.rank]['to_read'][0].shape} != {tensor.shape}"
-                assert self.source_dest_tensors[rank][self.rank]['to_read'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.rank]['to_read'][0].dtype} != {tensor.dtype}"
-                tensor[:] = self.source_dest_tensors[rank][self.rank]['to_read'].pop(0)[:]
-                print(f"Rank {self.rank} read tensor {tensor} from rank {rank}")
+            if len(self.source_dest_tensors[rank][self.get_rank()]['to_read']) > 0:
+                assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].shape} != {tensor.shape}"
+                assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].dtype} != {tensor.dtype}"
+                tensor[:] = self.source_dest_tensors[rank][self.get_rank()]['to_read'].pop(0)[:]
             else:
-                self.source_dest_tensors[self.rank][rank]['to_write'].append(tensor)
+                self.source_dest_tensors[self.get_rank()][rank]['to_write'].append(tensor)
     def read_from(self, tensor, rank):
-        self.reads[self.rank].append(rank)
+        self.reads[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
-            if len(self.source_dest_tensors[rank][self.rank]['to_write']) > 0:
-                assert self.source_dest_tensors[rank][self.rank]['to_write'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.rank]['to_write'][0].shape} != {tensor.shape}"
-                assert self.source_dest_tensors[rank][self.rank]['to_write'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.rank]['to_write'][0].dtype} != {tensor.dtype}"
-                tensor[:] = self.source_dest_tensors[rank][self.rank]['to_write'].pop(0)[:]
+            if len(self.source_dest_tensors[rank][self.get_rank()]['to_write']) > 0:
+                assert self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].shape} != {tensor.shape}"
+                assert self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].dtype} != {tensor.dtype}"
+                tensor[:] = self.source_dest_tensors[rank][self.get_rank()]['to_write'].pop(0)[:]
             else:
-                self.source_dest_tensors[rank][self.rank]['to_read'].append(tensor)
+                self.source_dest_tensors[self.get_rank()][rank]['to_read'].append(tensor)
 
 
     def is_available(self):
@@ -98,7 +100,8 @@ class DistWithRank(Dist):
     def get_rank(self, group=None):
         if group is not None:
             raise NotImplementedError("groups are not implemented")
-        return self.rank
+        # print(f"using fake dist class - returning {self.get_rank()} you passed to with_rank() instead of the rank from init_process_group")
+        return self.rank_map[threading.get_ident()]
 
     def get_world_size(self, group=None):
         if group is not None:
@@ -128,9 +131,9 @@ class DistWithRank(Dist):
         self.read_from(tensor, rank)
 
     def broadcast(self, tensor, rank):
-        if self.rank == rank:
-            for i in range(self.world_size):
-                if i != self.rank:
+        if self.get_rank() == rank:
+            for i in range(self.get_world_size()):
+                if i != self.get_rank():
                     self.write_to(tensor, i)
         else:
             self.read_from(tensor, rank)
@@ -139,32 +142,32 @@ class DistWithRank(Dist):
         if group not in (None, torch.distributed.group.WORLD):
             raise NotImplementedError("groups are not implemented")
 
-        if self.rank == dst:
+        if self.get_rank() == dst:
             res = tensor.clone()
         if op == ReduceOp.SUM:
-            if self.rank == dst:
-                for i in range(self.world_size):
-                    if i != self.rank:
+            if self.get_rank() == dst:
+                for i in range(self.get_world_size()):
+                    if i != self.get_rank():
                         self.read_from(res, i)
                         tensor += res
             else:
                 self.write_to(tensor, dst)
         elif op == ReduceOp.PRODUCT:
-            if self.rank == dst:
-                for i in range(self.world_size):
-                    if i != self.rank:
+            if self.get_rank() == dst:
+                for i in range(self.get_world_size()):
+                    if i != self.get_rank():
                         self.read_from(res, i)
                         tensor *= res
         elif op == ReduceOp.MAX:
-            if self.rank == dst:
-                for i in range(self.world_size):
-                    if i != self.rank:
+            if self.get_rank() == dst:
+                for i in range(self.get_world_size()):
+                    if i != self.get_rank():
                         self.read_from(res, i)
                         tensor = torch.max(tensor, res)
         elif op == ReduceOp.MIN:
-            if self.rank == dst:
-                for i in range(self.world_size):
-                    if i != self.rank:
+            if self.get_rank() == dst:
+                for i in range(self.get_world_size()):
+                    if i != self.get_rank():
                         self.read_from(res, i)
                         tensor = torch.min(tensor, res)
         else:
@@ -181,23 +184,23 @@ class DistWithRank(Dist):
         if group not in (None, torch.distributed.group.WORLD):
             raise NotImplementedError("groups are not implemented")
 
-        for i in range(self.world_size):
-            if i != self.rank:
+        for i in range(self.get_world_size()):
+            if i != self.get_rank():
                 self.write_to(tensor, i)
-        for i in range(self.world_size):
-            if i != self.rank:
+        for i in range(self.get_world_size()):
+            if i != self.get_rank():
                 self.read_from(tensor_list[i], i)
-        tensor_list[self.rank] = tensor
+        tensor_list[self.get_rank()] = tensor
 
     def gather(self, tensor, gather_list, dst, group=None):
         if group not in (None, torch.distributed.group.WORLD):
             raise NotImplementedError("groups are not implemented")
 
-        if self.rank == dst:
-            for i in range(self.world_size):
-                if i != self.rank:
+        if self.get_rank() == dst:
+            for i in range(self.get_world_size()):
+                if i != self.get_rank():
                     self.read_from(gather_list[i], i)
-            gather_list[self.rank] = tensor
+            gather_list[self.get_rank()] = tensor
         else:
             self.write_to(tensor, dst)
 
@@ -205,11 +208,11 @@ class DistWithRank(Dist):
         if group not in (None, torch.distributed.group.WORLD):
             raise NotImplementedError("groups are not implemented")
 
-        if self.rank == src:
-            for i in range(self.world_size):
-                if i != self.rank:
+        if self.get_rank() == src:
+            for i in range(self.get_world_size()):
+                if i != self.get_rank():
                     self.write_to(scatter_list[i], i)
-            scatter_list[self.rank] = tensor
+            scatter_list[self.get_rank()] = tensor
         else:
             self.read_from(tensor, src)
 
@@ -220,7 +223,7 @@ class DistWithRank(Dist):
         self.proc_barrier.wait()
     def replace_torch(self):
         self._is_available = torch.distributed.is_available
-        torch.distributed.is_available = self._is_available
+        torch.distributed.is_available = self.is_available
         self._init_process_group = torch.distributed.init_process_group
         torch.distributed.init_process_group = self.init_process_group
         self._is_initialized = torch.distributed.is_initialized
@@ -298,8 +301,13 @@ class DistWithRank(Dist):
         torch.distributed.scatter = self._scatter
         torch.distributed.barrier = self._barrier
 
-def test_scaffold(test_func):
-    fake_dist = Dist()
+def test_scaffold(test_func, world_size=4):
+    """
+    Run a test function with a fake distributed environment. Will return a Dist object that can be used to check what
+    the test function did. The test function will be run in a separate thread for each rank, and the returned object
+    will store the reads and writes for each rank.
+    """
+    fake_dist = Dist(world_size=world_size)
     threads = []
     def run_test(rank):
         with fake_dist.with_rank(rank):
@@ -314,7 +322,12 @@ def test_scaffold(test_func):
     return fake_dist
 
 
-def test_broadcast(broadcast_impl):
+def test_broadcast_naive(broadcast_impl):
     fake_dist = test_scaffold(broadcast_impl)
     assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
     assert all(len(fake_dist.writes[i]) == fake_dist.world_size - 1 for i in range(fake_dist.world_size) if i == 0)
+
+def test_broadcast_tree(broadcast_impl):
+    fake_dist = test_scaffold(broadcast_impl, 8)
+    # assert all(len(fake_dist.writes[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
+    # assert all(len(fake_dist.reads[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == 0)
