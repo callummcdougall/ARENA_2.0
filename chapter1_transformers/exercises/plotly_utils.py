@@ -6,7 +6,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import re
-from transformer_lens import utils, HookedTransformer
+from transformer_lens import HookedTransformer
+from transformer_lens.utils import to_numpy
 from typing import Dict
 import pandas as pd
 from jaxtyping import Float
@@ -20,23 +21,24 @@ update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "
 def imshow(tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
-    if "facet_labels" in kwargs_pre:
-        facet_labels = kwargs_pre.pop("facet_labels")
-    else:
-        facet_labels = None
+    facet_labels = kwargs_pre.pop("facet_labels", None)
+    border = kwargs_pre.pop("border", False)
     if "color_continuous_scale" not in kwargs_pre:
         kwargs_pre["color_continuous_scale"] = "RdBu"
     if "color_continuous_midpoint" not in kwargs_pre:
         kwargs_pre["color_continuous_midpoint"] = 0.0
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    fig = px.imshow(utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post)
+    fig = px.imshow(to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post)
     if facet_labels:
         # Weird thing where facet col wrap means labels are in wrong order
         if "facet_col_wrap" in kwargs_pre:
             facet_labels = reorder_list_in_plotly_way(facet_labels, kwargs_pre["facet_col_wrap"])
         for i, label in enumerate(facet_labels):
             fig.layout.annotations[i]['text'] = label
+    if border:
+        fig.update_xaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.show(renderer=renderer)
 
 
@@ -58,6 +60,7 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
     '''
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    names = kwargs_pre.pop("names", None)
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     if "xaxis_tickvals" in kwargs_pre:
@@ -80,20 +83,24 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
             if k in kwargs_pre:
                 kwargs_post[k] = kwargs_pre.pop(k)
         fig = make_subplots(specs=[[{"secondary_y": True}]]).update_layout(**kwargs_post)
-        y0 = utils.to_numpy(y[0])
-        y1 = utils.to_numpy(y[1])
+        y0 = to_numpy(y[0])
+        y1 = to_numpy(y[1])
         x0, x1 = kwargs_pre.pop("x", [np.arange(len(y0)), np.arange(len(y1))])
         name0, name1 = kwargs_pre.pop("names", ["yaxis1", "yaxis2"])
         fig.add_trace(go.Scatter(y=y0, x=x0, name=name0), secondary_y=False)
         fig.add_trace(go.Scatter(y=y1, x=x1, name=name1), secondary_y=True)
         fig.show(renderer)
     else:
-        y = list(map(utils.to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else utils.to_numpy(y)
-        px.line(y=y, **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+        y = list(map(to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else to_numpy(y)
+        fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
+        if names is not None:
+            fig.for_each_trace(lambda trace: trace.update(name=names.pop(0)))
+        fig.show(renderer)
+        
 
 def scatter(x, y, renderer=None, **kwargs):
-    x = utils.to_numpy(x)
-    y = utils.to_numpy(y)
+    x = to_numpy(x)
+    y = to_numpy(y)
     add_line = None
     if "add_line" in kwargs:
         add_line = kwargs.pop("add_line")
@@ -133,7 +140,7 @@ def bar(tensor, renderer=None, **kwargs):
         kwargs_post["hovermode"] = "x unified"
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    px.bar(y=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+    px.bar(y=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
 
 def hist(tensor, renderer=None, **kwargs):
     '''
@@ -144,7 +151,7 @@ def hist(tensor, renderer=None, **kwargs):
         kwargs_post["bargap"] = 0.1
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    px.histogram(x=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+    px.histogram(x=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
 
 
 
@@ -155,7 +162,7 @@ def hist(tensor, renderer=None, **kwargs):
 
 def plot_comp_scores(model, comp_scores, title: str = "", baseline: Optional[t.Tensor] = None) -> go.Figure:
     return px.imshow(
-        utils.to_numpy(comp_scores),
+        to_numpy(comp_scores),
         y=[f"L0H{h}" for h in range(model.cfg.n_heads)],
         x=[f"L1H{h}" for h in range(model.cfg.n_heads)],
         labels={"x": "Layer 1", "y": "Layer 0"},
@@ -179,7 +186,7 @@ def plot_logit_attribution(model: HookedTransformer, logit_attr: t.Tensor, token
     y_labels = convert_tokens_to_string(model, tokens[:-1])
     x_labels = ["Direct"] + [f"L{l}H{h}" for l in range(model.cfg.n_layers) for h in range(model.cfg.n_heads)]
     imshow(
-        utils.to_numpy(logit_attr), 
+        to_numpy(logit_attr), 
         x=x_labels, y=y_labels, 
         labels={"x": "Term", "y": "Position", "color": "logit"}, title=title if title else None, 
         height=18*len(y_labels), width=24*len(x_labels)
@@ -206,11 +213,11 @@ def plot_failure_types_scatter(
 ):
     failure_types = np.full(len(unbalanced_component_1), "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
-        failure_types = np.where(utils.to_numpy(mask), name, failure_types)
+        failure_types = np.where(to_numpy(mask), name, failure_types)
     failures_df = pd.DataFrame({
-        "Head 2.0 contribution": utils.to_numpy(unbalanced_component_1),
-        "Head 2.1 contribution": utils.to_numpy(unbalanced_component_2),
-        "Failure type": utils.to_numpy(failure_types),
+        "Head 2.0 contribution": to_numpy(unbalanced_component_1),
+        "Head 2.1 contribution": to_numpy(unbalanced_component_2),
+        "Failure type": to_numpy(failure_types),
     })[data.starts_open.tolist()]
     fig = px.scatter(
         failures_df, color_discrete_map=color_discrete_map,
@@ -223,9 +230,9 @@ def plot_failure_types_scatter(
 def plot_contribution_vs_open_proportion(unbalanced_component: Float[Tensor, "batch"], title: str, failure_types_dict: Dict, data):
     failure_types = np.full(len(unbalanced_component), "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
-        failure_types = np.where(utils.to_numpy(mask), name, failure_types)
+        failure_types = np.where(to_numpy(mask), name, failure_types)
     fig = px.scatter(
-        x=utils.to_numpy(data.open_proportion), y=utils.to_numpy(unbalanced_component), color=failure_types, color_discrete_map=color_discrete_map,
+        x=to_numpy(data.open_proportion), y=to_numpy(unbalanced_component), color=failure_types, color_discrete_map=color_discrete_map,
         title=title, template="simple_white", height=500, width=800,
         labels={"x": "Open-proportion", "y": f"Head {title} contribution"}
     ).update_traces(marker_size=4, opacity=0.5).update_layout(legend_title_text='Failure type')
@@ -237,14 +244,14 @@ def mlp_attribution_scatter(
 ) -> None:
     failure_types = np.full(out_by_component_in_pre_20_unbalanced_dir.shape[-1], "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
-        failure_types = np.where(utils.to_numpy(mask), name, failure_types)
+        failure_types = np.where(to_numpy(mask), name, failure_types)
     for layer in range(2):
         mlp_output = out_by_component_in_pre_20_unbalanced_dir[3+layer*3]
         fig = px.scatter(
-            x=utils.to_numpy(data.open_proportion[data.starts_open]), 
-            y=utils.to_numpy(mlp_output[data.starts_open]), 
+            x=to_numpy(data.open_proportion[data.starts_open]), 
+            y=to_numpy(mlp_output[data.starts_open]), 
             color_discrete_map=color_discrete_map,
-            color=utils.to_numpy(failure_types)[utils.to_numpy(data.starts_open)], 
+            color=to_numpy(failure_types)[to_numpy(data.starts_open)], 
             title=f"Amount MLP {layer} writes in unbalanced direction for Head 2.0", 
             template="simple_white", height=500, width=800,
             labels={"x": "Open-proportion", "y": "Head 2.0 contribution"}
@@ -255,7 +262,7 @@ def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], mode
     
     failure_types = np.full(neurons_in_unbalanced_dir.shape[0], "", dtype=np.dtype("U32"))
     for name, mask in failure_types_dict.items():
-        failure_types = np.where(utils.to_numpy(mask[utils.to_numpy(data.starts_open)]), name, failure_types)
+        failure_types = np.where(to_numpy(mask[to_numpy(data.starts_open)]), name, failure_types)
 
     # Get data that can be turned into a dataframe (plotly express is sometimes easier to use with a dataframe)
     # Plot a scatter plot of all the neuron contributions, color-coded according to failure type, with slider to view neurons
@@ -263,9 +270,9 @@ def plot_neurons(neurons_in_unbalanced_dir: Float[Tensor, "batch neurons"], mode
     failure_types = einops.repeat(failure_types, "s -> (s n)", n=model.cfg.d_model)
     data_open_proportion = einops.repeat(data.open_proportion[data.starts_open], "s -> (s n)", n=model.cfg.d_model)
     df = pd.DataFrame({
-        "Output in 2.0 direction": utils.to_numpy(neurons_in_unbalanced_dir.flatten()),
-        "Neuron number": utils.to_numpy(neuron_numbers),
-        "Open-proportion": utils.to_numpy(data_open_proportion),
+        "Output in 2.0 direction": to_numpy(neurons_in_unbalanced_dir.flatten()),
+        "Neuron number": to_numpy(neuron_numbers),
+        "Open-proportion": to_numpy(data_open_proportion),
         "Failure type": failure_types
     })
     fig = px.scatter(
@@ -309,8 +316,8 @@ def hists_per_comp(out_by_component_in_unbalanced_dir: Float[Tensor, "component 
     n_layers = out_by_component_in_unbalanced_dir.shape[0] // 3
     fig = make_subplots(rows=n_layers+1, cols=3)
     for ((row, col), title), in_dir in zip(titles.items(), out_by_component_in_unbalanced_dir):
-        fig.add_trace(go.Histogram(x=utils.to_numpy(in_dir[data.isbal]), name="Balanced", marker_color="blue", opacity=0.5, legendgroup = '1', showlegend=title=="embeddings"), row=row, col=col)
-        fig.add_trace(go.Histogram(x=utils.to_numpy(in_dir[~data.isbal]), name="Unbalanced", marker_color="red", opacity=0.5, legendgroup = '2', showlegend=title=="embeddings"), row=row, col=col)
+        fig.add_trace(go.Histogram(x=to_numpy(in_dir[data.isbal]), name="Balanced", marker_color="blue", opacity=0.5, legendgroup = '1', showlegend=title=="embeddings"), row=row, col=col)
+        fig.add_trace(go.Histogram(x=to_numpy(in_dir[~data.isbal]), name="Unbalanced", marker_color="red", opacity=0.5, legendgroup = '2', showlegend=title=="embeddings"), row=row, col=col)
         fig.update_xaxes(title_text=title, row=row, col=col, range=xaxis_range)
     fig.update_layout(width=1200, height=250*(n_layers+1), barmode="overlay", legend=dict(yanchor="top", y=0.92, xanchor="left", x=0.4), title="Histograms of component significance")
     fig.show()
@@ -318,7 +325,7 @@ def hists_per_comp(out_by_component_in_unbalanced_dir: Float[Tensor, "component 
 
 def plot_loss_difference(log_probs, rep_str, seq_len):
     fig = px.line(
-        utils.to_numpy(log_probs), hover_name=rep_str[1:],
+        to_numpy(log_probs), hover_name=rep_str[1:],
         title=f"Per token log-prob on correct token, for sequence of length {seq_len}*2 (repeated twice)",
         labels={"index": "Sequence position", "value": "Loss"}
     ).update_layout(showlegend=False, hovermode="x unified")
