@@ -1141,3 +1141,152 @@ def plot_early_head_validation_results(seq_len: int = 50, batch: int = 50):
 model.reset_hooks()
 plot_early_head_validation_results()
 # %%
+
+### Constructing the Minimal Circuit
+
+CIRCUIT = {
+    "name mover": [(9, 9), (10, 0), (9, 6)],
+    "backup name mover": [(10, 10), (10, 6), (10, 2), (10, 1), (11, 2), (9, 7), (9, 0), (11, 9)],
+    "negative name mover": [(10, 7), (11, 10)],
+    "s2 inhibition": [(7, 3), (7, 9), (8, 6), (8, 10)],
+    "induction": [(5, 5), (5, 8), (5, 9), (6, 9)],
+    "duplicate token": [(0, 1), (0, 10), (3, 0)],
+    "previous token": [(2, 2), (4, 11)],
+}
+
+SEQ_POS_TO_KEEP = {
+    "name mover": "end",
+    "backup name mover": "end",
+    "negative name mover": "end",
+    "s2 inhibition": "end",
+    "induction": "S2",
+    "duplicate token": "S2",
+    "previous token": "S1+1",
+}
+# %%
+ioi_dataset.groups
+# %%
+ioi_dataset.templates
+# %%
+ioi_dataset.sentences
+# %%
+ioi_dataset.toks.shape
+# %%
+_, c = model.run_with_cache(
+    ioi_dataset.toks[ioi_dataset.groups[0]],
+    return_type=None,
+    names_filter=lambda name: name.endswith("hook_z")
+)
+# %%
+c["z", 1].shape
+# %%
+utils.get_act_name("z", 0)
+# %%
+tuple(ioi_dataset.toks.shape) + (model.cfg.n_heads, model.cfg.d_head)
+
+# %%
+ioi_dataset.word_idx
+# %%
+def ablate_heads_with_average_template_activation(
+    head_activations: Float[Tensor, "batch pos head_index d_head"],
+    hook: HookPoint, 
+    circuit_indices: List[Tuple[int,int]],
+    head_indices: List[int], 
+    mean_activations: Float[Tensor, "batch pos head_index d_head"]
+):
+    pos_indices, head_indices = zip(*circuit_indices)
+    indices_to_patch = t.ones(head_activations.shape, device=device)
+    indices_to_patch[:,pos_indices,head_indices,:] = 0
+    head_activations = t.where(
+        indices_to_patch,
+        mean_activations,
+        head_activations
+    )
+    return head_activations
+
+# $$
+def add_mean_ablation_hook(
+    model: HookedTransformer, 
+    means_dataset: IOIDataset, 
+    circuit: Dict[str, List[Tuple[int, int]]] = CIRCUIT,
+    seq_pos_to_keep: Dict[str, str] = SEQ_POS_TO_KEEP,
+    is_permanent: bool = True,
+) -> HookedTransformer:
+    '''
+    Adds a permanent hook to the model, which ablates according to the circuit and 
+    seq_pos_to_keep dictionaries.
+
+    In other words, when the model is run on ioi_dataset, every head's output will 
+    be replaced with the mean over means_dataset for sequences with the same template,
+    except for a subset of heads and sequence positions as specified by the circuit
+    and seq_pos_to_keep dicts.
+    '''
+
+    n_layers = model.cfg.n_layers
+
+    ### 1. calculate means over means_dataset for sequence with the same template
+    
+    # create a (n_layers, N, seq_len, n_heads, d_head) tensor t where
+    # t[l, n] is the mean activation at layer l for sentences with the template of sentence n
+    mean_activations: Float[Tensor, "n_layers N seq_len n_heads d_head"] =  t.zeros(
+        (model.cfg.n_layers, ) + tuple(means_dataset.toks.shape) + (model.cfg.n_heads, model.cfg.d_head),
+        device=device
+    )
+    
+    for group in means_dataset.groups:
+        # get cache for running tokens from group 
+        _, cache = model.run_with_cache(
+            means_dataset.toks[group],
+            return_type=None,
+            names_filter=lambda name: name.endswith("hook_z")
+        )
+
+        template_means = [
+            einops.reduce(cache["z", layer], "batch ... -> ...", "mean")
+            for layer in range(model.cfg.n_layers)
+        ]
+
+        for layer in range(model.cfg.n_layers):
+            mean_activations[layer][group] = template_means[layer]
+
+    # create tuples of indices (pos, head) for each sentence that show which position should 
+    # be ablation for which head for that sentence
+
+    circuit_indices = []
+
+    for component, (_, head) in CIRCUIT.items():
+        layer_circuit_indices = []
+        pos_to_keep_str = SEQ_POS_TO_KEEP[component]
+        for n in range(means_dataset.N):
+            pos = means_dataset.word_idx[pos_to_keep_str][n].item()
+            layer_circuit_indices.append((pos, head))
+        circuit_indices.append(layer_circuit_indices)
+
+    for layer in range(n_layers):
+        ablation_hook = partial(
+            ablate_heads_with_average_template_activation,
+            circuit_indices=circuit_indices[layer],
+            mean_activations=mean_activations[layer]
+        )
+        model.add_hook(utils.get_act_name("z", layer), ablation_hook, is_permanent=True)
+
+# %%    
+import part3_indirect_object_identification.ioi_circuit_extraction as ioi_circuit_extraction
+
+
+model = ioi_circuit_extraction.add_mean_ablation_hook(model, means_dataset=abc_dataset, circuit=CIRCUIT, seq_pos_to_keep=SEQ_POS_TO_KEEP)
+
+ioi_logits_minimal = model(ioi_dataset.toks)
+
+print(f"Average logit difference (IOI dataset, using entire model): {logits_to_ave_logit_diff_2(ioi_logits_original):.4f}")
+print(f"Average logit difference (IOI dataset, only using circuit): {logits_to_ave_logit_diff_2(ioi_logits_minimal):.4f}")
+
+# %%
+
+model = add_mean_ablation_hook(model, means_dataset=abc_dataset, circuit=CIRCUIT, seq_pos_to_keep=SEQ_POS_TO_KEEP)
+
+ioi_logits_minimal = model(ioi_dataset.toks)
+
+print(f"Average logit difference (IOI dataset, using entire model): {logits_to_ave_logit_diff_2(ioi_logits_original):.4f}")
+print(f"Average logit difference (IOI dataset, only using circuit): {logits_to_ave_logit_diff_2(ioi_logits_minimal):.4f}")
+# %%
