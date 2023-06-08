@@ -9,6 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import random
+from regex import D
 from tqdm import tqdm
 import einops
 from pathlib import Path
@@ -260,4 +261,46 @@ utils.plot_rewards(all_rewards, names, moving_avg_window=15)
 
 assert (all_rewards[0] < all_rewards[1]).mean() < 0.001, "Cheater should be better than reward averaging"
 print("Tests passed!")
+# %%
+class UCBActionSelection(Agent):
+    def __init__(self, num_arms: int, seed: int, c: float, eps: float = 1e-6):
+        super().__init__(num_arms=num_arms, seed=seed)
+        self.c = c
+        self.eps = eps
+        self.reset(seed=seed)
+
+    def get_action(self):
+        curr_step = self.counts.sum() + 1
+        upper_conf_bound = self.means + self.c * np.sqrt(np.log(curr_step) / (self.counts + self.eps))
+        best_arm = np.argmax(upper_conf_bound)
+        return best_arm
+
+    def observe(self, action, reward, info):
+        self.counts[action] += 1
+        self.means[action] += (reward - self.means[action]) / self.counts[action]
+
+    def reset(self, seed: int):
+        self.means = np.zeros(num_arms, dtype=float)
+        self.counts = np.zeros(num_arms, dtype=int)
+
+    def __repr__(self):
+        return f"UCB(c={self.c})"
+
+
+
+cheater = CheatyMcCheater(num_arms, 0)
+reward_averaging = RewardAveraging(num_arms, 0, epsilon=0.1, optimism=0)
+reward_averaging_optimism = RewardAveraging(num_arms, 0, epsilon=0.1, optimism=5)
+ucb = UCBActionSelection(num_arms, 0, c=2.0)
+random = RandomAgent(num_arms, 0)
+
+names = []
+all_rewards = []
+
+for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]:
+    (rewards, num_correct) = run_agent(env, agent, n_runs=N_RUNS, base_seed=1)
+    names.append(str(agent))
+    all_rewards.append(rewards)
+
+utils.plot_rewards(all_rewards, names, moving_avg_window=15)
 # %%
