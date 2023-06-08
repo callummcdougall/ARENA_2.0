@@ -51,10 +51,8 @@ MAIN = __name__ == "__main__"
 
 # %% 1️⃣ Q-LEARNING
 
-
-if MAIN:
-	ObsType = int
-	ActType = int
+ObsType = int
+ActType = int
 	
 class DiscreteEnviroGym(gym.Env):
 	action_space: gym.spaces.Discrete
@@ -127,8 +125,7 @@ class AgentConfig:
 	optimism: float = 0
 
 
-if MAIN:
-	defaultConfig = AgentConfig()
+defaultConfig = AgentConfig()
 	
 class Agent:
 	'''Base class for agents interacting with an environment (you do not need to add any implementation here)'''
@@ -608,9 +605,8 @@ if MAIN:
 # %%
 
 
-if MAIN:
-	ObsType = np.ndarray
-	ActType = int
+ObsType = np.ndarray
+ActType = int
 	
 	
 class Probe1(gym.Env):

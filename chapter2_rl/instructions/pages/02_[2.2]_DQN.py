@@ -2204,29 +2204,6 @@ For example, the Q-network initially learned some state was bad, because an agen
 
 
 ```python
-def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: str):
-    '''Return a function that returns an environment after setting up boilerplate.'''
-    
-    def thunk():
-        env = gym.make(env_id)
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        if capture_video:
-            if idx == 0:
-                env = gym.wrappers.RecordVideo(
-                    env, 
-                    f"videos/{run_name}", 
-                    episode_trigger=lambda x : x % 100 == 0 # Video every 100 runs for env #1
-                )
-        obs = env.reset(seed=seed)
-        env.action_space.seed(seed)
-        env.observation_space.seed(seed)
-        return env
-    
-    return thunk
-
-```
-
-```python
 class DQNLightning(pl.LightningModule):
     q_network: QNetwork
     target_network: QNetwork
@@ -2241,8 +2218,10 @@ class DQNLightning(pl.LightningModule):
         self.start_time = time.time()
         self.rng = np.random.default_rng(args.seed)
 
+        # YOUR CODE HERE!
         pass
 
+        
     def _log(self, step: int, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
         log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(step / (time.time() - self.start_time))}
         for info in infos:
@@ -2252,10 +2231,14 @@ class DQNLightning(pl.LightningModule):
 
 
     def training_step(self, batch: Any) -> Float[Tensor, ""]:
+        # YOUR CODE HERE!
         pass
 
+        
     def configure_optimizers(self):
+        # YOUR CODE HERE!
         pass
+        
 
     def on_train_epoch_end(self):
         obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
@@ -2405,7 +2388,7 @@ metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 px.line(metrics, y="q_values", labels={"x": "Step"}, title="Probe 1 (if you're seeing this, then you passed the tests!)", width=600, height=400)
 ```
 
-And here's some code to run the full version of your model, using weights and biases:
+And here's some code to run the full version of your model, using weights and biases. Note the `wandb.gym.monitor()` line, which makes sure that we log media to weights and biases. This needs to be called *after* `wandb.init()` (which is called implicitly when we define our logger).
 
 
 ```python
@@ -2414,6 +2397,7 @@ wandb.finish()
 args = DQNArgs()
 model = DQNLightning(args).to(device)
 logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
 
 trainer = pl.Trainer(
     max_epochs=1,
