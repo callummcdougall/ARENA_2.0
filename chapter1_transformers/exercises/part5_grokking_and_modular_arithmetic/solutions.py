@@ -1131,11 +1131,19 @@ def tensor_trig_ratio(model: HookedTransformer, mode: str):
     '''
     logits, cache = model.run_with_cache(all_data)
     logits = logits[:, -1, :-1]
-    match mode:
-        case 'neuron_pre': tensor = cache['pre', 0][:, -1]
-        case 'neuron_post': tensor = cache['post', 0][:, -1]
-        case 'logit': tensor = logits
-        case _: raise ValueError(f"{mode} is not a valid mode")
+    # match mode:
+    #     case 'neuron_pre': tensor = cache['pre', 0][:, -1]
+    #     case 'neuron_post': tensor = cache['post', 0][:, -1]
+    #     case 'logit': tensor = logits
+    #     case _: raise ValueError(f"{mode} is not a valid mode")
+    if mode == "neuron_pre": 
+        tensor = cache['pre', 0][:, -1]
+    elif mode == "neuron_post":
+        tensor = cache['post', 0][:, -1]
+    elif mode == "logit":
+        tensor = logits
+    else:
+        raise ValueError(f"{mode} is not a valid mode")
     
     tensor_centered = tensor - einops.reduce(tensor, 'xy index -> 1 index', 'mean')
     tensor_var = einops.reduce(tensor_centered.pow(2), 'xy index -> index', 'sum')

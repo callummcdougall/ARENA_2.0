@@ -147,7 +147,7 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 <details>
 <summary>Diagram 2 (complex)</summary>
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-d.png" width="1250">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-corrected.png" width="1250">
 
 </details>
 
@@ -1221,7 +1221,7 @@ Fill in the function `ioi_metric` below, to create the required metric. Note tha
 
 **Important note** - this function needs to return a scalar tensor, rather than a float. If not, then some of the patching functions later on won't work. The type signature of this is `Float[Tensor, ""]`.
 
-**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). Our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" is that a component isn't important, and so replacing its values with those on the corrupted input won't make the model worse. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
+**Second important note** - we've defined this to be 0 when performance is the same as on corrupted input, and 1 when it's the same as on clean input. Why have we done it this way around? The answer is that, in this section, we'll be applying **denoising** rather than **noising** methods. **Denoising** means we start with the corrupted input (i.e. no signal, or negative signal) and patch in with the clean input (i.e. positive signal). This is an important conceptual distinction. When we perform denoising, we're looking for parts of the model which are **sufficient** for the task (e.g. which parts of the model have enough information to recover the correct answer from the corrupted input). We might say that our "null hypothesis" is that a part of the model isn't important, and so changing its value won't get us from corrupted to clean values. On the other hand, **noising** means taking a clean run and patching in with corrupted values, and it tests whether a component is **necessary**. Our "null hypothesis" that the component isn't important now has a different implication - replacing its values with those on the corrupted input won't prevent the model from being able to perform the task. In this section, we'll be doing denoising (i.e. starting with corrupted values and patching in with clean values). In later sections, we'll be doing noising, and we'll define a new metric function for this.
 
 <details>
 <summary>More on noising vs. denoising</summary>
@@ -1503,7 +1503,7 @@ def get_act_patch_block_every(
     corrupted_tokens: Float[Tensor, "batch pos"], 
     clean_cache: ActivationCache, 
     patching_metric: Callable[[Float[Tensor, "batch pos d_vocab"]], float]
-) -> Float[Tensor, "layer pos"]:
+) -> Float[Tensor, "3 layer pos"]:
     '''
     Returns an array of results of patching each position at each layer in the residual
     stream, using the value from the clean cache.
@@ -1514,9 +1514,6 @@ def get_act_patch_block_every(
     pass
 
 
-```
-
-```python
 act_patch_block_every_own = get_act_patch_block_every(model, corrupted_tokens, clean_cache, ioi_metric)
 
 t.testing.assert_close(act_patch_block_every, act_patch_block_every_own)
@@ -2135,9 +2132,7 @@ def make_table(cols, colnames, title="", n_rows=5, decimals=4):
         table.add_row(*list(map(f, row)))
     rprint(table)
 
-```
 
-```python
 make_table(
     colnames = ["IOI prompt", "IOI subj", "IOI indirect obj", "ABC prompt"],
     cols = [
@@ -2258,7 +2253,7 @@ Our 3-step process looks like the diagram below (remember green is corrupted, gr
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-alg-transformers-6.png" width="700">
 
-(Note - in this diagram, the uncoloured nodes indicate we aren't doing any patching; we're just allowing them to be computed from the values of nodes which are downstream of it.)
+(Note - in this diagram, the uncoloured nodes indicate we aren't doing any patching; we're just allowing them to be computed from the values of nodes which are upstream of it.)
 
 
 Why does this work? If you stare at the middle picture above for long enough, you'll realise that the contribution from every non-direct path from `0.0` $\to$ `2.0` is the same as it would be on the clean distribution, while all the direct paths' contributions are the same as they would be on the corrupted distribution. 
@@ -2604,7 +2599,7 @@ def get_path_patch_head_to_heads(
         receiver node = input to a later head (or set of heads)
 
     The receiver node is specified by receiver_heads and receiver_input.
-    Example (for S-inhibition path patching the queries):
+    Example (for S-inhibition path patching the values):
         receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
         receiver_input = "v"
 
@@ -3381,65 +3376,6 @@ where `hook_name` can be a string or a filter function mapping strings to boolea
 
 
 ```python
-
-    
-def hook_fn_mask_z(
-    z: Float[Tensor, "batch seq head d_head"],
-    hook: HookPoint,
-    heads_and_posns_to_keep: Dict[int, Bool[Tensor, "batch seq head"]],
-    means: Float[Tensor, "layer batch seq head d_head"],
-) -> Float[Tensor, "batch seq head d_head"]:
-    '''
-    Hook function which masks the z output of a transformer head.
-
-    heads_and_posns_to_keep
-        Dict created with the get_heads_and_posns_to_keep function. This tells
-        us where to mask.
-
-    means
-        Tensor of mean z values of the means_dataset over each group of prompts
-        with the same template. This tells us what values to mask with.
-    '''
-    # Get the mask for this layer, and add d_head=1 dimension so it broadcasts correctly
-    mask_for_this_layer = heads_and_posns_to_keep[hook.layer()].unsqueeze(-1).to(z.device)
-
-    # Set z values to the mean 
-    z = t.where(mask_for_this_layer, z, means[hook.layer()])
-
-    return z
-
-
-def compute_means_by_template(
-    means_dataset: IOIDataset, 
-    model: HookedTransformer
-) -> Float[Tensor, "layer batch seq head_idx d_head"]:
-    '''
-    Returns the mean of each head's output over the means dataset. This mean is
-    computed separately for each group of prompts with the same template (these
-    are given by means_dataset.groups).
-    '''
-    # Cache the outputs of every head
-    _, means_cache = model.run_with_cache(
-        means_dataset.toks.long(),
-        return_type=None,
-        names_filter=lambda name: name.endswith("z"),
-    )
-    # Create tensor to store means
-    n_layers, n_heads, d_head = model.cfg.n_layers, model.cfg.n_heads, model.cfg.d_head
-    batch, seq_len = len(means_dataset), means_dataset.max_len
-    means = t.zeros(size=(n_layers, batch, seq_len, n_heads, d_head), device=model.cfg.device)
-
-    # Get set of different templates for this data
-    for layer in range(model.cfg.n_layers):
-        z_for_this_layer: Float[Tensor, "batch seq head d_head"] = means_cache[utils.get_act_name("z", layer)]
-        for template_group in means_dataset.groups:
-            z_for_this_template = z_for_this_layer[template_group]
-            z_means_for_this_template = einops.reduce(z_for_this_template, "batch seq head d_head -> seq head d_head", "mean")
-            means[layer, template_group] = z_means_for_this_template
-
-    return means
-
-
 def add_mean_ablation_hook(
     model: HookedTransformer, 
     means_dataset: IOIDataset, 
@@ -3456,28 +3392,7 @@ def add_mean_ablation_hook(
     except for a subset of heads and sequence positions as specified by the circuit
     and seq_pos_to_keep dicts.
     '''
-    
-    model.reset_hooks(including_permanent=True)
-
-    # Compute the mean of each head's output on the ABC dataset, grouped by template
-    means = compute_means_by_template(means_dataset, model)
-    
-    # Convert this into a boolean map
-    heads_and_posns_to_keep = get_heads_and_posns_to_keep(means_dataset, model, circuit, seq_pos_to_keep)
-
-    # Get a hook function which will patch in the mean z values for each head, at 
-    # all positions which aren't important for the circuit
-    hook_fn = partial(
-        hook_fn_mask_z, 
-        heads_and_posns_to_keep=heads_and_posns_to_keep, 
-        means=means
-    )
-
-    # Apply hook
-    model.add_hook(lambda name: name.endswith("z"), hook_fn, is_permanent=is_permanent)
-
-    return model
-
+    pass
 ```
 
 To test whether your function works, you can use the function provided to you, and see if the logit difference from your implementation of the circuit matches this one:

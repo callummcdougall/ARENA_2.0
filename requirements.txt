@@ -35,3 +35,5 @@ pytorch-lightning
 openai
 transformer_lens
 git+https://github.com/callummcdougall/CircuitsVis.git#subdirectory=python
+gym==0.23.1
+pygame
