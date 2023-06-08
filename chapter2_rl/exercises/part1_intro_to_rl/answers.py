@@ -311,3 +311,101 @@ for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]
     all_rewards.append(rewards)
 
 utils.plot_rewards(all_rewards, names, moving_avg_window=15)# %%
+
+# %%
+class Environment:
+    T: np.ndarray
+    """(num_states, num_actions, num_states) State transition probabilities"""
+    R: np.ndarray
+    """(num_states, num_actions, num_states) Reward function"""
+
+    def __init__(self, num_states: int, num_actions: int, start=0, terminal=None):
+        self.num_states = num_states
+        self.num_actions = num_actions
+        self.start = start
+        self.terminal = np.array([], dtype=int) if terminal is None else terminal
+        self.T, self.R = self.build()
+
+    def build(self):
+        '''
+        Constructs the T and R tensors from the dynamics of the environment.
+        Outputs:
+            T : (num_states, num_actions, num_states) State transition probabilities
+            R : (num_states, num_actions, num_states) Reward function
+        '''
+        num_states = self.num_states
+        num_actions = self.num_actions
+        T = np.zeros((num_states, num_actions, num_states))
+        R = np.zeros((num_states, num_actions, num_states))
+        for s in range(num_states):
+            for a in range(num_actions):
+                (states, rewards, probs) = self.dynamics(s, a)
+                (all_s, all_r, all_p) = self.out_pad(states, rewards, probs)
+                T[s, a, all_s] = all_p
+                R[s, a, all_s] = all_r
+        return (T, R)
+
+    def dynamics(self, state: int, action: int) -> Tuple[Arr, Arr, Arr]:
+        '''
+        Computes the distribution over possible outcomes for a given state
+        and action.
+        Inputs:
+            state : int (index of state)
+            action : int (index of action)
+        Outputs:
+            states  : (m,) all the possible next states
+            rewards : (m,) rewards for each next state transition
+            probs   : (m,) likelihood of each state-reward pair
+        '''
+        raise NotImplementedError
+
+    def render(pi: Arr):
+        '''
+        Takes a policy pi, and draws an image of the behavior of that policy, if applicable.
+        Inputs:
+            pi : (num_actions,) a policy
+        Outputs:
+            None
+        '''
+        raise NotImplementedError
+
+    def out_pad(self, states: Arr, rewards: Arr, probs: Arr):
+        '''
+        Inputs:
+            states  : (m,) all the possible next states
+            rewards : (m,) rewards for each next state transition
+            probs   : (m,) likelihood of each state-reward pair
+        Outputs:
+            states  : (num_states,) all the next states
+            rewards : (num_states,) rewards for each next state transition
+            probs   : (num_states,) likelihood of each state-reward pair (including zero-prob outcomes.)
+        '''
+        out_s = np.arange(self.num_states)
+        out_r = np.zeros(self.num_states)
+        out_p = np.zeros(self.num_states)
+        for i in range(len(states)):
+            idx = states[i]
+            out_r[idx] += rewards[i]
+            out_p[idx] += probs[i]
+        return (out_s, out_r, out_p)
+# %%
+class Toy(Environment):
+    def dynamics(self, state: int, action: int):
+        (S0, SL, SR) = (0, 1, 2)
+        LEFT = 0
+        num_states = 3
+        num_actions = 2
+        assert 0 <= state < self.num_states and 0 <= action < self.num_actions
+        if state == S0:
+            if action == LEFT:
+                (next_state, reward) = (SL, 1)
+            else:
+                (next_state, reward) = (SR, 0)
+        elif state == SL:
+            (next_state, reward) = (S0, 0)
+        elif state == SR:
+            (next_state, reward) = (S0, 2)
+        return (np.array([next_state]), np.array([reward]), np.array([1]))
+
+    def __init__(self):
+        super().__init__(num_states=3, num_actions=2)
