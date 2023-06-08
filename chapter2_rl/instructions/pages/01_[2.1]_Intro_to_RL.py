@@ -206,7 +206,6 @@ class MultiArmedBandit(gym.Env):
     num_arms: int
     stationary: bool
     arm_reward_means: np.ndarray
-    arm_star: int
 
     def __init__(self, num_arms=10, stationary=True):
         super().__init__()

@@ -1045,6 +1045,15 @@ You're taking the mean over 8 sentences: 4 with an `ABA` structure (i.e. `"When 
 This is a good lesson in making sure you're aware of what it is you're plotting!
 </details>
 
+**Question** - for your top 3 positive logit attribution heads, you should see `" gave"` also attending to `" Mary"`. Can you guess why?
+
+<details>
+<summary>Answer</summary>
+
+This is (probably) also the IOI circuit in action! These heads are attending to `" Mary"` because they're completing the sentence "When John and Mary went to the store, John gave Mary..."`. This requires the same algorithm - identifying the indirect object in the sentence, and then predicting it as the next token.
+
+Also note that the comma is attending to both John and Mary - this is probably because either name following the comma is a logical continuation of the sentence.
+</details>
 
 """, unsafe_allow_html=True)
 
