@@ -291,7 +291,7 @@ There are three ways we can refer to board squares:
 * `"int"` means "part of the model vocabulary", i.e. we count up from 1 to 60 for the squares in lexicographic order (skipping the 4 middle squares).
 * `"string"` means "the input format of the `OthelloBoardState` class (see later for more on this). These are the integers from 0 to 63, with the middle squares *not* skipped out (so they exactly correspond to the 64 labels `A0, ..., H7`).
 
-To convert between these representations, we have the utility functions `to_int`, `to_string`, `str_to_label` and `int_to_label` in `tl_othello_utils.py`.
+To convert between these representations, we have the utility functions `to_int`, `to_string`, `str_to_label` and `int_to_label` in `mech_interp_othello_utils.py`.
 
 #### Parity
 
@@ -320,13 +320,14 @@ cfg = HookedTransformerConfig(
     device=device,
 )
 model = HookedTransformer(cfg)
-```
 
-```python
+
 sd = utils.download_file_from_hf("NeelNanda/Othello-GPT-Transformer-Lens", "synthetic_model.pth")
 # champion_ship_sd = utils.download_file_from_hf("NeelNanda/Othello-GPT-Transformer-Lens", "championship_model.pth")
 model.load_state_dict(sd)
 ```
+
+Note - you uncomment the line above to load in the championship model instead (which was trained on championship games rather than synthetic ones).
 
 ```python
 # An example input
@@ -360,6 +361,8 @@ if not OTHELLO_ROOT.exists():
 
 sys.path.append(str(OTHELLO_MECHINT_ROOT))
 ```
+
+Note - you can access a larger dataset at the [GitHub readme](https://github.com/likenneth/othello_world), in the "Training Othello-GPT" section. There are links to download datasets from Google Drive (both synthetic and championship games). You can store them in your `data` folder, after you've cloned the repo using the code above.
 
 ```python
 from mech_interp_othello_utils import plot_board, plot_single_board, plot_board_log_probs, to_string, to_int, int_to_label, string_to_label, OthelloBoardState
@@ -610,7 +613,7 @@ The probes were trained on moves 5 to 54 (ie not the early or late moves, becaus
 
 But it works!
 
-Let's load in the probe. The shape is `[modes, d_model, row, col, options]`. The 3 modes are "black to play/odd moves", "white to play/even moves", and "all moves". The 3 options are empty, white and black in that order.
+Let's load in the probe. The shape is `[modes, d_model, row, col, options]`. The 3 modes are "black to play/odd moves", "white to play/even moves", and "all moves" (note, when we say "odd moves" here we mean indexing from 1, since black moves first in Othello). The 3 options are empty, white and black in that order.
 
 We'll just focus on the black to play probe - it basically just works for the even moves too, once you realise that it's detecting my colour vs their colour!
 
@@ -618,7 +621,7 @@ This means that the options we want in our `linear_probe` are "empty", "theirs" 
 
 
 ```python
-full_linear_probe = t.load(OTHELLO_MECHINT_ROOT / "main_linear_probe.pth")
+full_linear_probe = t.load(OTHELLO_MECHINT_ROOT / "main_linear_probe.pth", map_location=device)
 
 rows = 8
 cols = 8 
@@ -1078,7 +1081,7 @@ for scale in scales:
 
 flip_state_big = t.stack(big_flipped_states_list)
 state_big = einops.repeat(state.flatten(), "d -> b d", b=6)
-color = t.zeros((len(scales), 64)).cuda() + 0.2
+color = t.zeros((len(scales), 64)).to(device) + 0.2
 for s in newly_legal:
     color[:, to_string(s)] = 1
 for s in newly_illegal:
@@ -1105,7 +1108,7 @@ When we mean "translating by `Nx`" for a scalar `N`, we mean "taking the compone
 
 The scatter plots compare `-1x` (original) to `Nx` (flipped) for different values of `x`. For instance, the first facet plot shows what happens when the residual stream's component in the probe direction is erased.
 
-The fact that we see the model's predictions for `G4` and `D2` change (with `G4` "becoming more illegal" and `D2` "becoming more legal") as our scale factor increases (without significant change in the predictions for other squares, at first) is evidence that our caual intervention is valid. In other words, the direction found by our linear probe `my_probe` does in some sense represent the model's `theirs - mine` direction, and this direction is used by the model downstream.
+The fact that we see the model's predictions for `G4` and `D2` change (with `G4` "becoming more illegal" and `D2` "becoming more legal") as our scale factor increases (without significant change in the predictions for other squares, at first) is evidence that our causal intervention is valid. In other words, the direction found by our linear probe `my_probe` does in some sense represent the model's `theirs - mine` direction, and this direction is used by the model downstream.
 </details>
 
 
@@ -1212,7 +1215,7 @@ plot_single_board(focus_games_string[game_index, :move+1])
 plot_probe_outputs(layer, game_index, move)
 ```
 
-We now plot the contributions of the attention and MLP layers to the `my_probe` direction. Strikingly, we see that the MLP layers are important for the vertical stripe that we just taken by the opponent, but that most of the rest seems to be done by the attention layers. 
+We now plot the contributions of the attention and MLP layers to the `my_probe` direction. Strikingly, we see that the MLP layers are important for the vertical stripe that was just taken by the opponent, but that most of the rest seems to be done by the attention layers. 
 
 
 ### Exercise - compute attn and mlp contributions
@@ -1378,7 +1381,7 @@ Another cool consequence of having a linear probe is having an interpretable set
 
 Let's start with neuron L5N1393, which seemed interesting from my initial investigations.
 
-Firstly, we'll compute the normalized version of the probes (normalization happens over the `d_model` dimension, i.e. `blank_probe_normalized` has shape `(d_model, row, col)` and the `[:, i, j]`-th entry is the residual stream probe direction fort the `i, j`-th cell in the board).
+Firstly, we'll compute the normalized version of the probes (normalization happens over the `d_model` dimension, i.e. `blank_probe_normalized` has shape `(d_model, row, col)` and the `[:, i, j]`-th entry is the residual stream probe direction for the `i, j`-th cell in the board).
 
 
 ```python
@@ -1956,7 +1959,7 @@ def get_act_patch_resid_pre(
     model: HookedTransformer, 
     corrupted_input: Float[Tensor, "batch pos"], 
     clean_cache: ActivationCache, 
-    patching_metric: Callable[[Float[Tensor, "batch seq d_model"]], Float[Tensor, ""]]
+    patching_metric: Callable[[Float[Tensor, "batch seq d_vocab"]], Float[Tensor, ""]]
 ) -> Float[Tensor, "2 n_layers"]:
     '''
     Returns an array of results, corresponding to the results of patching at
@@ -2565,7 +2568,7 @@ class ProbeTrainingArgs():
     # Misc.
     probe_name: str = "main_linear_probe"
 
-    # The first mode is blank or not, the second mode is next or prev GIVEN that it is not blank
+    # The modes are "black to play / odd moves", "white to play / even moves", and "all moves"
     modes = 3
 
     # Code to get randomly initialized probe
@@ -2618,6 +2621,7 @@ The `batch` object in your training step is a tuple of `(games_int, state_stack_
 * Calculate `loss_even`, `loss_odd` and `loss_all`.
     * These are the average negative log probs for the correct move, for each of the three modes: even moves, odd moves, and all moves aggregated.
     * Make sure you index these correctly (e.g. `loss_even` should be the `mode=0`-th dimension of your linear probe tensor).
+    * Note - this is because the zeroth mode ("black to play / odd moves") are the even moves in the moves vector, if we're indexing from zero.
 * Return the sum of these three losses.
 
 Once you've finished implementing this function, you can run the code below. You'll know it's working if your training loss decreases at a reasonable rate (it should start at around 300, and will probably drop down to somewhere between 30 and 100 by the end of your training loop).
@@ -2855,8 +2859,9 @@ def section_5():
 
 # 5️⃣ Bonus - Future Work I'm Excited about
 
+Note - you can access a larger dataset at the [GitHub readme](https://github.com/likenneth/othello_world), in the "Training Othello-GPT" section. There are links to download a larger dataset from Google Drive (both synthetic and championship games).
 
-> Note - this was taken directly from the [second post in the OthelloGPT sequence](https://www.lesswrong.com/s/nhGNHyJHbrofpPbRG/p/qgK7smTvJ4DB8rZ6h#A_Transformer_Circuit_Laboratory); if you prefer then you can just read that instead.
+> Most of this was taken directly from the [second post in the OthelloGPT sequence](https://www.lesswrong.com/s/nhGNHyJHbrofpPbRG/p/qgK7smTvJ4DB8rZ6h#A_Transformer_Circuit_Laboratory); if you prefer then you can just read that instead.
 
 
 _This is the second in a three post sequence about interpreting Othello-GPT. See [the first post](https://neelnanda.io/othello) for context._
@@ -3201,10 +3206,6 @@ This was (deliberately!) a pretty rushed and shallow investigation, and I cut a 
     *   Replicating the paper's analysis of whether their intervention works (their natural and unnatural benchmark)
 *   Re-train the model: The model was trained with attention and residual dropout - this is not representative of modern LLMs, and incentivises messy and redundant representations and backup circuits, I expect that training a new model from scratch with no dropout will make your life much easier. _(Note that someone is currently working on this)_
     *   The current model is 8 layers with a residual stream of width 512. I speculate this is actually much bigger than it needs to be, and things might be cleaner with fewer layers and a wider stream, a narrower stream, or both.
-
-
-
-
 """, unsafe_allow_html=True)
 
 
