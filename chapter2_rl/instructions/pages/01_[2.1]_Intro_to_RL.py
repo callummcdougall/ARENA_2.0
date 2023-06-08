@@ -73,6 +73,9 @@ We'll then put this into practice on some basic gridworld environments.
 
 
 ```python
+!pip install gym==0.23.1
+!pip install pygame
+
 import os
 import sys
 from typing import Optional, Union, List, Tuple
