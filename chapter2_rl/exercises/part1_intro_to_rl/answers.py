@@ -99,8 +99,8 @@ class MultiArmedBandit(gym.Env):
 gym.envs.registration.register(
     id="ArmedBanditTestbed-v0",
     entry_point=MultiArmedBandit,
-    # max_episode_steps=max_episode_steps,
-    max_episode_steps=max_episode_steps*3,
+    max_episode_steps=max_episode_steps,
+    max_episode_steps=max_episode_steps,
     nondeterministic=True,
     reward_threshold=1.0,
     kwargs={"num_arms": 10, "stationary": True},
@@ -302,16 +302,15 @@ class UCBActionSelection(RewardAveraging):
 
 
 cheater = CheatyMcCheater(num_arms, 0)
-# reward_averaging = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=0)
+reward_averaging = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=0)
 reward_averaging_optimism = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=5)
 ucb = UCBActionSelection(num_arms, 0, c=2.0)
-# random = RandomAgent(num_arms, 0)
+random = RandomAgent(num_arms, 0)
 
 names = []
 all_rewards = []
 
-for agent in [cheater, reward_averaging_optimism, ucb]:
-# for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]:
+for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]:
     (rewards, num_correct) = run_agent(env, agent, n_runs=N_RUNS, base_seed=1)
     names.append(str(agent))
     all_rewards.append(rewards)
