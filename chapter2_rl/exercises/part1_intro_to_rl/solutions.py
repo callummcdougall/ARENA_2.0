@@ -27,7 +27,6 @@ class MultiArmedBandit(gym.Env):
     num_arms: int
     stationary: bool
     arm_reward_means: np.ndarray
-    arm_star: int
 
     def __init__(self, num_arms=10, stationary=True):
         super().__init__()
@@ -259,27 +258,27 @@ if MAIN:
 
 # %%
 
-def my_div(numerator, denominator):
-    div = numerator / np.where(denominator == 0, 1, denominator)
-    div = np.where(denominator == 0, np.inf, div)
-    return div
-
 class UCBActionSelection(Agent):
-    def __init__(self, num_arms: int, seed: int, c: float):
+    def __init__(self, num_arms: int, seed: int, c: float, eps: float = 1e-6):
+        # SOLUTION
         self.c = c
+        self.eps = eps
         super().__init__(num_arms, seed)
 
     def get_action(self):
+        # SOLUTION
         # This method avoids division by zero errors, and makes sure N=0 entries are chosen by argmax
-        ucb = self.Q + self.c * np.sqrt(my_div(np.log(self.t), self.N))
+        ucb = self.Q + self.c * np.sqrt(np.log(self.t) / (self.N + self.eps))
         return np.argmax(ucb)
 
     def observe(self, action, reward, info):
+        # SOLUTION
         self.t += 1
         self.N[action] += 1
         self.Q[action] += (reward - self.Q[action]) / self.N[action]
 
     def reset(self, seed: int):
+        # SOLUTION
         super().reset(seed)
         self.t = 1
         self.N = np.zeros(self.num_arms)
