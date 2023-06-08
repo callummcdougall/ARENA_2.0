@@ -638,7 +638,7 @@ As we continue onward to more complicated algorithms, keep an eye out for small 
 
 Once you feel good about your `RewardAveraging` implementation, you should implement `UCBActionSelection`.
 
-This should store the same moving average rewards for each action as `RewardAveraging` did, but instead of taking actions using the epsilon-greedy strategy it should use Equation 2.8 in Section 2.6 to select actions using the upper confidence bound. It's also useful to add a small epsilon term to the $N_t(a)$ term, to handle instances where some of the actions haven't been taken yet.
+This should store the same moving average rewards for each action as `RewardAveraging` did, but instead of taking actions using the epsilon-greedy strategy it should use Equation 2.10 in Section 2.7 to select actions using the upper confidence bound. It's also useful to add a small epsilon term to the $N_t(a)$ term, to handle instances where some of the actions haven't been taken yet.
 
 You should expect to see a small improvement over `RewardAveraging` using this strategy.
 
