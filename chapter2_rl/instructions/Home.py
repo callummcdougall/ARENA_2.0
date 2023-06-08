@@ -56,7 +56,7 @@ Some highlights from this chapter include:
 
 * Building your own agent to play the multi-armed bandit problem, implementing methods from [Sutton & Bardo](https://www.andrew.cmu.edu/course/10-703/textbook/BartoSutton.pdf)
 * Implementing a Deep Q-Network (DQN) and Proximal Policy Optimization (PPO) to play the CartPole game
-* Apply RLHF to autoregressive transformers like the ones you built in the previous chapter
+* Applying RLHF to autoregressive transformers like the ones you built in the previous chapter
 
 ---
 

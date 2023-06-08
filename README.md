@@ -32,11 +32,19 @@ Some highlights from this chapter include:
 Unlike the first chapter (where all the material was compulsory), this chapter has 4 days of compulsory content and 4 days of bonus content. During the compulsory days you will build and train transformers, and get a basic understanding of mechanistic interpretability of transformer models which includes induction heads & use of TransformerLens. The next 4 days, you have the option to continue with whatever material interests you out of the remaining sets of exercises. There will also be bonus material if you want to leave the beaten track of exercises all together!
 
 
-# Chapter 2: Reinforcement Learning
+# [Chapter 2: Reinforcement Learning](https://arena-ch2-rl.streamlit.app/)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/rl.png" width="400">
 
-Links coming soon!
+Reinforcement learning is an important field of machine learning. It works by teaching agents to take actions in an environment to maximise their accumulated reward.
+
+In this chapter, you will be learning about some of the fundamentals of RL, and working with OpenAI’s Gym environment to run your own experiments.
+
+Some highlights from this chapter include:
+
+* Building your own agent to play the multi-armed bandit problem, implementing methods from [Sutton & Bardo](https://www.andrew.cmu.edu/course/10-703/textbook/BartoSutton.pdf)
+* Implementing a Deep Q-Network (DQN) and Proximal Policy Optimization (PPO) to play the CartPole game
+* Applying RLHF to autoregressive transformers like the ones you built in the previous chapter
 
 # Chapter 3: Training at Scale
 
