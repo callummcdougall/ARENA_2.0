@@ -502,15 +502,6 @@ def policy_eval_exact(env: Environment, pi: Arr, gamma=0.99) -> Arr:
 
 tests.test_policy_eval(policy_eval_exact, exact=True)
 # %%
-# def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
-#     '''
-#     Inputs:
-#         env: Environment
-#         V  : (num_states,) value of each state following some policy pi
-#     Outputs:
-#         pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
-#     '''
-#     return np.argmax(np.sum(env.T * (env.R + gamma * V[None, None, :]), axis=-1), axis=-1)
 def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
     '''
     Inputs:
@@ -519,7 +510,7 @@ def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
     Outputs:
         pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
     '''
-    return np.argmax(np.sum(env.T * (env.R + gamma * V[:, None, None]), axis=-1), axis=-1)
+    return np.argmax(np.sum(env.T * (env.R + gamma * V[None, None, :]), axis=-1), axis=-1)
 
 
 tests.test_policy_improvement(policy_improvement)
