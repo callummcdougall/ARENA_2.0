@@ -27,7 +27,7 @@ sys.path.append(chapter_dir + CHAPTER)
 
 # from exercises.plotly_utils import hist
 
-# openai.api_key = st.secrets["openai_api_key"]
+openai.api_key = st.secrets["openai_api_key"]
 
 SEPARATOR = "\n" + "=" * 30 + "\n"
 
