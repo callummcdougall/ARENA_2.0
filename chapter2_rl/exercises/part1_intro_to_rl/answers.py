@@ -546,11 +546,36 @@ def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
     Outputs:
         pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
     '''
-    einops.einsum(
+    pi = einops.einsum(
         env.T,
-        env.R + gamma * env.T,
-        's a ns'
+        env.R + gamma * V,
+        's a ns, s a ns -> s a'
     )
+
+    return pi.argmax(axis=-1)
 
 
 tests.test_policy_improvement(policy_improvement)
+# %%
+def find_optimal_policy(env: Environment, gamma=0.99, max_iterations=10_000):
+    '''
+    Inputs:
+        env: environment
+    Outputs:
+        pi : (num_states,) int, of actions represeting an optimal policy
+    '''
+    pi = np.zeros(shape=env.num_states, dtype=int)
+    for i in range(max_iterations):
+        v = policy_eval_exact(env, pi, gamma)
+        pi = policy_improvement(env, v, gamma)
+
+    return pi
+
+
+tests.test_find_optimal_policy(find_optimal_policy)
+
+penalty = -0.1
+norvig = Norvig(penalty)
+pi_opt = find_optimal_policy(norvig, gamma=0.99)
+norvig.render(pi_opt)
+# %%
