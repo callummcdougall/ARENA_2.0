@@ -276,7 +276,7 @@ class UCBActionSelection(Agent):
         
 
     def get_action(self):
-        Q = self.R/self.N
+        Q = self.R/(self.N + self.eps)
         UCB_vals = Q + self.c * np.sqrt(np.log(self.t)/ (self.N + self.eps))
         return np.argmax(UCB_vals)
 
