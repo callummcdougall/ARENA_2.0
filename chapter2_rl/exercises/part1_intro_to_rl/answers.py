@@ -190,16 +190,15 @@ print("All tests passed!")
 
 
 #%%
-assert False
 class RewardAveraging(Agent):
     def __init__(self, num_arms: int, seed: int, epsilon: float, optimism: float):
-        self.num_arms = num_arms
+        # self.num_arms = num_arms
         self.seed = seed
         self.epsilon = epsilon
-        self.optimism = optimism
+        # self.optimism = optimism
 
         # Init arm values with optimism
-        self.arm_values = 
+        self.arm_values = np.full(shape=[num_arms], fill_value=optimism)
 
     def get_action(self):
         pass
@@ -234,3 +233,4 @@ utils.plot_rewards(all_rewards, names, moving_avg_window=15)
 
 
 #%%
+np.full(shape=[10], fill_value=5)
