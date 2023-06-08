@@ -147,7 +147,7 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 <details>
 <summary>Diagram 2 (complex)</summary>
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-d.png" width="1250">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-corrected.png" width="1250">
 
 </details>
 
@@ -2599,7 +2599,7 @@ def get_path_patch_head_to_heads(
         receiver node = input to a later head (or set of heads)
 
     The receiver node is specified by receiver_heads and receiver_input.
-    Example (for S-inhibition path patching the queries):
+    Example (for S-inhibition path patching the values):
         receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
         receiver_input = "v"
 
