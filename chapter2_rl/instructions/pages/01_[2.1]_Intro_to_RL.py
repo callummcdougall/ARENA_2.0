@@ -206,6 +206,7 @@ class MultiArmedBandit(gym.Env):
     num_arms: int
     stationary: bool
     arm_reward_means: np.ndarray
+    best_arm: int
 
     def __init__(self, num_arms=10, stationary=True):
         super().__init__()
@@ -954,7 +955,7 @@ The edges represent the state transitions given an action, as well as the reward
 
 We say that two policies $\pi_1$ and $\pi_2$ are **equivalent** if $\forall s \in S. V_{\pi_1}(s) = V_{\pi_2}(s)$.
 
-This gives us effectively two choices of deterministic policies, $\pi_L(s_0) = s_L$ and $\pi_R(s_0) = s_R$. (It is irrelevant what those policies do in the other states.)
+This gives us effectively two choices of deterministic policies, $\pi_L(s_0) = a_L$ and $\pi_R(s_0) = a_R$. (It is irrelevant what those policies do in the other states.)
 
 A policy $\pi_1$ is **better** than $\pi_2$ (denoted $\pi_1 \geq \pi_2$) if
 $\forall s \in S. V_{\pi_1}(s) \geq V_{\pi_2}(s)$.
@@ -1170,7 +1171,7 @@ Given a definition for the `dynamics` function, the `Environment` class automati
 toy = Toy()
 
 actions = ["a_L", "a_R"]
-states = ["s_L", "S_0", "S_R"]
+states = ["S_0", "s_L", "S_R"]
 
 imshow(
     toy.T, # dimensions (s, a, s_next)
