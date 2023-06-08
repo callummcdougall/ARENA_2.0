@@ -99,7 +99,8 @@ class MultiArmedBandit(gym.Env):
 gym.envs.registration.register(
     id="ArmedBanditTestbed-v0",
     entry_point=MultiArmedBandit,
-    max_episode_steps=max_episode_steps,
+    # max_episode_steps=max_episode_steps,
+    max_episode_steps=max_episode_steps*3,
     nondeterministic=True,
     reward_threshold=1.0,
     kwargs={"num_arms": 10, "stationary": True},
@@ -192,22 +193,34 @@ print("All tests passed!")
 #%%
 class RewardAveraging(Agent):
     def __init__(self, num_arms: int, seed: int, epsilon: float, optimism: float):
-        # self.num_arms = num_arms
-        self.seed = seed
         self.epsilon = epsilon
-        # self.optimism = optimism
+        self.num_arms = num_arms
+        self.optimism = optimism
+        self.reset(seed)
 
-        # Init arm values with optimism
-        self.arm_values = np.full(shape=[num_arms], fill_value=optimism)
+    def get_action(self) -> ActType:
+        # if explore, then choose random arm
+        if self.rng.uniform(0, 1, size=1).item() < self.epsilon:
+            return self.rng.integers(low=0, high=self.num_arms, size=1).item()
+        else:
+            return np.argmax(self.arm_values)
 
-    def get_action(self):
-        pass
-
-    def observe(self, action, reward, info):
-        pass
+    def observe(self, action, reward, info) -> None:
+        # Compute running average of arm values
+        self.arm_counts[action] += 1
+        self.arm_values[action] += (reward - self.arm_values[action]) / self.arm_counts[action]
 
     def reset(self, seed: int):
-        pass
+        # Init the PRNG
+        self.rng = np.random.default_rng(seed)
+
+        # Init arm values with optimism
+        self.arm_values = np.full(
+            shape=[self.num_arms], fill_value=self.optimism, dtype=float,
+        )
+
+        # Init arm counts
+        self.arm_counts = np.zeros(shape=[self.num_arms], dtype=int)
 
     def __repr__(self):
         # For the legend, when plotting
@@ -220,8 +233,8 @@ names = []
 all_rewards = []
 env = gym.make("ArmedBanditTestbed-v0", num_arms=num_arms, stationary=stationary)
 
-for optimism in [0, 5]:
-    agent = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=optimism)
+for optimism in [-5, 0, 5]:
+    agent = RewardAveraging(num_arms, 0, epsilon=0.00001, optimism=optimism)
     (rewards, num_correct) = run_agent(env, agent, n_runs=N_RUNS, base_seed=1)
     all_rewards.append(rewards)
     names.append(str(agent))
@@ -231,6 +244,76 @@ for optimism in [0, 5]:
 
 utils.plot_rewards(all_rewards, names, moving_avg_window=15)
 
+#%%
+class CheatyMcCheater(Agent):
+    def __init__(self, num_arms: int, seed: int):
+        self.best_action = 0
+
+    def get_action(self) -> ActType:
+        return self.best_action
+
+    def observe(self, action: int, reward: float, info: dict) -> None:
+        self.best_action = info["best_arm"]
+
+    def __repr__(self):
+        return "Cheater"
+
+
+cheater = CheatyMcCheater(num_arms, 0)
+reward_averaging = RewardAveraging(num_arms, 0, epsilon=0.1, optimism=0)
+random = RandomAgent(num_arms, 0)
+
+names = []
+all_rewards = []
+
+for agent in [cheater, reward_averaging, random]:
+    (rewards, num_correct) = run_agent(env, agent, n_runs=N_RUNS, base_seed=1)
+    names.append(str(agent))
+    all_rewards.append(rewards)
+
+utils.plot_rewards(all_rewards, names, moving_avg_window=15)
+
+assert (all_rewards[0] < all_rewards[1]).mean() < 0.001, "Cheater should be better than reward averaging"
+print("Tests passed!")
 
 #%%
-np.full(shape=[10], fill_value=5)
+class UCBActionSelection(RewardAveraging):
+    def __init__(self, num_arms: int, seed: int, c: float, eps: float = 1e-6):
+        super().__init__(num_arms, seed, epsilon=-1, optimism=-1)
+        self.eps = eps
+        self.c = c
+        self.t = 1
+
+    def get_action(self) -> ActType:
+        Q_hat = self.arm_values
+        N = self.arm_counts
+        action = (Q_hat + self.c * np.sqrt(np.log(self.t) / (N + self.eps))).argmax()
+        self.t += 1
+        return action
+
+    # def observe(self, action, reward, info):
+    #     pass
+
+    # def reset(self, seed: int):
+    #     pass
+
+    def __repr__(self):
+        return f"UCB(c={self.c})"
+
+
+cheater = CheatyMcCheater(num_arms, 0)
+# reward_averaging = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=0)
+reward_averaging_optimism = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=5)
+ucb = UCBActionSelection(num_arms, 0, c=2.0)
+# random = RandomAgent(num_arms, 0)
+
+names = []
+all_rewards = []
+
+for agent in [cheater, reward_averaging_optimism, ucb]:
+# for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]:
+    (rewards, num_correct) = run_agent(env, agent, n_runs=N_RUNS, base_seed=1)
+    names.append(str(agent))
+    all_rewards.append(rewards)
+
+utils.plot_rewards(all_rewards, names, moving_avg_window=15)
