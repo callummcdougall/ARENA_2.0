@@ -182,11 +182,11 @@ print("All tests passed!")
 # %%
 class RewardAveraging(Agent):
     def __init__(self, num_arms: int, seed: int, epsilon: float, optimism: float):
-        self.epsilon = epsilon
         self.optimism = optimism
+        super().__init__(num_arms, seed)
+        self.epsilon = epsilon
         self.q_vals = np.full(num_arms, optimism, float)
         self.n_a = np.zeros(num_arms, int)
-        super().__init__(num_arms, seed)
 
     def get_action(self):
         if np.random.random() < self.epsilon:
@@ -259,16 +259,23 @@ print("Tests passed!")
 # %%
 class UCBActionSelection(Agent):
     def __init__(self, num_arms: int, seed: int, c: float, eps: float = 1e-6):
-        pass
+        super().__init__(num_arms, seed)
+        self.c = c
+        self.eps = eps
+        self.q_vals = np.zeros(num_arms, float)
+        self.n_a = np.zeros(num_arms, int)
 
     def get_action(self):
-        pass
+        return np.argmax(self.q_vals + self.c * np.sqrt(np.log(self.n_a.sum()) / (self.n_a + self.eps)))
 
     def observe(self, action, reward, info):
-        pass
+        self.q_vals[action] += (reward - self.q_vals[action]) / (self.n_a[action] + 1)
+        self.n_a[action] += 1
 
     def reset(self, seed: int):
-        pass
+        super().reset(seed)
+        self.q_vals = np.zeros(self.num_arms, float)
+        self.n_a = np.zeros(self.num_arms, int)
 
     def __repr__(self):
         return f"UCB(c={self.c})"
@@ -290,3 +297,258 @@ for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]
     all_rewards.append(rewards)
 
 utils.plot_rewards(all_rewards, names, moving_avg_window=15)
+# %%
+class Environment:
+    def __init__(self, num_states: int, num_actions: int, start=0, terminal=None):
+        self.num_states = num_states
+        self.num_actions = num_actions
+        self.start = start
+        self.terminal = np.array([], dtype=int) if terminal is None else terminal
+        (self.T, self.R) = self.build()
+
+    def build(self):
+        '''
+        Constructs the T and R tensors from the dynamics of the environment.
+        Outputs:
+            T : (num_states, num_actions, num_states) State transition probabilities
+            R : (num_states, num_actions, num_states) Reward function
+        '''
+        num_states = self.num_states
+        num_actions = self.num_actions
+        T = np.zeros((num_states, num_actions, num_states))
+        R = np.zeros((num_states, num_actions, num_states))
+        for s in range(num_states):
+            for a in range(num_actions):
+                (states, rewards, probs) = self.dynamics(s, a)
+                (all_s, all_r, all_p) = self.out_pad(states, rewards, probs)
+                T[s, a, all_s] = all_p
+                R[s, a, all_s] = all_r
+        return (T, R)
+
+    def dynamics(self, state: int, action: int) -> Tuple[Arr, Arr, Arr]:
+        '''
+        Computes the distribution over possible outcomes for a given state
+        and action.
+        Inputs:
+            state : int (index of state)
+            action : int (index of action)
+        Outputs:
+            states  : (m,) all the possible next states
+            rewards : (m,) rewards for each next state transition
+            probs   : (m,) likelihood of each state-reward pair
+        '''
+        raise NotImplementedError
+
+    def render(pi: Arr):
+        '''
+        Takes a policy pi, and draws an image of the behavior of that policy, if applicable.
+        Inputs:
+            pi : (num_actions,) a policy
+        Outputs:
+            None
+        '''
+        raise NotImplementedError
+
+    def out_pad(self, states: Arr, rewards: Arr, probs: Arr):
+        '''
+        Inputs:
+            states  : (m,) all the possible next states
+            rewards : (m,) rewards for each next state transition
+            probs   : (m,) likelihood of each state-reward pair
+        Outputs:
+            states  : (num_states,) all the next states
+            rewards : (num_states,) rewards for each next state transition
+            probs   : (num_states,) likelihood of each state-reward pair (including zero-prob outcomes.)
+        '''
+        out_s = np.arange(self.num_states)
+        out_r = np.zeros(self.num_states)
+        out_p = np.zeros(self.num_states)
+        for i in range(len(states)):
+            idx = states[i]
+            out_r[idx] += rewards[i]
+            out_p[idx] += probs[i]
+        return (out_s, out_r, out_p)
+# %%
+class Toy(Environment):
+    def dynamics(self, state: int, action: int):
+        (S0, SL, SR) = (0, 1, 2)
+        LEFT = 0
+        num_states = 3
+        num_actions = 2
+        assert 0 <= state < self.num_states and 0 <= action < self.num_actions
+        if state == S0:
+            if action == LEFT:
+                (next_state, reward) = (SL, 1)
+            else:
+                (next_state, reward) = (SR, 0)
+        elif state == SL:
+            (next_state, reward) = (S0, 0)
+        elif state == SR:
+            (next_state, reward) = (S0, 2)
+        return (np.array([next_state]), np.array([reward]), np.array([1]))
+
+    def __init__(self):
+        super().__init__(num_states=3, num_actions=2)
+# %%
+toy = Toy()
+
+actions = ["a_L", "a_R"]
+states = ["s_L", "S_0", "S_R"]
+
+imshow(
+    toy.T, # dimensions (s, a, s_next)
+    title="Transition probabilities T(s_next | s, a) for toy environment", 
+    facet_col=-1, facet_labels=[f"s_next = {s}" for s in states], y=states, x=actions,
+    labels = {"x": "Action", "y": "State", "color": "Transition<br>Probability"},
+)
+
+imshow(
+    toy.R, # dimensions (s, a, s_next)
+    title="Rewards R(s, a, s_next) for toy environment", 
+    facet_col=-1, facet_labels=[f"s_next = {s}" for s in states], y=states, x=actions,
+    labels = {"x": "Action", "y": "State", "color": "Reward"},
+)
+# %%
+class Norvig(Environment):
+    def dynamics(self, state: int, action: int) -> Tuple[Arr, Arr, Arr]:
+        def state_index(state):
+            assert 0 <= state[0] < self.width and 0 <= state[1] < self.height, print(state)
+            pos = state[0] + state[1] * self.width
+            assert 0 <= pos < self.num_states, print(state, pos)
+            return pos
+
+        pos = self.states[state]
+        move = self.actions[action]
+        if state in self.terminal or state in self.walls:
+            return (np.array([state]), np.array([0]), np.array([1]))
+        out_probs = np.zeros(self.num_actions) + 0.1
+        out_probs[action] = 0.7
+        out_states = np.zeros(self.num_actions, dtype=int) + self.num_actions
+        out_rewards = np.zeros(self.num_actions) + self.penalty
+        new_states = [pos + x for x in self.actions]
+        for (i, s_new) in enumerate(new_states):
+            if not (0 <= s_new[0] < self.width and 0 <= s_new[1] < self.height):
+                out_states[i] = state
+                continue
+            new_state = state_index(s_new)
+            if new_state in self.walls:
+                out_states[i] = state
+            else:
+                out_states[i] = new_state
+            for idx in range(len(self.terminal)):
+                if new_state == self.terminal[idx]:
+                    out_rewards[i] = self.goal_rewards[idx]
+        return (out_states, out_rewards, out_probs)
+
+    def render(self, pi: Arr):
+        assert len(pi) == self.num_states
+        emoji = ["⬆️", "➡️", "⬇️", "⬅️"]
+        grid = [emoji[act] for act in pi]
+        grid[3] = "🟩"
+        grid[7] = "🟥"
+        grid[5] = "⬛"
+        print("".join(grid[0:4]) + "\n" + "".join(grid[4:8]) + "\n" + "".join(grid[8:]))
+
+    def __init__(self, penalty=-0.04):
+        self.height = 3
+        self.width = 4
+        self.penalty = penalty
+        num_states = self.height * self.width
+        num_actions = 4
+        self.states = np.array([[x, y] for y in range(self.height) for x in range(self.width)])
+        self.actions = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])
+        self.dim = (self.height, self.width)
+        terminal = np.array([3, 7], dtype=int)
+        self.walls = np.array([5], dtype=int)
+        self.goal_rewards = np.array([1.0, -1])
+        super().__init__(num_states, num_actions, start=8, terminal=terminal)
+# %%
+def policy_eval_numerical(env: Environment, pi: Arr, gamma=0.99, eps=1e-8, max_iterations=10_000) -> Arr:
+    '''
+    Numerically evaluates the value of a given policy by iterating the Bellman equation
+    Inputs:
+        env: Environment
+        pi : shape (num_states,) - The policy to evaluate
+        gamma: float - Discount factor
+        eps  : float - Tolerance
+        max_iterations: int - Maximum number of iterations to run
+    Outputs:
+        value : float (num_states,) - The value function for policy pi
+    '''
+    state_vals = np.zeros(env.num_states)
+    for _ in range(max_iterations):
+        new_vals = np.zeros(env.num_states)
+        for s in range(env.num_states):
+            a = pi[s]
+            next_state_probs = env.T[s, a]
+            rewards = env.R[s, a]
+            new_vals[s] = (next_state_probs * (rewards + gamma * state_vals)).sum()
+        if np.max(np.abs(new_vals - state_vals)) < eps:
+            break
+        state_vals = new_vals
+    return state_vals
+
+
+tests.test_policy_eval(policy_eval_numerical, exact=False)
+# %%
+def policy_eval_exact(env: Environment, pi: Arr, gamma=0.99) -> Arr:
+    '''
+    Finds the exact solution to the Bellman equation.
+    '''
+    n_s = env.num_states
+    T = env.T[np.arange(n_s), pi]
+    r = (T * env.R[np.arange(n_s), pi]).sum(axis=-1)
+    return np.linalg.inv(np.eye(n_s) - gamma * T).dot(r)
+
+tests.test_policy_eval(policy_eval_exact, exact=True)
+# %%
+# def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
+#     '''
+#     Inputs:
+#         env: Environment
+#         V  : (num_states,) value of each state following some policy pi
+#     Outputs:
+#         pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
+#     '''
+#     return np.argmax(np.sum(env.T * (env.R + gamma * V[None, None, :]), axis=-1), axis=-1)
+def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
+    '''
+    Inputs:
+        env: Environment
+        V  : (num_states,) value of each state following some policy pi
+    Outputs:
+        pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
+    '''
+    return np.argmax(np.sum(env.T * (env.R + gamma * V[:, None, None]), axis=-1), axis=-1)
+
+
+tests.test_policy_improvement(policy_improvement)
+# %%
+def find_optimal_policy(env: Environment, gamma=0.99, max_iterations=10_000):
+    '''
+    Inputs:
+        env: environment
+    Outputs:
+        pi : (num_states,) int, of actions represeting an optimal policy
+    '''
+    pi = np.zeros(shape=env.num_states, dtype=int)
+    # SOLUTION
+
+    for i in range(max_iterations):
+        V = policy_eval_exact(env, pi, gamma)
+        pi_new = policy_improvement(env, V, gamma)
+        if np.array_equal(pi_new, pi):
+            return pi_new
+        else:
+            pi = pi_new
+    else:
+        print(f"Failed to converge after {max_iterations} steps.")
+        return pi
+
+tests.test_find_optimal_policy(find_optimal_policy)
+
+penalty = -0.04
+norvig = Norvig(penalty)
+pi_opt = find_optimal_policy(norvig, gamma=0.99)
+norvig.render(pi_opt)
+# %%
