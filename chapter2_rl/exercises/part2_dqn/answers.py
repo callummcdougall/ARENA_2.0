@@ -531,3 +531,23 @@ tests.test_replay_buffer_single(ReplayBuffer)
 tests.test_replay_buffer_deterministic(ReplayBuffer)
 tests.test_replay_buffer_wraparound(ReplayBuffer)
 # %%
+rb = ReplayBuffer(buffer_size=256, num_environments=1, seed=0)
+envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", 0, 0, False, "test")])
+obs = envs.reset()
+for i in range(256):
+    actions = np.array([0])
+    (next_obs, rewards, dones, infos) = envs.step(actions)
+    real_next_obs = next_obs.copy()
+    for (i, done) in enumerate(dones):
+        if done:
+            real_next_obs[i] = infos[i]["terminal_observation"]
+    rb.add(obs, actions, rewards, dones, next_obs)
+    obs = next_obs
+
+
+plot_cartpole_obs_and_dones(rb.observations.flip(0), rb.dones.flip(0))
+
+sample = rb.sample(256, t.device("cpu"))
+plot_cartpole_obs_and_dones(sample.observations.flip(0), sample.dones.flip(0))
+
+# %%
