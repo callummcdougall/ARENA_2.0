@@ -331,3 +331,450 @@ line(
 )
 
 #%%
+class QNetwork(nn.Module):
+    '''For consistency with your tests, please wrap your modules in a `nn.Sequential` called `layers`.'''
+    layers: nn.Sequential
+
+    def __init__(
+        self, 
+        dim_observation: int, 
+        num_actions: int, 
+        hidden_sizes: List[int] = [120, 84]
+    ):
+        super().__init__()
+        
+        self.layers = nn.Sequential(
+            nn.Linear(dim_observation, hidden_sizes[0]),
+            nn.ReLU(),
+            nn.Linear(hidden_sizes[0], hidden_sizes[1]),
+            nn.ReLU(),
+            nn.Linear(hidden_sizes[1], num_actions)
+        )
+
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        return self.layers(x)
+
+
+net = QNetwork(dim_observation=4, num_actions=2)
+n_params = sum((p.nelement() for p in net.parameters()))
+assert isinstance(getattr(net, "layers", None), nn.Sequential)
+print(net)
+print(f"Total number of parameters: {n_params}")
+print("You should manually verify network is Linear-ReLU-Linear-ReLU-Linear")
+assert n_params == 10934
+# %%
+@dataclass
+class ReplayBufferSamples:
+    '''
+    Samples from the replay buffer, converted to PyTorch for use in neural network training.
+    '''
+    observations: Float[Tensor, "sampleSize *obsShape"]
+    actions: Int[Tensor, "sampleSize"]
+    rewards: Float[Tensor, "sampleSize"]
+    dones: Bool[Tensor, "sampleSize"]
+    next_observations: Float[Tensor, "sampleSize *obsShape"]
+
+
+class ReplayBuffer:
+    '''
+    Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
+    '''
+    rng: Generator
+    observations: t.Tensor
+    actions: t.Tensor
+    rewards: t.Tensor
+    dones: t.Tensor
+    next_observations: t.Tensor
+
+    def __init__(self, buffer_size: int, num_environments: int, seed: int, observation_shape=4):
+        assert num_environments == 1, "This buffer only supports SyncVectorEnv with 1 environment inside."
+        self.num_environments = num_environments
+        self.observations = t.empty(buffer_size, num_environments, observation_shape)
+        self.actions = t.empty(buffer_size, num_environments)
+        self.rewards = t.empty(buffer_size, num_environments)
+        self.dones = t.empty(buffer_size, num_environments)
+        self.next_observations = t.empty(buffer_size, num_environments, observation_shape)
+        self.buffer_size = buffer_size
+        self.n_filled = 0
+        self.ptr = 0
+        self.rng = np.random.default_rng(seed)
+
+
+
+    def add(
+        self, obs: np.ndarray, actions: np.ndarray, rewards: np.ndarray, dones: np.ndarray, next_obs: np.ndarray
+    ) -> None:
+        '''
+        obs: shape (num_environments, *observation_shape) 
+            Observation before the action
+        actions: shape (num_environments,) 
+            Action chosen by the agent
+        rewards: shape (num_environments,) 
+            Reward after the action
+        dones: shape (num_environments,) 
+            If True, the episode ended and was reset automatically
+        next_obs: shape (num_environments, *observation_shape) 
+            Observation after the action
+            If done is True, this should be the terminal observation, NOT the first observation of the next episode.
+        '''
+        assert obs.shape[0] == self.num_environments
+        assert actions.shape == (self.num_environments,)
+        assert rewards.shape == (self.num_environments,)
+        assert dones.shape == (self.num_environments,)
+        assert next_obs.shape[0] == self.num_environments
+
+        self.observations[self.ptr] = t.tensor(obs)
+        self.actions[self.ptr] = t.tensor(actions)
+        self.rewards[self.ptr] = t.tensor(rewards)
+        self.dones[self.ptr] = t.tensor(dones)
+        self.next_observations[self.ptr] = t.tensor(next_obs)
+
+        self.n_filled += 1
+        self.n_filled = min(self.buffer_size, self.n_filled)
+
+        self.ptr += 1
+        if self.ptr >= self.buffer_size:
+            self.ptr = 0
+    
+    
+    def sample(self, sample_size: int, device: t.device) -> ReplayBufferSamples:
+        '''
+        Uniformly sample sample_size entries from the buffer and convert them to PyTorch tensors on device.
+        Sampling is with replacement, and sample_size may be larger than the buffer size.
+        '''
+        sample_indices = self.rng.integers(0, self.n_filled, size=(sample_size,))
+        buffer_samples = ReplayBufferSamples(
+            observations=self.observations[sample_indices, 0].to(device),
+            actions=self.actions[sample_indices, 0].to(device),
+            rewards=self.rewards[sample_indices, 0].to(device),
+            dones=self.dones[sample_indices, 0].to(device),
+            next_observations=self.next_observations[sample_indices, 0].to(device),
+        )
+        return buffer_samples
+
+        
+
+
+tests.test_replay_buffer_single(ReplayBuffer)
+tests.test_replay_buffer_deterministic(ReplayBuffer)
+tests.test_replay_buffer_wraparound(ReplayBuffer)
+# %%
+rb = ReplayBuffer(buffer_size=256, num_environments=1, seed=0)
+envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", 0, 0, False, "test")])
+obs = envs.reset()
+for i in range(256):
+    actions = np.array([0])
+    (next_obs, rewards, dones, infos) = envs.step(actions)
+    real_next_obs = next_obs.copy()
+    for (i, done) in enumerate(dones):
+        if done:
+            real_next_obs[i] = infos[i]["terminal_observation"]
+    rb.add(obs, actions, rewards, dones, next_obs)
+    obs = next_obs
+
+
+plot_cartpole_obs_and_dones(rb.observations, rb.dones)
+
+sample = rb.sample(256, t.device("cpu"))
+plot_cartpole_obs_and_dones(sample.observations, sample.dones)
+# %%
+def linear_schedule(
+    current_step: int, start_e: float, end_e: float, exploration_fraction: float, total_timesteps: int
+) -> float:
+    '''Return the appropriate epsilon for the current step.
+
+    Epsilon should be start_e at step 0 and decrease linearly to end_e at step (exploration_fraction * total_timesteps).
+
+    It should stay at end_e for the rest of the episode.
+    '''
+    explore_timesteps = exploration_fraction * total_timesteps
+    slope = (end_e - start_e) / explore_timesteps 
+    return max(start_e + slope * current_step, end_e)
+
+
+
+
+epsilons = [
+    linear_schedule(step, start_e=1.0, end_e=0.05, exploration_fraction=0.5, total_timesteps=500)
+    for step in range(500)
+]
+line(epsilons, labels={"x": "steps", "y": "epsilon"}, title="Probability of random action")
+
+tests.test_linear_schedule(linear_schedule)
+# %%
+def epsilon_greedy_policy(
+    envs: gym.vector.SyncVectorEnv, q_network: QNetwork, rng: Generator, obs: t.Tensor, epsilon: float
+) -> np.ndarray:
+    '''With probability epsilon, take a random action. Otherwise, take a greedy action according to the q_network.
+    Inputs:
+        envs : gym.vector.SyncVectorEnv, the family of environments to run against
+        q_network : QNetwork, the network used to approximate the Q-value function
+        obs : The current observation
+        epsilon : exploration percentage
+    Outputs:
+        actions: (n_environments, ) the sampled action for each environment.
+    '''
+    if rng.uniform(0, 1, size=1).item() < epsilon:  # Explore
+        num_actions = envs.single_action_space.n
+        return rng.integers(low=0, high=num_actions, size=envs.num_envs)
+    else:  # Exploit
+        Q_values = q_network(obs) # check one-hot encoded
+        return Q_values.argmax(dim=-1).detach().cpu().numpy()
+
+
+tests.test_epsilon_greedy_policy(epsilon_greedy_policy)
+# %%
+ObsType = np.ndarray
+ActType = int
+
+class Probe1(gym.Env):
+    '''One action, observation of [0.0], one timestep long, +1 reward.
+
+    We expect the agent to rapidly learn that the value of the constant [0.0] observation is +1.0. Note we're using a continuous observation space for consistency with CartPole.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        super().__init__()
+        self.observation_space = Box(np.array([0]), np.array([0]))
+        self.action_space = Discrete(1)
+        self.seed()
+        self.reset()
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        return (np.array([0]), 1.0, True, {})
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        super().reset(seed=seed)
+        if return_info:
+            return (np.array([0.0]), {})
+        return np.array([0.0])
+
+
+gym.envs.registration.register(id="Probe1-v0", entry_point=Probe1)
+env = gym.make("Probe1-v0")
+assert env.observation_space.shape == (1,)
+assert env.action_space.shape == ()
+# %%
+class Probe2(gym.Env):
+    '''One action, observation of [-1.0] or [+1.0], one timestep long, reward equals observation.
+
+    We expect the agent to rapidly learn the value of each observation is equal to the observation.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        # SOLUTION
+        super().__init__()
+        self.observation_space = Box(np.array([-1.0]), np.array([+1.0]))
+        self.action_space = Discrete(1)
+        self.reset()
+        self.reward = None
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        # SOLUTION
+        assert self.reward is not None
+        return np.array([self.observation]), self.reward, True, {}
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        # SOLUTION
+        super().reset(seed=seed)
+        self.reward = 1.0 if self.np_random.random() < 0.5 else -1.0
+        self.observation = self.reward
+        if return_info:
+            return np.array([self.reward]), {}
+        return np.array([self.reward])
+
+class Probe3(gym.Env):
+    '''One action, [0.0] then [1.0] observation, two timesteps, +1 reward at the end.
+
+    We expect the agent to rapidly learn the discounted value of the initial observation.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        # SOLUTION
+        super().__init__()
+        self.observation_space = Box(np.array([-0.0]), np.array([+1.0]))
+        self.action_space = Discrete(1)
+        self.reset()
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        # SOLUTION
+        self.n += 1
+        if self.n == 1:
+            return np.array([1.0]), 0.0, False, {}
+        elif self.n == 2:
+            return np.array([0.0]), 1.0, True, {}
+        raise ValueError(self.n)
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        # SOLUTION
+        super().reset(seed=seed)
+        self.n = 0
+        if return_info:
+            return np.array([0.0]), {}
+        return np.array([0.0])
+
+class Probe4(gym.Env):
+    '''Two actions, [0.0] observation, one timestep, reward is -1.0 or +1.0 dependent on the action.
+
+    We expect the agent to learn to choose the +1.0 action.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        # SOLUTION
+        self.observation_space = Box(np.array([-0.0]), np.array([+0.0]))
+        self.action_space = Discrete(2)
+        self.reset()
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        # SOLUTION
+        reward = -1.0 if action == 0 else 1.0
+        return np.array([0.0]), reward, True, {}
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        # SOLUTION
+        super().reset(seed=seed)
+        if return_info:
+            return np.array([0.0]), {}
+        return np.array([0.0])
+
+class Probe5(gym.Env):
+    '''Two actions, random 0/1 observation, one timestep, reward is 1 if action equals observation otherwise -1.
+
+    We expect the agent to learn to match its action to the observation.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        # SOLUTION
+        self.observation_space = Box(np.array([-1.0]), np.array([+1.0]))
+        self.action_space = Discrete(2)
+        self.reset()
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        # SOLUTION
+        reward = 1.0 if action == self.obs else -1.0
+        return np.array([self.obs]), reward, True, {}
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        # SOLUTION
+        super().reset(seed=seed)
+        self.obs = 1.0 if self.np_random.random() < 0.5 else 0.0
+        if return_info:
+            return np.array([self.obs], dtype=float), {}
+        return np.array([self.obs], dtype=float)
+# %%
+@dataclass
+class DQNArgs:
+    exp_name: str = "DQN_implementation"
+    seed: int = 1
+    torch_deterministic: bool = True
+    cuda: bool = t.cuda.is_available()
+    log_dir: str = "logs"
+    use_wandb: bool = True
+    wandb_project_name: str = "CartPoleDQN"
+    wandb_entity: Optional[str] = None
+    capture_video: bool = True
+    env_id: str = "CartPole-v1"
+    total_timesteps: int = 500_000
+    learning_rate: float = 0.00025
+    buffer_size: int = 10_000
+    gamma: float = 0.99
+    target_network_frequency: int = 500
+    batch_size: int = 128
+    start_e: float = 1.0
+    end_e: float = 0.1
+    exploration_fraction: float = 0.2
+    train_frequency: int = 10
+    log_frequency: int = 50
+
+    def __post_init__(self):
+        assert self.total_timesteps - self.buffer_size >= self.train_frequency
+        self.total_training_steps = (self.total_timesteps - self.buffer_size) // self.train_frequency
+
+
+args = DQNArgs(batch_size=256)
+utils.arg_help(args)
+# %%
+class DQNAgent:
+    '''Base Agent class handeling the interaction with the environment.'''
+
+    def __init__(
+        self, 
+        envs: gym.vector.SyncVectorEnv, 
+        args: DQNArgs, 
+        rb: ReplayBuffer,
+        q_network: QNetwork,
+        target_network: QNetwork,
+        rng: np.random.Generator
+    ):
+        self.envs = envs
+        self.args = args
+        self.rb = rb
+        self.next_obs = self.envs.reset() # Need a starting observation!
+        self.steps = 0
+        self.epsilon = args.start_e
+        self.q_network = q_network
+        self.target_network = target_network
+        self.rng = rng
+
+    def play_step(self) -> List[dict]:
+        '''
+        Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
+
+        Returns `infos` (list of dictionaries containing info we will log).
+        '''
+        actions = self.get_actions(self.next_obs)
+        obs, rewards, dones, infos = self.envs.step(actions)
+        self.rb.add(self.next_obs, actions, rewards, dones, obs)
+        self.next_obs = obs
+        self.steps += 1
+        return infos
+
+    def get_actions(self, obs: np.ndarray) -> np.ndarray:
+        '''
+        Samples actions according to the epsilon-greedy policy using the linear schedule for epsilon.
+        '''
+        self.epsilon = linear_schedule(
+            self.steps, 
+            self.args.start_e, 
+            self.args.end_e, 
+            self.args.exploration_fraction, 
+            self.args.total_timesteps
+        )
+
+        if self.rng.uniform(0, 1, size=1).item() < self.epsilon:  # Explore
+            return self.rng.integers(low=0, high=envs.single_action_space.n, size=1)
+        else:  # Exploit
+            Q_values = self.q_network(obs) # check one-hot encoded
+            return Q_values.argmax(dim=-1).detach().cpu().numpy()
+        
+
+
+tests.test_agent(DQNAgent)
+
+
+# %%
