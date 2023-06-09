@@ -188,24 +188,24 @@ class ReplayBuffer:
 
     def __init__(
         self,
-        buffer_size: int,
+        args: PPOArgs,
         num_environments: int,
-        seed: int,
-        gamma: float,
-        gae_lambda: float,
-        next_obs: Tensor,
-        next_done: Tensor,
-        next_value: Tensor,
+        next_obs: Optional[Tensor] = None,
+        next_done: Optional[Tensor] = None,
+        next_value: Optional[Tensor] = None,
     ):
-        self.buffer_size = buffer_size
         self.num_environments = num_environments
-        self.rng = np.random.default_rng(seed)
-        self.gamma = gamma
-        self.gae_lambda = gae_lambda
+        self.rng = np.random.default_rng(args.seed)
+        self.gamma = args.gamma
+        self.gae_lambda = args.gae_lambda
+        self.batch_size = args.batch_size
+        self.minibatch_size = args.minibatch_size
+        self.num_steps = args.num_steps
         self.buffer = [None for _ in range(7)]
         self.next_obs = next_obs
         self.next_done = next_done
         self.next_value = next_value
+        self.minibatches = []
 
     def add(
         self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, next_obs: Arr, logprobs: Arr, values: Arr
@@ -239,29 +239,33 @@ class ReplayBuffer:
             assert arr.shape[0] == self.num_environments
             if isinstance(arr, np.ndarray):
                 arr = t.from_numpy(arr)
-            arr = arr[None, :]
+            arr = arr[None, :].cpu()
             if arr_list is None:
                 self.buffer[i] = arr
             else:
                 self.buffer[i] = t.concat((arr, arr_list))
-            if self.buffer[i].shape[0] > self.buffer_size:
-                self.buffer[i] = self.buffer[i][:self.buffer_size]
+            if self.buffer[i].shape[0] > self.num_steps:
+                self.buffer[i] = self.buffer[i][:self.num_steps]
 
         self.obs, self.actions, self.rewards, self.dones, self.next_obs, self.logprobs, self.values = self.buffer
 
 
-    def sample(self, sample_size: int, device: t.device) -> ReplayBufferSamples:
-        '''
-        Uniformly sample sample_size entries from the buffer and convert them to PyTorch tensors on device.
-        Sampling is with replacement, and sample_size may be larger than the buffer size.
-        '''
-        indices = self.rng.integers(0, self.buffer[0].shape[0], sample_size)
-        obs, actions, rewards, dones, next_obs, logprobs, values = [arr_list[indices].to(device) for arr_list in self.buffer]
-        advantages = compute_advantages(self.next_value, self.next_done, rewards, values, dones.float(), device, self.gamma, self.gae_lambda)
-        returns = advantages + values
+    def get_minibatches(self):
+        indices = minibatch_indexes(self.rng, self.batch_size, self.minibatch_size)
+        advantages = compute_advantages(self.next_value, self.next_done, self.rewards, self.values, self.dones.float(), self.gamma, self.gae_lambda)
+        returns = advantages + self.values
+        replaybuffer_args = [self.obs, self.dones, self.actions, self.logprobs, advantages, returns, self.values]
+        self.minibatches = [
+            ReplayBufferSamples(*[arg.flatten(0, 1)[index].to(device) for arg in replaybuffer_args])
+            for index in indices
+        ]
+    
 
-        replaybuffer_args = [obs, dones, actions, logprobs, advantages, returns, values]
-        return ReplayBufferSamples(*[arg.flatten(0, 1) for arg in replaybuffer_args])
+    def reset(self) -> None:
+        '''
+        Reset the buffer to empty.
+        '''
+        self.buffer = [None for _ in range(7)]
     
 # %%
 
@@ -272,28 +276,17 @@ class PPOAgent(nn.Module):
 
     def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
         super().__init__()
+        self.args = args
         self.envs = envs
         self.obs_shape = envs.single_observation_space.shape
         self.num_obs = np.array(self.obs_shape).prod()
         self.num_actions = envs.single_action_space.n
 
+        self.steps = 0
         self.actor, self.critic = get_actor_and_critic(envs)
 
-        self.next_obs = t.tensor(self.envs.reset()).to(device)
-        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
-        self.next_value = self.critic(self.next_obs).flatten().detach()
-        self.steps = 0
-
-        self.rb = ReplayBuffer(
-            buffer_size=args.minibatch_size,
-            num_environments=envs.num_envs,
-            seed=args.seed,
-            gamma=args.gamma,
-            gae_lambda=args.gae_lambda, 
-            next_obs=self.next_obs,
-            next_done=self.next_done,
-            next_value=self.next_value
-        )
+        self.rb = ReplayBuffer(args, envs.num_envs)
+        self.reset()
 
     def play_step(self) -> List[dict]:
         '''
@@ -318,6 +311,15 @@ class PPOAgent(nn.Module):
         self.steps += 1
 
         return infos
+    
+    def reset(self) -> None:
+        '''
+        Reset the agent's state (called at the end of each batch).
+        '''
+        self.next_obs = t.tensor(self.envs.reset()).to(device)
+        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+        self.next_value = self.critic(self.next_obs).flatten().detach()
+        self.rb.reset()
 
 # %%
 
