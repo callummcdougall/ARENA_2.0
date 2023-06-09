@@ -294,3 +294,4 @@ for agent in agents_norvig:
     fig.add_trace(go.Scatter(y=utils.cummean(returns), name=agent.name))
 fig.show()
 # %%
+
