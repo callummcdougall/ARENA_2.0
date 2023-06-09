@@ -278,7 +278,7 @@ print("Tests passed!")
 #%%
 class UCBActionSelection(RewardAveraging):
     def __init__(self, num_arms: int, seed: int, c: float, eps: float = 1e-6):
-        super().__init__(num_arms, seed, epsilon=-1, optimism=-1)
+        super().__init__(num_arms, seed, epsilon=0.01, optimism=5)
         self.eps = eps
         self.c = c
         self.t = 1
@@ -299,17 +299,38 @@ class UCBActionSelection(RewardAveraging):
     def __repr__(self):
         return f"UCB(c={self.c})"
 
+def softmax(x):
+    exp_vals = np.exp(x)
+    return exp_vals / np.sum(exp_vals)
+
+class EstimatedScoreAsWeight(RewardAveraging):
+    def __init__(self, num_arms: int, seed: int):
+        super().__init__(num_arms, seed, epsilon=1, optimism=-1)
+
+    def get_action(self) -> ActType:
+        action = np.random.choice(
+            self.num_arms,
+            1, 
+            p=softmax(self.arm_values)
+        ).item()
+        return action
+
+    def __repr__(self):
+        return f'ScoreAsWeight'
+
+
 
 cheater = CheatyMcCheater(num_arms, 0)
 reward_averaging = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=0)
 reward_averaging_optimism = RewardAveraging(num_arms, 0, epsilon=0.01, optimism=5)
 ucb = UCBActionSelection(num_arms, 0, c=2.0)
 random = RandomAgent(num_arms, 0)
+estimated_score_as_weight = EstimatedScoreAsWeight(num_arms, 0)
 
 names = []
 all_rewards = []
 
-for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random]:
+for agent in [cheater, reward_averaging, reward_averaging_optimism, ucb, random, estimated_score_as_weight]:
     (rewards, num_correct) = run_agent(env, agent, n_runs=N_RUNS, base_seed=1)
     names.append(str(agent))
     all_rewards.append(rewards)
