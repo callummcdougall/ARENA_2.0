@@ -906,7 +906,7 @@ Note - we've provided you with another helper function `LN_hook_names`. This tak
 def LN_hook_names(layernorm: LayerNorm) -> Tuple[str, str]:
     '''
     Returns the names of the hooks immediately before and after a given layernorm.
-    e.g. LN_hook_names(model.final_ln) returns ["blocks.2.hook_resid_post", "ln_final.hook_normalized"]
+    e.g. LN_hook_names(model.ln_final) returns ["blocks.2.hook_resid_post", "ln_final.hook_normalized"]
     '''
     if layernorm.name == "ln_final":
         input_hook_name = utils.get_act_name("resid_post", 2)
@@ -1087,7 +1087,8 @@ In practice this doesn't matter here, since the bias term is the same for balanc
 def get_out_by_components(model: HookedTransformer, data: BracketsDataset) -> Float[Tensor, "component batch seq_pos emb"]:
     '''
     Computes a tensor of shape [10, dataset_size, seq_pos, emb] representing the output of the model's components when run on the data.
-    The first dimension is  [embeddings, head 0.0, head 0.1, mlp 0, head 1.0, head 1.1, mlp 1, head 2.0, head 2.1, mlp 2]
+    The first dimension is  [embeddings, head 0.0, head 0.1, mlp 0, head 1.0, head 1.1, mlp 1, head 2.0, head 2.1, mlp 2].
+    The embeddings are the sum of token and positional embeddings.
     '''
     pass
 
@@ -1126,7 +1127,8 @@ Once you've done this, and run the `get_activations` function, it's just a matte
 def get_out_by_components(model: HookedTransformer, data: BracketsDataset) -> Float[Tensor, "component batch seq_pos emb"]:
     '''
     Computes a tensor of shape [10, dataset_size, seq_pos, emb] representing the output of the model's components when run on the data.
-    The first dimension is  [embeddings, head 0.0, head 0.1, mlp 0, head 1.0, head 1.1, mlp 1, head 2.0, head 2.1, mlp 2]
+    The first dimension is  [embeddings, head 0.0, head 0.1, mlp 0, head 1.0, head 1.1, mlp 1, head 2.0, head 2.1, mlp 2].
+    The embeddings are the sum of token and positional embeddings.
     '''
     # SOLUTION
     embedding_hook_names = ["hook_embed", "hook_pos_embed"]

@@ -96,10 +96,10 @@ def sum_rewards(rewards : List[int], gamma : float = 1):
 
 @dataclass
 class PPOArgs:
-    exp_name: str = os.path.basename(globals().get("__file__", "PPO_implementation").rstrip(".py"))
+    exp_name: str = "PPO_Implementation"
     seed: int = 1
     cuda: bool = True
-    track: bool = True
+    use_wandb: bool = False
     wandb_project_name: str = "PPOCart"
     wandb_entity: str = None
     capture_video: bool = True
@@ -123,7 +123,7 @@ arg_help_strings = dict(
     exp_name = "the name of this experiment",
     seed = "seed of the experiment",
     cuda = "if toggled, cuda will be enabled by default",
-    track = "if toggled, this experiment will be tracked with Weights and Biases",
+    use_wandb = "if toggled, this experiment will be tracked with Weights and Biases",
     wandb_project_name = "the wandb's project name",
     wandb_entity = "the entity (team) of wandb's project",
     capture_video = "whether to capture videos of the agent performances (check out `videos` folder)",
