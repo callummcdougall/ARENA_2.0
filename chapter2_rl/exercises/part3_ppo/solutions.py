@@ -39,6 +39,8 @@ MAIN = __name__ == "__main__"
 
 
 
+
+
 @dataclass
 class PPOArgs:
     exp_name: str = "PPO_Implementation"
@@ -116,32 +118,46 @@ def compute_advantages(
     rewards: t.Tensor,
     values: t.Tensor,
     dones: t.Tensor,
-    device: t.device,
     gamma: float,
     gae_lambda: float,
 ) -> t.Tensor:
     '''Compute advantages using Generalized Advantage Estimation.
     next_value: shape (env,)
     next_done: shape (env,)
-    rewards: shape (t, env)
-    values: shape (t, env)
-    dones: shape (t, env)
-    Return: shape (t, env)
+    rewards: shape (T, env)
+    values: shape (T, env)
+    dones: shape (T, env)
+    Return: shape (T, env)
     '''
     # SOLUTION
     T = values.shape[0]
     next_values = t.concat([values[1:], next_value.unsqueeze(0)])
     next_dones = t.concat([dones[1:], next_done.unsqueeze(0)])
     deltas = rewards + gamma * next_values * (1.0 - next_dones) - values
-    advantages = t.zeros_like(deltas).to(device)
+    advantages = t.zeros_like(deltas)
     advantages[-1] = deltas[-1]
     for s in reversed(range(1, T)):
         advantages[s-1] = deltas[s-1] + gamma * gae_lambda * (1.0 - dones[s]) * advantages[s]
     return advantages
 
 
+
 if MAIN:
     tests.test_compute_advantages(compute_advantages)
+
+
+# %%
+
+def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
+    '''Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
+
+    Each index should appear exactly once.
+    '''
+    assert batch_size % minibatch_size == 0
+    # SOLUTION
+    indices = rng.permutation(batch_size)
+    indices = einops.rearrange(indices, "(mb_num mb_size) -> mb_num mb_size", mb_size=minibatch_size)
+    return list(indices)
 
 
 @dataclass
@@ -157,7 +173,7 @@ class ReplayBufferSamples:
     advantages: Float[Tensor, "sampleSize"]
     returns: Float[Tensor, "sampleSize"]
     values: Float[Tensor, "sampleSize"]
-    
+
     # rewards: Float[Tensor, "sampleSize"]
     # dones: Bool[Tensor, "sampleSize"]
     # next_obs: Float[Tensor, "sampleSize *obsShape"]
@@ -196,15 +212,15 @@ class ReplayBuffer:
         self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, next_obs: Arr, logprobs: Arr, values: Arr
     ) -> None:
         '''
-        obs: shape (num_environments, *observation_shape) 
+        obs: shape (num_environments, *observation_shape)
             Observation before the action
-        actions: shape (num_environments,) 
+        actions: shape (num_environments,)
             Action chosen by the agent
-        rewards: shape (num_environments,) 
+        rewards: shape (num_environments,)
             Reward after the action
-        dones: shape (num_environments,) 
+        dones: shape (num_environments,)
             If True, the episode ended and was reset automatically
-        next_obs: shape (num_environments, *observation_shape) 
+        next_obs: shape (num_environments, *observation_shape)
             Observation after the action
             If done is True, this should be the terminal observation, NOT the first observation of the next episode.
         logprobs: shape (num_environments,)
@@ -247,7 +263,7 @@ class ReplayBuffer:
 
         replaybuffer_args = [obs, dones, actions, logprobs, advantages, returns, values]
         return ReplayBufferSamples(*[arg.flatten(0, 1) for arg in replaybuffer_args])
-    
+
 # %%
 
 
@@ -274,7 +290,7 @@ class PPOAgent(nn.Module):
             num_environments=envs.num_envs,
             seed=args.seed,
             gamma=args.gamma,
-            gae_lambda=args.gae_lambda, 
+            gae_lambda=args.gae_lambda,
             next_obs=self.next_obs,
             next_done=self.next_done,
             next_value=self.next_value
@@ -288,7 +304,7 @@ class PPOAgent(nn.Module):
         with t.inference_mode():
             value = self.critic(self.next_obs).flatten()
             logits = self.actor(self.next_obs)
-        
+
         probs = Categorical(logits=logits)
         action = probs.sample()
         logprob = probs.log_prob(action)
@@ -368,21 +384,21 @@ def calc_entropy_bonus(probs: Categorical, ent_coef: float):
 #     agent = Agent(envs).to(device)
 #     num_updates = args.total_timesteps // args.batch_size
 #     (optimizer, scheduler) = make_optimizer(agent, num_updates, args.learning_rate, 0.0)
-    
+
 #     "YOUR CODE HERE: initialise your memory object"
 #     memory = Memory(envs, args, device)
 
 #     progress_bar = tqdm(range(num_updates))
-    
+
 #     for _ in progress_bar:
 
 #         "YOUR CODE HERE: perform rollout and learning steps, and optionally log vars"
 #         agent.rollout(memory, args, envs)
 #         agent.learn(memory, args, optimizer, scheduler)
-        
+
 #         if args.track:
 #             memory.log()
-        
+
 #         desc = memory.get_progress_bar_description()
 #         if desc:
 #             progress_bar.set_description(desc)
