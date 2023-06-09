@@ -762,13 +762,14 @@ class DQNAgent:
         Returns `infos` (list of dictionaries containing info we will log).
         '''
         actions = self.get_actions(self.next_obs)
-        experiences = self.envs.step(actions)
+        (next_next_obs, next_rewards, next_dones, infos) = self.envs.step(actions)
         # print(experiences)
         # for experience in experiences:
-        self.rb.add(self.next_obs, actions, experiences[2], experiences[3].dones, experience[0].next_obs)
-        self.next_obs = experiences.next_obs
-        self.step+=1
-        return experiences.info
+
+        self.rb.add(self.next_obs, actions, next_rewards, next_dones, next_next_obs)
+        self.next_obs = next_next_obs
+        self.steps+=1
+        return infos
 
     def get_actions(self, obs: np.ndarray) -> np.ndarray:
         '''
@@ -778,8 +779,63 @@ class DQNAgent:
         return epsilon_greedy_policy(self.envs, self.q_network, self.rng, obs, self.epsilon)
 
 
-
-
-
 tests.test_agent(DQNAgent)
 # %%
+class DQNLightning(pl.LightningModule):
+    q_network: QNetwork
+    target_network: QNetwork
+    rb: ReplayBuffer
+    agent: DQNAgent
+
+    def __init__(self, args: DQNArgs):
+        super().__init__()
+        self.args = args
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, self.run_name)])
+        self.start_time = time.time()
+        self.rng = np.random.default_rng(args.seed)
+
+        # YOUR CODE HERE!
+        self.q_network = QNetwork(self.envs.observation_space.n, self.envs.action_space.n)
+        self.target_network = self.q_network.clone()
+        self.rb = ReplayBuffer(self.args.buffer_size, self.envs.num_envs, self.args.seed)
+        self.agent = DQNAgent(self.envs, self.args, self.rb, self.q_network, self.target_network, self.rng)
+
+
+    def _log(self, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
+        log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}
+        for info in infos:
+            if "episode" in info.keys():
+                log_dict.update({"episodic_return": info["episode"]["r"], "episodic_length": info["episode"]["l"], "epsilon": epsilon})
+        self.log_dict(log_dict)
+
+
+    def training_step(self, batch: Any) -> Float[Tensor, ""]:
+        # YOUR CODE HERE!
+        
+
+
+    def configure_optimizers(self):
+        # YOUR CODE HERE!
+        pass
+
+
+    def on_train_epoch_end(self):
+        obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+        expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[-1.0, 1.0]], [[1.0, -1.0], [-1.0, 1.0]]]
+        tolerances = [5e-4, 5e-4, 5e-4, 5e-4, 1e-3]
+        match = re.match(r"Probe(\d)-v0", args.env_id)
+        if match:
+            probe_idx = int(match.group(1)) - 1
+            obs = t.tensor(obs_for_probes[probe_idx]).to(device)
+            value = self.q_network(obs)
+            print("Value: ", value)
+            expected_value = t.tensor(expected_value_for_probes[probe_idx]).to(device)
+            t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx], rtol=0)
+            print("Probe tests passed!")
+        self.envs.close()
+
+
+    def train_dataloader(self):
+        '''We don't use a trainloader in the traditional sense, so we'll just have this.'''
+        return range(self.args.total_training_steps)
