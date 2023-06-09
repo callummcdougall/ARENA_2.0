@@ -69,26 +69,13 @@ def test_ppo_agent(PPOAgent):
     args = solutions.PPOArgs(use_wandb=False, capture_video=False)
     set_global_seeds(args.seed)
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, i, args.capture_video, None) for i in range(4)])
-    num_actions = envs.single_action_space.n
-    obs_shape = envs.single_observation_space.shape
-    num_observations = np.array(obs_shape, dtype=int).prod()
-    rng = np.random.default_rng(args.seed)
-    next_obs = t.tensor(rng.random((envs.num_envs,) + obs_shape)).to(device)
-    next_done = t.zeros(envs.num_envs).to(device, dtype=t.float)
-    next_value = t.tensor(rng.random(envs.num_envs)).to(device)
-    replay_buffer = solutions.ReplayBuffer(args.num_steps, len(envs.envs), args.seed, args.gamma, args.gae_lambda, next_obs, next_done, next_value)
-    agent_solns = solutions.PPOAgent(envs, replay_buffer)
+    agent_solns = solutions.PPOAgent(args, envs)
     for step in range(5):
         infos_solns = agent_solns.play_step()
     
     set_global_seeds(args.seed)
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, i, args.capture_video, None) for i in range(4)])
-    rng = np.random.default_rng(args.seed)
-    next_obs = t.tensor(rng.random((envs.num_envs,) + obs_shape)).to(device)
-    next_done = t.zeros(envs.num_envs).to(device, dtype=t.float)
-    next_value = t.tensor(rng.random(envs.num_envs)).to(device)
-    replay_buffer = solutions.ReplayBuffer(args.num_steps, len(envs.envs), args.seed, args.gamma, args.gae_lambda, next_obs, next_done, next_value)
-    agent = PPOAgent(envs, replay_buffer)
+    agent = PPOAgent(args, envs)
     agent.critic = copy.deepcopy(agent_solns.critic)
     agent.actor = copy.deepcopy(agent_solns.actor)
     for step in range(5):
