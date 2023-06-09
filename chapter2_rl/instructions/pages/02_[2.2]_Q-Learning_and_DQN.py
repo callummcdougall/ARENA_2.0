@@ -814,20 +814,15 @@ line(
 
 The methods used here are called tabular methods, because they create a lookup table from `(state, action)` to the Q value. This is pure memorization, and if our reward function was sampled from the space of all functions, this is usually the best you can do because there's no structure that you can exploit to do better.
 
-We can hope to do better on most "natural" reward functions that do have structure. For example in a game of poker, there is structure in both of the actions (betting $100 will have a similar reward to betting $99 or $101), and between states (having a pair of threes in your hand is similar to having a pair of twos or fours). We need to take advantage of this, otherwise there are just too many states and actions to have any hope of training an agent.
+We can hope to do better on most "natural" reward functions that do have structure. For example in a game of poker, there is structure in both of the actions (betting £100 will have a similar reward to betting £99 or £101), and between states (having a pair of threes in your hand is similar to having a pair of twos or fours). We need to take advantage of this, otherwise there are just too many states and actions to have any hope of training an agent.
 
 One idea is to use domain knowledge to hand-code a function that "buckets" states or actions into a smaller number of equivalence classes and use those as the states and actions in a smaller version of the problem (see Sutton and Barto, Section 9.5). This was one component in the RL agent [Libratus: The Superhuman AI for No-Limit Poker](https://www.cs.cmu.edu/~noamb/papers/17-IJCAI-Libratus.pdf). The details are beyond the scope of today's material, but I found them fascinating.
 
 If you don't have domain knowledge to leverage, or you care specifically about making your algorithm "general", you can follow the approach that we'll be using in Part 2️⃣: make a neural network that takes in a state (technically, an observation) and outputs a value for each action. We then train the neural network using environmental interaction as training data.
 
 
-## Bonus
+## Bonus - build your own CliffWalking environment
 
-You can progress immediately to part 2️⃣, or if you like you can do the following exercises.
-
-
-
-### Exercise - build your own CliffWalking environment
 
 ```c
 Difficulty: 🟠🟠🟠🟠🟠
@@ -835,6 +830,8 @@ Importance: 🟠🟠⚪⚪⚪
 
 You should spend up to 30-60 minutes on this exercise.
 ```
+
+You should return to this exercise at the end if you want to. For now, you should progress to part 2️⃣.
 
 You can modify the code used to define the `Norvig` class to define your own version of `CliffWalking-v0`. 
 
@@ -852,24 +849,6 @@ Some notes for this task:
     This means you'll never calculate Q from the cliff, so your Q-values will always be zero here.
 
 <details>
-<summary>Hints (for both methods)</summary>
-
-The main way in which the `CliffWalking` environment differs from the `Norvig` gridworld is that the former has cliffs while the latter has walls. Cliffs and walls have different behaviour; you can see how the cliffs affect the agent by visiting the documentation page for `CliffWalking-v0`.
-
-#### `__init__`
-
-This mainly just involves changing the dimensions of the space, position of the start and terminal states, and parameters like `penalty`. Also, rather than walls, you'll need to define the position of the **cliffs** (which behave differently).
-
-#### `dynamics`
-
-You'll need to modify `dynamics` in the following two ways:
-
-* Remove the slippage probability (although it would be interesting to experiment with this and see what effect it has!)
-* Remove the "when you hit a wall, you get trapped forever" behaviour, and replace it with "when you hit a cliff, you get a reward of -100 and go back to the start state".
-
-</details>
-
-
 
 
 ```python
@@ -920,6 +899,26 @@ line(
     labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
 )
 ```
+
+
+<summary>Hints (for both methods)</summary>
+
+The main way in which the `CliffWalking` environment differs from the `Norvig` gridworld is that the former has cliffs while the latter has walls. Cliffs and walls have different behaviour; you can see how the cliffs affect the agent by visiting the documentation page for `CliffWalking-v0`.
+
+#### `__init__`
+
+This mainly just involves changing the dimensions of the space, position of the start and terminal states, and parameters like `penalty`. Also, rather than walls, you'll need to define the position of the **cliffs** (which behave differently).
+
+#### `dynamics`
+
+You'll need to modify `dynamics` in the following two ways:
+
+* Remove the slippage probability (although it would be interesting to experiment with this and see what effect it has!)
+* Remove the "when you hit a wall, you get trapped forever" behaviour, and replace it with "when you hit a cliff, you get a reward of -100 and go back to the start state".
+
+</details>
+
+
 
 <details>
 <summary>Solution</summary>
