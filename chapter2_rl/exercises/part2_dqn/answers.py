@@ -46,7 +46,6 @@ import part2_dqn.tests as tests
 from plotly_utils import line, cliffwalk_imshow, plot_cartpole_obs_and_dones
 import plotly.io as pio
 
-pio.renderers.default = "browser"
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == "__main__"
@@ -517,7 +516,6 @@ line(epsilons, labels={"x": "steps", "y": "epsilon"}, title="Probability of rand
 
 tests.test_linear_schedule(linear_schedule)
 #%%
-ab = None
 def epsilon_greedy_policy(
     envs: gym.vector.SyncVectorEnv, q_network: QNetwork, rng: Generator, obs: t.Tensor, epsilon: float
 ) -> np.ndarray:
@@ -530,10 +528,11 @@ def epsilon_greedy_policy(
     Outputs:
         actions: (n_environments, ) the sampled action for each environment.
     '''
+    obs = t.tensor(obs, device='cuda')
     if rng.random() < epsilon:
         return rng.integers(0, envs.single_action_space.n, envs.num_envs)
     else:
-        return t.argmax(q_network(obs), dim=-1).numpy()
+        return t.argmax(q_network(obs), dim=-1).cpu().numpy()
 
 
 tests.test_epsilon_greedy_policy(epsilon_greedy_policy)
@@ -640,7 +639,7 @@ class DQNAgent:
         acts = self.get_actions(self.next_obs)
         (obs, reward, done, info) = self.envs.step(acts)
         self.rb.add(self.next_obs, acts, reward, done, obs)
-        self.next_obs = obs
+        self.next_obs = t.tensor(obs)
         self.steps += 1
         return info
 
@@ -649,8 +648,143 @@ class DQNAgent:
         Samples actions according to the epsilon-greedy policy using the linear schedule for epsilon.
         '''
         self.epsilon = linear_schedule(self.steps, self.args.start_e, self.args.end_e, self.args.exploration_fraction, self.args.total_timesteps)
-
-        return epsilon_greedy_policy(self.envs, self.q_network, self.rng, self.next_obs, self.epsilon)
+        return epsilon_greedy_policy(self.envs, self.q_network, self.rng, obs, self.epsilon)
 
 
 tests.test_agent(DQNAgent)
+
+#%%
+class DQNLightning(pl.LightningModule):
+    q_network: QNetwork
+    target_network: QNetwork
+    rb: ReplayBuffer
+    agent: DQNAgent
+
+    def __init__(self, args: DQNArgs):
+        super().__init__()
+        self.args = args
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, self.run_name)])
+        self.start_time = time.time()
+        self.rng = np.random.default_rng(args.seed)
+
+        # YOUR CODE HERE!
+        print(self.run_name)
+        num_actions = self.envs.single_action_space.n
+        obs_shape = self.envs.single_observation_space.shape
+        num_observations = np.array(obs_shape, dtype=int).prod()
+
+        self.q_network = QNetwork(num_observations, num_actions)
+        self.target_network = QNetwork(num_observations, num_actions)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.q_network.to(device='cuda')
+        self.target_network.to(device='cuda')
+
+        self.rb = ReplayBuffer(self.args.buffer_size, len(self.envs.envs), self.args.seed)
+        self.agent = DQNAgent(self.envs, self.args, self.rb, self.q_network, self.target_network, self.rng)
+
+        for _ in tqdm(range(self.args.buffer_size)):
+            self.agent.play_step()
+
+
+
+    def _log(self, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
+        log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}
+        for info in infos:
+            if "episode" in info.keys():
+                log_dict.update({"episodic_return": info["episode"]["r"], "episodic_length": info["episode"]["l"], "epsilon": epsilon})
+        self.log_dict(log_dict)
+
+
+    def training_step(self, batch: Any) -> Float[Tensor, ""]:
+        # YOUR CODE HERE!
+        for step in range(self.args.train_frequency):
+            _ = self.agent.play_step()
+        # for _ in range(self.args.train_frequency):
+        buff_sample = self.rb.sample(self.args.batch_size, device='cuda')
+        buff_sample.actions = buff_sample.actions.to(device='cuda')
+        buff_sample.observations = buff_sample.observations.to(device='cuda')
+        buff_sample.next_observations = buff_sample.next_observations.to(device='cuda')
+        buff_sample.rewards = buff_sample.rewards.to(device='cuda')
+        buff_sample.dones = buff_sample.dones.to(device='cuda')
+        with t.no_grad():
+            target_max = self.target_network(buff_sample.next_observations).max(-1).values
+        # predicted_q_vals = buff_sample.rewards + (self.args.gamma * self.q_network(buff_sample.observations)[t.arange(self.args.batch_size),
+        # buff_sample.actions.flatten()]) * (1 - (buff_sample.dones * 1.0))
+        predicted_q_vals = self.q_network(buff_sample.observations)[range(self.args.batch_size), buff_sample.actions.flatten()]
+        # loss = nn.functional.mse_loss(predicted_q_vals, target_max)
+        td_error = buff_sample.rewards.flatten() + self.args.gamma * target_max * (1 - buff_sample.dones.float().flatten()) - predicted_q_vals
+        loss = td_error.pow(2).mean()
+
+        if self.agent.steps % self.args.target_network_frequency == 0:
+            self.target_network.load_state_dict(self.q_network.state_dict())
+
+        return loss
+
+    def configure_optimizers(self):
+        # YOUR CODE HERE!
+        return t.optim.Adam(self.q_network.parameters(), lr=args.learning_rate)
+
+
+    def on_train_epoch_end(self):
+        obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+        expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[-1.0, 1.0]], [[1.0, -1.0], [-1.0, 1.0]]]
+        tolerances = [5e-4, 5e-4, 5e-4, 5e-4, 1e-3]
+        match = re.match(r"Probe(\d)-v0", args.env_id)
+        if match:
+            probe_idx = int(match.group(1)) - 1
+            obs = t.tensor(obs_for_probes[probe_idx]).to(device)
+            value = self.q_network(obs)
+            print("Value: ", value)
+            expected_value = t.tensor(expected_value_for_probes[probe_idx]).to(device)
+            t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx], rtol=0)
+            print("Probe tests passed!")
+        self.envs.close()
+
+
+    def train_dataloader(self):
+        '''We don't use a trainloader in the traditional sense, so we'll just have this.'''
+        return range(self.args.total_training_steps)
+
+#%%
+# probe_idx = 1
+#
+# args = DQNArgs(
+#     env_id=f"Probe{probe_idx}-v0",
+#     exp_name=f"test-probe-{probe_idx}",
+#     total_timesteps=3000,
+#     learning_rate=0.001,
+#     buffer_size=500,
+#     capture_video=False,
+#     use_wandb=False
+# )
+# model = DQNLightning(args).to(device)
+# logger = CSVLogger(save_dir=args.log_dir, name=model.run_name)
+#
+# trainer = pl.Trainer(
+#     max_steps=args.total_training_steps,
+#     logger=logger,
+#     log_every_n_steps=1,
+# )
+# trainer.fit(model=model)
+
+# metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+# px.line(metrics, y="q_values", labels={"x": "Step"}, title="Probe 1 (if you're seeing this, then you passed the tests!)", width=600, height=400)
+
+#%%
+wandb.finish()
+
+args = DQNArgs()
+# logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+# if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+logger = CSVLogger(save_dir=args.log_dir, name=model.run_name)
+
+model = DQNLightning(args).to(device)
+
+trainer = pl.Trainer(
+    max_epochs=1,
+    max_steps=args.total_timesteps,
+    logger=logger,
+    log_every_n_steps=args.log_frequency,
+)
+trainer.fit(model=model)
