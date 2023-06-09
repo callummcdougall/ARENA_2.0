@@ -663,7 +663,7 @@ class SARSA(EpsilonGreedy):
     def observe(self, exp: Experience):
         pass
 
-    def run_episode(self, seed) -> List[int]:
+    def run_episode(self, seed) -> List[float]:
         pass
 
 
@@ -722,7 +722,7 @@ class SARSA(EpsilonGreedy):
         s, a, r_new, s_new, a_new = exp.obs, exp.act, exp.reward, exp.new_obs, exp.new_act
         self.Q[s,a] += self.config.lr * (r_new + self.gamma * self.Q[s_new, a_new] - self.Q[s, a])
 
-    def run_episode(self, seed) -> List[int]:
+    def run_episode(self, seed) -> List[float]:
         # SOLUTION
         rewards = []
         obs = self.env.reset(seed=seed)
