@@ -30,6 +30,7 @@ from pathlib import Path
 from jaxtyping import Float, Int, Bool
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger, CSVLogger
+import copy
 
 Arr = np.ndarray
 
@@ -749,6 +750,10 @@ class Probe5(gym.Env):
         return np.array([self.obs], dtype=float)
 
 
+gym.envs.registration.register(id="Probe2-v0", entry_point=Probe2)
+gym.envs.registration.register(id="Probe3-v0", entry_point=Probe3)
+gym.envs.registration.register(id="Probe4-v0", entry_point=Probe4)
+gym.envs.registration.register(id="Probe5-v0", entry_point=Probe5)
 # %%
 @dataclass
 class DQNArgs:
@@ -948,15 +953,21 @@ class DQNLightning(pl.LightningModule):
 
         # Update the target network
         if self.agent.steps % self.args.target_network_frequency == 0:
-            self.target_network.load_state_dict(self.q_network.state_dict())
+            # self.target_network.load_state_dict(copy.deepcopy(self.q_network.state_dict()))
+            # for param in self.target_network.parameters():
+            #     param.requires_grad = False
+
+            for param_q, param_t in zip(self.q_network.parameters(), self.target_network.parameters()):
+                param_t.data = param_q.data.clone()
+
 
         # Log stuff
-        # self._log(
-        #     Q_values,
-        #     self.agent.epsilon,
-        #     loss,
-        #     infos,
-        # )
+        self._log(
+            Q_values,
+            self.agent.epsilon,
+            loss,
+            infos,
+        )
         return loss
 
     def configure_optimizers(self):
@@ -997,33 +1008,51 @@ class DQNLightning(pl.LightningModule):
 
 
 # %%
-probe_idx = 1
+# probe_idx = 5
 
-args = DQNArgs(
-    env_id=f"Probe{probe_idx}-v0",
-    exp_name=f"test-probe-{probe_idx}",
-    total_timesteps=3000,
-    learning_rate=0.001,
-    buffer_size=500,
-    capture_video=False,
-    use_wandb=False,
-)
+# args = DQNArgs(
+#     env_id=f"Probe{probe_idx}-v0",
+#     exp_name=f"test-probe-{probe_idx}",
+#     total_timesteps=10000,
+#     learning_rate=0.001,
+#     buffer_size=500,
+#     capture_video=False,
+#     use_wandb=False,
+# )
+# model = DQNLightning(args).to(device)
+# logger = CSVLogger(save_dir=args.log_dir, name=model.run_name)
+
+# trainer = pl.Trainer(
+#     max_steps=args.total_training_steps,
+#     logger=logger,
+#     log_every_n_steps=1,
+# )
+# trainer.fit(model=model)
+
+# metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+# px.line(
+#     metrics,
+#     y="q_values",
+#     labels={"x": "Step"},
+#     title=f"Probe {probe_idx} (if you're seeing this, then you passed the tests!)",
+#     width=600,
+#     height=400,
+# )
+
+# %%
+
+wandb.finish()
+
+args = DQNArgs()
+logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name="RL_model")
+if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
 model = DQNLightning(args).to(device)
-logger = CSVLogger(save_dir=args.log_dir, name=model.run_name)
 
 trainer = pl.Trainer(
-    max_steps=args.total_training_steps,
+    max_epochs=1,
+    max_steps=args.total_timesteps,
     logger=logger,
-    log_every_n_steps=1,
+    log_every_n_steps=args.log_frequency,
 )
 trainer.fit(model=model)
-
-metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-px.line(
-    metrics,
-    y="q_values",
-    labels={"x": "Step"},
-    title="Probe 1 (if you're seeing this, then you passed the tests!)",
-    width=600,
-    height=400,
-)
+# %%
