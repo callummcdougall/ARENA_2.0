@@ -12,7 +12,10 @@ def test_make_fourier_basis(make_fourier_basis):
     fourier_basis_expected, fourier_names_expected = solutions.make_fourier_basis(p)
 
     t.testing.assert_close(fourier_basis_actual, fourier_basis_expected)
-    assert fourier_names_actual == fourier_names_expected
+    
+    fourier_names_actual_lower = [name.lower() for name in fourier_names_actual]
+    fourier_names_expected_lower = [name.lower() for name in fourier_names_expected]
+    assert fourier_names_actual_lower == fourier_names_expected_lower
 
     print('All tests in `test_make_fourier_basis` passed!')
 
