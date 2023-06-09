@@ -925,7 +925,7 @@ imshow(
 )
 ```
 
-We see that only a few heads really matter - heads 9.6 and 9.9 contribute a lot positively (explaining why attention layer 9 is so important), while heads 10.7 and 11.10 contribute a lot negatively (explaining why attention layer 10 and layer 11 are actively harmful). These correspond to (some of) the name movers and negative name movers discussed in the paper. There are also several heads that matter positively or negatively but less strongly (other name movers and backu name movers)
+We see that only a few heads really matter - heads 9.6 and 9.9 contribute a lot positively (explaining why attention layer 9 is so important), while heads 10.7 and 11.10 contribute a lot negatively (explaining why attention layer 10 and layer 11 are actively harmful). These correspond to (some of) the name movers and negative name movers discussed in the paper. There are also several heads that matter positively or negatively but less strongly (other name movers and backup name movers)
 
 There are a few meta observations worth making here - our model has 144 heads, yet we could localise this behaviour to a handful of specific heads, using straightforward, general techniques. This supports the claim in [A Mathematical Framework](https://transformer-circuits.pub/2021/framework/index.html) that attention heads are the right level of abstraction to understand attention. It also really surprising that there are *negative* heads - eg 10.7 makes the incorrect logit 7x *more* likely. I'm not sure what's going on there, though the paper discusses some possibilities.
 
@@ -2598,8 +2598,8 @@ def get_path_patch_head_to_heads(
     patching_metric: Callable,
     new_dataset: IOIDataset = abc_dataset,
     orig_dataset: IOIDataset = ioi_dataset,
-    new_cache: Optional[ActivationCache] = None,
-    orig_cache: Optional[ActivationCache] = None,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
     '''
     Performs path patching (see algorithm in appendix B of IOI paper), with:
@@ -2671,8 +2671,8 @@ def get_path_patch_head_to_heads(
     patching_metric: Callable,
     new_dataset: IOIDataset = abc_dataset,
     orig_dataset: IOIDataset = ioi_dataset,
-    new_cache: Optional[ActivationCache] = None,
-    orig_cache: Optional[ActivationCache] = None,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
     '''
     Performs path patching (see algorithm in appendix B of IOI paper), with:
@@ -3019,7 +3019,7 @@ for i, name in enumerate(["name mover", "negative name mover"]):
         colnames=["Head", "Score"],
         cols=[
             list(map(str, heads[name])) + ["[dark_orange bold]Average"],
-            [f"{copying_results[i, layer, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
+            [f"{copying_results[i, layer-1, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
         ]
     )
 ```

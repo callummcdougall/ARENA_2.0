@@ -33,7 +33,7 @@ def test_replay_buffer_single(
     cls, buffer_size=5, num_actions=2, observation_shape=(4,), num_environments=1, seed=1, device=t.device("cpu")
 ):
     """If the buffer has a single experience, that experience should always be returned when sampling."""
-    rb = cls(buffer_size, num_actions, observation_shape, num_environments, seed)
+    rb = cls(buffer_size, num_environments, seed)
     exp = _random_experience(num_actions, observation_shape, num_environments)
     rb.add(*exp)
     for _ in range(10):
@@ -50,8 +50,8 @@ def test_replay_buffer_deterministic(
 ):
     """The samples chosen should be deterministic, controlled by the given seed."""
     for seed in [67, 88]:
-        rb = cls(buffer_size, num_actions, observation_shape, num_environments, seed)
-        rb2 = cls(buffer_size, num_actions, observation_shape, num_environments, seed)
+        rb = cls(buffer_size, num_environments, seed)
+        rb2 = cls(buffer_size, num_environments, seed)
         for _ in range(5):
             exp = _random_experience(num_actions, observation_shape, num_environments)
             rb.add(*exp)
@@ -70,7 +70,7 @@ def test_replay_buffer_wraparound(
     cls, buffer_size=4, num_actions=2, observation_shape=(1,), num_environments=1, seed=3, device=t.device("cpu")
 ):
     """When the maximum buffer size is reached, older entries should be overwritten."""
-    rb = cls(buffer_size, num_actions, observation_shape, num_environments, seed)
+    rb = cls(buffer_size, num_environments, seed)
     for i in range(6):
         rb.add(
             np.array([[float(i)]]),
@@ -134,22 +134,24 @@ def test_agent(DQNAgent):
     rng = np.random.default_rng(args.seed)
 
     q_network = QNetwork(num_observations, num_actions).to(device)
-    replay_buffer = ReplayBuffer(args.buffer_size, num_actions, obs_shape, len(envs.envs), args.seed)
-    agent = DQNAgent(envs, args, replay_buffer)
+    target_network = QNetwork(num_observations, num_actions).to(device)
+    target_network.load_state_dict(q_network.state_dict())
+    replay_buffer = ReplayBuffer(args.buffer_size, len(envs.envs), args.seed)
+    agent = DQNAgent(envs, args, replay_buffer, q_network, target_network, rng)
 
     for obs in range(num_observations):
-        actions = agent.get_actions(q_network, rng, obs)
+        actions = agent.get_actions(obs)
         assert actions.shape == (len(envs.envs),)
-        epsilon = linear_schedule(agent.step, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
+        epsilon = linear_schedule(agent.steps, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
         actions_expected = epsilon_greedy_policy(envs, q_network, rng, t.tensor(obs).to(device), epsilon)
         assert actions == actions_expected, "Got unexpected actions from epsilon-greedy policy (in `get_actions` function)."
 
     for step in range(5):
-        infos = agent.play_step(q_network, rng)
+        infos = agent.play_step()
         assert isinstance(infos, list), "`play_step` should return `infos` (list of dictionaries)."
-    assert agent.step == 5, f"Agent did not take the expected number of steps: expected step=5, got {agent.step}."
+    assert agent.steps == 5, f"Agent did not take the expected number of steps: expected step=5, got {agent.steps}."
 
-    epsilon_expected = linear_schedule(agent.step - 1, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
+    epsilon_expected = linear_schedule(agent.steps - 1, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
     assert agent.epsilon == epsilon_expected, f"Agent's epsilon value is incorrect (remember to update `self.epsilon`)."
 
     print("All tests in `test_agent` passed!")

@@ -30,8 +30,8 @@ st.sidebar.markdown(r"""
     <li class="margtop"><a class="contents-el" href="#about-this-page">About this page</a></li>
     <li class="margtop"><a class="contents-el" href="#how-you-should-use-this-material">How you should use this material</a></li>
     <li class="margtop"><ul class="contents">
-        <li><a class="contents-el" href="#option-1-colab">Option 1: Colab</a></li>
-        <li><a class="contents-el" href="#option-2-your-own-ide">Option 2: Your own IDE</a></li>
+        <li><a class="contents-el" href="#option-1-vscode">Option 1: VSCode</a></li>
+        <li><a class="contents-el" href="#option-2-colab">Option 2: Colab</a></li>
         <li><a class="contents-el" href="#chatbot-assistant">Chatbot assistant</a></li>
     </ul></li>
     <li class="margtop"><a class="contents-el" href="#hints">Hints</a></li>
