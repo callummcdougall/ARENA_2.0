@@ -51,7 +51,7 @@ This section is designed to get you familiar with basic neural networks: how the
 
 Now, we deal with situations where the environment is a black-box, and the agent must learn the rules of the world via interaction with it. This is different from everything else we've done so far, e.g. in the previous section we could calculate optimal policies by using the tensors $R$ and $T$, which we will now assume the agent doesn't have direct knowledge of.
 
-We call algorithms which have access to the transition probability distribution and reward function **model-based algorithms**. **Q-learning** is a **model-free algorithm**. From the original paper introducing Q-learning:
+From the original paper introducing Q-learning:
 
 *[Q-learning] provides agents with the capability of learning to act optimally in Markovian domains by experiencing the consequences of actions, without requiring them to build maps of the domains.*
 

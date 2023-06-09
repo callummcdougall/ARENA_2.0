@@ -255,20 +255,30 @@ class PPOAgent(nn.Module):
     critic: nn.Sequential
     actor: nn.Sequential
 
-    def __init__(self, envs: gym.vector.SyncVectorEnv, replay_buffer: ReplayBuffer):
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
         super().__init__()
         self.envs = envs
-        self.rb = replay_buffer
         self.obs_shape = envs.single_observation_space.shape
         self.num_obs = np.array(self.obs_shape).prod()
         self.num_actions = envs.single_action_space.n
 
-        self.next_obs = t.tensor(self.envs.reset()).to(device)
-        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
-        self.steps = 0
-
         self.actor, self.critic = get_actor_and_critic(envs)
 
+        self.next_obs = t.tensor(self.envs.reset()).to(device)
+        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+        self.next_value = self.critic(self.next_obs).flatten().detach()
+        self.steps = 0
+
+        self.rb = ReplayBuffer(
+            buffer_size=args.minibatch_size,
+            num_environments=envs.num_envs,
+            seed=args.seed,
+            gamma=args.gamma,
+            gae_lambda=args.gae_lambda, 
+            next_obs=self.next_obs,
+            next_done=self.next_done,
+            next_value=self.next_value
+        )
 
     def play_step(self) -> List[dict]:
         '''
