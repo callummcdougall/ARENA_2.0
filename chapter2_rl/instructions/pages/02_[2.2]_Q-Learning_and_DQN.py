@@ -1306,6 +1306,7 @@ class ReplayBuffer:
 
     def __init__(self, buffer_size: int, num_environments: int, seed: int):
         assert num_environments == 1, "This buffer only supports SyncVectorEnv with 1 environment inside."
+        self.num_environments = num_environments
         pass
 
     def add(
@@ -1324,6 +1325,11 @@ class ReplayBuffer:
             Observation after the action
             If done is True, this should be the terminal observation, NOT the first observation of the next episode.
         '''
+        assert obs.shape[0] == self.num_environments
+        assert actions.shape == (self.num_environments,)
+        assert rewards.shape == (self.num_environments,)
+        assert dones.shape == (self.num_environments,)
+        assert next_obs.shape[0] == self.num_environments
         pass
 
     def sample(self, sample_size: int, device: t.device) -> ReplayBufferSamples:
@@ -1357,6 +1363,7 @@ class ReplayBuffer:
 
     def __init__(self, buffer_size: int, num_environments: int, seed: int):
         assert num_environments == 1, "This buffer only supports SyncVectorEnv with 1 environment inside."
+        self.num_environments = num_environments
         # SOLUTION
         self.buffer_size = buffer_size
         self.rng = np.random.default_rng(seed)
@@ -1378,6 +1385,12 @@ class ReplayBuffer:
             Observation after the action
             If done is True, this should be the terminal observation, NOT the first observation of the next episode.
         '''
+        assert obs.shape[0] == self.num_environments
+        assert actions.shape == (self.num_environments,)
+        assert rewards.shape == (self.num_environments,)
+        assert dones.shape == (self.num_environments,)
+        assert next_obs.shape[0] == self.num_environments
+
         # SOLUTION
         for i, (arr, arr_list) in enumerate(zip([obs, actions, rewards, dones, next_obs], self.buffer)):
             if arr_list is None:
@@ -1991,7 +2004,6 @@ class DQNArgs:
         self.total_training_steps = (self.total_timesteps - self.buffer_size) // self.train_frequency
 
 
-
 args = DQNArgs(batch_size=256)
 utils.arg_help(args)
 ```
@@ -2143,7 +2155,6 @@ We can define a class which inherits from `pl.LightningModule`, which will conta
 
 Other optional methods include:
 
-* `forward` - which acts like `forward` for a regular `nn.Module` object
 * `on_train_epoch_end` - runs once when the training epoch ends
 * `train_dataloader` - returns a dataloader (or other iterable) which is iterated over to give us the `batch` argument in `training_step`
 
