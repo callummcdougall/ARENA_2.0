@@ -98,7 +98,8 @@ def sum_rewards(rewards : List[int], gamma : float = 1):
 class PPOArgs:
     exp_name: str = "PPO_Implementation"
     seed: int = 1
-    cuda: bool = True
+    cuda: bool = t.cuda.is_available()
+    log_dir: str = "logs"
     use_wandb: bool = False
     wandb_project_name: str = "PPOCart"
     wandb_entity: str = None
@@ -123,6 +124,7 @@ arg_help_strings = dict(
     exp_name = "the name of this experiment",
     seed = "seed of the experiment",
     cuda = "if toggled, cuda will be enabled by default",
+    log_dir = "the directory where the logs will be stored",
     use_wandb = "if toggled, this experiment will be tracked with Weights and Biases",
     wandb_project_name = "the wandb's project name",
     wandb_entity = "the entity (team) of wandb's project",

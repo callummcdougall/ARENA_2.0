@@ -29,6 +29,16 @@ def test_get_actor_and_critic(get_actor_and_critic):
             t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
     print("All tests in `test_agent` passed!")
 
+def test_minibatch_indexes(minibatch_indexes):
+    rng = np.random.default_rng(0)
+    batch_size = 16
+    minibatch_size = 4
+    indexes = minibatch_indexes(rng, batch_size, minibatch_size)
+    assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
+    assert sorted(np.unique(indexes)) == list(range(batch_size))
+    print("All tests in `test_minibatch_indexes` passed!")
+
+
 def test_compute_advantages_single(compute_advantages, dones_false, single_env):
     import part3_ppo.solutions as solutions
     print("".join([
@@ -45,10 +55,9 @@ def test_compute_advantages_single(compute_advantages, dones_false, single_env):
     rewards = t.randn(t_, env_)
     values = t.randn(t_, env_)
     dones = t.zeros(t_, env_) if dones_false else t.randint(0, 2, (t_, env_))
-    device = t.device("cpu")
     gamma = 0.95
     gae_lambda = 0.9
-    args = (next_value, next_done, rewards, values, dones, device, gamma, gae_lambda)
+    args = (next_value, next_done, rewards, values, dones, gamma, gae_lambda)
     actual = compute_advantages(*args)
     expected = solutions.compute_advantages(*args)
     # print(actual, expected)
@@ -121,9 +130,7 @@ def test_calc_value_function_loss(calc_value_function_loss):
     with t.inference_mode():
         expected = solutions.calc_value_function_loss(values, mb_returns, vf_coef)
         actual = calc_value_function_loss(values, mb_returns, vf_coef)
-    if (actual - expected).abs() < 1e-4:
-        print("All tests in `test_calc_value_function_loss` passed!")
-    elif (0.5*actual - expected).abs() < 1e-4:
+    if ((actual - expected).abs() > 1e-4) and (0.5*actual - expected).abs() < 1e-4:
         raise Exception("Your result was half the expected value. Did you forget to use a factor of 1/2 in the mean squared difference?")
     t.testing.assert_close(actual, expected)
     print("All tests in `test_calc_value_function_loss` passed!")
@@ -136,13 +143,3 @@ def test_calc_entropy_bonus(calc_entropy_bonus):
     t.testing.assert_close(expected, actual)
     print("All tests in `test_calc_entropy_bonus` passed!")
 
-def test_minibatch_indexes(minibatch_indexes):
-    for n in range(5):
-        frac, minibatch_size = np.random.randint(1, 8, size=(2,))
-        batch_size = frac * minibatch_size
-        indices = minibatch_indexes(batch_size, minibatch_size)
-        assert any([isinstance(indices, list), isinstance(indices, np.ndarray)])
-        assert isinstance(indices[0], np.ndarray)
-        assert len(indices) == frac
-        np.testing.assert_equal(np.sort(np.stack(indices).flatten()), np.arange(batch_size))
-    print("All tests in `test_minibatch_indexes` passed!")
