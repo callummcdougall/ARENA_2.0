@@ -179,7 +179,7 @@ def cliffwalk_imshow(tensor, pi, renderer=None, **kwargs):
     fig.data[0].texttemplate = "%{text}"
     fig.show()
 
-def plot_cartpole_obs_and_dones(obs: t.Tensor, done: t.Tensor):
+def plot_cartpole_obs_and_dones(obs: t.Tensor, done: t.Tensor, show_env_jumps: bool = False):
     """
     obs: shape (n_steps*, n_envs, n_obs)
     dones: shape (n_steps*, n_envs)
@@ -188,7 +188,13 @@ def plot_cartpole_obs_and_dones(obs: t.Tensor, done: t.Tensor):
     """
     if obs.ndim == 2: obs = obs.unsqueeze(0)
     if done.ndim == 1: done = done.unsqueeze(0)
-    n_envs = obs.shape[1]
+    n_datapoints = done.numel()
+    num_envs = done.shape[1]
+    num_samples = done.shape[0]
+    if num_envs == 1:
+        env_jumps = []
+    else:
+        env_jumps = list(range(num_samples, n_datapoints, num_samples))
     obs = einops.rearrange(obs, "step env ... -> (env step) ...").cpu().numpy()
     done = einops.rearrange(done, "step env -> (env step)").cpu().numpy()
     done_indices = np.nonzero(done)[0]
@@ -204,7 +210,10 @@ def plot_cartpole_obs_and_dones(obs: t.Tensor, done: t.Tensor):
             fig.add_trace(go.Scatter(y=d[name0+name1], name=name0+name1, mode="lines", marker_color=color), col=1, row=i)
         for x in done_indices:
             fig.add_vline(x=x, y1=1, y0=0, line_width=2, line_color="black", line_dash="dash", col=1, row=i)
+        if show_env_jumps:
+            for x in env_jumps:
+                fig.add_vline(x=x, y1=1, y0=0, line_width=4, line_color="black", col=1, row=i)
     for sign, text0 in zip([-1, 1], ["Min", "Max"]):
         for row, (y, text1) in enumerate(zip([2.4, 0.2095], ["posn", "angle"]), 1):
-            fig.add_annotation(text=" ".join([text0, text1]), xref="paper", yref="paper", x=n_envs*1.05, y=sign*y, showarrow=False, row=row, col=1)
+            fig.add_annotation(text=" ".join([text0, text1]), xref="paper", yref="paper", x=n_datapoints*1.05, y=sign*y, showarrow=False, row=row, col=1)
     fig.show()
