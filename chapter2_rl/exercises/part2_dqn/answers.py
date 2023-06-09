@@ -210,24 +210,62 @@ class EpsilonGreedy(Agent):
     A class for SARSA and Q-Learning to inherit from.
     '''
     def __init__(self, env: DiscreteEnviroGym, config: AgentConfig = defaultConfig, gamma: float = 0.99, seed: int = 0):
-        pass
+        super().__init__(env, config, gamma, seed)
+        
+        # self.pi = np.zeros(self.num_states, dtype=int)
+        self.Q = np.full((self.num_states, self.num_actions), self.config.optimism, dtype = float)
+        # self.q[self.env.unwrapped.env.terminal] = 0
 
     def get_action(self, obs: ObsType) -> ActType:
         '''
         Selects an action using epsilon-greedy with respect to Q-value estimates
         '''
-        pass
-
+        if self.rng.random() < self.config.epsilon:
+            return self.rng.integers(low = 0, high = self.num_actions)
+        else:
+            return np.argmax(self.Q[obs])
+    
 class QLearning(EpsilonGreedy):
     def observe(self, exp: Experience) -> None:
-        pass
+        obs = exp.obs
+        act = exp.act
+        new_obs = exp.new_obs
+        new_act = exp.new_act
+        
+        # max_act = np.argmax(self.q[new_obs])
+        self.Q[obs, act] = self.Q[obs, act] + self.config.lr * (exp.reward + self.gamma*np.max(self.Q[new_obs]) - self.Q[obs, act])
 
 class SARSA(EpsilonGreedy):
     def observe(self, exp: Experience):
-        pass
-
+        obs = exp.obs
+        act = exp.act
+        new_obs = exp.new_obs
+        new_act = exp.new_act
+        
+        new_q = self.Q[obs, act] + self.config.lr * (exp.reward + self.gamma*self.Q[new_obs, new_act] - self.Q[obs, act])
+        
+        self.Q[obs, act] = new_q
+        
     def run_episode(self, seed) -> List[int]:
-        pass
+        rewards = []
+        obs = self.env.reset(seed=seed)
+        done = False
+        
+        self.reset(seed=seed)
+        act = self.get_action(obs)
+
+        while not done:
+            (new_obs, reward, done, info) = self.env.step(act)
+            
+            new_act = self.get_action(new_obs)
+            exp = Experience(obs, act, reward, new_obs, new_act)
+            
+            self.observe(exp)
+            rewards.append(reward)
+            obs = new_obs
+            act = new_act
+            
+        return rewards
 
 
 n_runs = 1000
@@ -247,4 +285,33 @@ for agent in agents_norvig:
     returns = agent.train(n_runs)
     fig.add_trace(go.Scatter(y=utils.cummean(returns), name=agent.name))
 fig.show()
+# %%
+gamma = 1
+seed = 0
+
+config_cliff = AgentConfig(epsilon=0.1, lr = 0.1, optimism=0)
+
+env = gym.make("CliffWalking-v0")
+n_runs = 500
+args_cliff = (env, config_cliff, gamma, seed)
+
+returns_list = []
+name_list = []
+agents: List[Union[QLearning, SARSA]] = [QLearning(*args_cliff), SARSA(*args_cliff)]
+
+for agent in agents:
+    returns = agent.train(n_runs)[1:]
+    returns_list.append(utils.cummean(returns))
+    name_list.append(agent.name)
+    V = agent.Q.max(axis=-1).reshape(4, 12)
+    pi = agent.Q.argmax(axis=-1).reshape(4, 12)
+    cliffwalk_imshow(V, pi, title=f"CliffWalking: {agent.name} Agent")
+
+line(
+    returns_list, 
+    names=name_list, 
+    template="simple_white",
+    title="Q-Learning vs SARSA on CliffWalking-v0",
+    labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
+)
 # %%
