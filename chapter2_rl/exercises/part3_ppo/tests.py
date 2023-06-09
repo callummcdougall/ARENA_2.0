@@ -130,9 +130,7 @@ def test_calc_value_function_loss(calc_value_function_loss):
     with t.inference_mode():
         expected = solutions.calc_value_function_loss(values, mb_returns, vf_coef)
         actual = calc_value_function_loss(values, mb_returns, vf_coef)
-    if (actual - expected).abs() < 1e-4:
-        print("All tests in `test_calc_value_function_loss` passed!")
-    elif (0.5*actual - expected).abs() < 1e-4:
+    if ((actual - expected).abs() > 1e-4) and (0.5*actual - expected).abs() < 1e-4:
         raise Exception("Your result was half the expected value. Did you forget to use a factor of 1/2 in the mean squared difference?")
     t.testing.assert_close(actual, expected)
     print("All tests in `test_calc_value_function_loss` passed!")

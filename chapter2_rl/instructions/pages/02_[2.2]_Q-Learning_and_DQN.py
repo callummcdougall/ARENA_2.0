@@ -1051,6 +1051,7 @@ def section_2():
     <li><ul class="contents">
         <li><a class='contents-el' href='#correlated-states'>Correlated States</a></li>
         <li><a class='contents-el' href='#uniform-sampling'>Uniform Sampling</a></li>
+        <li><a class='contents-el' href='#exercise-implement-replaybuffer'><b>Exercise</b> - implement <code>ReplayBuffer</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#environment-resets'>Environment Resets</a></li>
     <li class='margtop'><a class='contents-el' href='#exploration'>Exploration</a></li>
@@ -1279,6 +1280,15 @@ Implement `ReplayBuffer`. It only needs to handle a discrete action space, and y
 
 You should also include objects `self.observations`, `self.actions`, etc in your `ReplayBuffer` class. This is just so that you can plot them against your shuffled replay buffer, and verify that the outputs look reasonable (see the next section).
 
+### Exercise - implement `ReplayBuffer`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 20-30 minutes on this exercise.
+```
+
 
 ```python
 @dataclass
@@ -1438,6 +1448,7 @@ for i in range(256):
             real_next_obs[i] = infos[i]["terminal_observation"]
     rb.add(obs, actions, rewards, dones, next_obs)
     obs = next_obs
+
 
 plot_cartpole_obs_and_dones(rb.observations.flip(0), rb.dones.flip(0))
 
