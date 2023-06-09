@@ -39,6 +39,7 @@ MAIN = __name__ == "__main__"
 
 
 
+
 @dataclass
 class PPOArgs:
     exp_name: str = "PPO_Implementation"
@@ -116,32 +117,46 @@ def compute_advantages(
     rewards: t.Tensor,
     values: t.Tensor,
     dones: t.Tensor,
-    device: t.device,
     gamma: float,
     gae_lambda: float,
 ) -> t.Tensor:
     '''Compute advantages using Generalized Advantage Estimation.
     next_value: shape (env,)
     next_done: shape (env,)
-    rewards: shape (t, env)
-    values: shape (t, env)
-    dones: shape (t, env)
-    Return: shape (t, env)
+    rewards: shape (T, env)
+    values: shape (T, env)
+    dones: shape (T, env)
+    Return: shape (T, env)
     '''
     # SOLUTION
     T = values.shape[0]
     next_values = t.concat([values[1:], next_value.unsqueeze(0)])
     next_dones = t.concat([dones[1:], next_done.unsqueeze(0)])
     deltas = rewards + gamma * next_values * (1.0 - next_dones) - values
-    advantages = t.zeros_like(deltas).to(device)
+    advantages = t.zeros_like(deltas)
     advantages[-1] = deltas[-1]
     for s in reversed(range(1, T)):
         advantages[s-1] = deltas[s-1] + gamma * gae_lambda * (1.0 - dones[s]) * advantages[s]
     return advantages
 
 
+
 if MAIN:
     tests.test_compute_advantages(compute_advantages)
+
+
+# %%
+
+def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
+    '''Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
+
+    Each index should appear exactly once.
+    '''
+    assert batch_size % minibatch_size == 0
+    # SOLUTION
+    indices = rng.permutation(batch_size)
+    indices = einops.rearrange(indices, "(mb_num mb_size) -> mb_num mb_size", mb_size=minibatch_size)
+    return list(indices)
 
 
 @dataclass
