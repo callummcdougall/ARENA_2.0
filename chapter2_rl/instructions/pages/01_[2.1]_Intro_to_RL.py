@@ -442,6 +442,7 @@ Where $k$ is the number of times the action has been taken, $R_k$ is the reward 
 
 We've given you a function for plotting multiple agents' reward trajectories on the same graph, with an optional moving average parameter to make the graph smoother.
 
+Note - make sure you define the datatypes of your arrays appropriately (e.g. it's important that your $Q$ values are floats).
 
 ```python
 class RewardAveraging(Agent):
