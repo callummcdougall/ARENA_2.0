@@ -1281,14 +1281,17 @@ class ReplayBufferSamples:
     '''
     Samples from the replay buffer, converted to PyTorch for use in neural network training.
     '''
-    observations: Float[Tensor, "sampleSize ..."]
+    observations: Float[Tensor, "sampleSize *obsShape"]
     actions: Int[Tensor, "sampleSize"]
     rewards: Float[Tensor, "sampleSize"]
     dones: Bool[Tensor, "sampleSize"]
-    next_observations: Float[Tensor, "sampleSize ..."]
+    next_observations: Float[Tensor, "sampleSize *obsShape"]
 
 
 class ReplayBuffer:
+    '''
+    Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
+    '''
     rng: Generator
     observations: t.Tensor
     actions: t.Tensor
@@ -1296,7 +1299,7 @@ class ReplayBuffer:
     dones: t.Tensor
     next_observations: t.Tensor
 
-    def __init__(self, buffer_size: int, num_actions: int, observation_shape: tuple, num_environments: int, seed: int):
+    def __init__(self, buffer_size: int, num_environments: int, seed: int):
         assert num_environments == 1, "This buffer only supports SyncVectorEnv with 1 environment inside."
         pass
 
@@ -1337,6 +1340,9 @@ tests.test_replay_buffer_wraparound(ReplayBuffer)
 
 ```python
 class ReplayBuffer:
+    '''
+    Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
+    '''
     rng: Generator
     observations: t.Tensor
     actions: t.Tensor
@@ -1344,12 +1350,12 @@ class ReplayBuffer:
     dones: t.Tensor
     next_observations: t.Tensor
 
-    def __init__(self, buffer_size: int, num_actions: int, observation_shape: tuple, num_environments: int, seed: int):
+    def __init__(self, buffer_size: int, num_environments: int, seed: int):
         assert num_environments == 1, "This buffer only supports SyncVectorEnv with 1 environment inside."
         # SOLUTION
         self.buffer_size = buffer_size
         self.rng = np.random.default_rng(seed)
-        self.buffer = [None for i in range(5)]
+        self.buffer = [None for _ in range(5)]
 
     def add(
         self, obs: np.ndarray, actions: np.ndarray, rewards: np.ndarray, dones: np.ndarray, next_obs: np.ndarray
@@ -1402,10 +1408,10 @@ What we want to store in the replay buffer is the final observation of the old e
 
 
 ```python
-rb = ReplayBuffer(buffer_size=256, num_actions=2, observation_shape=(4,), num_environments=1, seed=0)
+rb = ReplayBuffer(buffer_size=256, num_environments=1, seed=0)
 envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", 0, 0, False, "test")])
 obs = envs.reset()
-for i in range(512):
+for i in range(256):
     actions = np.array([0])
     (next_obs, rewards, dones, infos) = envs.step(actions)
     real_next_obs = next_obs.copy()
@@ -1415,26 +1421,20 @@ for i in range(512):
     rb.add(obs, actions, rewards, dones, next_obs)
     obs = next_obs
 
-plot_cartpole_obs_and_dones(rb.observations, rb.dones)
+plot_cartpole_obs_and_dones(rb.observations.flip(0), rb.dones.flip(0))
 
-sample = rb.sample(128, t.device("cpu"))
-plot_cartpole_obs_and_dones(sample.observations, sample.dones)
+sample = rb.sample(256, t.device("cpu"))
+plot_cartpole_obs_and_dones(sample.observations.flip(0), sample.dones.flip(0))
 ```
 
 <details>
 <summary>You should be getting graphs which look like this:</summary>
 
-For unshuffled:
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/shuffled_and_un.png" width="800">
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cartpole-unshuffled.png" width="800">
+Explanations - each of the dotted lines (the values $t^*$ where $d_{t^*}=1$) corresponds to a state $s_{t^*}$ where the pole's angle goes over the [bounds](https://www.gymlibrary.dev/environments/classic_control/cart_pole/) of `+=0.2095` (note that it doesn't stay upright nearly long enough to hit the positional bounds). If you zoom in on one of these points, then you'll see that we never actually record observations when the pole is out of bounds. At $s_{t^*-1}$ we are still within bounds, and once we go over bounds the next observation is taken from the reset environment.
 
-For shuffled:
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cartpole-shuffled.png" width="800">
 </details>
-
-
-We'll also wrap this class in a dataset class, so we can construct a dataloader at the start of our training loops.
 
 
 ## Exploration
@@ -2004,10 +2004,10 @@ You should now fill in the methods for the `DQNAgent` class below. This is a cla
 
 The `play_step` function should do the following:
 
-* Get a new set of actions via the `self.get_actions` method
+* Get a new set of actions via the `self.get_actions` method (taking `self.next_obs` as our current observation)
 * Step the environment, via `self.envs.step` (which returns a new set of experiences)
 * Add the new experiences to the buffer
-* Set `self.obs` to the new observations
+* Set `self.next_obs` to the new observations (this is so the agent knows where it is for the next step)
 * Increment the global step counter
 * Return the diagnostic information from the new experiences (i.e. the `infos` dicts)
 
@@ -2016,26 +2016,32 @@ The `get_actions` function should do the following:
 * Set `self.epsilon` according to the linear schedule, and current timestep
 * Sample actions according to the epsilon-greedy policy
 
+Note - for this exercise and others to follow, there's a trade-off in the test functions between being strict and being lax. Too lax and the tests will let failures pass; too strict and they might fail for odd reasons even if your code is mostly correct. If you find youself continually failing tests then you should ask a TA for help.
 
 ```python
 class DQNAgent:
     '''Base Agent class handeling the interaction with the environment.'''
 
-    rb: ReplayBuffer
-
-    def __init__(self, envs: gym.vector.SyncVectorEnv, args: DQNArgs, replay_buffer: ReplayBuffer):
+    def __init__(
+        self, 
+        envs: gym.vector.SyncVectorEnv, 
+        args: DQNArgs, 
+        rb: ReplayBuffer,
+        q_network: QNetwork,
+        target_network: QNetwork,
+        rng: np.random.Generator
+    ):
         self.envs = envs
         self.args = args
-        self.rb = replay_buffer
-        self.obs = self.envs.reset()
-        self.step = 0
+        self.rb = rb
+        self.next_obs = self.envs.reset() # Need a starting observation!
+        self.steps = 0
         self.epsilon = args.start_e
+        self.q_network = q_network
+        self.target_network = target_network
+        self.rng = rng
 
-    def play_step(
-        self, 
-        q_network: QNetwork, 
-        rng: np.random.Generator, 
-    ) -> List[dict]:
+    def play_step(self) -> List[dict]:
         '''
         Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
         
@@ -2043,12 +2049,7 @@ class DQNAgent:
         '''
         pass
 
-    def get_actions(
-        self,
-        q_network: QNetwork,
-        rng: np.random.Generator,
-        obs: np.ndarray,
-    ) -> np.ndarray:
+    def get_actions(self, obs: np.ndarray) -> np.ndarray:
         '''
         Samples actions according to the epsilon-greedy policy using the linear schedule for epsilon.
         '''
@@ -2066,47 +2067,48 @@ tests.test_agent(DQNAgent)
 class DQNAgent:
     '''Base Agent class handeling the interaction with the environment.'''
 
-    rb: ReplayBuffer
-
-    def __init__(self, envs: gym.vector.SyncVectorEnv, args: DQNArgs, replay_buffer: ReplayBuffer):
+    def __init__(
+        self, 
+        envs: gym.vector.SyncVectorEnv, 
+        args: DQNArgs, 
+        rb: ReplayBuffer,
+        q_network: QNetwork,
+        target_network: QNetwork,
+        rng: np.random.Generator
+    ):
         self.envs = envs
         self.args = args
-        self.rb = replay_buffer
-        self.obs = self.envs.reset()
-        self.step = 0
+        self.rb = rb
+        self.next_obs = self.envs.reset() # Need a starting observation!
+        self.steps = 0
         self.epsilon = args.start_e
+        self.q_network = q_network
+        self.target_network = target_network
+        self.rng = rng
 
-    def play_step(
-        self, 
-        q_network: QNetwork, 
-        rng: np.random.Generator, 
-    ) -> List[dict]:
+    def play_step(self) -> List[dict]:
         '''
         Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
         
         Returns `infos` (list of dictionaries containing info we will log).
         '''
         # SOLUTION
-        actions = self.get_actions(q_network, rng, self.obs)
+        obs = self.next_obs
+        actions = self.get_actions(obs)
         next_obs, rewards, dones, infos = self.envs.step(actions)
-        self.rb.add(self.obs, actions, rewards, dones, next_obs)
+        self.rb.add(obs, actions, rewards, dones, next_obs)
 
-        self.obs = next_obs
-        self.step += 1
+        self.next_obs = next_obs
+        self.steps += 1
         return infos
 
-    def get_actions(
-        self,
-        q_network: QNetwork,
-        rng: np.random.Generator,
-        obs: np.ndarray,
-    ) -> np.ndarray:
+    def get_actions(self, obs: np.ndarray) -> np.ndarray:
         '''
         Samples actions according to the epsilon-greedy policy using the linear schedule for epsilon.
         '''
         # SOLUTION
-        self.epsilon = linear_schedule(self.step, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
-        actions = epsilon_greedy_policy(self.envs, q_network, rng, t.tensor(obs).to(device), self.epsilon)
+        self.epsilon = linear_schedule(self.steps, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
+        actions = epsilon_greedy_policy(self.envs, self.q_network, self.rng, t.tensor(obs).to(device), self.epsilon)
         assert actions.shape == (len(self.envs.envs),)
         return actions
 ```
@@ -2222,8 +2224,8 @@ class DQNLightning(pl.LightningModule):
         pass
 
         
-    def _log(self, step: int, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
-        log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(step / (time.time() - self.start_time))}
+    def _log(self, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
+        log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}
         for info in infos:
             if "episode" in info.keys():
                 log_dict.update({"episodic_return": info["episode"]["r"], "episodic_length": info["episode"]["l"], "epsilon": epsilon})
@@ -2291,15 +2293,15 @@ class DQNLightning(pl.LightningModule):
         self.target_network = QNetwork(num_observations, num_actions).to(device)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-        self.rb = ReplayBuffer(args.buffer_size, num_actions, obs_shape, len(self.envs.envs), args.seed)
-        self.agent = DQNAgent(self.envs, self.args, self.rb)
+        self.rb = ReplayBuffer(args.buffer_size, len(self.envs.envs), args.seed)
+        self.agent = DQNAgent(self.envs, self.args, self.rb, self.q_network, self.target_network, self.rng)
         
         for step in tqdm(range(args.buffer_size), desc="Filling initial replay buffer"):
-            infos = self.agent.play_step(self.q_network, self.rng)
+            infos = self.agent.play_step()
 
 
-    def _log(self, step: int, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
-        log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(step / (time.time() - self.start_time))}
+    def _log(self, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
+        log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}
         for info in infos:
             if "episode" in info.keys():
                 log_dict.update({"episodic_return": info["episode"]["r"], "episodic_length": info["episode"]["l"], "epsilon": epsilon})
@@ -2310,7 +2312,7 @@ class DQNLightning(pl.LightningModule):
         # SOLUTION
 
         for step in range(args.train_frequency):
-            infos = self.agent.play_step(self.q_network, self.rng)
+            infos = self.agent.play_step()
 
         data = self.rb.sample(args.batch_size, device)
         s, a, r, d, s_new = data.observations, data.actions, data.rewards, data.dones, data.next_observations
@@ -2323,9 +2325,9 @@ class DQNLightning(pl.LightningModule):
         td_error = r.flatten() + args.gamma * target_max * (1 - d.float().flatten()) - predicted_q_vals
         loss = td_error.pow(2).mean()
         
-        self._log(step, predicted_q_vals, self.agent.epsilon, loss, infos)
+        self._log(predicted_q_vals, self.agent.epsilon, loss, infos)
 
-        if self.agent.step % args.target_network_frequency == 0:
+        if self.agent.steps % args.target_network_frequency == 0:
             self.target_network.load_state_dict(self.q_network.state_dict())
         
         return loss
@@ -2395,9 +2397,9 @@ And here's some code to run the full version of your model, using weights and bi
 wandb.finish()
 
 args = DQNArgs()
-model = DQNLightning(args).to(device)
 logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
 if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+model = DQNLightning(args).to(device)
 
 trainer = pl.Trainer(
     max_epochs=1,

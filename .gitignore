@@ -14,3 +14,4 @@ secrets.toml
 serimats_app
 *othello_world*
 *Grokking
+*04_PPO.py
