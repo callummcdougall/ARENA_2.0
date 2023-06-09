@@ -498,3 +498,53 @@ def policy_eval_numerical(env: Environment, pi: Arr, gamma=0.99, eps=1e-8, max_i
 
 tests.test_policy_eval(policy_eval_numerical, exact=False)
 # %%
+def policy_eval_exact(env: Environment, pi: Arr, gamma=0.99) -> Arr:
+    '''
+    Finds the exact solution to the Bellman equation.
+    '''
+    P = env.T[np.arange(env.num_states), pi, :]
+    R = env.R[np.arange(env.num_states), pi, :]
+    # print(P.shape, R.shape)
+    r = einops.einsum(P, R, 'i j , i j -> i')
+    v = np.linalg.inv(np.eye(env.num_states) - gamma * P) @ r
+    return v
+
+tests.test_policy_eval(policy_eval_exact, exact=True)
+
+def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
+    '''
+    Inputs:
+        env: Environment
+        V  : (num_states,) value of each state following some policy pi
+    Outputs:
+        pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
+    '''
+    return np.argmax(einops.einsum(env.T, env.R + gamma * V, 's a next_s, s a next_s -> s a'), axis=1)
+
+
+tests.test_policy_improvement(policy_improvement)
+
+def find_optimal_policy(env: Environment, gamma=0.99, max_iterations=10_000):
+    '''
+    Inputs:
+        env: environment
+    Outputs:
+        pi : (num_states,) int, of actions represeting an optimal policy
+    '''
+    pi = np.zeros(shape=env.num_states, dtype=int)
+    i = 0
+    converged = False
+    while not converged and i < max_iterations:
+        V = policy_eval_exact(env, pi, gamma)
+        new_pi = policy_improvement(env, V, gamma).astype(int)
+        converged = np.all(new_pi == pi)
+        pi = new_pi
+        i += 1
+    return pi
+tests.test_find_optimal_policy(find_optimal_policy)
+
+penalty = -1
+norvig = Norvig(penalty)
+pi_opt = find_optimal_policy(norvig, gamma=0.99)
+norvig.render(pi_opt)
+# %%
