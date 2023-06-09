@@ -1045,7 +1045,7 @@ wandb.finish()
 
 args = DQNArgs()
 logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name="RL_model")
-if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+# if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
 model = DQNLightning(args).to(device)
 
 trainer = pl.Trainer(
