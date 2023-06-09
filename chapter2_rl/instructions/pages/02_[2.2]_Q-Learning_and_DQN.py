@@ -637,7 +637,7 @@ while not done:
 <details>
 <summary>What output should I expect to see?</summary>
 
-
+SARSA should outperform Q-Learning (by a lot at first, then this gap will narrow). They should both be slightly worse than the cheater, and *much* better than the random agent.
 </details>
 
 
