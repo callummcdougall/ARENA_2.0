@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import gym
 import gym.envs.registration
 import gym.spaces
+import einops
 
 Arr = np.ndarray
 max_episode_steps = 1000
@@ -409,3 +410,168 @@ class Toy(Environment):
 
     def __init__(self):
         super().__init__(num_states=3, num_actions=2)
+# %%
+toy = Toy()
+
+actions = ["a_L", "a_R"]
+states = ["S_0", "s_L", "S_R"]
+
+imshow(
+    toy.T, # dimensions (s, a, s_next)
+    title="Transition probabilities T(s_next | s, a) for toy environment",
+    facet_col=-1, facet_labels=[f"s_next = {s}" for s in states], y=states, x=actions,
+    labels = {"x": "Action", "y": "State", "color": "Transition<br>Probability"},
+)
+
+imshow(
+    toy.R, # dimensions (s, a, s_next)
+    title="Rewards R(s, a, s_next) for toy environment",
+    facet_col=-1, facet_labels=[f"s_next = {s}" for s in states], y=states, x=actions,
+    labels = {"x": "Action", "y": "State", "color": "Reward"},
+)
+# %%
+class Norvig(Environment):
+    def dynamics(self, state: int, action: int) -> Tuple[Arr, Arr, Arr]:
+        def state_index(state):
+            assert 0 <= state[0] < self.width and 0 <= state[1] < self.height, print(state)
+            pos = state[0] + state[1] * self.width
+            assert 0 <= pos < self.num_states, print(state, pos)
+            return pos
+
+        pos = self.states[state]
+        move = self.actions[action]
+        if state in self.terminal or state in self.walls:
+            return (np.array([state]), np.array([0]), np.array([1]))
+        out_probs = np.zeros(self.num_actions) + 0.1
+        out_probs[action] = 0.7
+        out_states = np.zeros(self.num_actions, dtype=int) + self.num_actions
+        out_rewards = np.zeros(self.num_actions) + self.penalty
+        new_states = [pos + x for x in self.actions]
+        for (i, s_new) in enumerate(new_states):
+            if not (0 <= s_new[0] < self.width and 0 <= s_new[1] < self.height):
+                out_states[i] = state
+                continue
+            new_state = state_index(s_new)
+            if new_state in self.walls:
+                out_states[i] = state
+            else:
+                out_states[i] = new_state
+            for idx in range(len(self.terminal)):
+                if new_state == self.terminal[idx]:
+                    out_rewards[i] = self.goal_rewards[idx]
+        return (out_states, out_rewards, out_probs)
+
+    def render(self, pi: Arr):
+        assert len(pi) == self.num_states
+        emoji = ["⬆️", "➡️", "⬇️", "⬅️"]
+        grid = [emoji[act] for act in pi]
+        grid[3] = "🟩"
+        grid[7] = "🟥"
+        grid[5] = "⬛"
+        print("".join(grid[0:4]) + "\n" + "".join(grid[4:8]) + "\n" + "".join(grid[8:]))
+
+    def __init__(self, penalty=-0.04):
+        self.height = 3
+        self.width = 4
+        self.penalty = penalty
+        num_states = self.height * self.width
+        num_actions = 4
+        self.states = np.array([[x, y] for y in range(self.height) for x in range(self.width)])
+        self.actions = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])
+        self.dim = (self.height, self.width)
+        terminal = np.array([3, 7], dtype=int)
+        self.walls = np.array([5], dtype=int)
+        self.goal_rewards = np.array([1.0, -1])
+        super().__init__(num_states, num_actions, start=8, terminal=terminal)
+# %%
+def policy_eval_numerical(env: Environment, pi: Arr, gamma=0.99, eps=1e-8, max_iterations=10_000) -> Arr:
+    '''
+    Numerically evaluates the value of a given policy by iterating the Bellman equation
+    Inputs:
+        env: Environment
+        pi : shape (num_states,) - The policy to evaluate
+        gamma: float - Discount factor
+        eps  : float - Tolerance
+        max_iterations: int - Maximum number of iterations to run
+    Outputs:
+        value : float (num_states,) - The value function for policy pi
+    '''
+    values = np.zeros(env.num_states)
+    for _ in range(max_iterations):
+        state_to_next_state = env.T[range(env.num_states), pi]  # shape (state, next_state)
+        reward_for_transition = env.R[range(env.num_states), pi]  # shape (state, next_state)
+        next_values = np.sum(state_to_next_state * (reward_for_transition + gamma * values), axis=-1)
+
+        if np.all(np.abs(values-next_values) < eps):
+            return next_values
+        values = next_values
+    return values
+
+tests.test_policy_eval(policy_eval_numerical, exact=False)
+# %%
+def policy_eval_exact(env: Environment, pi: Arr, gamma=0.99) -> Arr:
+    '''
+    Finds the exact solution to the Bellman equation.
+    '''
+    state_to_next_state = env.T[range(env.num_states), pi]  # shape (state, next_state)
+    reward_for_transition = env.R[range(env.num_states), pi]  # shape (state, next_state)
+    expected_reward_per_state = einops.einsum(
+        state_to_next_state, reward_for_transition,
+        "state next_state, state next_state -> state"
+    )
+    matrix = np.eye(env.num_states) - gamma * state_to_next_state
+    return np.linalg.solve(matrix, expected_reward_per_state)
+
+
+
+tests.test_policy_eval(policy_eval_exact, exact=True)
+# %%
+def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
+    '''
+    Inputs:
+        env: Environment
+        V  : (num_states,) value of each state following some policy pi
+    Outputs:
+        pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
+    '''
+    reward_for_action = env.R + gamma * V
+    value_per_action = einops.einsum(
+        env.T, reward_for_action,
+        "state action next_state, state action next_state -> state action"
+    )
+    return np.argmax(value_per_action, axis=1)
+
+
+tests.test_policy_improvement(policy_improvement)
+# %%
+
+def find_optimal_policy(env: Environment, gamma=0.99, max_iterations=10_000):
+    '''
+    Inputs:
+        env: environment
+    Outputs:
+        pi : (num_states,) int, of actions represeting an optimal policy
+    '''
+    pi = np.zeros(shape=env.num_states, dtype=int)
+
+    for _ in range(max_iterations):
+        values = policy_eval_exact(env, pi, gamma)
+        pi = policy_improvement(env, values, gamma)
+    return pi
+
+
+tests.test_find_optimal_policy(find_optimal_policy)
+
+penalty = -0.04
+norvig = Norvig(penalty)
+pi_opt = find_optimal_policy(norvig, gamma=0.99)
+norvig.render(pi_opt)
+
+# %%
+
+for penalty in np.linspace(-0.1, 0.1, 21):
+    norvig = Norvig(penalty)
+    pi_opt = find_optimal_policy(norvig, gamma=0.9999)
+    print(f"Penalty: {penalty}")
+    norvig.render(pi_opt)
+# %%
