@@ -496,6 +496,22 @@ for agent in agents_toy:
 line(returns_list, names=names_list, title=f"Avg. reward on {env_toy.spec.name}")
 ```
 
+<details>
+<summary>Solution</summary>
+
+```python
+class Cheater(Agent):
+    def __init__(self, env: DiscreteEnviroGym, config: AgentConfig = defaultConfig, gamma=0.99, seed=0):
+        super().__init__(env, config, gamma, seed)
+        # SOLUTION
+        self.pi_opt = find_optimal_policy(self.env.unwrapped.env, self.gamma)
+
+    def get_action(self, obs):
+        # SOLUTION
+        return self.pi_opt[obs]
+```
+</details>
+
 ## SARSA: On-Policy TD Control
 
 Now we wish to train an agent on the same gridworld environment as before, but this time it doesn't have access to the underlying dynamics (`T` and `R`). The rough idea here is to try and estimate the Q-value function directly from samples received from the environment. Recall that the optimal Q-value function satisfies 
@@ -675,16 +691,6 @@ fig.show()
 
 
 ```python
-class Cheater(Agent):
-    def __init__(self, env: DiscreteEnviroGym, config: AgentConfig = defaultConfig, gamma=0.99, seed=0):
-        super().__init__(env, config, gamma, seed)
-        # SOLUTION
-        self.pi_opt = find_optimal_policy(self.env.unwrapped.env, self.gamma)
-
-    def get_action(self, obs):
-        # SOLUTION
-        return self.pi_opt[obs]
-
 class EpsilonGreedy(Agent):
     '''
     A class for SARSA and Q-Learning to inherit from.
