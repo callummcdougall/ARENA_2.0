@@ -513,7 +513,101 @@ def policy_eval_numerical(env: Environment, pi: Arr, gamma=0.99, eps=1e-8, max_i
         if np.max(np.abs(values - prev_values)) < eps:
             return values
 
+CHEATER = True
+if not CHEATER:
+    tests.test_policy_eval(policy_eval_numerical, exact=False)
+# %%
+
+def policy_eval_numerical(env: Environment, pi: Arr, gamma=0.99, eps=1e-8, max_iterations=10_000) -> Arr:
+    '''
+    Numerically evaluates the value of a given policy by iterating the Bellman equation
+    Inputs:
+        env: Environment
+        pi : shape (num_states,) - The policy to evaluate
+        gamma: float - Discount factor
+        eps  : float - Tolerance
+        max_iterations: int - Maximum number of iterations to run
+    Outputs:
+        value : float (num_states,) - The value function for policy pi
+    '''
+    prev_values = np.zeros(env.num_states)
+    for i in range(max_iterations):
+        new_values = np.zeros(env.num_states)
+        for state in range(env.num_states):
+            action = pi[state]
+            new_values[state] = np.dot(env.T[state][action], env.R[state][action] + gamma * prev_values)
+        if np.abs(new_values - prev_values).sum() < eps:
+            return new_values
+        prev_values = new_values.copy()
+    return new_values
+
 
 
 tests.test_policy_eval(policy_eval_numerical, exact=False)
+# %%
+def policy_eval_exact(env: Environment, pi: Arr, gamma=0.99) -> Arr:
+    '''
+    Finds the exact solution to the Bellman equation.
+    '''
+    states = np.arange(env.num_states)
+    transition = env.T[states, pi]
+    reward = env.R[states, pi]
+
+    R = einops.einsum(
+        transition,
+        reward,
+        "states next_states, states next_states -> states"
+    )
+    
+    identity = np.identity(env.num_states)
+
+    V = np.dot(np.linalg.inv(identity - gamma * transition), R)
+
+    return V
+
+
+tests.test_policy_eval(policy_eval_exact, exact=True)
+# %%
+
+
+def policy_improvement(env: Environment, V: Arr, gamma=0.99) -> Arr:
+    '''
+    Inputs:
+        env: Environment
+        V  : (num_states,) value of each state following some policy pi
+    Outputs:
+        pi_better : vector (num_states,) of actions representing a new policy obtained via policy iteration
+    '''
+    next_state_value_for_any_way_to_get_there = einops.repeat(V, "states -> s1 actions states", actions=env.num_actions, s1=env.num_states)
+    total_rewards_for_state_action_state = env.R + gamma * next_state_value_for_any_way_to_get_there
+    expected_reward_for_action_at_state = einops.einsum(env.T, total_rewards_for_state_action_state, "s1 a s2, s1 a s2 -> s1 a")
+    return np.argmax(expected_reward_for_action_at_state, axis=-1)
+
+tests.test_policy_improvement(policy_improvement)
+
+# %%
+
+
+def find_optimal_policy(env: Environment, gamma=0.99, max_iterations=10_000):
+    '''
+    Inputs:
+        env: environment
+    Outputs:
+        pi : (num_states,) int, of actions represeting an optimal policy
+    '''
+    pi = np.zeros(shape=env.num_states, dtype=int)
+    for i in range(max_iterations):
+        v = policy_eval_exact(env=env, pi=pi, gamma=gamma)
+        new_pi = policy_improvement(env=env, V=v, gamma=gamma)
+        if (new_pi == pi).all():
+            break
+        pi = new_pi
+    return pi
+
+tests.test_find_optimal_policy(find_optimal_policy)
+
+penalty = -0.04
+norvig = Norvig(penalty)
+pi_opt = find_optimal_policy(norvig, gamma=0.99)
+norvig.render(pi_opt)
 # %%
