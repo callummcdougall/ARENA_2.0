@@ -55,307 +55,307 @@ ObsType = int
 ActType = int
 
 
-class DiscreteEnviroGym(gym.Env):
-    action_space: gym.spaces.Discrete
-    observation_space: gym.spaces.Discrete
+# class DiscreteEnviroGym(gym.Env):
+#     action_space: gym.spaces.Discrete
+#     observation_space: gym.spaces.Discrete
 
-    def __init__(self, env: Environment):
-        super().__init__()
-        self.env = env
-        self.observation_space = gym.spaces.Discrete(env.num_states)
-        self.action_space = gym.spaces.Discrete(env.num_actions)
-        self.reset()
+#     def __init__(self, env: Environment):
+#         super().__init__()
+#         self.env = env
+#         self.observation_space = gym.spaces.Discrete(env.num_states)
+#         self.action_space = gym.spaces.Discrete(env.num_actions)
+#         self.reset()
 
-    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
-        """
-        Samples from the underlying dynamics of the environment
-        """
-        (states, rewards, probs) = self.env.dynamics(self.pos, action)
-        idx = self.np_random.choice(len(states), p=probs)
-        (new_state, reward) = (states[idx], rewards[idx])
-        self.pos = new_state
-        done = self.pos in self.env.terminal
-        return (new_state, reward, done, {"env": self.env})
+#     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+#         """
+#         Samples from the underlying dynamics of the environment
+#         """
+#         (states, rewards, probs) = self.env.dynamics(self.pos, action)
+#         idx = self.np_random.choice(len(states), p=probs)
+#         (new_state, reward) = (states[idx], rewards[idx])
+#         self.pos = new_state
+#         done = self.pos in self.env.terminal
+#         return (new_state, reward, done, {"env": self.env})
 
-    def reset(
-        self, seed: Optional[int] = None, return_info=False, options=None
-    ) -> Union[ObsType, Tuple[ObsType, dict]]:
-        super().reset(seed=seed)
-        self.pos = self.env.start
-        return (self.pos, {"env": self.env}) if return_info else self.pos
+#     def reset(
+#         self, seed: Optional[int] = None, return_info=False, options=None
+#     ) -> Union[ObsType, Tuple[ObsType, dict]]:
+#         super().reset(seed=seed)
+#         self.pos = self.env.start
+#         return (self.pos, {"env": self.env}) if return_info else self.pos
 
-    def render(self, mode="human"):
-        assert mode == "human", f"Mode {mode} not supported!"
-
-
-# %%
-gym.envs.registration.register(
-    id="NorvigGrid-v0",
-    entry_point=DiscreteEnviroGym,
-    max_episode_steps=100,
-    nondeterministic=True,
-    kwargs={"env": Norvig(penalty=-0.04)},
-)
-
-gym.envs.registration.register(
-    id="ToyGym-v0",
-    entry_point=DiscreteEnviroGym,
-    max_episode_steps=2,
-    nondeterministic=False,
-    kwargs={"env": Toy()},
-)
+#     def render(self, mode="human"):
+#         assert mode == "human", f"Mode {mode} not supported!"
 
 
-# %%
-@dataclass
-class Experience:
-    """A class for storing one piece of experience during an episode run"""
+# # %%
+# gym.envs.registration.register(
+#     id="NorvigGrid-v0",
+#     entry_point=DiscreteEnviroGym,
+#     max_episode_steps=100,
+#     nondeterministic=True,
+#     kwargs={"env": Norvig(penalty=-0.04)},
+# )
 
-    obs: ObsType
-    act: ActType
-    reward: float
-    new_obs: ObsType
-    new_act: Optional[ActType] = None
-
-
-@dataclass
-class AgentConfig:
-    """Hyperparameters for agents"""
-
-    epsilon: float = 0.1
-    lr: float = 0.05
-    optimism: float = 0
+# gym.envs.registration.register(
+#     id="ToyGym-v0",
+#     entry_point=DiscreteEnviroGym,
+#     max_episode_steps=2,
+#     nondeterministic=False,
+#     kwargs={"env": Toy()},
+# )
 
 
-defaultConfig = AgentConfig()
+# # %%
+# @dataclass
+# class Experience:
+#     """A class for storing one piece of experience during an episode run"""
+
+#     obs: ObsType
+#     act: ActType
+#     reward: float
+#     new_obs: ObsType
+#     new_act: Optional[ActType] = None
 
 
-class Agent:
-    """Base class for agents interacting with an environment (you do not need to add any implementation here)"""
+# @dataclass
+# class AgentConfig:
+#     """Hyperparameters for agents"""
 
-    rng: np.random.Generator
-
-    def __init__(
-        self,
-        env: DiscreteEnviroGym,
-        config: AgentConfig = defaultConfig,
-        gamma: float = 0.99,
-        seed: int = 0,
-    ):
-        self.env = env
-        self.reset(seed)
-        self.config = config
-        self.gamma = gamma
-        self.num_actions = env.action_space.n
-        self.num_states = env.observation_space.n
-        self.name = type(self).__name__
-
-    def get_action(self, obs: ObsType) -> ActType:
-        raise NotImplementedError()
-
-    def observe(self, exp: Experience) -> None:
-        """
-        Agent observes experience, and updates model as appropriate.
-        Implementation depends on type of agent.
-        """
-        pass
-
-    def reset(self, seed: int) -> None:
-        self.rng = np.random.default_rng(seed)
-
-    def run_episode(self, seed) -> List[int]:
-        """
-        Simulates one episode of interaction, agent learns as appropriate
-        Inputs:
-            seed : Seed for the random number generator
-        Outputs:
-            The rewards obtained during the episode
-        """
-        rewards = []
-        obs = self.env.reset(seed=seed)
-        self.reset(seed=seed)
-        done = False
-        while not done:
-            act = self.get_action(obs)
-            (new_obs, reward, done, info) = self.env.step(act)
-            exp = Experience(obs, act, reward, new_obs)
-            self.observe(exp)
-            rewards.append(reward)
-            obs = new_obs
-        return rewards
-
-    def train(self, n_runs=500):
-        """
-        Run a batch of episodes, and return the total reward obtained per episode
-        Inputs:
-            n_runs : The number of episodes to simulate
-        Outputs:
-            The discounted sum of rewards obtained for each episode
-        """
-        all_rewards = []
-        for seed in trange(n_runs):
-            rewards = self.run_episode(seed)
-            all_rewards.append(utils.sum_rewards(rewards, self.gamma))
-        return all_rewards
+#     epsilon: float = 0.1
+#     lr: float = 0.05
+#     optimism: float = 0
 
 
-class Random(Agent):
-    def get_action(self, obs: ObsType) -> ActType:
-        return self.rng.integers(0, self.num_actions)
+# defaultConfig = AgentConfig()
 
 
-# %%
-class Cheater(Agent):
-    def __init__(
-        self,
-        env: DiscreteEnviroGym,
-        config: AgentConfig = defaultConfig,
-        gamma=0.99,
-        seed=0,
-    ):
-        super().__init__(env, config, gamma, seed)
-        self.pi_star = find_optimal_policy(env.unwrapped.env, gamma)
+# class Agent:
+#     """Base class for agents interacting with an environment (you do not need to add any implementation here)"""
 
-    def get_action(self, obs):
-        return self.pi_star[obs]
+#     rng: np.random.Generator
 
+#     def __init__(
+#         self,
+#         env: DiscreteEnviroGym,
+#         config: AgentConfig = defaultConfig,
+#         gamma: float = 0.99,
+#         seed: int = 0,
+#     ):
+#         self.env = env
+#         self.reset(seed)
+#         self.config = config
+#         self.gamma = gamma
+#         self.num_actions = env.action_space.n
+#         self.num_states = env.observation_space.n
+#         self.name = type(self).__name__
 
-env_toy = gym.make("ToyGym-v0")
-agents_toy: List[Agent] = [Cheater(env_toy), Random(env_toy)]
-returns_list = []
-names_list = []
-for agent in agents_toy:
-    returns = agent.train(n_runs=100)
-    returns_list.append(utils.cummean(returns))
-    names_list.append(agent.name)
+#     def get_action(self, obs: ObsType) -> ActType:
+#         raise NotImplementedError()
 
-line(returns_list, names=names_list, title=f"Avg. reward on {env_toy.spec.name}")
+#     def observe(self, exp: Experience) -> None:
+#         """
+#         Agent observes experience, and updates model as appropriate.
+#         Implementation depends on type of agent.
+#         """
+#         pass
 
+#     def reset(self, seed: int) -> None:
+#         self.rng = np.random.default_rng(seed)
 
-# %%
-class EpsilonGreedy(Agent):
-    """
-    A class for SARSA and Q-Learning to inherit from.
-    """
+#     def run_episode(self, seed) -> List[int]:
+#         """
+#         Simulates one episode of interaction, agent learns as appropriate
+#         Inputs:
+#             seed : Seed for the random number generator
+#         Outputs:
+#             The rewards obtained during the episode
+#         """
+#         rewards = []
+#         obs = self.env.reset(seed=seed)
+#         self.reset(seed=seed)
+#         done = False
+#         while not done:
+#             act = self.get_action(obs)
+#             (new_obs, reward, done, info) = self.env.step(act)
+#             exp = Experience(obs, act, reward, new_obs)
+#             self.observe(exp)
+#             rewards.append(reward)
+#             obs = new_obs
+#         return rewards
 
-    def __init__(
-        self,
-        env: DiscreteEnviroGym,
-        config: AgentConfig = defaultConfig,
-        gamma: float = 0.99,
-        seed: int = 0,
-    ):
-        super().__init__(env, config, gamma, seed)
-        # Q-values has shape (s, a)
-        self.Q = np.full(
-            shape=[self.num_states, self.num_actions],
-            fill_value=self.config.optimism,
-            dtype=float,
-        )
-
-    def get_action(self, obs: ObsType) -> ActType:
-        """
-        Selects an action using epsilon-greedy with respect to Q-value estimates
-        """
-        num_actions = self.num_actions
-
-        if self.rng.uniform(0, 1, size=1).item() < self.config.epsilon:  # Explore
-            return self.rng.integers(low=0, high=num_actions, size=1).item()
-        else:  # Exploit
-            return self.Q[obs].argmax()
-
-
-class SARSA(EpsilonGreedy):
-    def observe(self, exp: Experience) -> None:
-        obs, act, reward, new_obs, new_act = exp.__dict__.values()
-        lr = self.config.lr
-        gamma = self.gamma
-        Q_new = self.Q[new_obs, new_act]
-        Q = self.Q[obs, act]
-        self.Q[obs, act] += lr * (reward + gamma * Q_new - Q)
-
-    def run_episode(self, seed) -> List[int]:
-        rewards = []
-        obs = self.env.reset(seed=seed)
-        self.reset(seed=seed)
-        # Choose A from S using policy dervied from Q (eg. eps-greedy)
-        act = self.get_action(obs)
-        done = False
-        while not done:
-            (new_obs, reward, done, info) = self.env.step(act)
-            new_act = self.get_action(new_obs)
-            exp = Experience(obs, act, reward, new_obs, new_act)
-            self.observe(exp)
-            rewards.append(reward)
-            obs, act = new_obs, new_act
-        return rewards
+#     def train(self, n_runs=500):
+#         """
+#         Run a batch of episodes, and return the total reward obtained per episode
+#         Inputs:
+#             n_runs : The number of episodes to simulate
+#         Outputs:
+#             The discounted sum of rewards obtained for each episode
+#         """
+#         all_rewards = []
+#         for seed in trange(n_runs):
+#             rewards = self.run_episode(seed)
+#             all_rewards.append(utils.sum_rewards(rewards, self.gamma))
+#         return all_rewards
 
 
-class QLearning(EpsilonGreedy):
-    def observe(self, exp: Experience) -> None:
-        obs, act, reward, new_obs, _ = exp.__dict__.values()
-        lr = self.config.lr
-        gamma = self.gamma
-        new_act = self.Q[new_obs].argmax()
-        Q_new = self.Q[new_obs, new_act]
-        Q = self.Q[obs, act]
-        self.Q[obs, act] += lr * (reward + gamma * Q_new - Q)
+# class Random(Agent):
+#     def get_action(self, obs: ObsType) -> ActType:
+#         return self.rng.integers(0, self.num_actions)
 
 
-n_runs = 1000
-gamma = 0.99
-seed = 1
-env_norvig = gym.make("NorvigGrid-v0")
-config_norvig = AgentConfig(epsilon=0.1, lr=0.05, optimism=5)
-args_norvig = (env_norvig, config_norvig, gamma, seed)
-agents_norvig: List[Agent] = [
-    Cheater(*args_norvig),
-    QLearning(*args_norvig),
-    SARSA(*args_norvig),
-    # Random(*args_norvig),
-]
+# # %%
+# class Cheater(Agent):
+#     def __init__(
+#         self,
+#         env: DiscreteEnviroGym,
+#         config: AgentConfig = defaultConfig,
+#         gamma=0.99,
+#         seed=0,
+#     ):
+#         super().__init__(env, config, gamma, seed)
+#         self.pi_star = find_optimal_policy(env.unwrapped.env, gamma)
 
-returns_norvig = {}
-fig = go.Figure(
-    layout=dict(
-        title_text=f"Avg. reward on {env_norvig.spec.name}",
-        template="simple_white",
-        xaxis_range=[-30, n_runs + 30],
-    )
-)
-for agent in agents_norvig:
-    returns = agent.train(n_runs)
-    fig.add_trace(go.Scatter(y=utils.cummean(returns), name=agent.name))
-fig.show()
+#     def get_action(self, obs):
+#         return self.pi_star[obs]
 
-# %%
-gamma = 1
-seed = 0
 
-config_cliff = AgentConfig(epsilon=0.1, lr=0.1, optimism=0)
-env = gym.make("CliffWalking-v0")
-n_runs = 2500
-args_cliff = (env, config_cliff, gamma, seed)
+# env_toy = gym.make("ToyGym-v0")
+# agents_toy: List[Agent] = [Cheater(env_toy), Random(env_toy)]
+# returns_list = []
+# names_list = []
+# for agent in agents_toy:
+#     returns = agent.train(n_runs=100)
+#     returns_list.append(utils.cummean(returns))
+#     names_list.append(agent.name)
 
-returns_list = []
-name_list = []
-agents: List[Union[QLearning, SARSA]] = [QLearning(*args_cliff), SARSA(*args_cliff)]
+# line(returns_list, names=names_list, title=f"Avg. reward on {env_toy.spec.name}")
 
-for agent in agents:
-    returns = agent.train(n_runs)[1:]
-    returns_list.append(utils.cummean(returns))
-    name_list.append(agent.name)
-    V = agent.Q.max(axis=-1).reshape(4, 12)
-    pi = agent.Q.argmax(axis=-1).reshape(4, 12)
-    cliffwalk_imshow(V, pi, title=f"CliffWalking: {agent.name} Agent")
 
-line(
-    returns_list,
-    names=name_list,
-    template="simple_white",
-    title="Q-Learning vs SARSA on CliffWalking-v0",
-    labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
-)
+# # %%
+# class EpsilonGreedy(Agent):
+#     """
+#     A class for SARSA and Q-Learning to inherit from.
+#     """
+
+#     def __init__(
+#         self,
+#         env: DiscreteEnviroGym,
+#         config: AgentConfig = defaultConfig,
+#         gamma: float = 0.99,
+#         seed: int = 0,
+#     ):
+#         super().__init__(env, config, gamma, seed)
+#         # Q-values has shape (s, a)
+#         self.Q = np.full(
+#             shape=[self.num_states, self.num_actions],
+#             fill_value=self.config.optimism,
+#             dtype=float,
+#         )
+
+#     def get_action(self, obs: ObsType) -> ActType:
+#         """
+#         Selects an action using epsilon-greedy with respect to Q-value estimates
+#         """
+#         num_actions = self.num_actions
+
+#         if self.rng.uniform(0, 1, size=1).item() < self.config.epsilon:  # Explore
+#             return self.rng.integers(low=0, high=num_actions, size=1).item()
+#         else:  # Exploit
+#             return self.Q[obs].argmax()
+
+
+# class SARSA(EpsilonGreedy):
+#     def observe(self, exp: Experience) -> None:
+#         obs, act, reward, new_obs, new_act = exp.__dict__.values()
+#         lr = self.config.lr
+#         gamma = self.gamma
+#         Q_new = self.Q[new_obs, new_act]
+#         Q = self.Q[obs, act]
+#         self.Q[obs, act] += lr * (reward + gamma * Q_new - Q)
+
+#     def run_episode(self, seed) -> List[int]:
+#         rewards = []
+#         obs = self.env.reset(seed=seed)
+#         self.reset(seed=seed)
+#         # Choose A from S using policy dervied from Q (eg. eps-greedy)
+#         act = self.get_action(obs)
+#         done = False
+#         while not done:
+#             (new_obs, reward, done, info) = self.env.step(act)
+#             new_act = self.get_action(new_obs)
+#             exp = Experience(obs, act, reward, new_obs, new_act)
+#             self.observe(exp)
+#             rewards.append(reward)
+#             obs, act = new_obs, new_act
+#         return rewards
+
+
+# class QLearning(EpsilonGreedy):
+#     def observe(self, exp: Experience) -> None:
+#         obs, act, reward, new_obs, _ = exp.__dict__.values()
+#         lr = self.config.lr
+#         gamma = self.gamma
+#         new_act = self.Q[new_obs].argmax()
+#         Q_new = self.Q[new_obs, new_act]
+#         Q = self.Q[obs, act]
+#         self.Q[obs, act] += lr * (reward + gamma * Q_new - Q)
+
+
+# n_runs = 1000
+# gamma = 0.99
+# seed = 1
+# env_norvig = gym.make("NorvigGrid-v0")
+# config_norvig = AgentConfig(epsilon=0.1, lr=0.05, optimism=5)
+# args_norvig = (env_norvig, config_norvig, gamma, seed)
+# agents_norvig: List[Agent] = [
+#     Cheater(*args_norvig),
+#     QLearning(*args_norvig),
+#     SARSA(*args_norvig),
+#     # Random(*args_norvig),
+# ]
+
+# returns_norvig = {}
+# fig = go.Figure(
+#     layout=dict(
+#         title_text=f"Avg. reward on {env_norvig.spec.name}",
+#         template="simple_white",
+#         xaxis_range=[-30, n_runs + 30],
+#     )
+# )
+# for agent in agents_norvig:
+#     returns = agent.train(n_runs)
+#     fig.add_trace(go.Scatter(y=utils.cummean(returns), name=agent.name))
+# fig.show()
+
+# # %%
+# gamma = 1
+# seed = 0
+
+# config_cliff = AgentConfig(epsilon=0.1, lr=0.1, optimism=0)
+# env = gym.make("CliffWalking-v0")
+# n_runs = 2500
+# args_cliff = (env, config_cliff, gamma, seed)
+
+# returns_list = []
+# name_list = []
+# agents: List[Union[QLearning, SARSA]] = [QLearning(*args_cliff), SARSA(*args_cliff)]
+
+# for agent in agents:
+#     returns = agent.train(n_runs)[1:]
+#     returns_list.append(utils.cummean(returns))
+#     name_list.append(agent.name)
+#     V = agent.Q.max(axis=-1).reshape(4, 12)
+#     pi = agent.Q.argmax(axis=-1).reshape(4, 12)
+#     cliffwalk_imshow(V, pi, title=f"CliffWalking: {agent.name} Agent")
+
+# line(
+#     returns_list,
+#     names=name_list,
+#     template="simple_white",
+#     title="Q-Learning vs SARSA on CliffWalking-v0",
+#     labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
+# )
 
 
 # %%
@@ -427,7 +427,7 @@ class ReplayBuffer:
         ), "This buffer only supports SyncVectorEnv with 1 environment inside."
         self.num_environments = num_environments
         self.observations = t.empty(buffer_size, num_environments, observation_shape)
-        self.actions = t.empty(buffer_size, num_environments)
+        self.actions = t.empty(buffer_size, num_environments, dtype=t.long)
         self.rewards = t.empty(buffer_size, num_environments)
         self.dones = t.empty(buffer_size, num_environments)
         self.next_observations = t.empty(
@@ -834,7 +834,7 @@ class DQNAgent:
         )
 
         if self.rng.uniform(0, 1, size=1).item() < self.epsilon:  # Explore
-            return self.rng.integers(low=0, high=envs.single_action_space.n, size=1)
+            return self.rng.integers(low=0, high=self.envs.single_action_space.n, size=1)
         else:  # Exploit
             obs = t.tensor(obs, device=device)
             Q_values = self.q_network(obs)  # check one-hot encoded
@@ -842,10 +842,6 @@ class DQNAgent:
 
 
 tests.test_agent(DQNAgent)
-
-
-os = envs.single_observation_space
-os.shape
 
 
 # %%
@@ -931,22 +927,36 @@ class DQNLightning(pl.LightningModule):
 
         # Calculate loss for the DQN
         gamma = self.args.gamma
-        target_Q_values = self.target_network(next_obs).max(dim=-1)
-        y = rewards + (gamma * target_Q_values) * (dones)
-        Q_values = self.q_network(obs)[..., acts]
-        loss = (y - Q_values).pow(2).mean(dim=0)
+        target_Q_values = self.target_network(next_obs).max(dim=-1).values
+        y = rewards + (gamma * target_Q_values) * (1 - dones)
+        Q_values = self.q_network(obs)
+        loss = (y - Q_values[range(acts.shape[0]), acts]).pow(2).mean()
+
+        # print("rewards")
+        # print(rewards)
+        # print("gamma")
+        # print(gamma)
+        # print("target_Q_values")
+        # print(target_Q_values)
+        # print("dones")
+        # print(dones)
+        # print("Q_values")
+        # print(Q_values)
+        # print("loss")
+        # print(loss)
+        # assert False
 
         # Update the target network
         if self.agent.steps % self.args.target_network_frequency == 0:
             self.target_network.load_state_dict(self.q_network.state_dict())
 
         # Log stuff
-        self._log(
-            Q_values,
-            self.agent.epsilon,
-            loss,
-            infos,
-        )
+        # self._log(
+        #     Q_values,
+        #     self.agent.epsilon,
+        #     loss,
+        #     infos,
+        # )
         return loss
 
     def configure_optimizers(self):
