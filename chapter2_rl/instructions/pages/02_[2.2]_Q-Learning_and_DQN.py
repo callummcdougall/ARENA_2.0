@@ -528,7 +528,7 @@ where
 
 So, for any particular episode $s_0, a_0, r_1, s_1, a_1, r_2, s_2, a_2, r_3,\ldots$ we have that
 *on average* the value of $Q^*(s_t, a_t)$ should be equal to the *actual reward*
-$r_t$ recieved when choosing action $a_t$ in state $s_t$, plus $\gamma$ times the
+$r_{t+1}$ recieved when choosing action $a_t$ in state $s_t$, plus $\gamma$ times the
 Q-value of the next state $s_{t+1}$ and next action $a_{t+1}$.
 $$
 Q^*(s_t,a_t) =

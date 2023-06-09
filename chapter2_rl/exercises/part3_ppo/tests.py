@@ -30,11 +30,13 @@ def test_get_actor_and_critic(get_actor_and_critic):
     print("All tests in `test_agent` passed!")
 
 def test_minibatch_indexes(minibatch_indexes):
+    rng = np.random.default_rng(0)
     batch_size = 16
     minibatch_size = 4
-    indexes = minibatch_indexes(batch_size, minibatch_size)
+    indexes = minibatch_indexes(rng, batch_size, minibatch_size)
     assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
-    assert len(np.unique(indexes)) == batch_size
+    assert sorted(np.unique(indexes)) == list(range(batch_size))
+    print("All tests in `test_minibatch_indexes` passed!")
 
 
 def test_compute_advantages_single(compute_advantages, dones_false, single_env):
@@ -53,10 +55,9 @@ def test_compute_advantages_single(compute_advantages, dones_false, single_env):
     rewards = t.randn(t_, env_)
     values = t.randn(t_, env_)
     dones = t.zeros(t_, env_) if dones_false else t.randint(0, 2, (t_, env_))
-    device = t.device("cpu")
     gamma = 0.95
     gae_lambda = 0.9
-    args = (next_value, next_done, rewards, values, dones, device, gamma, gae_lambda)
+    args = (next_value, next_done, rewards, values, dones, gamma, gae_lambda)
     actual = compute_advantages(*args)
     expected = solutions.compute_advantages(*args)
     # print(actual, expected)
@@ -144,13 +145,3 @@ def test_calc_entropy_bonus(calc_entropy_bonus):
     t.testing.assert_close(expected, actual)
     print("All tests in `test_calc_entropy_bonus` passed!")
 
-def test_minibatch_indexes(minibatch_indexes):
-    for n in range(5):
-        frac, minibatch_size = np.random.randint(1, 8, size=(2,))
-        batch_size = frac * minibatch_size
-        indices = minibatch_indexes(batch_size, minibatch_size)
-        assert any([isinstance(indices, list), isinstance(indices, np.ndarray)])
-        assert isinstance(indices[0], np.ndarray)
-        assert len(indices) == frac
-        np.testing.assert_equal(np.sort(np.stack(indices).flatten()), np.arange(batch_size))
-    print("All tests in `test_minibatch_indexes` passed!")
