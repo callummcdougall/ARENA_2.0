@@ -409,7 +409,7 @@ class QNetwork(nn.Module):
         )
 
     def forward(self, x: t.Tensor) -> t.Tensor:
-        return self.layers(x)
+        return self.layers(t.tensor(x).to(device))
 
 
 net = QNetwork(dim_observation=4, num_actions=2)
@@ -1031,8 +1031,8 @@ class DQNLightning(pl.LightningModule):
 
         dim_observation = 4
         num_actions = 2
-        self.q_network = QNetwork(dim_observation=dim_observation, num_actions=num_actions)
-        self.target_network = QNetwork(dim_observation=dim_observation, num_actions=num_actions)
+        self.q_network = QNetwork(dim_observation=dim_observation, num_actions=num_actions).to(device)
+        self.target_network = QNetwork(dim_observation=dim_observation, num_actions=num_actions).to(device)
         self._q_network_to_target_network()
         self.rb = ReplayBuffer(buffer_size=args.buffer_size, num_environments=self.envs.num_envs, seed=args.seed)
         self.agent = DQNAgent(self.envs, args=self.args, rb=self.rb, q_network=self.q_network, target_network=self.target_network, rng=self.rng)
