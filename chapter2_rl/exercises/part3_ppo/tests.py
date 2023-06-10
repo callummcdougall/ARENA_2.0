@@ -94,8 +94,8 @@ def test_ppo_agent(PPOAgent):
 
     assert (agent.rb.logprobs <= 0).all(), f"Agent's logprobs are not all negative."
 
-    t.testing.assert_close(agent.rb.actions, agent_solns.rb.actions, msg="`actions` for agent and agent solns don't match. Make sure you're sampling actions from your actor network's logit distribution (while in inference mode).")
-    t.testing.assert_close(agent.rb.values, agent_solns.rb.values, msg="`values` for agent and agent solns don't match. Make sure you're compute values in inference mode, by passing `self.next_obs` into the critic.")
+    t.testing.assert_close(agent.rb.actions.cpu(), agent_solns.rb.actions.cpu(), msg="`actions` for agent and agent solns don't match. Make sure you're sampling actions from your actor network's logit distribution (while in inference mode).")
+    t.testing.assert_close(agent.rb.values.cpu(), agent_solns.rb.values.cpu(), msg="`values` for agent and agent solns don't match. Make sure you're compute values in inference mode, by passing `self.next_obs` into the critic.")
 
 
     print("All tests in `test_agent` passed!")
