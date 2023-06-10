@@ -8,14 +8,15 @@ from dataclasses import asdict
 from typing import Type
 
 from part1_intro_to_rl.utils import make_env, set_seed
-from part2_dqn.solutions import linear_schedule, QNetwork, epsilon_greedy_policy, DQNArgs, ReplayBuffer
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
-def test_linear_schedule(linear_schedule):
+def test_linear_schedule(my_linear_schedule):
+    from part2_dqn.solutions import linear_schedule
+
     expected = t.tensor([linear_schedule(step, start_e=1.0, end_e=0.05, exploration_fraction=0.5, total_timesteps=500)
         for step in range(500)])
-    actual = t.tensor([linear_schedule(step, start_e=1.0, end_e=0.05, exploration_fraction=0.5, total_timesteps=500) 
+    actual = t.tensor([my_linear_schedule(step, start_e=1.0, end_e=0.05, exploration_fraction=0.5, total_timesteps=500) 
         for step in range(500)])
     assert expected.shape == actual.shape
     t.testing.assert_close(expected, actual)
@@ -86,7 +87,8 @@ def test_replay_buffer_wraparound(
     print("All tests in `test_replay_buffer_wraparound` passed!")
 
 
-def test_epsilon_greedy_policy(epsilon_greedy_policy):
+def test_epsilon_greedy_policy(my_epsilon_greedy_policy):
+    from part2_dqn.solutions import QNetwork, epsilon_greedy_policy
 
     device = t.device("cuda" if t.cuda.is_available() else "cpu")
     envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", 0, 0, False, "test_eps_greedy_policy") for _ in range(5)])
@@ -95,15 +97,13 @@ def test_epsilon_greedy_policy(epsilon_greedy_policy):
     num_actions = envs.single_action_space.n
     q_network = QNetwork(num_observations, num_actions)
     obs = t.randn((envs.num_envs, *envs.single_observation_space.shape))
-    greedy_action = epsilon_greedy_policy(envs, q_network, np.random.default_rng(0), obs, 0)
+    greedy_action = my_epsilon_greedy_policy(envs, q_network, np.random.default_rng(0), obs, 0)
 
     def get_actions(epsilon, seed):
         set_seed(seed)
-        soln_actions = epsilon_greedy_policy(
-            envs, q_network, np.random.default_rng(seed), obs, epsilon
-        )
+        soln_actions = epsilon_greedy_policy(envs, q_network, np.random.default_rng(seed), obs, epsilon)
         set_seed(seed)
-        their_actions = epsilon_greedy_policy(envs, q_network, np.random.default_rng(seed), obs, epsilon)
+        their_actions = my_epsilon_greedy_policy(envs, q_network, np.random.default_rng(seed), obs, epsilon)
         return soln_actions, their_actions
 
     def are_both_greedy(soln_acts, their_acts):
@@ -126,6 +126,8 @@ def test_epsilon_greedy_policy(epsilon_greedy_policy):
 
 
 def test_agent(DQNAgent):
+    from part2_dqn.solutions import linear_schedule, QNetwork, epsilon_greedy_policy, DQNArgs, ReplayBuffer
+
     args = DQNArgs(use_wandb=False)
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, None)])
     num_actions = envs.single_action_space.n

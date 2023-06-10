@@ -172,10 +172,6 @@ class ReplayBufferSamples:
     advantages: Float[Tensor, "sampleSize"]
     returns: Float[Tensor, "sampleSize"]
     values: Float[Tensor, "sampleSize"]
-    
-    # rewards: Float[Tensor, "sampleSize"]
-    # dones: Bool[Tensor, "sampleSize"]
-    # next_obs: Float[Tensor, "sampleSize *obsShape"]
 
 
 class ReplayBuffer:
@@ -190,9 +186,6 @@ class ReplayBuffer:
         self,
         args: PPOArgs,
         num_environments: int,
-        next_obs: Optional[Tensor] = None,
-        next_done: Optional[Tensor] = None,
-        next_value: Optional[Tensor] = None,
     ):
         self.num_environments = num_environments
         self.rng = np.random.default_rng(args.seed)
@@ -201,15 +194,10 @@ class ReplayBuffer:
         self.batch_size = args.batch_size
         self.minibatch_size = args.minibatch_size
         self.num_steps = args.num_steps
-        self.buffer = [None for _ in range(7)]
-        self.next_obs = next_obs
-        self.next_done = next_done
-        self.next_value = next_value
+        self.buffer = [None for _ in range(6)]
         self.minibatches = []
 
-    def add(
-        self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, next_obs: Arr, logprobs: Arr, values: Arr
-    ) -> None:
+    def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
         '''
         obs: shape (num_environments, *observation_shape) 
             Observation before the action
@@ -231,11 +219,10 @@ class ReplayBuffer:
         assert actions.shape == (self.num_environments,)
         assert rewards.shape == (self.num_environments,)
         assert dones.shape == (self.num_environments,)
-        assert next_obs.shape[0] == self.num_environments
         assert logprobs.shape == (self.num_environments,)
         assert values.shape == (self.num_environments,)
 
-        for i, (arr, arr_list) in enumerate(zip([obs, actions, rewards, dones, next_obs, logprobs, values], self.buffer)):
+        for i, (arr, arr_list) in enumerate(zip([obs, actions, rewards, dones, logprobs, values], self.buffer)):
             assert arr.shape[0] == self.num_environments
             if isinstance(arr, np.ndarray):
                 arr = t.from_numpy(arr)
@@ -247,12 +234,12 @@ class ReplayBuffer:
             if self.buffer[i].shape[0] > self.num_steps:
                 self.buffer[i] = self.buffer[i][:self.num_steps]
 
-        self.obs, self.actions, self.rewards, self.dones, self.next_obs, self.logprobs, self.values = self.buffer
+        self.obs, self.actions, self.rewards, self.dones, self.logprobs, self.values = self.buffer
 
 
-    def get_minibatches(self):
+    def get_minibatches(self, next_value: t.Tensor, next_done: t.Tensor):
         indices = minibatch_indexes(self.rng, self.batch_size, self.minibatch_size)
-        advantages = compute_advantages(self.next_value, self.next_done, self.rewards, self.values, self.dones.float(), self.gamma, self.gae_lambda)
+        advantages = compute_advantages(next_value, next_done, self.rewards, self.values, self.dones.float(), self.gamma, self.gae_lambda)
         returns = advantages + self.values
         replaybuffer_args = [self.obs, self.dones, self.actions, self.logprobs, advantages, returns, self.values]
         self.minibatches = [
@@ -265,7 +252,7 @@ class ReplayBuffer:
         '''
         Reset the buffer to empty.
         '''
-        self.buffer = [None for _ in range(7)]
+        self.buffer = [None for _ in range(6)]
     
 # %%
 
@@ -293,18 +280,19 @@ class PPOAgent(nn.Module):
         Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
         '''
         # SOLUTION
+        obs = self.next_obs
         with t.inference_mode():
-            value = self.critic(self.next_obs).flatten()
-            logits = self.actor(self.next_obs)
+            values = self.critic(obs).flatten()
+            logits = self.actor(obs)
         
         probs = Categorical(logits=logits)
-        action = probs.sample()
-        logprob = probs.log_prob(action)
-        next_obs, rewards, next_dones, infos = self.envs.step(action.cpu().numpy())
+        actions = probs.sample()
+        logprobs = probs.log_prob(actions)
+        next_obs, rewards, next_dones, infos = self.envs.step(actions.cpu().numpy())
         rewards = t.from_numpy(rewards).to(device)
 
         # (s_t, d_t, a_t, logpi(a_t|s_t), r_t+1, v(s_t))
-        self.rb.add(self.next_obs, action, rewards, self.next_done, next_obs, logprob, value)
+        self.rb.add(obs, actions, rewards, next_dones, logprobs, values)
 
         self.next_obs = t.from_numpy(next_obs).to(device)
         self.next_done = t.from_numpy(next_dones).to(device, dtype=t.float)
@@ -320,6 +308,7 @@ class PPOAgent(nn.Module):
         self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
         self.next_value = self.critic(self.next_obs).flatten().detach()
         self.rb.reset()
+
 
 # %%
 
