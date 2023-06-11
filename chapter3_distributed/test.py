@@ -7,7 +7,8 @@ import torch.distributed
 import tqdm
 
 from torch.distributed import ReduceOp
-
+from functools import partial
+from typing import Callable
 
 class Dist:
     def __init__(self, world_size):
@@ -19,17 +20,17 @@ class Dist:
         self.barrier_lock = threading.Barrier(self.world_size)
         self.proc_barrier = threading.Barrier(self.world_size)
 
-        self.reads = collections.defaultdict(list)
-        self.writes = collections.defaultdict(list)
+        self.reads_by = collections.defaultdict(list)
+        self.writes_from = collections.defaultdict(list)
 
     def with_rank(self, rank):
-        return DistWithRank(self.world_size, rank, self.rank_map, self.source_dest_tensors, self.source_dest_tensors_lock, self.barrier_lock, self.proc_barrier, self.reads, self.writes)
+        return DistWithRank(self.world_size, rank, self.rank_map, self.source_dest_tensors, self.source_dest_tensors_lock, self.barrier_lock, self.proc_barrier, self.reads_by, self.writes_from)
 
     def get_world_size(self):
         return self.world_size
 
 class DistWithRank(Dist):
-    def __init__(self, world_size, rank, rank_map, source_dest_tensors, source_dest_tensors_lock, barrier, proc_barrier, reads, writes):
+    def __init__(self, world_size, rank, rank_map, source_dest_tensors, source_dest_tensors_lock, barrier, proc_barrier, reads_by, writes_from):
         super().__init__(world_size)
         self.rank_map = rank_map
         self.rank_map[threading.get_ident()] = rank
@@ -38,8 +39,8 @@ class DistWithRank(Dist):
         self.barrier_lock = barrier
         self.proc_barrier = proc_barrier
 
-        self.reads = reads
-        self.writes = writes
+        self.reads_by = reads_by
+        self.writes_from = writes_from
 
     def __enter__(self):
         self.replace_torch()
@@ -55,18 +56,18 @@ class DistWithRank(Dist):
     def write_to(self, tensor, rank):
         assert rank >= 0 and rank < self.get_world_size(), f"Invalid rank: {rank}"
         assert rank != self.get_rank(), f"Cannot write to self"
-        self.writes[self.get_rank()].append(rank)
+        self.writes_from[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
             if len(self.source_dest_tensors[rank][self.get_rank()]['to_read']) > 0:
                 assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].shape} != {tensor.shape}"
                 assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].dtype} != {tensor.dtype}"
-                tensor[:] = self.source_dest_tensors[rank][self.get_rank()]['to_read'].pop(0)[:]
+                self.source_dest_tensors[rank][self.get_rank()]['to_read'].pop(0)[:] = tensor[:]
             else:
                 self.source_dest_tensors[self.get_rank()][rank]['to_write'].append(tensor)
     def read_from(self, tensor, rank):
         assert rank >= 0 and rank < self.get_world_size(), f"Invalid rank: {rank}"
         assert rank != self.get_rank(), f"Cannot read from self"
-        self.reads[self.get_rank()].append(rank)
+        self.reads_by[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
             if len(self.source_dest_tensors[rank][self.get_rank()]['to_write']) > 0:
                 assert self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].shape} != {tensor.shape}"
@@ -306,7 +307,7 @@ class DistWithRank(Dist):
         torch.distributed.scatter = self._scatter
         torch.distributed.barrier = self._barrier
 
-def test_scaffold(test_func, world_size=4):
+def test_scaffold(test_func: Callable, tensor_gen: Callable, args: list, world_size: int) -> Dist:
     """
     Run a test function with a fake distributed environment. Will return a Dist object that can be used to check what
     the test function did. The test function will be run in a separate thread for each rank, and the returned object
@@ -314,47 +315,55 @@ def test_scaffold(test_func, world_size=4):
     """
     fake_dist = Dist(world_size=world_size)
     threads = []
-    def run_test(rank):
+    def run_test(tensor: torch.Tensor, args: list):
         with fake_dist.with_rank(rank):
-            test_func()
+            print(tensor)
+            test_func(tensor, *args)
     for rank in range(fake_dist.world_size):
-        t = threading.Thread(target=run_test, args=(rank,))
+        t = threading.Thread(target=run_test, args=(tensor_gen(rank), args))
         threads.append(t)
         t.start()
     for t in threads:
         t.join()
-
     return fake_dist
 
+def test_broadcast_naive(broadcast_impl: Callable):
+    src_rank = 0
+    fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=8)
+    assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
+    assert all(len(fake_dist.writes_from[i]) == fake_dist.world_size - 1 for i in range(fake_dist.world_size) if i == 0)
 
-def test_broadcast_naive(broadcast_impl):
-    fake_dist = test_scaffold(broadcast_impl)
-    assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
-    assert all(len(fake_dist.writes[i]) == fake_dist.world_size - 1 for i in range(fake_dist.world_size) if i == 0)
+def test_broadcast_tree(broadcast_impl: Callable):
+    src_rank = 1
+    fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=8)
+    assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
+    assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == src_rank)
 
-def test_broadcast_tree(broadcast_impl):
-    fake_dist = test_scaffold(broadcast_impl, 16)
-    assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
-    assert all(len(fake_dist.writes[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == 0)
+def test_broadcast_ring(broadcast_impl: Callable):
+    src_rank = 1
+    fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=16)
+    assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
+    assert all(len(fake_dist.writes_from[i]) == 1 or i == (src_rank-1)%fake_dist.world_size for i in range(fake_dist.world_size))
 
-def test_broadcast_ring(broadcast_impl):
-    fake_dist = test_scaffold(broadcast_impl, 16)
-    assert all(len(fake_dist.reads[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
-    assert all(len(fake_dist.writes[i]) == 1 for i in range(fake_dist.world_size-1))
-
-def test_allreduce_butterfly(allreduce_impl):
-    fake_dist = test_scaffold(allreduce_impl, 16)
-    assert all(len(fake_dist.reads[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
-    assert all(len(fake_dist.writes[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
-    for k, v in fake_dist.writes.items():
+def test_allreduce_butterfly(allreduce_impl: Callable):
+    fake_dist = test_scaffold(allreduce_impl, lambda x: torch.Tensor([x]), [], world_size=16)
+    assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
+    assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
+    for k, v in fake_dist.writes_from.items():
         rank = bin(k)[2:].zfill(len(bin(fake_dist.world_size - 1)[2:]))
         for i in range(len(rank)):
             partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
             partner_rank = int(partner_rank, 2)
             assert partner_rank in v
-    for k, v in fake_dist.reads.items():
+    for k, v in fake_dist.reads_by.items():
         rank = bin(k)[2:].zfill(len(bin(fake_dist.world_size - 1)[2:]))
         for i in range(len(rank)):
             partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
             partner_rank = int(partner_rank, 2)
             assert partner_rank in v
+
+def test_reduce_naive(reduce_impl: Callable):
+    fake_dist = test_scaffold(reduce_impl, 8)
+
+def test_reduce_tree(reduce_impl: Callable):
+    fake_dist = test_scaffold(reduce_impl, 8)
