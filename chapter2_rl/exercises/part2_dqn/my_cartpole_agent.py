@@ -439,7 +439,8 @@ class DQNArgs:
     torch_deterministic: bool = True
     cuda: bool = t.cuda.is_available()
     log_dir: str = "logs"
-    use_wandb: bool = True
+    use_wandb: bool = False
+    # use_wandb: bool = True
     wandb_project_name: str = "CartPoleDQN"
     wandb_entity: Optional[str] = None
     capture_video: bool = True
@@ -501,12 +502,12 @@ class DQNAgent:
         obs, rewards, dones, infos = self.envs.step(actions)
 
         # Set rewards to be proportional to angular velocity
-        rewards = obs[..., 3]
+        # rewards = obs[..., 3]
         # Also incentivise being in the middle of the screen
-        # angular_velocity = obs[..., 3]
-        # cart_pos = obs[..., 0]
-        # cart_pos_reward_scale = 30 - cart_pos ** 2
-        # rewards = angular_velocity * cart_pos_reward_scale
+        angular_velocity = obs[..., 3]
+        cart_pos = obs[..., 0]
+        cart_pos_reward_scale = np.maximum(1.2 - abs(cart_pos), 0)
+        rewards = angular_velocity * cart_pos_reward_scale
 
         self.rb.add(self.next_obs, actions, rewards, dones, obs)
         self.next_obs = obs
@@ -673,14 +674,14 @@ class DQNLightning(pl.LightningModule):
 # wandb.finish()
 
 args = DQNArgs()
-logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name="RL_model")
+# logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name="RL_model")
 # if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
 model = DQNLightning(args).to(device)
 
 trainer = pl.Trainer(
     max_epochs=1,
     max_steps=args.total_timesteps,
-    logger=logger,
+    # logger=logger,
     log_every_n_steps=args.log_frequency,
 )
 trainer.fit(model=model)
