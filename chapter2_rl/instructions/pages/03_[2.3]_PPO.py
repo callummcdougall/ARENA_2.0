@@ -669,6 +669,7 @@ During the learning phase, we compute `returns = advantages + values`, and minim
 A few notes on the code below:
 
 * The logic to compute `advantages` and `returns` is all contained in the `get_minibatches` method. You should read through this method and make sure you understand what's being computed and why.
+    * We store slightly different things in our `ReplayBufferSamples` than we do in our `experiences` list in the replay buffer. The `ReplayBufferSamples` object stores **things we actually use for training**, which are computed **from** the things in the `experiences` list. (For instance, we need `returns`, but not `rewards`, in the learning phase).
 * We will take the output of the `get_minibatches` method as our dataset (i.e. one epoch will be us iterating through the minibatches returned by this method). The diagram below illustrates how we take our sampled experiences and turn them into minibatches for training.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo-buffer-sampling-3.png" width="1200">
@@ -790,7 +791,7 @@ for i in range(args.num_steps):
 
 obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
 
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0), show_env_jumps=True)
+plot_cartpole_obs_and_dones(obs, dones, show_env_jumps=True)
 ```
 
 The next code shows **a single minibatch**, sampled from this replay buffer.
@@ -802,7 +803,7 @@ minibatches = rb.get_minibatches(next_value, next_done)
 obs = minibatches[0].obs
 dones = minibatches[0].dones
 
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
+plot_cartpole_obs_and_dones(obs, dones)
 ```
 
 ## PPOAgent
@@ -1851,7 +1852,10 @@ Multi-Agent PPO (MAPPO) is an extension of the standard PPO algorithm which trai
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Setting up our agent"),     (section_2, "2️⃣ Learning Phase"),     (section_3, "3️⃣ Training Loop"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Setting up our agent"),
+    (section_2, "2️⃣ Learning Phase"),
+    (section_3, "3️⃣ Training Loop"), 
 ]
 
 func_list = [func for func, page in func_page_list]
