@@ -9,7 +9,9 @@ def assert_all_equal(actual: t.Tensor, expected: t.Tensor) -> None:
     print("Passed!")
 
 
-def assert_all_close(actual: t.Tensor, expected: t.Tensor, rtol=1e-05, atol=0.0001) -> None:
+def assert_all_close(
+    actual: t.Tensor, expected: t.Tensor, rtol=1e-05, atol=0.0001
+) -> None:
     assert actual.shape == expected.shape, f"Shape mismatch, got: {actual.shape}"
     assert t.allclose(actual, expected, rtol=rtol, atol=atol)
     print("Passed!")
@@ -64,7 +66,9 @@ def temperatures_average(temps: t.Tensor) -> t.Tensor:
     return reduce(temps, "(h 7) -> h", "mean")
 
 
-temps = t.Tensor([71, 72, 70, 75, 71, 72, 70, 68, 65, 60, 68, 60, 55, 59, 75, 80, 85, 80, 78, 72, 83])
+temps = t.Tensor(
+    [71, 72, 70, 75, 71, 72, 70, 68, 65, 60, 68, 60, 55, 59, 75, 80, 85, 80, 78, 72, 83]
+)
 expected = t.tensor([71.5714, 62.1429, 79.0])
 assert_all_close(temperatures_average(temps), expected)
 
@@ -166,10 +170,14 @@ def batched_dot_product_nd(a: t.Tensor, b: t.Tensor) -> t.Tensor:
     pass
 
 
-actual = batched_dot_product_nd(t.tensor([[1, 1, 0], [0, 0, 1]]), t.tensor([[1, 1, 0], [1, 1, 0]]))
+actual = batched_dot_product_nd(
+    t.tensor([[1, 1, 0], [0, 0, 1]]), t.tensor([[1, 1, 0], [1, 1, 0]])
+)
 expected = t.tensor([2, 0])
 assert_all_equal(actual, expected)
-actual2 = batched_dot_product_nd(t.arange(12).reshape((3, 2, 2)), t.arange(12).reshape((3, 2, 2)))
+actual2 = batched_dot_product_nd(
+    t.arange(12).reshape((3, 2, 2)), t.arange(12).reshape((3, 2, 2))
+)
 expected2 = t.tensor([14, 126, 366])
 assert_all_equal(actual2, expected2)
 
@@ -411,7 +419,9 @@ def batched_cross_entropy_loss(logits: t.Tensor, true_labels: t.Tensor) -> t.Ten
     return -rearrange(pred_at_index, "n 1 -> n")
 
 
-logits = t.tensor([[float("-inf"), float("-inf"), 0], [1 / 3, 1 / 3, 1 / 3], [float("-inf"), 0, 0]])
+logits = t.tensor(
+    [[float("-inf"), float("-inf"), 0], [1 / 3, 1 / 3, 1 / 3], [float("-inf"), 0, 0]]
+)
 true_labels = t.tensor([2, 0, 0])
 expected = t.tensor([0.0, math.log(3), float("inf")])
 actual = batched_cross_entropy_loss(logits, true_labels)
@@ -452,5 +462,7 @@ def collect_columns(matrix: t.Tensor, column_indexes: t.Tensor) -> t.Tensor:
 matrix = t.arange(15).view((5, 3))
 column_indexes = t.tensor([0, 2, 1, 0])
 actual = collect_columns(matrix, column_indexes)
-expected = t.tensor([[0, 2, 1, 0], [3, 5, 4, 3], [6, 8, 7, 6], [9, 11, 10, 9], [12, 14, 13, 12]])
+expected = t.tensor(
+    [[0, 2, 1, 0], [3, 5, 4, 3], [6, 8, 7, 6], [9, 11, 10, 9], [12, 14, 13, 12]]
+)
 assert_all_equal(actual, expected)
