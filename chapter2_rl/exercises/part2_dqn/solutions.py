@@ -1042,6 +1042,3 @@ if MAIN:
 	trainer.fit(model=model)
 
 # %%
-
-args
-# %%
