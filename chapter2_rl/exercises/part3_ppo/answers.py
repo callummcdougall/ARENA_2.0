@@ -537,52 +537,80 @@ class PPOLightning(pl.LightningModule):
     def train_dataloader(self):
         return MyDataset(self.agent.get_minibatches())
 # %%
-probe_idx = 1
+# probe_idx = 1
 
-# Define a set of arguments for our probe experiment
-args = PPOArgs(
-    env_id=f"Probe{probe_idx}-v0",
-    exp_name=f"test-probe-{probe_idx}", 
-    total_timesteps=10000 if probe_idx <= 3 else 30000,
-    learning_rate=0.001,
-    capture_video=False,
-    use_wandb=False,
-)
-model = PPOLightning(args).to(device)
-logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+# # Define a set of arguments for our probe experiment
+# args = PPOArgs(
+#     env_id=f"Probe{probe_idx}-v0",
+#     exp_name=f"test-probe-{probe_idx}", 
+#     total_timesteps=10000 if probe_idx <= 3 else 30000,
+#     learning_rate=0.001,
+#     capture_video=False,
+#     use_wandb=False,
+# )
+# model = PPOLightning(args).to(device)
+# logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
 
-# Run our experiment
-trainer = pl.Trainer(
-    max_epochs=args.total_epochs,
-    logger=logger,
-    log_every_n_steps=10,
-    gradient_clip_val=args.max_grad_norm,
-    reload_dataloaders_every_n_epochs=1,
-    enable_progress_bar=False,
-)
-trainer.fit(model=model)
+# # Run our experiment
+# trainer = pl.Trainer(
+#     max_epochs=args.total_epochs,
+#     logger=logger,
+#     log_every_n_steps=10,
+#     gradient_clip_val=args.max_grad_norm,
+#     reload_dataloaders_every_n_epochs=1,
+#     enable_progress_bar=False,
+# )
+# trainer.fit(model=model)
 
-# Check that our final results were the ones we expected from this probe
-obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
-expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
-expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
-tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
-obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
-model.to(device)
-with t.inference_mode():
-    value = model.agent.critic(obs)
-    probs = model.agent.actor(obs).softmax(-1)
-expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
-t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
-expected_probs = expected_probs_for_probes[probe_idx-1]
-if expected_probs is not None:
-    t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
-print("Probe tests passed!")
+# # Check that our final results were the ones we expected from this probe
+# obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+# expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
+# expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+# tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+# obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+# model.to(device)
+# with t.inference_mode():
+#     value = model.agent.critic(obs)
+#     probs = model.agent.actor(obs).softmax(-1)
+# expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+# t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+# expected_probs = expected_probs_for_probes[probe_idx-1]
+# if expected_probs is not None:
+#     t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
+# print("Probe tests passed!")
 
-# Use the code below to inspect your most recent logged results
-try:
-    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-    metrics.tail()
-except:
-    print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
+# # Use the code below to inspect your most recent logged results
+# try:
+#     metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+#     metrics.tail()
+# except:
+#     print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
 # %%
+from gym.envs.classic_control.cartpole import CartPoleEnv
+
+class EasyCart(CartPoleEnv):
+    def step(self, action):
+        (obs, rew, done, info) = super().step(action)
+        x, v, theta, omega = obs
+
+        rew = 1 - theta
+        return obs, rew, done, info
+# %%
+if MAIN:
+    gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
+
+    wandb.finish()
+
+    args = PPOArgs(env_id="EasyCart-v0")
+    model = PPOLightning(args).to(device)
+    logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+    if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+
+    trainer = pl.Trainer(
+        max_epochs=args.total_epochs,
+        logger=logger,
+        log_every_n_steps=5,
+        reload_dataloaders_every_n_epochs=1,
+        enable_progress_bar=False
+    )
+    trainer.fit(model=model)
