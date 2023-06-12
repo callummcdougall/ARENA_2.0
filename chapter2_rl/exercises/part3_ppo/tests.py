@@ -60,6 +60,8 @@ def test_compute_advantages_single(compute_advantages, dones_false, single_env):
     args = (next_value, next_done, rewards, values, dones, gamma, gae_lambda)
     actual = compute_advantages(*args)
     expected = solutions.compute_advantages(*args)
+    print(actual)
+    print(expected)
     # print(actual, expected)
     t.testing.assert_close(actual, expected)
 
