@@ -297,7 +297,7 @@ class ReplayBuffer:
 		self.experiences = []
 
 
-	def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
+	def add(self, obs: t.Tensor, actions: t.Tensor, rewards: t.Tensor, dones: t.Tensor, logprobs: t.Tensor, values: t.Tensor) -> None:
 		'''
 		obs: shape (n_envs, *observation_shape) 
 			Observation before the action

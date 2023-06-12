@@ -612,6 +612,9 @@ Understanding this is very conceptually important.
 
 **Read the [PPO Algorithms paper](https://arxiv.org/pdf/1707.06347.pdf) and the [PPO Implementational Details post](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#solving-pong-in-5-minutes-with-ppo--envpool), then try and figure out what each of the six items in `ReplayBufferSamples` are and why they are necessary.** If you prefer, you can return to these once you've implmemented all the loss functions (when it might make a bit more sense).
 
+Note - we've omitted `values` because they aren't actually used in the learning phase (i.e. we never use them directly in our loss functions). The reason we add them to our `ReplayBufferSamples` is just for logging.
+
+
 <details>
 <summary>obs</summary>
 
@@ -652,15 +655,6 @@ These are necessary for calculating the clipped surrogate objective (see equatio
 <summary>returns</summary>
 
 We mentioned above that `returns = advantages + values`. Returns are used for calculating the value function loss - see [detail #9](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=Value%20Function%20Loss%20Clipping) in the PPO implementational details post. This is equivalent to the TD residual loss used in DQN.
-
-</details>
-
-<details>
-<summary>values</summary>
-
-`values` are the outputs of our `agent.critic` network (generated during rollout).
-
-During the learning phase, we compute `returns = advantages + values`, and minimize the squared residual between this and the (new) outputs of our `agent.critic` network.
 
 </details>
 
@@ -710,7 +704,7 @@ class ReplayBuffer:
         self.experiences = []
 
 
-    def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
+    def add(self, obs: t.Tensor, actions: t.Tensor, rewards: t.Tensor, dones: t.Tensor, logprobs: t.Tensor, values: t.Tensor) -> None:
         '''
         obs: shape (n_envs, *observation_shape) 
             Observation before the action
