@@ -1,8 +1,9 @@
 # %%
 import os
+
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 os.environ["SDL_VIDEODRIVER"] = "dummy"
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import random
 import time
@@ -35,7 +36,8 @@ import wandb
 
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+exercises_dir = Path(
+    f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
 section_dir = exercises_dir / "part3_ppo"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
@@ -55,6 +57,8 @@ Arr = np.ndarray
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == "__main__"
+
+
 # %%
 @dataclass
 class PPOArgs:
@@ -81,45 +85,48 @@ class PPOArgs:
     max_grad_norm: float = 0.5
     batch_size: int = 512
     minibatch_size: int = 128
+
     # update_epochs: int = 4
 
     def __post_init__(self):
         assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
-        self.total_epochs = self.total_timesteps // (self.num_steps * self.num_envs)
-        self.total_training_steps = self.total_epochs * self.batches_per_epoch * (self.batch_size // self.minibatch_size)
-
+        self.total_epochs = self.total_timesteps // (self.num_steps *
+                                                     self.num_envs)
+        self.total_training_steps = self.total_epochs * self.batches_per_epoch * (
+            self.batch_size // self.minibatch_size)
 
 
 args = PPOArgs(minibatch_size=256)
 utils.arg_help(args)
 # %%
 
+
 def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
     t.nn.init.orthogonal_(layer.weight, std)
     t.nn.init.constant_(layer.bias, bias_const)
     return layer
 
-def get_actor_and_critic(env: gym.vector.SyncVectorEnv) -> Tuple[nn.Module, nn.Module]:
+
+def get_actor_and_critic(
+        env: gym.vector.SyncVectorEnv) -> Tuple[nn.Module, nn.Module]:
     d_model = 64
     actor = nn.Sequential(
-        layer_init(nn.Linear(np.prod(env.single_observation_space.shape), d_model)),
-        nn.Tanh(),
-        layer_init(nn.Linear(d_model, d_model)),
-        nn.Tanh(),
-        layer_init(nn.Linear(d_model, env.single_action_space.n), std=0.01)
-    )
+        layer_init(
+            nn.Linear(np.prod(env.single_observation_space.shape), d_model)),
+        nn.Tanh(), layer_init(nn.Linear(d_model, d_model)), nn.Tanh(),
+        layer_init(nn.Linear(d_model, env.single_action_space.n), std=0.01))
     critic = nn.Sequential(
-        layer_init(nn.Linear(np.prod(env.single_observation_space.shape), d_model)),
-        nn.Tanh(),
-        layer_init(nn.Linear(d_model, d_model)),
-        nn.Tanh(),
-        layer_init(nn.Linear(d_model, 1), std=1)
-    )
+        layer_init(
+            nn.Linear(np.prod(env.single_observation_space.shape), d_model)),
+        nn.Tanh(), layer_init(nn.Linear(d_model, d_model)), nn.Tanh(),
+        layer_init(nn.Linear(d_model, 1), std=1))
     return (actor, critic)
+
 
 tests.test_get_actor_and_critic(get_actor_and_critic)
 
 # %%
+
 
 @t.inference_mode()
 def compute_advantages(
@@ -145,15 +152,20 @@ def compute_advantages(
     advantage = t.zeros_like(rewards)  # (buffer_size, env)
     running_advantage = t.zeros_like(next_value)  # (env,)
     for T in reversed(range(buffer_size)):
-        delta = rewards[T] + (1 - dones[T+1]) * gamma * values[T+1] - values[T]
-        running_advantage = running_advantage * gamma * gae_lambda * (1-dones[T+1]) + delta
+        delta = rewards[T] + (1 - dones[T + 1]) * gamma * values[T +
+                                                                 1] - values[T]
+        running_advantage = running_advantage * gamma * gae_lambda * (
+            1 - dones[T + 1]) + delta
         advantage[T] = running_advantage
     return advantage
 
 
 tests.test_compute_advantages(compute_advantages)
+
+
 # %%
-def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
+def minibatch_indexes(rng: Generator, batch_size: int,
+                      minibatch_size: int) -> List[np.ndarray]:
     '''
     Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
 
@@ -162,10 +174,10 @@ def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> L
     assert batch_size % minibatch_size == 0
 
     indices = rng.permutation(batch_size)
-    return list(einops.rearrange(
-        indices, "(batch minibatch) -> batch minibatch",
-        minibatch = minibatch_size
-    ))
+    return list(
+        einops.rearrange(indices,
+                         "(batch minibatch) -> batch minibatch",
+                         minibatch=minibatch_size))
 
 
 rng = np.random.default_rng(0)
@@ -173,11 +185,13 @@ batch_size = 6
 minibatch_size = 2
 indexes = minibatch_indexes(rng, batch_size, minibatch_size)
 
-assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
+assert np.array(indexes).shape == (batch_size // minibatch_size,
+                                   minibatch_size)
 assert sorted(np.unique(indexes)) == [0, 1, 2, 3, 4, 5]
 print("All tests in `test_minibatch_indexes` passed!")
 
 # %%
+
 
 @dataclass
 class ReplayBufferSamples:
@@ -199,6 +213,7 @@ class ReplayBuffer:
 
     Needs to be initialized with the first obs, dones and values.
     '''
+
     def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
         '''Defining all the attributes the buffer's methods will need to access.'''
         self.rng = np.random.default_rng(args.seed)
@@ -212,8 +227,8 @@ class ReplayBuffer:
         self.batches_per_epoch = args.batches_per_epoch
         self.experiences = []
 
-
-    def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
+    def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr,
+            logprobs: Arr, values: Arr) -> None:
         '''
         obs: shape (n_envs, *observation_shape)
             Observation before the action
@@ -229,36 +244,45 @@ class ReplayBuffer:
             Values, estimated by the critic (according to old policy)
         '''
         assert obs.shape == (self.num_envs, *self.obs_shape)
-        assert actions.shape == (self.num_envs,)
-        assert rewards.shape == (self.num_envs,)
-        assert dones.shape == (self.num_envs,)
-        assert logprobs.shape == (self.num_envs,)
-        assert values.shape == (self.num_envs,)
+        assert actions.shape == (self.num_envs, )
+        assert rewards.shape == (self.num_envs, )
+        assert dones.shape == (self.num_envs, )
+        assert logprobs.shape == (self.num_envs, )
+        assert values.shape == (self.num_envs, )
 
-        self.experiences.append((obs, dones, actions, logprobs, values, rewards))
+        self.experiences.append(
+            (obs, dones, actions, logprobs, values, rewards))
 
-
-    def get_minibatches(self, next_value: t.Tensor, next_done: t.Tensor) -> List[ReplayBufferSamples]:
+    def get_minibatches(self, next_value: t.Tensor,
+                        next_done: t.Tensor) -> List[ReplayBufferSamples]:
         minibatches = []
 
         # Turn all experiences to tensors on our device (we only want to do this once, not every time we add a new experience)
-        obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*self.experiences)]
+        obs, dones, actions, logprobs, values, rewards = [
+            t.stack(arr).to(device) for arr in zip(*self.experiences)
+        ]
 
         # Compute advantages and returns (then get a list of everything we'll need for our replay buffer samples)
-        advantages = compute_advantages(next_value, next_done, rewards, values, dones.float(), self.gamma, self.gae_lambda)
+        advantages = compute_advantages(next_value, next_done, rewards, values,
+                                        dones.float(), self.gamma,
+                                        self.gae_lambda)
         returns = advantages + values
-        replaybuffer_args = [obs, dones, actions, logprobs, values, advantages, returns]
+        replaybuffer_args = [
+            obs, dones, actions, logprobs, values, advantages, returns
+        ]
 
         # We cycle through the entire buffer `self.batches_per_epoch` times
         for _ in range(self.batches_per_epoch):
 
             # Get random indices we'll use to generate our minibatches
-            indices = minibatch_indexes(self.rng, self.batch_size, self.minibatch_size)
+            indices = minibatch_indexes(self.rng, self.batch_size,
+                                        self.minibatch_size)
 
             # Get our new list of minibatches, and add them to the list
             for index in indices:
                 minibatch = ReplayBufferSamples(*[
-                    arg.flatten(0, 1)[index].to(device) for arg in replaybuffer_args
+                    arg.flatten(0, 1)[index].to(device)
+                    for arg in replaybuffer_args
                 ])
                 minibatches.append(minibatch)
 
@@ -266,35 +290,46 @@ class ReplayBuffer:
         self.experiences = []
 
         return minibatches
+
+
 # %%
-args = PPOArgs()
-envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test") for i in range(4)])
-next_value = t.zeros(envs.num_envs).to(device)
-next_done = t.zeros(envs.num_envs).to(device)
-rb = ReplayBuffer(args, envs)
-actions = t.zeros(envs.num_envs).int().to(device)
-obs = envs.reset()
+if False:
+    args = PPOArgs()
+    envs = gym.vector.SyncVectorEnv(
+        [make_env("CartPole-v1", i, i, False, "test") for i in range(4)])
+    next_value = t.zeros(envs.num_envs).to(device)
+    next_done = t.zeros(envs.num_envs).to(device)
+    rb = ReplayBuffer(args, envs)
+    actions = t.zeros(envs.num_envs).int().to(device)
+    obs = envs.reset()
 
-for i in range(args.num_steps):
-    (next_obs, rewards, dones, infos) = envs.step(actions.cpu().numpy())
-    real_next_obs = next_obs.copy()
-    for (i, done) in enumerate(dones):
-        if done:
-            real_next_obs[i] = infos[i]["terminal_observation"]
-    logprobs = values = t.zeros(envs.num_envs)
-    rb.add(t.from_numpy(obs).to(device), actions, t.from_numpy(rewards).to(device), t.from_numpy(dones).to(device), logprobs, values)
-    obs = next_obs
+    for i in range(args.num_steps):
+        (next_obs, rewards, dones, infos) = envs.step(actions.cpu().numpy())
+        real_next_obs = next_obs.copy()
+        for (i, done) in enumerate(dones):
+            if done:
+                real_next_obs[i] = infos[i]["terminal_observation"]
+        logprobs = values = t.zeros(envs.num_envs)
+        rb.add(
+            t.from_numpy(obs).to(device), actions,
+            t.from_numpy(rewards).to(device),
+            t.from_numpy(dones).to(device), logprobs, values)
+        obs = next_obs
 
-obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
+    obs, dones, actions, logprobs, values, rewards = [
+        t.stack(arr).to(device) for arr in zip(*rb.experiences)
+    ]
 
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0), show_env_jumps=True)
-# %%
-minibatches = rb.get_minibatches(next_value, next_done)
+    plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0), show_env_jumps=True)
+   
+    minibatches = rb.get_minibatches(next_value, next_done)
 
-obs = minibatches[0].obs
-dones = minibatches[0].dones
+    obs = minibatches[0].obs
+    dones = minibatches[0].dones
 
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
+    plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
+
+
 # %%
 class PPOAgent(nn.Module):
     critic: nn.Sequential
@@ -321,7 +356,6 @@ class PPOAgent(nn.Module):
         # Create our replay buffer
         self.rb = ReplayBuffer(args, envs)
 
-
     def play_step(self) -> List[dict]:
         '''
         Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
@@ -335,14 +369,16 @@ class PPOAgent(nn.Module):
             logits = self.actor(obs)  # (env, num_actions)
             values = self.critic(obs).squeeze()
 
-            actions = t.distributions.Categorical(logits=logits).sample()  # (env,)
-            log_probs = logits.log_softmax(-1)[range(actions.shape[0]), actions]
+            actions = t.distributions.Categorical(
+                logits=logits).sample()  # (env,)
+            log_probs = logits.log_softmax(-1)[range(actions.shape[0]),
+                                               actions]
 
-            next_obs, rewards, next_done, infos = self.envs.step(actions.cpu().numpy())
+            next_obs, rewards, next_done, infos = self.envs.step(
+                actions.cpu().numpy())
             self.next_obs = t.tensor(next_obs, device=device)
             self.next_done = t.tensor(next_done, device=device)
             rewards = t.tensor(rewards)
-
 
         self.rb.add(obs, actions, rewards, done, log_probs, values)
 
@@ -361,14 +397,14 @@ tests.test_ppo_agent(PPOAgent)
 # %%
 ### 2️⃣ Learning Phase
 
-def calc_clipped_surrogate_objective(
-    probs: Categorical, 
-    mb_action: Int[Tensor, "minibatch_size"], 
-    mb_advantages: Float[Tensor, "minibatch_size"], 
-    mb_logprobs: Float[Tensor, "minibatch_size"], 
-    clip_coef: float, 
-    eps: float = 1e-8
-) -> Float[Tensor, ""]:
+
+def calc_clipped_surrogate_objective(probs: Categorical,
+                                     mb_action: Int[Tensor, "minibatch_size"],
+                                     mb_advantages: Float[Tensor, "minibatch_size"],
+                                     mb_logprobs: Float[Tensor, "minibatch_size"],
+                                     clip_coef: float,
+                                     eps: float = 1e-8,
+                                     return_metrics: bool = False) -> Float[Tensor, ""]:
     '''Return the clipped surrogate objective, suitable for maximisation with gradient ascent.
 
     probs:
@@ -384,21 +420,31 @@ def calc_clipped_surrogate_objective(
     eps:
         used to add to std dev of mb_advantages when normalizing (to avoid dividing by zero)
     '''
-    assert mb_action.shape == mb_advantages.shape == mb_logprobs.shape    
-    ratio = t.exp(probs.log_prob(mb_action) - mb_logprobs)
+    assert mb_action.shape == mb_advantages.shape == mb_logprobs.shape
+    logprobs = probs.log_prob(mb_action)
+    ratio = t.exp(logprobs - mb_logprobs)
     clipped = t.clip(ratio, 1 - clip_coef, 1 + clip_coef)
-    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + eps)
-    return t.minimum(clipped * mb_advantages, ratio * mb_advantages).mean(0)
+    mb_advantages = (mb_advantages -
+                     mb_advantages.mean()) / (mb_advantages.std() + eps)
+    cso = t.minimum(clipped * mb_advantages,
+                     ratio * mb_advantages).mean(0)
+
+    if return_metrics:
+        clip_frac = ((ratio < 1 - clip_coef) |
+                    (ratio > 1 + clip_coef)).float().mean()
+        approx_kl = (mb_logprobs - logprobs).mean()
+        return cso, clip_frac, approx_kl
+    return cso
 
 
 
 tests.test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective)
+
+
 # %%
-def calc_value_function_loss(
-    values: Float[Tensor, "minibatch_size"],
-    mb_returns: Float[Tensor, "minibatch_size"],
-    vf_coef: float
-) -> Float[Tensor, ""]:
+def calc_value_function_loss(values: Float[Tensor, "minibatch_size"],
+                             mb_returns: Float[Tensor, "minibatch_size"],
+                             vf_coef: float) -> Float[Tensor, ""]:
     '''Compute the value function portion of the loss function.
 
     values:
@@ -413,22 +459,28 @@ def calc_value_function_loss(
 
 
 tests.test_calc_value_function_loss(calc_value_function_loss)
+
+
 # %%
 def calc_entropy_bonus(probs: Categorical, ent_coef: float):
     '''Return the entropy bonus term, suitable for gradient ascent.
 
     probs:
         the probability distribution for the current policy
-    ent_coef: 
+    ent_coef:
         the coefficient for the entropy loss, which weights its contribution to the overall objective function. Denoted by c_2 in the paper.
     '''
     return probs.entropy().mean() * ent_coef
 
 
 tests.test_calc_entropy_bonus(calc_entropy_bonus)
+
+
 # %%
 class PPOScheduler:
-    def __init__(self, optimizer: Optimizer, initial_lr: float, end_lr: float, total_training_steps: int):
+
+    def __init__(self, optimizer: Optimizer, initial_lr: float, end_lr: float,
+                 total_training_steps: int):
         self.optimizer = optimizer
         self.initial_lr = initial_lr
         self.end_lr = end_lr
@@ -438,19 +490,208 @@ class PPOScheduler:
     def step(self):
         '''Implement linear learning rate decay so that after total_training_steps calls to step, the learning rate is end_lr.
         '''
-        self.n_step_calls += 3
-        lr = self.initial_lr + (self.end_lr - self.initial_lr) * (self.n_step_calls / self.total_training_steps)
+        self.n_step_calls += 1
+        lr = self.initial_lr + (self.end_lr - self.initial_lr) * (
+            self.n_step_calls / self.total_training_steps)
         for g in self.optimizer.param_groups:
             print(g)
             g['lr'] = lr
 
 
-def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
+def make_optimizer(agent: PPOAgent, total_training_steps: int,
+                   initial_lr: float,
+                   end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
     '''Return an appropriately configured Adam with its attached scheduler.'''
-    optimizer = optim.Adam(agent.parameters(), lr=initial_lr, eps=1e-5, maximize=True)
-    scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
+    optimizer = optim.Adam(agent.parameters(),
+                           lr=initial_lr,
+                           eps=1e-5,
+                           maximize=True)
+    scheduler = PPOScheduler(optimizer, initial_lr, end_lr,
+                             total_training_steps)
     return (optimizer, scheduler)
 
 
 tests.test_ppo_scheduler(PPOScheduler)
+
+
+# %%
+class MyDataset(Dataset):
+
+    def __init__(self, batches: List[ReplayBufferSamples]):
+        self.batches = batches
+
+    def __len__(self):
+        return len(self.batches)
+
+    def __getitem__(self, idx):
+        return self.batches[idx]
+
+
+class PPOLightning(pl.LightningModule):
+    agent: PPOAgent
+
+    def __init__(self, args: PPOArgs):
+        super().__init__()
+        self.args = args
+        set_global_seeds(args.seed)
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([
+            make_env(args.env_id, args.seed + i, i, args.capture_video,
+                     self.run_name) for i in range(args.num_envs)
+        ])
+        self.agent = PPOAgent(self.args, self.envs).to(device)
+        self.rollout_phase()
+
+    def on_train_epoch_end(self) -> None:
+        self.rollout_phase()
+
+    def rollout_phase(self) -> None:
+        '''Should populate the replay buffer with new experiences.'''
+        for _ in range(self.args.num_steps):
+            self.agent.play_step()
+
+    def training_step(self, minibatch: ReplayBufferSamples,
+                      minibatch_idx: int) -> Float[Tensor, ""]:
+        '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+
+        logits = self.agent.actor(minibatch.obs)
+        probs = Categorical(logits=logits)
+        entropy_bonus = calc_entropy_bonus(probs, self.args.ent_coef)
+        clipped_surrogate_objective, clip_frac, approx_kl = calc_clipped_surrogate_objective(
+            probs, minibatch.actions, minibatch.advantages, minibatch.logprobs,
+            self.args.clip_coef, return_metrics=True)
+        values = self.agent.critic(minibatch.obs).squeeze()
+        value_function_loss = calc_value_function_loss(values,
+                                                       minibatch.returns,
+                                                       self.args.vf_coef)
+
+        gain = entropy_bonus + clipped_surrogate_objective - value_function_loss
+
+        self.log("policy_loss", clipped_surrogate_objective)
+        self.log('value_loss', value_function_loss)
+        self.log('entropy_loss', entropy_bonus)
+        self.log('clip_frac', clip_frac)
+        self.log('approx_kl', approx_kl)
+        self.log('return', minibatch.returns.mean())
+        self.log('episode_length', minibatch.dones.float().mean())
+        return gain
+
+    def configure_optimizers(self):
+        '''Returns optimizer and scheduler (sets scheduler as attribute, so we can call self.scheduler.step() during each training step)'''
+        optimizer, scheduler = make_optimizer(self.agent,
+                                              self.args.total_training_steps,
+                                              self.args.learning_rate, 0.0)
+        self.scheduler = scheduler
+        return optimizer
+
+    def train_dataloader(self):
+        return MyDataset(self.agent.get_minibatches())
+
+
+# %%
+if False:
+    probe_idx = 5
+
+    # Define a set of arguments for our probe experiment
+    args = PPOArgs(
+        env_id=f"Probe{probe_idx}-v0",
+        exp_name=f"test-probe-{probe_idx}",
+        total_timesteps=10000 if probe_idx <= 3 else 30000,
+        learning_rate=0.001,
+        capture_video=False,
+        use_wandb=False,
+    )
+    model = PPOLightning(args).to(device)
+    logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+
+    # Run our experiment
+    trainer = pl.Trainer(
+        max_epochs=args.total_epochs,
+        logger=logger,
+        log_every_n_steps=10,
+        gradient_clip_val=args.max_grad_norm,
+        reload_dataloaders_every_n_epochs=1,
+        enable_progress_bar=False,
+    )
+    trainer.fit(model=model)
+
+    # Check that our final results were the ones we expected from this probe
+    obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]],
+                    [[0.0], [1.0]]]
+    expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]],
+                                [[1.0]], [[1.0], [1.0]]]
+    expected_probs_for_probes = [
+        None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]
+    ]
+    tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+    obs = t.tensor(obs_for_probes[probe_idx - 1]).to(device)
+    model.to(device)
+    with t.inference_mode():
+        value = model.agent.critic(obs)
+        probs = model.agent.actor(obs).softmax(-1)
+    expected_value = t.tensor(expected_value_for_probes[probe_idx - 1]).to(device)
+    t.testing.assert_close(value,
+                        expected_value,
+                        atol=tolerances[probe_idx - 1],
+                        rtol=0)
+    expected_probs = expected_probs_for_probes[probe_idx - 1]
+    if expected_probs is not None:
+        t.testing.assert_close(probs,
+                            t.tensor(expected_probs).to(device),
+                            atol=tolerances[probe_idx - 1],
+                            rtol=0)
+    print("Probe tests passed!")
+
+    # Use the code below to inspect your most recent logged results
+    try:
+        metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+        metrics.tail()
+    except:
+        print(
+            "No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}."
+        )
+# %%
+wandb.finish()
+
+args = PPOArgs(use_wandb=True)
+model = PPOLightning(args).to(device)
+logger = WandbLogger(save_dir=args.log_dir,
+                     project=args.wandb_project_name,
+                     name=model.run_name)
+if args.use_wandb: wandb.gym.monitor()  # Makes sure we log video!
+
+trainer = pl.Trainer(max_epochs=args.total_epochs,
+                     logger=logger,
+                     log_every_n_steps=5,
+                     reload_dataloaders_every_n_epochs=1,
+                     enable_progress_bar=False)
+trainer.fit(model=model)
+# %%
+from gym.envs.classic_control.cartpole import CartPoleEnv
+
+class EasyCart(CartPoleEnv):
+    def step(self, action):
+        (obs, rew, done, info) = super().step(action)
+        x, v, theta, omega = obs
+
+        reward = 1 - abs(theta)
+
+        return obs, reward, done, info
+# %%
+wandb.finish()
+
+args = PPOArgs(use_wandb=True)
+model = PPOLightning(args).to(device)
+logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+model = PPOLightning(args).to(device)
+
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=5,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False
+)
+trainer.fit(model=model)
 # %%
