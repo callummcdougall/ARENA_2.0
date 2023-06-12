@@ -586,3 +586,31 @@ trainer = pl.Trainer(
 )
 trainer.fit(model=model)
 # %%
+from gym.envs.classic_control.cartpole import CartPoleEnv
+
+class EasyCart(CartPoleEnv):
+    def step(self, action):
+        (obs, rew, done, info) = super().step(action)
+        x, v, theta, omega = obs
+        shaped_r = 1 - (abs(theta) / 0.418) # 0.418 = maximum angle of the pole
+        return obs, shaped_r, done, info
+# %%
+if MAIN:
+    gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
+
+    wandb.finish()
+
+    args = PPOArgs(env_id="EasyCart-v0")
+    logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+    if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+    model = PPOLightning(args).to(device)
+
+    trainer = pl.Trainer(
+        max_epochs=args.total_epochs,
+        logger=logger,
+        log_every_n_steps=5,
+        reload_dataloaders_every_n_epochs=1,
+        enable_progress_bar=False
+    )
+    trainer.fit(model=model)
+# %%
