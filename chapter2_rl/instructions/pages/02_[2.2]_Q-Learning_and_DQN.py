@@ -1442,10 +1442,6 @@ obs = envs.reset()
 for i in range(256):
     actions = np.array([0])
     (next_obs, rewards, dones, infos) = envs.step(actions)
-    real_next_obs = next_obs.copy()
-    for (i, done) in enumerate(dones):
-        if done:
-            real_next_obs[i] = infos[i]["terminal_observation"]
     rb.add(obs, actions, rewards, dones, next_obs)
     obs = next_obs
 
@@ -1589,7 +1585,7 @@ Importance: 🟠🟠🟠⚪⚪
 You should spend up to 10-20 minutes on this exercise.
 ```
 
-- Don't forget to convert the result back to a `np.darray`.
+- Don't forget to convert the result back to a `np.ndarray`.
 - Use `rng.random()` to generate random numbers in the range $[0,1)$, and `rng.integers(0, n, size)` for an array of shape `size` random integers in the range $0, 1, \ldots, n-1$.
 - Use `envs.single_action_space.n` to retrieve the number of possible actions.
 
@@ -2048,7 +2044,7 @@ Note - for this exercise and others to follow, there's a trade-off in the test f
 
 ```python
 class DQNAgent:
-    '''Base Agent class handeling the interaction with the environment.'''
+    '''Base Agent class handling the interaction with the environment.'''
 
     def __init__(
         self, 
