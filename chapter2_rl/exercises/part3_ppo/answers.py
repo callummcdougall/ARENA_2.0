@@ -328,13 +328,14 @@ class PPOAgent(nn.Module):
         '''
         # need to add replay with obs, actions, rewards, dones, logprobs, values
         # obs is shape (n_envs, *obs_shape), everything else is (n_envs)
-        act_logits = self.actor(self.next_obs) # get next actions from actor network
-        critic_values = self.critic(self.next_obs)
+        with t.inference_mode():
+            act_logits = self.actor(self.next_obs) # get next actions from actor network
+            critic_values = self.critic(self.next_obs)
 
         prob_dist = t.distributions.Categorical(logits=act_logits)        
         next_action = prob_dist.sample()
 
-        next_next_obs, next_reward, next_next_done, step_infos = envs.step(next_action.cpu().numpy())
+        next_next_obs, next_reward, next_next_done, step_infos = self.envs.step(next_action.cpu().numpy())
 
         act_logprobs = act_logits.log_softmax(-1)[t.arange(self.num_envs), next_action]
         # act_vals = critic_values[t.arange(self.num_envs), next_action].cpu().numpy()
@@ -395,3 +396,193 @@ def calc_clipped_surrogate_objective(
 tests.test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective)
 # %%
 
+def calc_value_function_loss(
+    values: Float[Tensor, "minibatch_size"],
+    mb_returns: Float[Tensor, "minibatch_size"],
+    vf_coef: float
+) -> Float[Tensor, ""]:
+    '''Compute the value function portion of the loss function.
+
+    values:
+        the value function predictions for the sampled minibatch (using the updated critic network)
+    mb_returns:
+        the target for our updated critic network (computed as `advantages + values` from the old network)
+    vf_coef:
+        the coefficient for the value loss, which weights its contribution to the overall loss. Denoted by c_1 in the paper.
+    '''
+    assert values.shape == mb_returns.shape
+    
+    return vf_coef * ((values - mb_returns)**2).mean()/2
+
+
+tests.test_calc_value_function_loss(calc_value_function_loss)
+# %%
+def calc_entropy_bonus(probs: Categorical, ent_coef: float):
+    '''Return the entropy bonus term, suitable for gradient ascent.
+
+    probs:
+        the probability distribution for the current policy
+    ent_coef: 
+        the coefficient for the entropy loss, which weights its contribution to the overall objective function. Denoted by c_2 in the paper.
+    '''
+    return ent_coef * probs.entropy().mean()
+
+
+tests.test_calc_entropy_bonus(calc_entropy_bonus) 
+# %%
+class PPOScheduler:
+    def __init__(self, optimizer: Optimizer, initial_lr: float, end_lr: float, total_training_steps: int):
+        self.optimizer = optimizer
+        self.initial_lr = initial_lr
+        self.end_lr = end_lr
+        self.total_training_steps = total_training_steps
+        self.n_step_calls = 0
+
+    def step(self):
+        '''Implement linear learning rate decay so that after total_training_steps calls to step, the learning rate is end_lr.
+        '''
+
+        step_ratio = self.n_step_calls / self.total_training_steps 
+        linear_lr = step_ratio * self.end_lr + (1-step_ratio) * self.initial_lr
+        self.n_step_calls += 1
+        return linear_lr
+
+def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
+    '''Return an appropriately configured Adam with its attached scheduler.'''
+    optimizer = optim.Adam(agent.parameters(), lr=initial_lr, eps=1e-5, maximize=True)
+    scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
+    return (optimizer, scheduler)
+
+
+tests.test_ppo_scheduler(PPOScheduler)
+
+
+# %%
+class MyDataset(Dataset):
+    def __init__(self, batches: List[ReplayBufferSamples]):
+        self.batches = batches
+
+    def __len__(self):
+        return len(self.batches)
+
+    def __getitem__(self, idx):
+        return self.batches[idx]
+
+
+class PPOLightning(pl.LightningModule):
+    agent: PPOAgent
+
+    def __init__(self, args: PPOArgs):
+        super().__init__()
+        self.args = args
+        set_global_seeds(args.seed)
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
+        self.agent = PPOAgent(self.args, self.envs).to(device)
+        self.rollout_phase()
+
+
+    def on_train_epoch_end(self) -> None:
+        self.rollout_phase()
+
+
+    def rollout_phase(self) -> None:
+        '''Should populate the replay buffer with new experiences.'''
+        for _ in range(self.args.batch_size): #! might be the wrong thing
+            self.agent.play_step()
+
+    def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
+        '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+        logits = self.agent.actor(minibatch.obs)
+        probs = t.distributions.Categorical(logits=logits)
+        vals = self.agent.critic(minibatch.obs).squeeze()
+
+        l_clip = calc_clipped_surrogate_objective(probs, minibatch.actions,
+                                                  minibatch.advantages, minibatch.logprobs,
+                                                  self.args.clip_coef)
+        l_value = calc_value_function_loss(vals, minibatch.returns, self.args.vf_coef)
+        l_entropy = calc_entropy_bonus(probs, self.args.ent_coef)
+        loss = l_clip - l_value + l_entropy
+
+        self.log('l_clip', l_clip)
+        self.log('l_value', l_value)
+        self.log('l_entropy', l_entropy)
+        self.log('loss (but, like, flipped tho)', loss)
+        
+        return loss
+
+    def configure_optimizers(self):
+        '''Returns optimizer and scheduler (sets scheduler as attribute, so we can call self.scheduler.step() during each training step)'''
+        optimizer, scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+        self.scheduler = scheduler 
+        return optimizer
+
+
+    def train_dataloader(self):
+        return MyDataset(self.agent.get_minibatches())
+# %%
+probe_idx = 1
+
+# Define a set of arguments for our probe experiment
+args = PPOArgs(
+    env_id=f"Probe{probe_idx}-v0",
+    exp_name=f"test-probe-{probe_idx}", 
+    total_timesteps=10000 if probe_idx <= 3 else 30000,
+    learning_rate=0.001,
+    capture_video=False,
+    use_wandb=False,
+)
+model = PPOLightning(args).to(device)
+logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+
+# Run our experiment
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=10,
+    gradient_clip_val=args.max_grad_norm,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False,
+)
+trainer.fit(model=model)
+
+# Check that our final results were the ones we expected from this probe
+obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
+expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+model.to(device)
+with t.inference_mode():
+    value = model.agent.critic(obs)
+    probs = model.agent.actor(obs).softmax(-1)
+expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+expected_probs = expected_probs_for_probes[probe_idx-1]
+if expected_probs is not None:
+    t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
+print("Probe tests passed!")
+
+# Use the code below to inspect your most recent logged results
+try:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    metrics.tail()
+except:
+    print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
+# %%
+wandb.finish()
+
+args = PPOArgs(use_wandb=True)
+logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+model = PPOLightning(args).to(device)
+
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=5,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False
+)
+trainer.fit(model=model)
+# %%
