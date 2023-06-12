@@ -2149,6 +2149,33 @@ class DQNAgent:
 ```
 </details>
 
+Now we'll create a new class `DQNTrainer`, which will handle the full training loop. We've filled in the `__init__` for you, which defines the following important attributes (among others):
+
+* `q_network` and `target_network`, which you'll use to step and train the agent.
+* `optimizer`, which is used during the training steps.
+* `rb`, the replay buffer.
+* `agent`, to handle stepping the agent in the environment.
+
+You should fill in the remaining 2 methods:
+
+#### `add_to_replay_buffer`
+
+This takes an argument `n`, and makes the agent take `n` steps in the environment (also logging any important variables).
+
+#### `training_step`
+
+This samples data from the buffer using `self.rb.sample`, and then performs an update step on the agent. This involves:
+* Getting the max of the target network for the next observations (in inference mode),
+* Getting the predicted Q-values,
+* Using these to calculate the TD loss,
+* Perform a gradient step on the loss,
+* If `self.agent.steps` divides `args.target_network_frequency`, then load the weights from the Q-network into the target network,
+* Log any important variables.
+
+A few tips for both of these functions:
+
+* You can log variables using `wandb.log({"variable_name": variable_value}, steps=steps)`.
+* The `agent.play_step()` method returns a list of dictionaries containing data about the current run. If the agent terminated at that step, then the dictionary will contain `{"episode": {"l": episode_length, "r": episode_reward}}`.
 
 ### Exercise - write DQN training loop
 
@@ -2156,71 +2183,8 @@ class DQNAgent:
 Difficulty: 🟠🟠🟠🟠🟠
 Importance: 🟠🟠🟠🟠🟠
 
-You should spend up to 30-50 minutes on this exercise.
+You should spend up to 30-60 minutes on this exercise.
 ```
-
-If you did the material on [PyTorch Lightning](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#pytorch-lightning) during the first week, this should all be familiar to you. If not, a little refresher:
-
-<details>
-<summary>Click here for a basic refresher on PyTorch Lightning & Weights and Biases</summary>
-
-PyTorch Lightining (which we'll import as `pl`) is a useful tool for cleaning up and modularizing your PyTorch training code.
-
-We can define a class which inherits from `pl.LightningModule`, which will contain both our model and instructions for what the training steps look like. This class should have at minimum the following 2 methods:
-
-* `training_step` - compute and return the training loss on a single batch (plus optionally log metrics)
-* `configure_optimizers` - return the optimizers you want to use for training
-
-Other optional methods include:
-
-* `on_train_epoch_end` - runs once when the training epoch ends
-* `train_dataloader` - returns a dataloader (or other iterable) which is iterated over to give us the `batch` argument in `training_step`
-
-Once you have your class, you need to take the following steps to run your training loop:
-
-* Create an instance of that class, e.g. `model = LitTransformer(...)`
-* Define a trainer, e.g. `trainer = pl.Trainer(max_epochs=...)`
-
-Weights and Biases is a useful service which visualises training runs and performs hyperparameter sweeps. If you want to log to Weights and Biases, you need to amend the following:
-
-* Define `logger = WandbLogger(save_dir=..., project=...)`, and pass this to your `Trainer` instance (along with other optional arguments e.g. `log_every_n_steps`).
-* Remember to call `wandb.finish()` at the end of your training instance.
-
-</details>
-
-There are 3 methods you'll need to fill in below:
-
-#### `__init__`
-
-We've given you some of the code here. You should add code to do the following:
-
-* Defining all the objects which are type-annotated just below the class definition (i.e. `q_network`, `target_network`, etc).
-    * Make sure you match the weights in `q_network` and `target_network` at the start of training (you can use `net2.load_state_dict(net1.state_dict())` to do this).
-* Run the first `args.buffer_size` steps of the agent (this fills your buffer).
-    * You don't need to do anything with the `infos` dicts returned here.
-
-#### `training_step`
-
-This method contains most of the logic for DQN. You should do the following:
-
-* Step the agent, for `args.train_frequency` steps.
-    * This is because the `training_step` method corresponds to one step of the optimizer for our model, and we need to take `train_frequency` steps per model update.
-* Get a new sample fro your buffer, of size `args.batch_size` **(line 12 of algorithm 1)**.
-* Calculate your loss **(lines, 13, 14)**.
-* Optionally log variables, using the `_log` method we've given you.
-* If the current global step divides `args.target_network_frequency`, then update the target network weights to match the current network weights **(lines 17 & 18)**.
-* Return the loss. PyTorch Lightning will implicitly handle the optimizer step **(line 15)** for you.
-
-Note - because we don't really have a dataloader in the conventional sense (we're just sampling repeatedly from our buffer), the `train_dataloader` method just returns a `range` object which is iterated over but not used in our `training_step` method.
-
-#### `configure_optimizers`
-
-Return the Adam optimizer, with learning rate from `args`. Make sure you're passing the right model parameters to the optimizer!
-
-#### A few other notes on this code
-
-* We've given you a `on_train_epoch_end` method which runs when the epoch finishes. The main purpose of this is to test your probe environments - it checks whether you used one of the probes, and if you did then it checks that the value of each state has converged to the correct values for that probe. Below, we've also given you some boilerplate code to test one of the probe environments. If you didn't finish implementing your probes (or you've not yet compared them to the solutions), now would be a great time to go and do that!
-
 
 Don't be discouraged if your code takes a while to work - it's normal for debugging RL to take longer than you would expect. Add asserts or your own tests, implement an appropriate probe environment, try anything in the Andy Jones post that sounds promising, and try to notice confusion. Reinforcement Learning is often so tricky as even if the algorithm has bugs, the agent might still learn something useful regardless (albeit maybe not as well), or even if everything is correct, the agent might just fail to learn anything useful (like how DQN failed to do anything on Montezuma's Revenge.)
 
@@ -2237,7 +2201,6 @@ This means that once the agent starts to learn something and do better at the pr
 
 For example, the Q-network initially learned some state was bad, because an agent that reached them was just flapping around randomly and died shortly after. But now it's getting evidence that the same state is good, now that the agent that reached the state has a better idea what to do next. A higher loss is thus actually a good sign that something is happening (the agent hasn't stagnated), but it's not clear if it's learning anything useful without also checking how the total reward per episode has changed.
 </details>
-
 
 ```python
 class DQNTrainer:
