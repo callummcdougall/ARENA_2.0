@@ -2162,6 +2162,8 @@ You should fill in the remaining 2 methods:
 
 This takes an argument `n`, and makes the agent take `n` steps in the environment (also logging any important variables).
 
+Note that we call it once at the start of training, to fill the buffer. We'll also call it before each training step, to add `args.train_frequency` new experiences to the buffer.
+
 #### `training_step`
 
 This samples data from the buffer using `self.rb.sample`, and then performs an update step on the agent. This involves:
