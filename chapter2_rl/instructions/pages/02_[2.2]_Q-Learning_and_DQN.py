@@ -40,9 +40,9 @@ You can toggle dark mode from the buttons on the top-right of this page.
 
 ## Introduction
 
+In this section, you'll implement Deep Q-Learning, often referred to as DQN for "Deep Q-Network". This was used in a landmark paper [Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf).
 
-This section is designed to get you familiar with basic neural networks: how they are structured, the basic operations like linear layers and convolutions which go into making them, and why they work as well as they do. You'll be using libraries like `einops`, and functions like `torch.as_strided` to get a very low-level picture of how these operations work, which will help build up your overall understanding.
-
+At the time, the idea that convolutional neural networks could look at Atari game pixels and "see" gameplay-relevant features like a Space Invader was new and noteworthy. In 2022, we take for granted that convnets work, so we're going to focus on the RL aspect and not the vision aspect today.
 
 ## Content & Learning Objectives
 
@@ -574,8 +574,7 @@ Both `SARSA` and `QLearning` will inherit from `EpsilonGreedy`, and differ in ho
     - Remember that your `AgentConfig` object contains epsilon, as well as the optimism value and learning rate.
 - Optimistic initial values: initialize each arm's reward estimate with the `optimism` value.
 - Compare the performance of your Q-learning and SARSA agent again the random and cheating agents.
-- Try and tweak the hyperparameters from the default values of `epsilon = 0.1`, `optimism = 1`, `lr = 0.1` to see what effect this has. How fast can you get your
-agents to perform?
+- Try and tweak the hyperparameters `epsilon`, `lr` and `optimism` from their default values to see what effect this has. How fast can you get your agents to perform?
 
 
 ### Exercise - Implement Q-learning and SARSA

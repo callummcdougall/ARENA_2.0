@@ -455,7 +455,7 @@ Remember that the sum in $(11)$ should be truncated at the first instance when t
 Difficulty: 🟠🟠🟠🟠⚪
 Importance: 🟠🟠🟠⚪⚪
 
-You should spend up to 20-30 minutes on this exercise.
+You should spend up to 20-40 minutes on this exercise.
 ```
 
 ```python
@@ -1800,10 +1800,26 @@ trainer.fit(model=model)
 ## Bonus
 
 
-### Continuous Action Spaces
+Here are a few bonus exercises. They're ordered (approximately) from easiest to hardest.
 
-The `MountainCar-v0` environment has discrete actions, but there's also a version `MountainCarContinuous-v0` with continuous action spaces. Unlike DQN, PPO can handle continuous actions with minor modifications. Try to adapt your agent; you'll need to handle `gym.spaces.Box` instead of `gym.spaces.Discrete` and make note of the "9 details for continuous action domains" section of the reading.
+### Trust Region Methods
 
+Some versions of the PPO algorithm use a slightly different objective function. Rather than our clipped surrogate objective, they use constrained optimization (maximising the surrogate objective subject to a restriction on the [KL divergence](https://www.lesswrong.com/posts/no5jDTut5Byjqb4j5/six-and-a-half-intuitions-for-kl-divergence) between the old and new policies). 
+
+$$
+\underset{\theta}{\operatorname{maximize}} \hat{\mathbb{E}}_t\left[\frac{\pi_\theta\left(a_t \mid s_t\right)}{\pi_{\theta_{\text {old }}}\left(a_t \mid s_t\right)} \hat{A}_t-\beta \mathrm{KL}\left[\pi_{\theta_{\text {old }}}\left(\cdot \mid s_t\right), \pi_\theta\left(\cdot \mid s_t\right)\right]\right]
+$$
+
+Can you implement this? Does this approach work better than the clipped surrogate objective? What values of $\beta$ work best?
+
+### Long-term replay buffer
+
+Above, we discussed the problem of **catastrophic forgetting** (where the agent forgets how to recover from bad behaviour, because the buffer only contains good behaviour). One way to fix this is to have a long-term replay buffer, for instance:
+
+* (simple version) You reserve e.g. 10% of your buffer for experiences generated at the start of training.
+* (galaxy-brained version) You design a custom scheduled method for removing experiences from the buffer, so that you always have a mix of old and new experiences.
+
+Can you implement one of these, and does it fix the catastrophic forgetting problem?
 
 ### Vectorized Advantage Calculation
 
@@ -1811,15 +1827,25 @@ Try optimizing away the for-loop in your advantage calculation. It's tricky, so 
 
 There are solutions available in `solutions.py` (commented out).
 
+### Other environments
 
-### Atari
+Two environments (supported by gym) which you might like to try are:
+
+* [`Acrobot-v1`](https://www.gymlibrary.dev/environments/classic_control/acrobot/) - this is one of the [Classic Control environments](https://www.gymlibrary.dev/environments/classic_control/), and it's a bit harder to learn than cartpole.
+* [`MountainCar-v0`](https://www.gymlibrary.dev/environments/classic_control/mountain_car/) - this is one of the [Classic Control environments](https://www.gymlibrary.dev/environments/classic_control/), and it's much harder to learn than cartpole. This is primarily because of **sparse rewards** (it's really hard to get to the top of the hill), so you'll definitely need reward shaping to get through it!
+* [`LunarLander-v2`](https://www.gymlibrary.dev/environments/box2d/lunar_lander/) - this is part of the [Box2d](https://www.gymlibrary.dev/environments/box2d/) environments. It's a bit harder still, because of the added environmental complexity (physics like gravity and friction, and constraints like fuel conservatino). The reward is denser (with the agent receiving rewards for moving towards the landing pad and penalties for moving away or crashing), but the increased complexity makes it overall a harder problem to solve. You might have to perform hyperparameter sweeps to find the best implementation (you can go back and look at the syntax for hyperparameter sweeps [here](https://arena-ch0-fundamentals.streamlit.app/[0.4]_Optimization)). Also, [this page](https://pylessons.com/LunarLander-v2-PPO) might be a useful reference (although the details of their implementation differs from the one we used today). You can look at the hyperparameters they used.
+
+### Continuous Action Spaces
+
+The `MountainCar-v0` environment has discrete actions, but there's also a version `MountainCarContinuous-v0` with continuous action spaces. Unlike DQN, PPO can handle continuous actions with minor modifications. Try to adapt your agent; you'll need to handle `gym.spaces.Box` instead of `gym.spaces.Discrete` and make note of the ["9 details for continuous action domains"](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20details%20for%20continuous%20action%20domains) section of the reading.
+
+### [Atari](https://www.gymlibrary.dev/environments/atari/)
 
 The [37 Implementational Details of PPO](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20Atari%2Dspecific%20implementation%20details) post describes how to get PPO working for games like Atari. You've already done a lot of the work here! Try to implement the remaining details and get PPO working on Atari. You'll need to read the Atari-specific implementation details section in the post (and you'll also have to spend some time working with a different library to `gym`). This could be a good capstone project, or just an extended project for the rest of the RL section (after we do RLHF) if you want to get more hands-on engineering experience!
 
+### Multi-Agent PPO
 
-
-
-
+Multi-Agent PPO (MAPPO) is an extension of the standard PPO algorithm which trains multiple agents at once. It was first described in the paper [The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games](https://arxiv.org/abs/2103.01955). Can you implement MAPPO?
 
 """, unsafe_allow_html=True)
 
