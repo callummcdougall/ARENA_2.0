@@ -147,15 +147,17 @@ def test_calc_entropy_bonus(calc_entropy_bonus):
     print("All tests in `test_calc_entropy_bonus` passed!")
 
 
-def test_ppo_scheduler(PPOScheduler):
+def test_ppo_scheduler(my_PPOScheduler):
     import part3_ppo.solutions as solutions
 
     args = solutions.PPOArgs()
     envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test") for i in range(4)])
     agent = solutions.PPOAgent(args, envs)
-    optimizer, scheduler = solutions.make_optimizer(agent, 100, 0.01, 0.5)
+
+    optimizer = t.optim.Adam(agent.parameters(), lr=0.1, eps=1e-8, maximize=True)
+    scheduler: solutions.PPOScheduler = my_PPOScheduler(optimizer, initial_lr=0.1, end_lr=0.5, total_training_steps=4)
 
     scheduler.step()
     assert (scheduler.n_step_calls == 1)
-    assert abs(optimizer.param_groups[0]["lr"] - 0.02)
+    assert abs(optimizer.param_groups[0]["lr"] - 0.2) < 1e-5
     print("All tests in `test_ppo_scheduler` passed!")
