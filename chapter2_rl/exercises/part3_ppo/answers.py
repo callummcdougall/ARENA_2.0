@@ -314,3 +314,57 @@ dones = minibatches[0].dones
 
 plot_cartpole_obs_and_dones(obs, dones)
 # %%
+
+class PPOAgent(nn.Module):
+    critic: nn.Sequential
+    actor: nn.Sequential
+
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
+        super().__init__()
+        self.args = args
+        self.envs = envs
+        self.num_envs = envs.num_envs
+        self.obs_shape = envs.single_observation_space.shape
+        self.num_obs = np.array(self.obs_shape).prod()
+        self.num_actions = envs.single_action_space.n
+
+        # Keep track of global number of steps taken by agent
+        self.steps = 0
+        # Define actor and critic (using our previous methods)
+        self.actor, self.critic = get_actor_and_critic(envs)
+
+        # Define our first (obs, done, value), so we can start adding experiences to our replay buffer
+        self.next_obs = t.tensor(self.envs.reset()).to(device)
+        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+
+        # Create our replay buffer
+        self.rb = ReplayBuffer(args, envs)
+
+
+    def play_step(self) -> List[dict]:
+        '''
+        Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
+        '''
+        with t.inference_mode():
+            obs = (t.from_numpy(self.next_obs) if isinstance(self.next_obs, np.ndarray) else self.next_obs).to(device)
+            action_logits = self.actor(obs)
+            values = self.critic(obs).squeeze(1)
+        actions = t.distributions.categorical.Categorical(logits=action_logits).sample()
+        next_obs, rewards, dones, infos = self.envs.step(actions.cpu().numpy())
+        action_probs = t.log_softmax(action_logits, dim=-1).gather(1, actions.unsqueeze(1)).squeeze(1)
+        self.rb.add(obs, actions, t.from_numpy(rewards), t.from_numpy(dones), action_probs, values)
+        self.steps += self.num_envs
+        self.next_obs = next_obs
+        self.next_done = dones
+
+    def get_minibatches(self) -> None:
+        '''
+        Gets minibatches from the replay buffer.
+        '''
+        with t.inference_mode():
+            next_value = self.critic(self.next_obs).flatten()
+        return self.rb.get_minibatches(next_value, self.next_done)
+
+
+tests.test_ppo_agent(PPOAgent)
+# %%
