@@ -610,9 +610,9 @@ You should spend up to 10-25 minutes on this exercise.
 Understanding this is very conceptually important.
 ```
 
-**Read the [PPO Algorithms paper](https://arxiv.org/pdf/1707.06347.pdf) and the [PPO Implementational Details post](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#solving-pong-in-5-minutes-with-ppo--envpool), then try and figure out what each of the six items in `ReplayBufferSamples` are and why they are necessary.** If you prefer, you can return to these once you've implmemented all the loss functions (when it might make a bit more sense).
+**Read the [PPO Algorithms paper](https://arxiv.org/pdf/1707.06347.pdf) and the [PPO Implementational Details post](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#solving-pong-in-5-minutes-with-ppo--envpool), then try and figure out what each of the seven items in `ReplayBufferSamples` are and why they are necessary.** If you prefer, you can return to these once you've implmemented all the loss functions (when it might make a bit more sense).
 
-Note - we've omitted `values` because they aren't actually used in the learning phase (i.e. we never use them directly in our loss functions). The reason we add them to our `ReplayBufferSamples` is just for logging.
+Note - we've omitted `values` and `dones` because they aren't actually used in the learning phase (i.e. we never use them directly in our loss functions). The reason we add them to our `ReplayBufferSamples` is just for logging.
 
 
 <details>
