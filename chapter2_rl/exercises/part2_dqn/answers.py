@@ -1,4 +1,4 @@
-# %%
+# %% 
 import os
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -38,6 +38,7 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part2_dqn"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
+
 from part1_intro_to_rl.utils import make_env
 from part1_intro_to_rl.solutions import Environment, Toy, Norvig, find_optimal_policy
 import part2_dqn.utils as utils
@@ -47,6 +48,8 @@ from plotly_utils import line, cliffwalk_imshow, plot_cartpole_obs_and_dones
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == "__main__"
+
+
 # %%
 ObsType = int
 ActType = int
@@ -82,6 +85,8 @@ class DiscreteEnviroGym(gym.Env):
 
     def render(self, mode="human"):
         assert mode == "human", f"Mode {mode} not supported!"
+
+
 # %%
 gym.envs.registration.register(
     id="NorvigGrid-v0",
@@ -98,6 +103,8 @@ gym.envs.registration.register(
     nondeterministic=False, 
     kwargs={"env": Toy()}
 )
+
+
 # %%
 @dataclass
 class Experience:
@@ -182,17 +189,20 @@ class Agent:
 class Random(Agent):
     def get_action(self, obs: ObsType) -> ActType:
         return self.rng.integers(0, self.num_actions)
+
+
 # %%
- 
 class Cheater(Agent):
     def __init__(self, env: DiscreteEnviroGym, config: AgentConfig = defaultConfig, gamma=0.99, seed=0):
         super().__init__(env, config, gamma, seed)
-        env = self.env.unwrapped.env
-        self.optimal_policy = find_optimal_policy(env, self.gamma)
-
+        self.env = env
+        self.policy = find_optimal_policy(env.unwrapped.env, gamma=gamma)
 
     def get_action(self, obs):
-        return self.optimal_policy[obs]
+        return self.policy[obs]
+       
+        
+
 
 env_toy = gym.make("ToyGym-v0")
 agents_toy: List[Agent] = [Cheater(env_toy), Random(env_toy)]
@@ -204,67 +214,57 @@ for agent in agents_toy:
     names_list.append(agent.name)
 
 line(returns_list, names=names_list, title=f"Avg. reward on {env_toy.spec.name}")
-# %%
+
+#%%
 class EpsilonGreedy(Agent):
     '''
     A class for SARSA and Q-Learning to inherit from.
     '''
     def __init__(self, env: DiscreteEnviroGym, config: AgentConfig = defaultConfig, gamma: float = 0.99, seed: int = 0):
         super().__init__(env, config, gamma, seed)
-        
-        # self.pi = np.zeros(self.num_states, dtype=int)
-        self.Q = np.full((self.num_states, self.num_actions), self.config.optimism, dtype = float)
-        # self.Q[self.env.unwrapped.env.terminal] = 0
+        # self.gamma = gamma
+        # # Initialize q values to garbage
+        # self.rng = np.random.default_rng(seed)
+        # self.env = env
+        self.q_vals = np.zeros(shape=(self.env.unwrapped.env.num_states, self.env.unwrapped.env.num_actions)) + self.config.optimism
+        # self.config = config
 
     def get_action(self, obs: ObsType) -> ActType:
         '''
         Selects an action using epsilon-greedy with respect to Q-value estimates
         '''
         if self.rng.random() < self.config.epsilon:
-            return self.rng.integers(low = 0, high = self.num_actions)
+            return self.rng.integers(0, self.env.unwrapped.env.num_actions)
         else:
-            return np.argmax(self.Q[obs])
-    
+            return np.argmax(self.q_vals[obs])
+
 class QLearning(EpsilonGreedy):
     def observe(self, exp: Experience) -> None:
-        obs = exp.obs
-        act = exp.act
-        new_obs = exp.new_obs
-        new_act = exp.new_act
-        
-        # max_act = np.argmax(self.q[new_obs])
-        self.Q[obs, act] = self.Q[obs, act] + self.config.lr * (exp.reward + self.gamma*np.max(self.Q[new_obs]) - self.Q[obs, act])
+        td_error = exp.reward + self.gamma * np.max(self.q_vals[exp.new_obs, :]) - self.q_vals[exp.obs, exp.act]
+        self.q_vals[exp.obs, exp.act] += self.config.lr * td_error
 
 class SARSA(EpsilonGreedy):
     def observe(self, exp: Experience):
-        obs = exp.obs
-        act = exp.act
-        new_obs = exp.new_obs
-        new_act = exp.new_act
-        
-        new_q = self.Q[obs, act] + self.config.lr * (exp.reward + self.gamma*self.Q[new_obs, new_act] - self.Q[obs, act])
-        
-        self.Q[obs, act] = new_q
-        
-    def run_episode(self, seed) -> List[int]:
+        # new_action = self.get_action(exp.obs) # A'
+        td_error = exp.reward + self.gamma * self.q_vals[exp.new_obs, exp.new_act] - self.q_vals[exp.obs, exp.act]
+        self.q_vals[exp.obs, exp.act] += self.config.lr * td_error
+
+    def run_episode(self, seed) -> List[float]:
         rewards = []
         obs = self.env.reset(seed=seed)
-        done = False
-        
         self.reset(seed=seed)
-        act = self.get_action(obs)
+        done = False
 
+        act=0
         while not done:
             (new_obs, reward, done, info) = self.env.step(act)
-            
-            new_act = self.get_action(new_obs)
+            new_act=self.get_action(new_obs)
             exp = Experience(obs, act, reward, new_obs, new_act)
-            
             self.observe(exp)
             rewards.append(reward)
             obs = new_obs
             act = new_act
-            
+
         return rewards
 
 
@@ -285,37 +285,8 @@ for agent in agents_norvig:
     returns = agent.train(n_runs)
     fig.add_trace(go.Scatter(y=utils.cummean(returns), name=agent.name))
 fig.show()
+
 # %%
-gamma = 1
-seed = 0
-
-config_cliff = AgentConfig(epsilon=0.1, lr = 0.1, optimism=0)
-
-env = gym.make("CliffWalking-v0")
-n_runs = 500
-args_cliff = (env, config_cliff, gamma, seed)
-
-returns_list = []
-name_list = []
-agents: List[Union[QLearning, SARSA]] = [QLearning(*args_cliff), SARSA(*args_cliff)]
-
-for agent in agents:
-    returns = agent.train(n_runs)[1:]
-    returns_list.append(utils.cummean(returns))
-    name_list.append(agent.name)
-    V = agent.Q.max(axis=-1).reshape(4, 12)
-    pi = agent.Q.argmax(axis=-1).reshape(4, 12)
-    cliffwalk_imshow(V, pi, title=f"CliffWalking: {agent.name} Agent")
-
-line(
-    returns_list, 
-    names=name_list, 
-    template="simple_white",
-    title="Q-Learning vs SARSA on CliffWalking-v0",
-    labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
-)
-# %%
-# QNETWORK
 class QNetwork(nn.Module):
     '''For consistency with your tests, please wrap your modules in a `nn.Sequential` called `layers`.'''
     layers: nn.Sequential
@@ -330,9 +301,9 @@ class QNetwork(nn.Module):
         self.layers = nn.Sequential(
             nn.Linear(dim_observation, hidden_sizes[0]),
             nn.ReLU(),
-            nn.Linear(*hidden_sizes),
+            nn.Linear(hidden_sizes[0], hidden_sizes[1]),
             nn.ReLU(),
-            nn.Linear(hidden_sizes[1], num_actions),
+            nn.Linear(hidden_sizes[1], num_actions)
         )
 
     def forward(self, x: t.Tensor) -> t.Tensor:
@@ -347,6 +318,8 @@ print(f"Total number of parameters: {n_params}")
 print("You should manually verify network is Linear-ReLU-Linear-ReLU-Linear")
 assert n_params == 10934
 # %%
+import random
+
 @dataclass
 class ReplayBufferSamples:
     '''
@@ -358,8 +331,8 @@ class ReplayBufferSamples:
     dones: Bool[Tensor, "sampleSize"]
     next_observations: Float[Tensor, "sampleSize *obsShape"]
 
-
-class ReplayBuffer_OURS:
+"""
+class ReplayBuffer:
     '''
     Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
     '''
@@ -372,20 +345,19 @@ class ReplayBuffer_OURS:
 
     def __init__(self, buffer_size: int, num_environments: int, seed: int):
         assert num_environments == 1, "This buffer only supports SyncVectorEnv with 1 environment inside."
-        
-        self.buffer_size = buffer_size
         self.num_environments = num_environments
-        
-        self.rng = np.random.default_rng(seed)
-        
-        obs_size = 4
-        self.observations = t.empty((buffer_size, num_environments, obs_size))
-        self.actions = t.empty(buffer_size, num_environments)
-        self.rewards = t.empty(buffer_size, num_environments)
-        self.dones = t.empty(buffer_size, num_environments)
-        self.next_observations = t.empty((buffer_size, num_environments, obs_size))
 
-        self.cnt = 0
+        self.observations = []
+        self.actions = []
+        self.rewards = []
+        self.next_observations = []
+        self.dones = []
+
+        self.buffer_size = buffer_size
+        self.current_buffer = 0
+
+        self.rng = np.random.default_rng(seed)
+
 
     def add(
         self, obs: np.ndarray, actions: np.ndarray, rewards: np.ndarray, dones: np.ndarray, next_obs: np.ndarray
@@ -408,37 +380,47 @@ class ReplayBuffer_OURS:
         assert rewards.shape == (self.num_environments,)
         assert dones.shape == (self.num_environments,)
         assert next_obs.shape[0] == self.num_environments
-        
-        index = self.cnt % self.buffer_size
-        
-        # print(obs.shape)
-        # print(self.observations.shape)
-        
-        self.observations[index] = t.from_numpy(obs)
-        self.actions[index] = t.from_numpy(actions)
-        self.rewards[index] = t.from_numpy(rewards)
-        self.dones[index] = t.from_numpy(dones)
-        self.next_observations[index] = t.from_numpy(next_obs)
-        
-        self.cnt += 1
+
+        if self.current_buffer >= self.buffer_size:
+            self.observations[self.current_buffer % self.buffer_size] = obs[0]
+            self.actions[self.current_buffer % self.buffer_size] = actions[0]
+            self.rewards[self.current_buffer % self.buffer_size] = rewards[0]
+            self.next_observations[self.current_buffer % self.buffer_size] = next_obs[0]
+            self.dones[self.current_buffer % self.buffer_size] = dones[0]
+        else:
+            self.observations.append(obs[0])
+            self.actions.append(actions[0])
+            self.rewards.append(rewards[0])
+            self.next_observations.append(next_obs[0])
+            self.dones.append(dones[0])
+
+        self.current_buffer += 1
+
 
     def sample(self, sample_size: int, device: t.device) -> ReplayBufferSamples:
         '''
         Uniformly sample sample_size entries from the buffer and convert them to PyTorch tensors on device.
         Sampling is with replacement, and sample_size may be larger than the buffer size.
         '''
-        indexes = self.rng.integers(0, self.buffer_size, size=sample_size)
-        vals = []
-        for x in [self.observations, self.actions, self.rewards, self.dones, self.next_observations]:
-            vals.append(x[indexes].to(device))
-        samples = ReplayBufferSamples(*vals)
-        return samples
+        k_random_nums = self.rng.integers(0, min(self.current_buffer, self.buffer_size), size=(sample_size,))
 
 
-# tests.test_replay_buffer_single(ReplayBuffer)
-# tests.test_replay_buffer_deterministic(ReplayBuffer)
-# tests.test_replay_buffer_wraparound(ReplayBuffer)
-# %%
+        return ReplayBufferSamples(
+            t.tensor(self.observations)[k_random_nums].to(device=device), 
+            t.tensor(self.actions)[k_random_nums].to(device=device), 
+            t.tensor(self.rewards)[k_random_nums].to(device=device), 
+            t.tensor(self.dones)[k_random_nums].to(device=device), 
+            t.tensor(self.next_observations)[k_random_nums].to(device=device), 
+        )
+        # for buffer_list in [self.observations, self.actions, self.rewards, self.next_observations, self.dones]:
+        #     sample_list = t.tensor(buffer_list)[k_random_nums].to(device=device)
+
+
+
+        # samples = random.choices(self.experiences, k=sample_size)
+        # print(samples)
+        # return t.tensor(samples).to(device=device)
+"""
 class ReplayBuffer:
     '''
     Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
@@ -500,16 +482,16 @@ class ReplayBuffer:
         indices = self.rng.integers(0, self.buffer[0].shape[0], sample_size)
         samples = [t.as_tensor(arr_list[indices], device=device) for arr_list in self.buffer]
         return ReplayBufferSamples(*samples)
-    
+
 
 tests.test_replay_buffer_single(ReplayBuffer)
 tests.test_replay_buffer_deterministic(ReplayBuffer)
 tests.test_replay_buffer_wraparound(ReplayBuffer)
+
+
 # %%
 rb = ReplayBuffer(buffer_size=256, num_environments=1, seed=0)
-
 envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", 0, 0, False, "test")])
-
 obs = envs.reset()
 for i in range(256):
     actions = np.array([0])
@@ -518,13 +500,16 @@ for i in range(256):
     for (i, done) in enumerate(dones):
         if done:
             real_next_obs[i] = infos[i]["terminal_observation"]
-    rb.add(obs, actions, rewards, dones, real_next_obs)
+    rb.add(obs, actions, rewards, dones, next_obs)
     obs = next_obs
+
 
 plot_cartpole_obs_and_dones(rb.observations.flip(0), rb.dones.flip(0))
 
 sample = rb.sample(256, t.device("cpu"))
 plot_cartpole_obs_and_dones(sample.observations.flip(0), sample.dones.flip(0))
+
+
 # %%
 def linear_schedule(
     current_step: int, start_e: float, end_e: float, exploration_fraction: float, total_timesteps: int
@@ -535,20 +520,12 @@ def linear_schedule(
 
     It should stay at end_e for the rest of the episode.
     '''
-    
-    # step = exploration_fraction * total_timesteps
-    
-    # e = max(start_e - (step*current_step), end_e)
-         
-    # return e
+    end_step = total_timesteps*exploration_fraction
+    if current_step >= end_step:
+        return end_e
+    else:
+        return current_step*(end_e-start_e)/end_step + start_e
 
-    # sched = np.arange(start_e, end_e, step = -(start_e - end_e) / ( exploration_fraction * total_timesteps))
-    
-    # sched = np.concatenate([sched, [end_e] * (total_timesteps - sched.shape[0])])
-
-    # return sched[current_step]
-
-    return start_e + (end_e - start_e) * min(current_step / (exploration_fraction * total_timesteps), 1)
 
 epsilons = [
     linear_schedule(step, start_e=1.0, end_e=0.05, exploration_fraction=0.5, total_timesteps=500)
@@ -558,7 +535,8 @@ line(epsilons, labels={"x": "steps", "y": "epsilon"}, title="Probability of rand
 
 tests.test_linear_schedule(linear_schedule)
 
-#%%
+
+# %%
 def epsilon_greedy_policy(
     envs: gym.vector.SyncVectorEnv, q_network: QNetwork, rng: Generator, obs: t.Tensor, epsilon: float
 ) -> np.ndarray:
@@ -572,11 +550,12 @@ def epsilon_greedy_policy(
         actions: (n_environments, ) the sampled action for each environment.
     '''
     if rng.random() < epsilon:
-        return rng.integers(0, envs.single_action_space.n, envs.num_envs)
-    else:
-        return q_network(obs).argmax(-1).detach().cpu().numpy()
+        return rng.integers(0,envs.single_action_space.n, envs.num_envs)
+    actions = t.argmax(q_network(obs), dim=1)
+    return np.array(actions)
 
 tests.test_epsilon_greedy_policy(epsilon_greedy_policy)
+
 
 # %%
 ObsType = np.ndarray
@@ -608,13 +587,117 @@ class Probe1(gym.Env):
         if return_info:
             return (np.array([0.0]), {})
         return np.array([0.0])
-    
 
 
 gym.envs.registration.register(id="Probe1-v0", entry_point=Probe1)
 env = gym.make("Probe1-v0")
 assert env.observation_space.shape == (1,)
 assert env.action_space.shape == ()
+
+
+# %%
+class Probe2(gym.Env):
+    '''One action, observation of [-1.0] or [+1.0], one timestep long, reward equals observation.
+
+    We expect the agent to rapidly learn the value of each observation is equal to the observation.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        self.action_space = Discrete(1)
+        self.observation_space = Box(np.array([-1]), np.array([1]))
+        self.reset()
+        self.rng = np.random.default_rng(0)
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        new_state = np.array([-1]) if (self.rng.random() < .5) else np.array([1])
+        reward = new_state
+        done = True
+        return (new_state, reward, done, {})
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        pass
+
+
+gym.envs.registration.register(id="Probe2-v0", entry_point=Probe2)
+
+
+class Probe3(gym.Env):
+    '''One action, [0.0] then [1.0] observation, two timesteps, +1 reward at the end.
+
+    We expect the agent to rapidly learn the discounted value of the initial observation.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        pass
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        pass
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        pass
+
+
+gym.envs.registration.register(id="Probe3-v0", entry_point=Probe3)
+
+
+class Probe4(gym.Env):
+    '''Two actions, [0.0] observation, one timestep, reward is -1.0 or +1.0 dependent on the action.
+
+    We expect the agent to learn to choose the +1.0 action.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        pass
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        pass
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        pass
+
+
+gym.envs.registration.register(id="Probe4-v0", entry_point=Probe4)
+
+
+class Probe5(gym.Env):
+    '''Two actions, random 0/1 observation, one timestep, reward is 1 if action equals observation otherwise -1.
+
+    We expect the agent to learn to match its action to the observation.
+    '''
+
+    action_space: Discrete
+    observation_space: Box
+
+    def __init__(self):
+        pass
+
+    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+        pass
+
+    def reset(
+        self, seed: Optional[int] = None, return_info=False, options=None
+    ) -> Union[ObsType, Tuple[ObsType, dict]]:
+        pass
+
+
+gym.envs.registration.register(id="Probe5-v0", entry_point=Probe5)
+
+
 # %%
 @dataclass
 class DQNArgs:
@@ -647,6 +730,8 @@ class DQNArgs:
 
 args = DQNArgs(batch_size=256)
 utils.arg_help(args)
+
+
 # %%
 class DQNAgent:
     '''Base Agent class handeling the interaction with the environment.'''
@@ -664,9 +749,8 @@ class DQNAgent:
         self.args = args
         self.rb = rb
         self.next_obs = self.envs.reset() # Need a starting observation!
-        # print(self.next_obs)
-        self.epsilon = args.start_e
         self.steps = 0
+        self.epsilon = args.start_e
         self.q_network = q_network
         self.target_network = target_network
         self.rng = rng
@@ -677,27 +761,25 @@ class DQNAgent:
 
         Returns `infos` (list of dictionaries containing info we will log).
         '''
-        # print(self.next_obs)
         actions = self.get_actions(self.next_obs)
-        (new_obs, rewards, dones, info) = self.envs.step(actions)
-        self.rb.add(self.next_obs, actions, rewards, dones, new_obs)
-        self.next_obs = new_obs
-        self.steps += 1
+        (next_next_obs, next_rewards, next_dones, infos) = self.envs.step(actions)
+        # print(experiences)
+        # for experience in experiences:
+
+        self.rb.add(self.next_obs, actions, next_rewards, next_dones, next_next_obs)
+        self.next_obs = next_next_obs
+        self.steps+=1
         return infos
-        
 
     def get_actions(self, obs: np.ndarray) -> np.ndarray:
         '''
         Samples actions according to the epsilon-greedy policy using the linear schedule for epsilon.
         '''
-        args = self.args
-        self.epsilon = linear_schedule(self.steps, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
-        obs = t.from_numpy(obs).to(device)
-        actions = epsilon_greedy_policy(self.envs, self.q_network, self.rng, obs, self.epsilon)
-        return actions
-        
-        
-# tests.test_agent(DQNAgent)
+        self.epsilon = linear_schedule(self.steps, self.args.start_e, self.args.end_e, self.args.exploration_fraction, self.args.total_timesteps)
+        return epsilon_greedy_policy(self.envs, self.q_network, self.rng, obs, self.epsilon)
+
+
+tests.test_agent(DQNAgent)
 # %%
 class DQNLightning(pl.LightningModule):
     q_network: QNetwork
@@ -714,22 +796,11 @@ class DQNLightning(pl.LightningModule):
         self.rng = np.random.default_rng(args.seed)
 
         # YOUR CODE HERE!
-        num_actions = self.envs.single_action_space.n
-        obs_shape = self.envs.single_observation_space.shape
-        num_observations = np.array(obs_shape, dtype=int).prod()
-
-        self.q_network = QNetwork(num_observations, num_actions).to(device)
-        self.target_network = QNetwork(num_observations, num_actions).to(device)
-        self.target_network.load_state_dict(self.q_network.state_dict())
-        
+        self.q_network = QNetwork(self.envs.observation_space.n, self.envs.action_space.n)
+        self.target_network = self.q_network.clone()
         self.rb = ReplayBuffer(self.args.buffer_size, self.envs.num_envs, self.args.seed)
         self.agent = DQNAgent(self.envs, self.args, self.rb, self.q_network, self.target_network, self.rng)
-        
-        for _ in range(self.args.buffer_size):
-            self.agent.play_step()
-        
-        self.agent.new_obs = self.envs.reset()
-        self.agent.steps = 0
+
 
     def _log(self, predicted_q_vals: t.Tensor, epsilon: float, loss: Float[Tensor, ""], infos: List[dict]) -> None:
         log_dict = {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}
@@ -741,34 +812,13 @@ class DQNLightning(pl.LightningModule):
 
     def training_step(self, batch: Any) -> Float[Tensor, ""]:
         # YOUR CODE HERE!
-        for _ in range(self.args.train_frequency):
-            infos = self.agent.play_step()
-            
-        batch = self.rb.sample(sample_size = self.args.batch_size, device = device)
-        obs, acts, rewards, dones, next_obs = batch.observations, batch.actions, batch.rewards, batch.dones, batch.next_observations
         
-        
-        # print(self.target_network(next_obs))        
-        # print(t.max(self.target_network(next_obs), axis = 1))
-        # print(np.max(self.target_network(next_obs).detach(), axis = 1))
 
-        with t.inference_mode():
-            self.target_network.requires_grad_(False)
-            y = rewards + self.args.gamma * self.target_network(next_obs).max(-1).values * (~dones)
-        predicted_q_vals = self.q_network(obs)[:, acts]
-        loss = ((y - predicted_q_vals)**2).mean()
-        
-        if not (self.agent.steps % self.args.log_frequency):
-            self._log(predicted_q_vals, self.agent.epsilon, loss, infos)
-        
-        if not (self.agent.steps % self.args.target_network_frequency):
-            self.target_network.load_state_dict(self.q_network.state_dict())
-            
-        return loss
 
     def configure_optimizers(self):
         # YOUR CODE HERE!
-        return t.optim.Adam(self.q_network.parameters(), lr = self.args.learning_rate)
+        pass
+
 
     def on_train_epoch_end(self):
         obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
@@ -789,46 +839,3 @@ class DQNLightning(pl.LightningModule):
     def train_dataloader(self):
         '''We don't use a trainloader in the traditional sense, so we'll just have this.'''
         return range(self.args.total_training_steps)
-#%%
-probe_idx = 1
-
-args = DQNArgs(
-    env_id=f"Probe{probe_idx}-v0",
-    exp_name=f"test-probe-{probe_idx}", 
-    total_timesteps=3000,
-    learning_rate=0.001,
-    buffer_size=500,
-    capture_video=False,
-    use_wandb=False
-)
-model = DQNLightning(args).to(device)
-logger = CSVLogger(save_dir=args.log_dir, name=model.run_name)
-
-trainer = pl.Trainer(
-    max_steps=args.total_training_steps,
-    logger=logger,
-    log_every_n_steps=1,
-)
-trainer.fit(model=model)
-
-metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-px.line(metrics, y="q_values", labels={"x": "Step"}, title="Probe 1 (if you're seeing this, then you passed the tests!)", width=600, height=400)
-
-# %%
-wandb.finish()
-
-args = DQNArgs()
-logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
-model = DQNLightning(args).to(device)
-
-trainer = pl.Trainer(
-    max_epochs=1,
-    max_steps=args.total_timesteps,
-    logger=logger,
-    log_every_n_steps=args.log_frequency,
-)
-trainer.fit(model=model)# %%
-QNetwork(4, 2)
-
-# %%
