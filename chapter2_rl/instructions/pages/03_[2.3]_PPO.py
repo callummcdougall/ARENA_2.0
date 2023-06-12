@@ -852,7 +852,9 @@ You can define a `Categorical` object by passing in `logits` (the output of the 
 * Calculate the logprobs of a given action using the `log_prob` method (with the actions you took as input argument to this method).
 </details>
 
-An additional note - for this exercise and others to follow, there's a trade-off in the test functions between being strict and being lax. Too lax and the tests will let failures pass; too strict and they might fail for odd reasons even if your code is mostly correct. If you find youself continually failing tests then you should ask a TA for help.
+For this exercise and others to follow, there's a trade-off in the test functions between being strict and being lax. Too lax and the tests will let failures pass; too strict and they might fail for odd reasons even if your code is mostly correct. If you find youself continually failing tests then you should ask a TA for help.
+
+**Note** - `PPOAgent` subclasses `nn.Module` so that we can call `agent.parameters()` to get the parameters of the actor and critic networks, and feed these params into our optimizer.
 
 
 ```python
