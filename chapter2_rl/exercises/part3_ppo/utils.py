@@ -158,6 +158,7 @@ def arg_help(args: Optional[PPOArgs], print_df=False):
     df["default value"] = [repr(getattr(args, name)) for name in df.index]
     df.index.name = "arg"
     df = df[["default value", "description"]]
+    df = df.sort_index()
     if print_df:
         df.insert(1, "changed?", ["yes" if i in changed_args else "" for i in df.index])
         with pd.option_context(
