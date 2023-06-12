@@ -151,7 +151,7 @@ def compute_advantages(
     last_gaelam = 0
     for t_ in reversed(range(n_steps)):
         if t_ == n_steps - 1:
-            nextnonterminal = 1.0 - next_done
+            nextnonterminal = 1.0 - next_done.int()
             nextvalues = next_value
         else:
             nextnonterminal = 1.0 - dones[t_ + 1]
@@ -455,3 +455,134 @@ def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float
 
 
 tests.test_ppo_scheduler(PPOScheduler)
+# %%
+class MyDataset(Dataset):
+    def __init__(self, batches: List[ReplayBufferSamples]):
+        self.batches = batches
+
+    def __len__(self):
+        return len(self.batches)
+
+    def __getitem__(self, idx):
+        return self.batches[idx]
+
+
+class PPOLightning(pl.LightningModule):
+    agent: PPOAgent
+
+    def __init__(self, args: PPOArgs):
+        super().__init__()
+        self.args = args
+        set_global_seeds(args.seed)
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
+        self.agent = PPOAgent(self.args, self.envs).to(device)
+        self.rollout_phase()
+
+
+    def on_train_epoch_end(self) -> None:
+        self.rollout_phase()
+
+
+    def rollout_phase(self) -> None:
+        '''Should populate the replay buffer with new experiences.'''
+        all_infos = []
+        for step in range(self.args.num_steps):
+            infos = self.agent.play_step()
+            all_infos.extend(infos)
+        for info in all_infos:
+            if "episode" in info.keys():
+                self.log("episodic_return", info["episode"]["r"])
+                self.log("episodic_length", info["episode"]["l"])
+                if self.agent.steps <= self.args.total_timesteps:
+                    print(f"Global Step {self.agent.steps}/{self.args.total_timesteps}, Episode length: {info['episode']['l']:<3}", end="\r")
+                break
+        
+
+    def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
+        '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+        #   3 components:
+        #   *   calc_clipped_surogare_objective
+        #   *   value_function_loss        
+        #   *   entropy bonus
+        
+        obs, dones, actions, logprobs, advantages, returns = minibatch.obs, minibatch.dones, minibatch.actions, minibatch.logprobs, minibatch.advantages, minibatch.returns 
+        
+        action_logits = self.agent.actor(obs)
+        
+        
+        probs = Categorical(logits=action_logits)
+        
+        clip = calc_clipped_surrogate_objective(
+            probs,
+            actions,
+            advantages,
+            logprobs,
+            self.args.clip_coef,
+        )
+        
+        values = self.agent.critic(obs).squeeze()
+        loss = calc_value_function_loss(values, returns, self.args.vf_coef)
+        entropy_bonus = calc_entropy_bonus(probs, self.args.ent_coef)
+
+        return entropy_bonus + clip - loss
+
+    def configure_optimizers(self):
+        '''Returns optimizer and scheduler (sets scheduler as attribute, so we can call self.scheduler.step() during each training step)'''
+        optimizer, scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+        self.scheduler = scheduler 
+        return optimizer
+
+
+    def train_dataloader(self):
+        return MyDataset(self.agent.get_minibatches())
+# %%
+probe_idx = 1
+
+# Define a set of arguments for our probe experiment
+args = PPOArgs(
+    env_id=f"Probe{probe_idx}-v0",
+    exp_name=f"test-probe-{probe_idx}", 
+    total_timesteps=10000 if probe_idx <= 3 else 30000,
+    learning_rate=0.001,
+    capture_video=False,
+    use_wandb=False,
+)
+model = PPOLightning(args).to(device)
+logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+
+# Run our experiment
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=10,
+    gradient_clip_val=args.max_grad_norm,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False,
+)
+trainer.fit(model=model)
+
+# Check that our final results were the ones we expected from this probe
+obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
+expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+model.to(device)
+with t.inference_mode():
+    value = model.agent.critic(obs)
+    probs = model.agent.actor(obs).softmax(-1)
+expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+expected_probs = expected_probs_for_probes[probe_idx-1]
+if expected_probs is not None:
+    t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
+print("Probe tests passed!")
+
+# Use the code below to inspect your most recent logged results
+try:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    metrics.tail()
+except:
+    print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
+# %%
