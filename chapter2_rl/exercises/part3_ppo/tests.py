@@ -12,7 +12,7 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu")
 Arr = np.ndarray
 
 from part1_intro_to_rl.utils import make_env
-# import part3_ppo.solutions_old as solutions_old
+# import part3_ppo.solutions as solutions
 
 def test_get_actor_and_critic(get_actor_and_critic):
     import part3_ppo.solutions as solutions
@@ -28,6 +28,16 @@ def test_get_actor_and_critic(get_actor_and_critic):
         if "bias" in name:
             t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
     print("All tests in `test_agent` passed!")
+
+def test_minibatch_indexes(minibatch_indexes):
+    rng = np.random.default_rng(0)
+    batch_size = 16
+    minibatch_size = 4
+    indexes = minibatch_indexes(rng, batch_size, minibatch_size)
+    assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
+    assert sorted(np.unique(indexes)) == list(range(batch_size))
+    print("All tests in `test_minibatch_indexes` passed!")
+
 
 def test_compute_advantages_single(compute_advantages, dones_false, single_env):
     import part3_ppo.solutions as solutions
@@ -45,10 +55,9 @@ def test_compute_advantages_single(compute_advantages, dones_false, single_env):
     rewards = t.randn(t_, env_)
     values = t.randn(t_, env_)
     dones = t.zeros(t_, env_) if dones_false else t.randint(0, 2, (t_, env_))
-    device = t.device("cpu")
     gamma = 0.95
     gae_lambda = 0.9
-    args = (next_value, next_done, rewards, values, dones, device, gamma, gae_lambda)
+    args = (next_value, next_done, rewards, values, dones, gamma, gae_lambda)
     actual = compute_advantages(*args)
     expected = solutions.compute_advantages(*args)
     # print(actual, expected)
@@ -63,46 +72,36 @@ def test_compute_advantages(compute_advantages):
 
 
 
-def test_ppo_agent(PPOAgent):
+def test_ppo_agent(my_PPOAgent):
     import part3_ppo.solutions as solutions
     
     args = solutions.PPOArgs(use_wandb=False, capture_video=False)
     set_global_seeds(args.seed)
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, i, args.capture_video, None) for i in range(4)])
-    num_actions = envs.single_action_space.n
-    obs_shape = envs.single_observation_space.shape
-    num_observations = np.array(obs_shape, dtype=int).prod()
-    rng = np.random.default_rng(args.seed)
-    next_obs = t.tensor(rng.random((envs.num_envs,) + obs_shape)).to(device)
-    next_done = t.zeros(envs.num_envs).to(device, dtype=t.float)
-    next_value = t.tensor(rng.random(envs.num_envs)).to(device)
-    replay_buffer = solutions.ReplayBuffer(args.num_steps, len(envs.envs), args.seed, args.gamma, args.gae_lambda, next_obs, next_done, next_value)
-    agent_solns = solutions.PPOAgent(envs, replay_buffer)
+    agent_solns = solutions.PPOAgent(args, envs)
     for step in range(5):
         infos_solns = agent_solns.play_step()
     
     set_global_seeds(args.seed)
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, i, args.capture_video, None) for i in range(4)])
-    rng = np.random.default_rng(args.seed)
-    next_obs = t.tensor(rng.random((envs.num_envs,) + obs_shape)).to(device)
-    next_done = t.zeros(envs.num_envs).to(device, dtype=t.float)
-    next_value = t.tensor(rng.random(envs.num_envs)).to(device)
-    replay_buffer = solutions.ReplayBuffer(args.num_steps, len(envs.envs), args.seed, args.gamma, args.gae_lambda, next_obs, next_done, next_value)
-    agent = PPOAgent(envs, replay_buffer)
+    agent: solutions.PPOAgent = my_PPOAgent(args, envs)
     agent.critic = copy.deepcopy(agent_solns.critic)
     agent.actor = copy.deepcopy(agent_solns.actor)
     for step in range(5):
         infos = agent.play_step()
     
-    assert agent.steps == 5, f"Agent did not take the expected number of steps: expected step=5, got {agent.step}."
+    assert agent.steps == 20, f"Agent did not take the expected number of steps: expected steps = n_steps*num_envs = 5*4 = 20, got {agent.steps}."
 
-    assert (agent.rb.logprobs <= 0).all(), f"Agent's logprobs are not all negative."
+    obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*agent.rb.experiences)]
+    expected_obs, expected_dones, expected_actions, expected_logprobs, expected_values, expected_rewards = [t.stack(arr).to(device) for arr in zip(*agent.rb.experiences)]
 
-    t.testing.assert_close(agent.rb.actions, agent_solns.rb.actions, msg="`actions` for agent and agent solns don't match. Make sure you're sampling actions from your actor network's logit distribution (while in inference mode).")
-    t.testing.assert_close(agent.rb.values, agent_solns.rb.values, msg="`values` for agent and agent solns don't match. Make sure you're compute values in inference mode, by passing `self.next_obs` into the critic.")
+    assert (logprobs <= 0).all(), f"Agent's logprobs are not all negative."
+    t.testing.assert_close(actions.cpu(), expected_actions.cpu(), msg="`actions` for agent and agent solns don't match. Make sure you're sampling actions from your actor network's logit distribution (while in inference mode).")
+    t.testing.assert_close(values.cpu(), expected_values.cpu(), msg="`values` for agent and agent solns don't match. Make sure you're compute values in inference mode, by passing `self.next_obs` into the critic.")
 
 
     print("All tests in `test_agent` passed!")
+
 
 
 
@@ -134,9 +133,7 @@ def test_calc_value_function_loss(calc_value_function_loss):
     with t.inference_mode():
         expected = solutions.calc_value_function_loss(values, mb_returns, vf_coef)
         actual = calc_value_function_loss(values, mb_returns, vf_coef)
-    if (actual - expected).abs() < 1e-4:
-        print("All tests in `test_calc_value_function_loss` passed!")
-    elif (0.5*actual - expected).abs() < 1e-4:
+    if ((actual - expected).abs() > 1e-4) and (0.5*actual - expected).abs() < 1e-4:
         raise Exception("Your result was half the expected value. Did you forget to use a factor of 1/2 in the mean squared difference?")
     t.testing.assert_close(actual, expected)
     print("All tests in `test_calc_value_function_loss` passed!")
@@ -149,13 +146,16 @@ def test_calc_entropy_bonus(calc_entropy_bonus):
     t.testing.assert_close(expected, actual)
     print("All tests in `test_calc_entropy_bonus` passed!")
 
-def test_minibatch_indexes(minibatch_indexes):
-    for n in range(5):
-        frac, minibatch_size = np.random.randint(1, 8, size=(2,))
-        batch_size = frac * minibatch_size
-        indices = minibatch_indexes(batch_size, minibatch_size)
-        assert any([isinstance(indices, list), isinstance(indices, np.ndarray)])
-        assert isinstance(indices[0], np.ndarray)
-        assert len(indices) == frac
-        np.testing.assert_equal(np.sort(np.stack(indices).flatten()), np.arange(batch_size))
-    print("All tests in `test_minibatch_indexes` passed!")
+
+def test_ppo_scheduler(PPOScheduler):
+    import part3_ppo.solutions as solutions
+
+    args = solutions.PPOArgs()
+    envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test") for i in range(4)])
+    agent = solutions.PPOAgent(args, envs)
+    optimizer, scheduler = solutions.make_optimizer(agent, 100, 0.01, 0.5)
+
+    scheduler.step()
+    assert (scheduler.n_step_calls == 1)
+    assert abs(optimizer.param_groups[0]["lr"] - 0.02)
+    print("All tests in `test_ppo_scheduler` passed!")

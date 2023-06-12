@@ -51,7 +51,7 @@ This section is designed to get you familiar with basic neural networks: how the
 
 Now, we deal with situations where the environment is a black-box, and the agent must learn the rules of the world via interaction with it. This is different from everything else we've done so far, e.g. in the previous section we could calculate optimal policies by using the tensors $R$ and $T$, which we will now assume the agent doesn't have direct knowledge of.
 
-We call algorithms which have access to the transition probability distribution and reward function **model-based algorithms**. **Q-learning** is a **model-free algorithm**. From the original paper introducing Q-learning:
+From the original paper introducing Q-learning:
 
 *[Q-learning] provides agents with the capability of learning to act optimally in Markovian domains by experiencing the consequences of actions, without requiring them to build maps of the domains.*
 
@@ -203,7 +203,7 @@ The "Q" part of Q-learning refers to the function $Q$ which we encountered yeste
 
 Don't worry about absorbing every detail, we will repeat a lot of the details here. Don't worry too much about the maths, we will also cover that here.
 
-- [Sutton and Barto](https://web.stanford.edu/class/psych209/Readings/SuttonBartoIPRLBook2ndEd.pdf)
+- [Sutton and Barto](https://www.andrew.cmu.edu/course/10-703/textbook/BartoSutton.pdf)
     - Chapter 6, Section 6.1, 6.3 (Especially Example 6.4)
     - Note that Section 6.1 talks about temporal difference (TD) updates for the value function $V$. We will instead be using TD updates for the Q-value $Q$.
     - Don't worry about the references to Monte Carlo in Chapter 5.
@@ -528,7 +528,7 @@ where
 
 So, for any particular episode $s_0, a_0, r_1, s_1, a_1, r_2, s_2, a_2, r_3,\ldots$ we have that
 *on average* the value of $Q^*(s_t, a_t)$ should be equal to the *actual reward*
-$r_t$ recieved when choosing action $a_t$ in state $s_t$, plus $\gamma$ times the
+$r_{t+1}$ recieved when choosing action $a_t$ in state $s_t$, plus $\gamma$ times the
 Q-value of the next state $s_{t+1}$ and next action $a_{t+1}$.
 $$
 Q^*(s_t,a_t) =
@@ -637,7 +637,7 @@ while not done:
 <details>
 <summary>What output should I expect to see?</summary>
 
-
+SARSA should outperform Q-Learning (by a lot at first, then this gap will narrow). They should both be slightly worse than the cheater, and *much* better than the random agent.
 </details>
 
 
@@ -663,7 +663,7 @@ class SARSA(EpsilonGreedy):
     def observe(self, exp: Experience):
         pass
 
-    def run_episode(self, seed) -> List[int]:
+    def run_episode(self, seed) -> List[float]:
         pass
 
 
@@ -722,7 +722,7 @@ class SARSA(EpsilonGreedy):
         s, a, r_new, s_new, a_new = exp.obs, exp.act, exp.reward, exp.new_obs, exp.new_act
         self.Q[s,a] += self.config.lr * (r_new + self.gamma * self.Q[s_new, a_new] - self.Q[s, a])
 
-    def run_episode(self, seed) -> List[int]:
+    def run_episode(self, seed) -> List[float]:
         # SOLUTION
         rewards = []
         obs = self.env.reset(seed=seed)
@@ -1051,6 +1051,7 @@ def section_2():
     <li><ul class="contents">
         <li><a class='contents-el' href='#correlated-states'>Correlated States</a></li>
         <li><a class='contents-el' href='#uniform-sampling'>Uniform Sampling</a></li>
+        <li><a class='contents-el' href='#exercise-implement-replaybuffer'><b>Exercise</b> - implement <code>ReplayBuffer</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#environment-resets'>Environment Resets</a></li>
     <li class='margtop'><a class='contents-el' href='#exploration'>Exploration</a></li>
@@ -1279,6 +1280,15 @@ Implement `ReplayBuffer`. It only needs to handle a discrete action space, and y
 
 You should also include objects `self.observations`, `self.actions`, etc in your `ReplayBuffer` class. This is just so that you can plot them against your shuffled replay buffer, and verify that the outputs look reasonable (see the next section).
 
+### Exercise - implement `ReplayBuffer`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 20-30 minutes on this exercise.
+```
+
 
 ```python
 @dataclass
@@ -1438,6 +1448,7 @@ for i in range(256):
             real_next_obs[i] = infos[i]["terminal_observation"]
     rb.add(obs, actions, rewards, dones, next_obs)
     obs = next_obs
+
 
 plot_cartpole_obs_and_dones(rb.observations.flip(0), rb.dones.flip(0))
 
