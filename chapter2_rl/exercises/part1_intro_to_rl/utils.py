@@ -67,7 +67,7 @@ def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: st
                 env = gym.wrappers.RecordVideo(
                     env, 
                     f"videos/{run_name}", 
-                    episode_trigger=lambda x : x % 50 == 0 # Video every 50 runs for env #1
+                    step_trigger=lambda x : x % 50 == 0 # Video every 50 runs for env #1
                 )
         obs = env.reset(seed=seed)
         env.action_space.seed(seed)
