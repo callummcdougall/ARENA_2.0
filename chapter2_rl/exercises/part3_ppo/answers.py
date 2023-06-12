@@ -293,21 +293,6 @@ obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for ar
 
 plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0), show_env_jumps=True)
 # %%
-minibatches = rb.get_minibatches(next_value, next_done)
-
-obs = minibatches[0].obs
-dones = minibatches[0].dones
-
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
-# %%
-minibatches = rb.get_minibatches(next_value, next_done)
-
-obs = minibatches[0].obs
-dones = minibatches[0].dones
-
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
-# %%
-
 class PPOAgent(nn.Module):
     critic: nn.Sequential
     actor: nn.Sequential
