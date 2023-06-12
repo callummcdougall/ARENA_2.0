@@ -1611,8 +1611,11 @@ if expected_probs is not None:
 print("Probe tests passed!")
 
 # Use the code below to inspect your most recent logged results
-metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-metrics.tail()
+try:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    metrics.tail()
+except:
+    print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
 ```
 
 And here's some code to train your full model (making sure we log video!).
