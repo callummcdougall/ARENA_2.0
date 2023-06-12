@@ -28,7 +28,7 @@ def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: st
                 env = gym.wrappers.RecordVideo(
                     env, 
                     f"videos/{run_name}", 
-                    episode_trigger=lambda x : x % 50 == 0 # Video every 50 runs for env #1
+                    step_trigger=lambda x : x % 500 == 0 # Video every 50 runs for env #1
                 )
         obs = env.reset(seed=seed)
         env.action_space.seed(seed)
@@ -190,7 +190,7 @@ def plot_cartpole_obs_and_dones(obs: t.Tensor, done: t.Tensor):
     obs = rearrange(obs, "step env ... -> (env step) ...").cpu().numpy()
     done = rearrange(done, "step env -> (env step)").cpu().numpy()
     done_indices = np.nonzero(done)[0]
-    fig = make_subplots(rows=2, cols=1, subplot_titles=["Cart x-position", "Cart angle"])
+    fig = make_subplots(rows=2, cols=1, subplot_titles=["Cart x-position", "Pole angle"])
     fig.update_layout(template="simple_white", title="CartPole experiences (dotted lines = termination)", showlegend=False)
     d = dict(zip(['posn', 'speed', 'angle', 'angular_velocity'], obs.T))
     d["posn_min"] = np.full_like(d["posn"], -2.4)

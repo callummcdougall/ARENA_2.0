@@ -51,9 +51,9 @@ You can toggle dark mode from the buttons on the top-right of this page.
 
 ## Introduction
 
+Proximal Policy Optimization (PPO) is a cutting-edge reinforcement learning algorithm that has gained significant attention in recent years. As an improvement over traditional policy optimization methods, PPO addresses key challenges such as sample efficiency, stability, and robustness in training deep neural networks for reinforcement learning tasks. With its ability to strike a balance between exploration and exploitation, PPO has demonstrated remarkable performance across a wide range of complex environments, including robotics, game playing, and autonomous control systems.
 
-This section is designed to get you familiar with basic neural networks: how they are structured, the basic operations like linear layers and convolutions which go into making them, and why they work as well as they do. You'll be using libraries like `einops`, and functions like `torch.as_strided` to get a very low-level picture of how these operations work, which will help build up your overall understanding.
-
+In this section, you'll build your own agent to perform PPO on the CartPole environment. By the end, you should be able to train your agent to near perfect performance in about 30 seconds. You'll also be able to try out other things like **reward shaping**, to make it easier for your agent to learn to balance, or to do fun tricks!
 
 ## Content & Learning Objectives
 
@@ -93,7 +93,7 @@ Today, we'll be working on PPO (Proximal Policy Optimization). It has some simil
 | What do we learn?                      | We learn the Q-function $Q(s, a)$.                                                                                                                                                                                                      | We learn the policy function $\pi(a \mid s)$.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | What networks do we have?              | Our network `q_network` takes $s$ as inputs, and outputs the Q-values for each possible action $a$.  We also had a `target_network`, although this was just a lagged version of `q_network` rather than one that actually gets trained. | We have two networks: `actor` which learns the policy function, and `critic` which learns the value function $V(s)$. These two work in tandem: the `actor` requires the `critic`'s output in order to estimate the policy gradient and perform gradient ascent, and the `critic` tries to learn the value function of the `actor`'s current policy.                                                                                                               |
 | Where do our gradients come from?      | We do gradient descent on the squared **TD residual**, i.e. the residual of the Bellman equation (which is only satisfied if we've found the true Q-function).                                                               | For our `actor`, we do gradient ascent on an estimate of the time-discounted future reward stream (i.e. we're directly moving up the **policy gradient**; changing our policy in a way which will lead to higher expected reward). Our `critic` trains by minimising the TD residual.                                                                                                                                                                                                                                                |
-| Techniques to improve stability?       | We use a "lagged copy" of our network to sample actions from; in this way we don't update too fast after only having seen a small number of possible states. In the DQN code, this was `q_network` and `target_network`.                | We use a "lagged copy" of our network to sample actions from; in this way we don't update too fast after only having seen a small number of possible states. In the mathematical notation, this is $\theta$ and $\theta_{\text{old}}$. In the code, we won't actually need to make a different network for this.  We clip the objective function to make sure large policy changes aren't incentivised past a certain point (this is the "proximal" part of PPO). |
+| Techniques to improve stability?       | We use a "lagged copy" of our network to sample actions from; in this way we don't update too fast after only having seen a small number of possible states. In the DQN code, this was `q_network` and `target_network`.                | We use a "lagged copy" of our network to sample actions from. In the mathematical notation, this is $\theta$ and $\theta_{\text{old}}$. In the code, we won't actually need to make a different network for this.  We clip the objective function to make sure large policy changes aren't incentivised past a certain point (this is the "proximal" part of PPO). |
 | Suitable for continuous action spaces? | No. Our Q-function $Q$ is implemented as a network which takes in states and returns Q-values for each discrete action. It's not even good for large action spaces!                                                                     | Yes. Our policy function $\pi$ can take continuous argument $a$. |
 
 <br>
@@ -455,7 +455,7 @@ Remember that the sum in $(11)$ should be truncated at the first instance when t
 Difficulty: 🟠🟠🟠🟠⚪
 Importance: 🟠🟠🟠⚪⚪
 
-You should spend up to 20-30 minutes on this exercise.
+You should spend up to 20-40 minutes on this exercise.
 ```
 
 ```python
@@ -612,6 +612,9 @@ Understanding this is very conceptually important.
 
 **Read the [PPO Algorithms paper](https://arxiv.org/pdf/1707.06347.pdf) and the [PPO Implementational Details post](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#solving-pong-in-5-minutes-with-ppo--envpool), then try and figure out what each of the six items in `ReplayBufferSamples` are and why they are necessary.** If you prefer, you can return to these once you've implmemented all the loss functions (when it might make a bit more sense).
 
+Note - we've omitted `values` because they aren't actually used in the learning phase (i.e. we never use them directly in our loss functions). The reason we add them to our `ReplayBufferSamples` is just for logging.
+
+
 <details>
 <summary>obs</summary>
 
@@ -655,20 +658,12 @@ We mentioned above that `returns = advantages + values`. Returns are used for ca
 
 </details>
 
-<details>
-<summary>values</summary>
-
-`values` are the outputs of our `agent.critic` network (generated during rollout).
-
-During the learning phase, we compute `returns = advantages + values`, and minimize the squared residual between this and the (new) outputs of our `agent.critic` network.
-
-</details>
-
 
 
 A few notes on the code below:
 
 * The logic to compute `advantages` and `returns` is all contained in the `get_minibatches` method. You should read through this method and make sure you understand what's being computed and why.
+    * We store slightly different things in our `ReplayBufferSamples` than we do in our `experiences` list in the replay buffer. The `ReplayBufferSamples` object stores **things we actually use for training**, which are computed **from** the things in the `experiences` list. (For instance, we need `returns`, but not `rewards`, in the learning phase).
 * We will take the output of the `get_minibatches` method as our dataset (i.e. one epoch will be us iterating through the minibatches returned by this method). The diagram below illustrates how we take our sampled experiences and turn them into minibatches for training.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo-buffer-sampling-3.png" width="1200">
@@ -709,7 +704,7 @@ class ReplayBuffer:
         self.experiences = []
 
 
-    def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
+    def add(self, obs: t.Tensor, actions: t.Tensor, rewards: t.Tensor, dones: t.Tensor, logprobs: t.Tensor, values: t.Tensor) -> None:
         '''
         obs: shape (n_envs, *observation_shape) 
             Observation before the action
@@ -790,7 +785,7 @@ for i in range(args.num_steps):
 
 obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
 
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0), show_env_jumps=True)
+plot_cartpole_obs_and_dones(obs, dones, show_env_jumps=True)
 ```
 
 The next code shows **a single minibatch**, sampled from this replay buffer.
@@ -802,7 +797,7 @@ minibatches = rb.get_minibatches(next_value, next_done)
 obs = minibatches[0].obs
 dones = minibatches[0].dones
 
-plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
+plot_cartpole_obs_and_dones(obs, dones)
 ```
 
 ## PPOAgent
@@ -851,7 +846,9 @@ You can define a `Categorical` object by passing in `logits` (the output of the 
 * Calculate the logprobs of a given action using the `log_prob` method (with the actions you took as input argument to this method).
 </details>
 
-An additional note - for this exercise and others to follow, there's a trade-off in the test functions between being strict and being lax. Too lax and the tests will let failures pass; too strict and they might fail for odd reasons even if your code is mostly correct. If you find youself continually failing tests then you should ask a TA for help.
+For this exercise and others to follow, there's a trade-off in the test functions between being strict and being lax. Too lax and the tests will let failures pass; too strict and they might fail for odd reasons even if your code is mostly correct. If you find youself continually failing tests then you should ask a TA for help.
+
+**Note** - `PPOAgent` subclasses `nn.Module` so that we can call `agent.parameters()` to get the parameters of the actor and critic networks, and feed these params into our optimizer.
 
 
 ```python
@@ -1194,7 +1191,7 @@ Question: in CartPole, what are the minimum and maximum values that entropy can 
 
 The minimum entropy is zero, under the policy "always move left" or "always move right".
 
-The minimum entropy is $\ln(2) \approx 0.693$ under the uniform random policy over the 2 actions.
+The maximum entropy is $\ln(2) \approx 0.693$ under the uniform random policy over the 2 actions.
 </details>
 
 Separately from its role in the loss function, the entropy of our action distribution is a useful diagnostic to have: if the entropy of agent's actions is near the maximum, it's playing nearly randomly which means it isn't learning anything (assuming the optimal policy isn't random). If it is near the minimum especially early in training, then the agent might not be exploring enough.
@@ -1277,7 +1274,7 @@ class PPOScheduler:
         '''
         pass
 
-def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> tuple[optim.Adam, PPOScheduler]:
+def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
     '''Return an appropriately configured Adam with its attached scheduler.'''
     optimizer = optim.Adam(agent.parameters(), lr=initial_lr, eps=1e-5, maximize=True)
     scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
@@ -1311,7 +1308,7 @@ class PPOScheduler:
             param_group["lr"] = self.initial_lr + frac * (self.end_lr - self.initial_lr)
 
 
-def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> tuple[optim.Adam, PPOScheduler]:
+def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
     '''Return an appropriately configured Adam with its attached scheduler.'''
     optimizer = optim.Adam(agent.parameters(), lr=initial_lr, eps=1e-5, maximize=True)
     scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
@@ -1608,8 +1605,11 @@ if expected_probs is not None:
 print("Probe tests passed!")
 
 # Use the code below to inspect your most recent logged results
-metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-metrics.tail()
+try:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    metrics.tail()
+except:
+    print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
 ```
 
 And here's some code to train your full model (making sure we log video!).
@@ -1800,10 +1800,26 @@ trainer.fit(model=model)
 ## Bonus
 
 
-### Continuous Action Spaces
+Here are a few bonus exercises. They're ordered (approximately) from easiest to hardest.
 
-The `MountainCar-v0` environment has discrete actions, but there's also a version `MountainCarContinuous-v0` with continuous action spaces. Unlike DQN, PPO can handle continuous actions with minor modifications. Try to adapt your agent; you'll need to handle `gym.spaces.Box` instead of `gym.spaces.Discrete` and make note of the "9 details for continuous action domains" section of the reading.
+### Trust Region Methods
 
+Some versions of the PPO algorithm use a slightly different objective function. Rather than our clipped surrogate objective, they use constrained optimization (maximising the surrogate objective subject to a restriction on the [KL divergence](https://www.lesswrong.com/posts/no5jDTut5Byjqb4j5/six-and-a-half-intuitions-for-kl-divergence) between the old and new policies). 
+
+$$
+\underset{\theta}{\operatorname{maximize}} \hat{\mathbb{E}}_t\left[\frac{\pi_\theta\left(a_t \mid s_t\right)}{\pi_{\theta_{\text {old }}}\left(a_t \mid s_t\right)} \hat{A}_t-\beta \mathrm{KL}\left[\pi_{\theta_{\text {old }}}\left(\cdot \mid s_t\right), \pi_\theta\left(\cdot \mid s_t\right)\right]\right]
+$$
+
+Can you implement this? Does this approach work better than the clipped surrogate objective? What values of $\beta$ work best?
+
+### Long-term replay buffer
+
+Above, we discussed the problem of **catastrophic forgetting** (where the agent forgets how to recover from bad behaviour, because the buffer only contains good behaviour). One way to fix this is to have a long-term replay buffer, for instance:
+
+* (simple version) You reserve e.g. 10% of your buffer for experiences generated at the start of training.
+* (galaxy-brained version) You design a custom scheduled method for removing experiences from the buffer, so that you always have a mix of old and new experiences.
+
+Can you implement one of these, and does it fix the catastrophic forgetting problem?
 
 ### Vectorized Advantage Calculation
 
@@ -1811,21 +1827,34 @@ Try optimizing away the for-loop in your advantage calculation. It's tricky, so 
 
 There are solutions available in `solutions.py` (commented out).
 
+### Other environments
 
-### Atari
+Two environments (supported by gym) which you might like to try are:
+
+* [`Acrobot-v1`](https://www.gymlibrary.dev/environments/classic_control/acrobot/) - this is one of the [Classic Control environments](https://www.gymlibrary.dev/environments/classic_control/), and it's a bit harder to learn than cartpole.
+* [`MountainCar-v0`](https://www.gymlibrary.dev/environments/classic_control/mountain_car/) - this is one of the [Classic Control environments](https://www.gymlibrary.dev/environments/classic_control/), and it's much harder to learn than cartpole. This is primarily because of **sparse rewards** (it's really hard to get to the top of the hill), so you'll definitely need reward shaping to get through it!
+* [`LunarLander-v2`](https://www.gymlibrary.dev/environments/box2d/lunar_lander/) - this is part of the [Box2d](https://www.gymlibrary.dev/environments/box2d/) environments. It's a bit harder still, because of the added environmental complexity (physics like gravity and friction, and constraints like fuel conservatino). The reward is denser (with the agent receiving rewards for moving towards the landing pad and penalties for moving away or crashing), but the increased complexity makes it overall a harder problem to solve. You might have to perform hyperparameter sweeps to find the best implementation (you can go back and look at the syntax for hyperparameter sweeps [here](https://arena-ch0-fundamentals.streamlit.app/[0.4]_Optimization)). Also, [this page](https://pylessons.com/LunarLander-v2-PPO) might be a useful reference (although the details of their implementation differs from the one we used today). You can look at the hyperparameters they used.
+
+### Continuous Action Spaces
+
+The `MountainCar-v0` environment has discrete actions, but there's also a version `MountainCarContinuous-v0` with continuous action spaces. Unlike DQN, PPO can handle continuous actions with minor modifications. Try to adapt your agent; you'll need to handle `gym.spaces.Box` instead of `gym.spaces.Discrete` and make note of the ["9 details for continuous action domains"](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20details%20for%20continuous%20action%20domains) section of the reading.
+
+### [Atari](https://www.gymlibrary.dev/environments/atari/)
 
 The [37 Implementational Details of PPO](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20Atari%2Dspecific%20implementation%20details) post describes how to get PPO working for games like Atari. You've already done a lot of the work here! Try to implement the remaining details and get PPO working on Atari. You'll need to read the Atari-specific implementation details section in the post (and you'll also have to spend some time working with a different library to `gym`). This could be a good capstone project, or just an extended project for the rest of the RL section (after we do RLHF) if you want to get more hands-on engineering experience!
 
+### Multi-Agent PPO
 
-
-
-
+Multi-Agent PPO (MAPPO) is an extension of the standard PPO algorithm which trains multiple agents at once. It was first described in the paper [The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games](https://arxiv.org/abs/2103.01955). Can you implement MAPPO?
 
 """, unsafe_allow_html=True)
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Setting up our agent"),     (section_2, "2️⃣ Learning Phase"),     (section_3, "3️⃣ Training Loop"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Setting up our agent"),
+    (section_2, "2️⃣ Learning Phase"),
+    (section_3, "3️⃣ Training Loop"), 
 ]
 
 func_list = [func for func, page in func_page_list]

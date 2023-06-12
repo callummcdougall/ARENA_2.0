@@ -297,7 +297,7 @@ class ReplayBuffer:
 		self.experiences = []
 
 
-	def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
+	def add(self, obs: t.Tensor, actions: t.Tensor, rewards: t.Tensor, dones: t.Tensor, logprobs: t.Tensor, values: t.Tensor) -> None:
 		'''
 		obs: shape (n_envs, *observation_shape) 
 			Observation before the action
@@ -374,7 +374,7 @@ if MAIN:
 	
 	obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
 	
-	plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0), show_env_jumps=True)
+	plot_cartpole_obs_and_dones(obs, dones, show_env_jumps=True)
 
 # %%
 
@@ -385,7 +385,7 @@ if MAIN:
 	obs = minibatches[0].obs
 	dones = minibatches[0].dones
 	
-	plot_cartpole_obs_and_dones(obs.flip(0), dones.flip(0))
+	plot_cartpole_obs_and_dones(obs, dones)
 
 # %%
 

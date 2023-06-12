@@ -40,9 +40,9 @@ You can toggle dark mode from the buttons on the top-right of this page.
 
 ## Introduction
 
+In this section, you'll implement Deep Q-Learning, often referred to as DQN for "Deep Q-Network". This was used in a landmark paper [Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf).
 
-This section is designed to get you familiar with basic neural networks: how they are structured, the basic operations like linear layers and convolutions which go into making them, and why they work as well as they do. You'll be using libraries like `einops`, and functions like `torch.as_strided` to get a very low-level picture of how these operations work, which will help build up your overall understanding.
-
+At the time, the idea that convolutional neural networks could look at Atari game pixels and "see" gameplay-relevant features like a Space Invader was new and noteworthy. In 2022, we take for granted that convnets work, so we're going to focus on the RL aspect and not the vision aspect today.
 
 ## Content & Learning Objectives
 
@@ -573,9 +573,8 @@ Both `SARSA` and `QLearning` will inherit from `EpsilonGreedy`, and differ in ho
 - Epsilon greedy exploration: with probability `epsilon`, take a random action; otherwise take the action with the highest average observed reward (according to your current Q-value estimates).
     - Remember that your `AgentConfig` object contains epsilon, as well as the optimism value and learning rate.
 - Optimistic initial values: initialize each arm's reward estimate with the `optimism` value.
-- Compare the performance of your Q-learning and SARSA agent again the random and cheating agents.
-- Try and tweak the hyperparameters from the default values of `epsilon = 0.1`, `optimism = 1`, `lr = 0.1` to see what effect this has. How fast can you get your
-agents to perform?
+- Compare the performance of your Q-learning and SARSA agent against the random and cheating agents.
+- Try and tweak the hyperparameters `epsilon`, `lr` and `optimism` from their default values to see what effect this has. How fast can you get your agents to perform?
 
 
 ### Exercise - Implement Q-learning and SARSA
@@ -1442,10 +1441,6 @@ obs = envs.reset()
 for i in range(256):
     actions = np.array([0])
     (next_obs, rewards, dones, infos) = envs.step(actions)
-    real_next_obs = next_obs.copy()
-    for (i, done) in enumerate(dones):
-        if done:
-            real_next_obs[i] = infos[i]["terminal_observation"]
     rb.add(obs, actions, rewards, dones, next_obs)
     obs = next_obs
 
@@ -1589,7 +1584,7 @@ Importance: 🟠🟠🟠⚪⚪
 You should spend up to 10-20 minutes on this exercise.
 ```
 
-- Don't forget to convert the result back to a `np.darray`.
+- Don't forget to convert the result back to a `np.ndarray`.
 - Use `rng.random()` to generate random numbers in the range $[0,1)$, and `rng.integers(0, n, size)` for an array of shape `size` random integers in the range $0, 1, \ldots, n-1$.
 - Use `envs.single_action_space.n` to retrieve the number of possible actions.
 
@@ -2048,7 +2043,7 @@ Note - for this exercise and others to follow, there's a trade-off in the test f
 
 ```python
 class DQNAgent:
-    '''Base Agent class handeling the interaction with the environment.'''
+    '''Base Agent class handling the interaction with the environment.'''
 
     def __init__(
         self, 
