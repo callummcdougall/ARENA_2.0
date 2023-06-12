@@ -368,3 +368,93 @@ class PPOAgent(nn.Module):
 
 tests.test_ppo_agent(PPOAgent)
 # %%
+
+def calc_clipped_surrogate_objective(
+    probs: Categorical, 
+    mb_action: Int[Tensor, "minibatch_size"], 
+    mb_advantages: Float[Tensor, "minibatch_size"], 
+    mb_logprobs: Float[Tensor, "minibatch_size"], 
+    clip_coef: float, 
+    eps: float = 1e-8
+) -> Float[Tensor, ""]:
+    '''Return the clipped surrogate objective, suitable for maximisation with gradient ascent.
+
+    probs:
+        a distribution containing the actor's unnormalized logits of shape (minibatch_size, num_actions)
+    mb_action:
+        what actions actions were taken in the sampled minibatch
+    mb_advantages:
+        advantages calculated from the sampled minibatch
+    mb_logprobs:
+        logprobs of the actions taken in the sampled minibatch (according to the old policy)
+    clip_coef:
+        amount of clipping, denoted by epsilon in Eq 7.
+    eps:
+        used to add to std dev of mb_advantages when normalizing (to avoid dividing by zero)
+    '''
+    assert mb_action.shape == mb_advantages.shape == mb_logprobs.shape    
+    action_probs = probs.probs.gather(1, mb_action.unsqueeze(1)).squeeze(1)
+    old_action_probs = t.exp(mb_logprobs)
+    r_t = action_probs/(old_action_probs + eps)
+    adv_normalized = (mb_advantages - t.mean(mb_advantages)) / (t.std(mb_advantages) + eps)
+    return t.mean(t.min(r_t * adv_normalized, t.clip(r_t, min=1-clip_coef, max=1+clip_coef)*adv_normalized))
+
+
+tests.test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective)
+# %%
+def calc_value_function_loss(
+    values: Float[Tensor, "minibatch_size"],
+    mb_returns: Float[Tensor, "minibatch_size"],
+    vf_coef: float
+) -> Float[Tensor, ""]:
+    '''Compute the value function portion of the loss function.
+
+    values:
+        the value function predictions for the sampled minibatch (using the updated critic network)
+    mb_returns:
+        the target for our updated critic network (computed as `advantages + values` from the old network)
+    vf_coef:
+        the coefficient for the value loss, which weights its contribution to the overall loss. Denoted by c_1 in the paper.
+    '''
+    assert values.shape == mb_returns.shape
+    return vf_coef * 0.5 * (values - mb_returns).pow(2).mean()
+
+
+tests.test_calc_value_function_loss(calc_value_function_loss)
+# %%
+def calc_entropy_bonus(probs: Categorical, ent_coef: float):
+    '''Return the entropy bonus term, suitable for gradient ascent.
+
+    probs:
+        the probability distribution for the current policy
+    ent_coef: 
+        the coefficient for the entropy loss, which weights its contribution to the overall objective function. Denoted by c_2 in the paper.
+    '''
+    return probs.entropy().mean() * ent_coef
+
+
+tests.test_calc_entropy_bonus(calc_entropy_bonus)
+# %%
+class PPOScheduler:
+    def __init__(self, optimizer: Optimizer, initial_lr: float, end_lr: float, total_training_steps: int):
+        self.optimizer = optimizer
+        self.initial_lr = initial_lr
+        self.end_lr = end_lr
+        self.total_training_steps = total_training_steps
+        self.n_step_calls = 0
+
+    def step(self):
+        '''Implement linear learning rate decay so that after total_training_steps calls to step, the learning rate is end_lr.
+        '''
+        print(self.n_step_calls)
+        return self.initial_lr + (self.end_lr - self.initial_lr) * (self.n_step_calls / self.total_training_steps)
+
+def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
+    '''Return an appropriately configured Adam with its attached scheduler.'''
+    optimizer = optim.Adam(agent.parameters(), lr=initial_lr, eps=1e-5, maximize=True)
+    scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
+    return (optimizer, scheduler)
+
+
+tests.test_ppo_scheduler(PPOScheduler)
+# %%
