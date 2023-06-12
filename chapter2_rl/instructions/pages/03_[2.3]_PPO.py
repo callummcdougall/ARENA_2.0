@@ -1191,7 +1191,7 @@ Question: in CartPole, what are the minimum and maximum values that entropy can 
 
 The minimum entropy is zero, under the policy "always move left" or "always move right".
 
-The minimum entropy is $\ln(2) \approx 0.693$ under the uniform random policy over the 2 actions.
+The maximum entropy is $\ln(2) \approx 0.693$ under the uniform random policy over the 2 actions.
 </details>
 
 Separately from its role in the loss function, the entropy of our action distribution is a useful diagnostic to have: if the entropy of agent's actions is near the maximum, it's playing nearly randomly which means it isn't learning anything (assuming the optimal policy isn't random). If it is near the minimum especially early in training, then the agent might not be exploring enough.
