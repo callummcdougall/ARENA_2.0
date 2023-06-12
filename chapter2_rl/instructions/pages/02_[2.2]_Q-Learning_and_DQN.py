@@ -573,7 +573,7 @@ Both `SARSA` and `QLearning` will inherit from `EpsilonGreedy`, and differ in ho
 - Epsilon greedy exploration: with probability `epsilon`, take a random action; otherwise take the action with the highest average observed reward (according to your current Q-value estimates).
     - Remember that your `AgentConfig` object contains epsilon, as well as the optimism value and learning rate.
 - Optimistic initial values: initialize each arm's reward estimate with the `optimism` value.
-- Compare the performance of your Q-learning and SARSA agent again the random and cheating agents.
+- Compare the performance of your Q-learning and SARSA agent against the random and cheating agents.
 - Try and tweak the hyperparameters `epsilon`, `lr` and `optimism` from their default values to see what effect this has. How fast can you get your agents to perform?
 
 
