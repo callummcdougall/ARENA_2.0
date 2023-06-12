@@ -1341,9 +1341,13 @@ def section_3():
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#bonus'>Bonus</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#continuous-action-spaces'>Continuous Action Spaces</a></li>
+        <li><a class='contents-el' href='#trust-region-methods'>Trust Region Methods</a></li>
+        <li><a class='contents-el' href='#long-term-replay-buffer'>Long-term replay buffer</a></li>
         <li><a class='contents-el' href='#vectorized-advantage-calculation'>Vectorized Advantage Calculation</a></li>
+        <li><a class='contents-el' href='#other-environments'>Other environments</a></li>
+        <li><a class='contents-el' href='#continuous-action-spaces'>Continuous Action Spaces</a></li>
         <li><a class='contents-el' href='#atari'>Atari</a></li>
+        <li><a class='contents-el' href='#atari'>Multi-Agent PPO</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -1387,11 +1391,11 @@ It is called on every minibatch (i.e. every `ReplayBufferSamples` dataclass obje
 
 *The solution is 8 lines of code (not including logging or comments).*
 
-#### `on_train_epoch_start`
+#### `rollout_phase`
 
 This implements the **rollout phase**.
 
-It is called at the start of each epoch, before sampling minibatches from the replay buffer. It should fill up the replay buffer (using `agent.play_step` for `args.num_steps` instances).
+This will be called during initialisation and at the end of each epoch (to generate experiences for our next epoch). It should fill up the replay buffer (using `agent.play_step` for `args.num_steps` instances).
 
 *The solution is 4 lines of code (not including logging or comments).*
 

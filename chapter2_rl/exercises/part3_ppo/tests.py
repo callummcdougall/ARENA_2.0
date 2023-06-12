@@ -134,7 +134,7 @@ def test_calc_value_function_loss(calc_value_function_loss):
         expected = solutions.calc_value_function_loss(values, mb_returns, vf_coef)
         actual = calc_value_function_loss(values, mb_returns, vf_coef)
     if ((actual - expected).abs() > 1e-4) and (0.5*actual - expected).abs() < 1e-4:
-        raise Exception("Your result was half the expected value. Did you forget to use a factor of 1/2 in the mean squared difference?")
+        raise Exception("Your result was half the expected value. Did you forget to use a factor of 1/2 in the mean squared difference, or the `vf_coef`?")
     t.testing.assert_close(actual, expected)
     print("All tests in `test_calc_value_function_loss` passed!")
 
@@ -145,7 +145,6 @@ def test_calc_entropy_bonus(calc_entropy_bonus):
     actual = calc_entropy_bonus(probs, ent_coef)
     t.testing.assert_close(expected, actual)
     print("All tests in `test_calc_entropy_bonus` passed!")
-
 
 def test_ppo_scheduler(my_PPOScheduler):
     import part3_ppo.solutions as solutions
