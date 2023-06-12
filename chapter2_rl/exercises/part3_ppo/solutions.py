@@ -557,7 +557,7 @@ class PPOScheduler:
 			param_group["lr"] = self.initial_lr + frac * (self.end_lr - self.initial_lr)
 
 
-def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> tuple[optim.Adam, PPOScheduler]:
+def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
 	'''Return an appropriately configured Adam with its attached scheduler.'''
 	optimizer = optim.Adam(agent.parameters(), lr=initial_lr, eps=1e-5, maximize=True)
 	scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
