@@ -12,7 +12,7 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu")
 Arr = np.ndarray
 
 from part1_intro_to_rl.utils import make_env
-# import part3_ppo.solutions_old as solutions_old
+# import part3_ppo.solutions as solutions
 
 def test_get_actor_and_critic(get_actor_and_critic):
     import part3_ppo.solutions as solutions
@@ -72,7 +72,7 @@ def test_compute_advantages(compute_advantages):
 
 
 
-def test_ppo_agent(PPOAgent):
+def test_ppo_agent(my_PPOAgent):
     import part3_ppo.solutions as solutions
     
     args = solutions.PPOArgs(use_wandb=False, capture_video=False)
@@ -84,21 +84,24 @@ def test_ppo_agent(PPOAgent):
     
     set_global_seeds(args.seed)
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, i, args.capture_video, None) for i in range(4)])
-    agent = PPOAgent(args, envs)
+    agent: solutions.PPOAgent = my_PPOAgent(args, envs)
     agent.critic = copy.deepcopy(agent_solns.critic)
     agent.actor = copy.deepcopy(agent_solns.actor)
     for step in range(5):
         infos = agent.play_step()
     
-    assert agent.steps == 5, f"Agent did not take the expected number of steps: expected step=5, got {agent.step}."
+    assert agent.steps == 20, f"Agent did not take the expected number of steps: expected steps = n_steps*num_envs = 5*4 = 20, got {agent.steps}."
 
-    assert (agent.rb.logprobs <= 0).all(), f"Agent's logprobs are not all negative."
+    obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*agent.rb.experiences)]
+    expected_obs, expected_dones, expected_actions, expected_logprobs, expected_values, expected_rewards = [t.stack(arr).to(device) for arr in zip(*agent.rb.experiences)]
 
-    t.testing.assert_close(agent.rb.actions.cpu(), agent_solns.rb.actions.cpu(), msg="`actions` for agent and agent solns don't match. Make sure you're sampling actions from your actor network's logit distribution (while in inference mode).")
-    t.testing.assert_close(agent.rb.values.cpu(), agent_solns.rb.values.cpu(), msg="`values` for agent and agent solns don't match. Make sure you're compute values in inference mode, by passing `self.next_obs` into the critic.")
+    assert (logprobs <= 0).all(), f"Agent's logprobs are not all negative."
+    t.testing.assert_close(actions.cpu(), expected_actions.cpu(), msg="`actions` for agent and agent solns don't match. Make sure you're sampling actions from your actor network's logit distribution (while in inference mode).")
+    t.testing.assert_close(values.cpu(), expected_values.cpu(), msg="`values` for agent and agent solns don't match. Make sure you're compute values in inference mode, by passing `self.next_obs` into the critic.")
 
 
     print("All tests in `test_agent` passed!")
+
 
 
 
@@ -143,3 +146,16 @@ def test_calc_entropy_bonus(calc_entropy_bonus):
     t.testing.assert_close(expected, actual)
     print("All tests in `test_calc_entropy_bonus` passed!")
 
+
+def test_ppo_scheduler(PPOScheduler):
+    import part3_ppo.solutions as solutions
+
+    args = solutions.PPOArgs()
+    envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test") for i in range(4)])
+    agent = solutions.PPOAgent(args, envs)
+    optimizer, scheduler = solutions.make_optimizer(agent, 100, 0.01, 0.5)
+
+    scheduler.step()
+    assert (scheduler.n_step_calls == 1)
+    assert abs(optimizer.param_groups[0]["lr"] - 0.02)
+    print("All tests in `test_ppo_scheduler` passed!")
