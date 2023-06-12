@@ -124,7 +124,9 @@ def get_actor_and_critic(envs: gym.vector.SyncVectorEnv) -> Tuple[nn.Module, nn.
         t.nn.Tanh(),
         layer_init(t.nn.Linear(in_features=mid_dim, out_features=mid_dim)),
         t.nn.Tanh(),
-        layer_init(t.nn.Linear(in_features=mid_dim, out_features=num_actions), std=final_std),
+        layer_init(
+            t.nn.Linear(in_features=mid_dim, out_features=num_actions), std=final_std
+        ),
     )
 
     critic = t.nn.Sequential(
@@ -142,6 +144,7 @@ tests.test_get_actor_and_critic(get_actor_and_critic)
 
 # %%
 
+
 @t.inference_mode()
 def compute_advantages(
     next_value: t.Tensor,
@@ -152,17 +155,17 @@ def compute_advantages(
     gamma: float,
     gae_lambda: float,
 ) -> t.Tensor:
-    '''Compute advantages using Generalized Advantage Estimation.
+    """Compute advantages using Generalized Advantage Estimation.
     next_value: shape (env,)
     next_done: shape (env,)
     rewards: shape (buffer_size, env)
     values: shape (buffer_size, env)
     dones: shape (buffer_size, env)
     Return: shape (buffer_size, env)
-    '''
+    """
     # A_pi(state, action) = Q_pi(state, action) - V_pi(state, action)
     # A estimate_t = delta_t + delta_{t+1} + ... delta_{T - 1}
-    
+
     # TD errors: r_{t+1} + gamma * V_pi(S_{t+1}) - V_pi(S_t)
     buffer_size, env = rewards.shape
 
@@ -183,12 +186,262 @@ def compute_advantages(
     A_estimates = t.zeros_like(rewards)
     A_estimates[-1] = deltas[-1]
 
-    for timestep in range(buffer_size-2, -1, -1):
-        scale = gamma * gae_lambda * (1 - dones[timestep+1])
-        A_estimates[timestep] = deltas[timestep] + scale * A_estimates[timestep+1]
+    for timestep in range(buffer_size - 2, -1, -1):
+        scale = gamma * gae_lambda * (1 - dones[timestep + 1])
+        A_estimates[timestep] = deltas[timestep] + scale * A_estimates[timestep + 1]
 
     return A_estimates
 
 
 tests.test_compute_advantages(compute_advantages)
+# %%
+
+
+def minibatch_indexes(
+    rng: Generator, batch_size: int, minibatch_size: int
+) -> List[np.ndarray]:
+    """
+    Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
+
+    Each index should appear exactly once.
+    """
+    assert batch_size % minibatch_size == 0
+    all_indexes = np.arange(batch_size)
+    rng.shuffle(all_indexes)
+    result = []
+    for i in range(0, batch_size, minibatch_size):
+        result.append(all_indexes[i : i + minibatch_size])
+    return result
+
+
+rng = np.random.default_rng(0)
+batch_size = 6
+minibatch_size = 2
+indexes = minibatch_indexes(rng, batch_size, minibatch_size)
+
+assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
+assert sorted(np.unique(indexes)) == [0, 1, 2, 3, 4, 5]
+print("All tests in `test_minibatch_indexes` passed!")
+
+
+# %%
+@dataclass
+class ReplayBufferSamples:
+    """
+    Samples from the replay buffer, converted to PyTorch for use in neural network training.
+    """
+
+    obs: Float[Tensor, "minibatch_size *obs_shape"]
+    dones: Float[Tensor, "minibatch_size"]
+    actions: Int[Tensor, "minibatch_size"]
+    logprobs: Float[Tensor, "minibatch_size"]
+    values: Float[Tensor, "minibatch_size"]
+    advantages: Float[Tensor, "minibatch_size"]
+    returns: Float[Tensor, "minibatch_size"]
+
+
+class ReplayBuffer:
+    """
+    Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
+
+    Needs to be initialized with the first obs, dones and values.
+    """
+
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
+        """Defining all the attributes the buffer's methods will need to access."""
+        self.rng = np.random.default_rng(args.seed)
+        self.num_envs = envs.num_envs
+        self.obs_shape = envs.single_observation_space.shape
+        self.gamma = args.gamma
+        self.gae_lambda = args.gae_lambda
+        self.batch_size = args.batch_size
+        self.minibatch_size = args.minibatch_size
+        self.num_steps = args.num_steps
+        self.batches_per_epoch = args.batches_per_epoch
+        self.experiences = []
+
+    def add(
+        self,
+        obs: Arr,
+        actions: Arr,
+        rewards: Arr,
+        dones: Arr,
+        logprobs: Arr,
+        values: Arr,
+    ) -> None:
+        """
+        obs: shape (n_envs, *observation_shape)
+            Observation before the action
+        actions: shape (n_envs,)
+            Action chosen by the agent
+        rewards: shape (n_envs,)
+            Reward after the action
+        dones: shape (n_envs,)
+            If True, the episode ended and was reset automatically
+        logprobs: shape (n_envs,)
+            Log probability of the action that was taken (according to old policy)
+        values: shape (n_envs,)
+            Values, estimated by the critic (according to old policy)
+        """
+        assert obs.shape == (self.num_envs, *self.obs_shape)
+        assert actions.shape == (self.num_envs,)
+        assert rewards.shape == (self.num_envs,)
+        assert dones.shape == (self.num_envs,)
+        assert logprobs.shape == (self.num_envs,)
+        assert values.shape == (self.num_envs,)
+
+        self.experiences.append((obs, dones, actions, logprobs, values, rewards))
+
+    def get_minibatches(
+        self, next_value: t.Tensor, next_done: t.Tensor
+    ) -> List[ReplayBufferSamples]:
+        minibatches = []
+
+        # Turn all experiences to tensors on our device (we only want to do this
+        # once, not every time we add a new experience)
+        obs, dones, actions, logprobs, values, rewards = [
+            t.stack(arr).to(device) for arr in zip(*self.experiences)
+        ]
+
+        # Compute advantages and returns (then get a list of everything we'll need
+        # for our replay buffer samples)
+        advantages = compute_advantages(
+            next_value,
+            next_done,
+            rewards,
+            values,
+            dones.float(),
+            self.gamma,
+            self.gae_lambda,
+        )
+        returns = advantages + values
+        replaybuffer_args = [obs, dones, actions, logprobs, values, advantages, returns]
+
+        # We cycle through the entire buffer `self.batches_per_epoch` times
+        for _ in range(self.batches_per_epoch):
+            # Get random indices we'll use to generate our minibatches
+            indices = minibatch_indexes(self.rng, self.batch_size, self.minibatch_size)
+
+            # Get our new list of minibatches, and add them to the list
+            for index in indices:
+                minibatch = ReplayBufferSamples(
+                    *[arg.flatten(0, 1)[index].to(device) for arg in replaybuffer_args]
+                )
+                minibatches.append(minibatch)
+
+        # Reset the buffer
+        self.experiences = []
+
+        return minibatches
+
+
+# %%
+
+args = PPOArgs()
+envs = gym.vector.SyncVectorEnv(
+    [make_env("CartPole-v1", i, i, False, "test") for i in range(4)]
+)
+next_value = t.zeros(envs.num_envs).to(device)
+next_done = t.zeros(envs.num_envs).to(device)
+rb = ReplayBuffer(args, envs)
+# actions = t.zeros(envs.num_envs).int().to(device)
+actions = t.randint(low=0, high=2, size=(envs.num_envs,)).int().to(device)
+
+obs = envs.reset()
+
+for i in range(args.num_steps):
+    (next_obs, rewards, dones, infos) = envs.step(actions.cpu().numpy())
+    real_next_obs = next_obs.copy()
+    for i, done in enumerate(dones):
+        if done:
+            real_next_obs[i] = infos[i]["terminal_observation"]
+    logprobs = values = t.zeros(envs.num_envs)
+    rb.add(
+        t.from_numpy(obs).to(device),
+        actions,
+        t.from_numpy(rewards).to(device),
+        t.from_numpy(dones).to(device),
+        logprobs,
+        values,
+    )
+    obs = next_obs
+
+obs, dones, actions, logprobs, values, rewards = [
+    t.stack(arr).to(device) for arr in zip(*rb.experiences)
+]
+
+plot_cartpole_obs_and_dones(obs, dones, show_env_jumps=True)
+# %%
+minibatches = rb.get_minibatches(next_value, next_done)
+
+obs = minibatches[0].obs
+dones = minibatches[0].dones
+
+plot_cartpole_obs_and_dones(obs, dones)
+
+
+# %%
+class PPOAgent(nn.Module):
+    # dim_obs -> 1 (value)
+    critic: nn.Sequential
+    # dim_obs -> dim_actions
+    actor: nn.Sequential
+
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
+        super().__init__()
+        self.args = args
+        self.envs = envs
+        self.num_envs = envs.num_envs
+        self.obs_shape = envs.single_observation_space.shape
+        self.num_obs = np.array(self.obs_shape).prod()
+        self.num_actions = envs.single_action_space.n
+
+        # Keep track of global number of steps taken by agent
+        self.steps = 0
+        # Define actor and critic (using our previous methods)
+        self.actor, self.critic = get_actor_and_critic(envs)
+
+        # Define our first (obs, done, value), so we can start adding experiences to our replay buffer
+        self.next_obs = t.tensor(self.envs.reset()).to(device)
+        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+
+        # Create our replay buffer
+        self.rb = ReplayBuffer(args, envs)
+
+    def play_step(self) -> List[dict]:
+        """
+        Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
+        """
+        with t.inference_mode():
+            logits = self.actor(self.next_obs)
+            logprobs = t.log_softmax(logits, dim=-1)
+            values = self.critic(self.next_obs)
+            # next_done???
+        sampler = t.distributions.categorical.Categorical(logits=logits)
+        actions = sampler.sample(sample_shape=(self.num_envs,)).squeeze().cpu()
+        next_obs, rewards, dones, infos = self.envs.step(actions)
+        self.rb.add(
+            obs=self.next_obs,
+            actions=actions,
+            rewards=rewards,
+            dones=self.next_done,
+            logprobs=logprobs,
+            values=values,
+        )
+        self.next_obs = next_obs
+        self.next_dones = dones
+ 
+        self.steps += 1
+        return infos
+
+    def get_minibatches(self):
+        """
+        Gets minibatches from the replay buffer.
+        """
+        with t.inference_mode():
+            next_value = self.critic(self.next_obs).flatten()
+        return self.rb.get_minibatches(next_value, self.next_done)
+
+
+tests.test_ppo_agent(PPOAgent)
 # %%
