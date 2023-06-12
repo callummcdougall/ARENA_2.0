@@ -414,24 +414,25 @@ class PPOAgent(nn.Module):
         """
         with t.inference_mode():
             logits = self.actor(self.next_obs)
-            logprobs = t.log_softmax(logits, dim=-1)
-            values = self.critic(self.next_obs)
-            # next_done???
+            all_logprobs = t.log_softmax(logits, dim=-1)
+            values = self.critic(self.next_obs).squeeze(-1)
+
         sampler = t.distributions.categorical.Categorical(logits=logits)
-        actions = sampler.sample(sample_shape=(self.num_envs,)).squeeze().cpu()
+        actions = sampler.sample().cpu().numpy()
+        logprobs = all_logprobs[range(self.num_envs), actions]
         next_obs, rewards, dones, infos = self.envs.step(actions)
         self.rb.add(
             obs=self.next_obs,
-            actions=actions,
-            rewards=rewards,
+            actions=t.tensor(actions),
+            rewards=t.tensor(rewards),
             dones=self.next_done,
             logprobs=logprobs,
             values=values,
         )
-        self.next_obs = next_obs
+        self.next_obs = t.tensor(next_obs).to(device)
         self.next_dones = dones
  
-        self.steps += 1
+        self.steps += self.num_envs
         return infos
 
     def get_minibatches(self):
