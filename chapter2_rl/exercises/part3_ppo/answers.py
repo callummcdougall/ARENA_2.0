@@ -357,3 +357,57 @@ class PPOAgent(nn.Module):
 
 tests.test_ppo_agent(PPOAgent)
 # %%
+def calc_clipped_surrogate_objective(
+    probs: Categorical, 
+    mb_action: Int[Tensor, "minibatch_size"], # r_t(theta)
+    mb_advantages: Float[Tensor, "minibatch_size"],  # A_t 
+    mb_logprobs: Float[Tensor, "minibatch_size"], 
+    clip_coef: float, # epsilon
+    eps: float = 1e-8  # not important
+) -> Float[Tensor, ""]:
+    '''Return the clipped surrogate objective, suitable for maximisation with gradient ascent.
+
+    probs:
+        a distribution containing the actor's unnormalized logits of shape (minibatch_size, num_actions)
+    mb_action:
+        what actions actions were taken in the sampled minibatch
+    mb_advantages:
+        advantages calculated from the sampled minibatch
+    mb_logprobs:
+        logprobs of the actions taken in the sampled minibatch (according to the old policy)
+    clip_coef:
+        amount of clipping, denoted by epsilon in Eq 7.
+    eps:
+        used to add to std dev of mb_advantages when normalizing (to avoid dividing by zero)
+    '''
+    assert mb_action.shape == mb_advantages.shape == mb_logprobs.shape
+    
+    r_t = (probs.log_prob(mb_action) - mb_logprobs).exp()
+    a_t = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + eps)
+    clip = t.clip(r_t, 1 - clip_coef, 1 + clip_coef)
+    min_val = t.min(r_t * a_t, clip * a_t)
+    return min_val.mean()
+
+tests.test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective)
+# %%
+def calc_value_function_loss(
+    values: Float[Tensor, "minibatch_size"],
+    mb_returns: Float[Tensor, "minibatch_size"],
+    vf_coef: float
+) -> Float[Tensor, ""]:
+    '''Compute the value function portion of the loss function.
+
+    values:
+        the value function predictions for the sampled minibatch (using the updated critic network)
+    mb_returns:
+        the target for our updated critic network (computed as `advantages + values` from the old network)
+    vf_coef:
+        the coefficient for the value loss, which weights its contribution to the overall loss. Denoted by c_1 in the paper.
+    '''
+    assert values.shape == mb_returns.shape
+
+    return 0.5 * vf_coef * (
+        (values - mb_returns).square().mean()
+    )
+
+tests.test_calc_value_function_loss(calc_value_function_loss)
