@@ -125,13 +125,8 @@ There are 3 main classes you'll be using today:
         * In other words, it contains both the thing doing the inference and the thing which interacts with environment & stores results
         * This is a design choice, other designs might keep these separate
     * Also has a `get_minibatches` method which calls the corresponding buffer method (and uses the agent's current state) 
-* `PPOLightning`
-    * This is the main class for training our model
-    * The `rollout` phase happens once at the start of every epoch (in the `on_train_epoch_start` method)
-        * This fills our buffer with experiences
-        * We use the `train_dataloader` method to sample from the buffer to get our actual dataset (i.e. the thing we iterate over in `training_step`)
-    * The `learning` phase happens once per training step (in the `training_step` method)
-        * This returns our total objective function, then we update our model based on the data generated from `rollout`
+* `PPOTrainer`
+    * This is the main class for training our model, it helps us keep methods like `rollout_phase` and `learning_phase` separate
 
 The image below shows the high-level details of this, and how they relate to the conceptual overview above.
 
@@ -217,8 +212,6 @@ import copy
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Union, Callable, Optional
 from jaxtyping import Float, Int, Bool
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger, CSVLogger
 import wandb
 from IPython.display import clear_output
 
@@ -1333,7 +1326,7 @@ def section_3():
     <li class='margtop'><a class='contents-el' href='#writing-your-training-loop'>Writing your training loop</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#logging'>Logging</a></li>
-        <li><a class='contents-el' href='#exercise-complete-the-ppolightning-training-function'><b>Exercise</b> - complete the <code>PPOLightning</code> training function</a></li>
+        <li><a class='contents-el' href='#exercise-complete-the-ppotrainer-classer'><b>Exercise</b> - complete the <code>PPOTrainer</code> class</a></li>
         <li><a class='contents-el' href='#catastrophic-forgetting'>Catastrophic forgetting</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#reward-shaping'>Reward Shaping</a></li>
@@ -1417,7 +1410,7 @@ As an indication, the solution's implementation (ignoring logging) has the follo
 You should only focus on logging once you've got a mininal version of the code working. Once you do, you can try logging variables in the way described by [detail #12](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=Debug%20variables). This will involve adding code to the `rollout_phase` and `learning_phase` methods.
 
 
-### Exercise - complete the `PPOLightning` training function
+### Exercise - complete the `PPOTrainer` class
 
 ```c
 Difficulty: 🟠🟠🟠🟠🟠
@@ -1441,6 +1434,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name)
+            wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1469,6 +1463,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
+            wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1480,6 +1475,11 @@ class PPOTrainer:
             for info in infos:
                 if "episode" in info.keys():
                     last_episode_len = info["episode"]["l"]
+                    last_episode_return = info["episode"]["r"]
+                    wandb.log({
+                        "episode_length": last_episode_len,
+                        "episode_return": last_episode_return,
+                    }, step=self.agent.steps)
         return last_episode_len
 
 
@@ -1565,6 +1565,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
+            wandb.gym.monitor()
 
 
     def rollout_phase(self):
