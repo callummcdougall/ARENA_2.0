@@ -601,7 +601,6 @@ test_probe(5)
 args = PPOArgs(
     use_wandb=True,
     wandb_project_name="PPOCartClean",
-    total_timesteps=100000
 )
 agent = train(args)
 # %%
