@@ -288,7 +288,7 @@ You can see all files in [this Google Drive folder](https://drive.google.com/dri
 <summary>Click this dropdown for links to each of the colab exercises.</summary>
 
 <div style='text-align: center'>
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/leaves.png" width="160" style="margin-bottom:3px;margin-top:15px">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bandit.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
 Intro to RL<br>[**exercises**](https://colab.research.google.com/drive/1H9xSZ1W6U36NsqpzapDeu8RjmMQ9vyyx) | [**solutions**](https://colab.research.google.com/drive/1_KbxLVtugLSFQcGuwHPAMMj-7Lt5w20k)
 
