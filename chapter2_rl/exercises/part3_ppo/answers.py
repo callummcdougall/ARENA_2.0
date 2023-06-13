@@ -439,15 +439,13 @@ class PPOScheduler:
     def step(self):
         '''Implement linear learning rate decay so that after total_training_steps calls to step, the learning rate is end_lr.
         '''
-        learning_rate = np.linspace(
-            self.initial_lr,
-            self.end_lr,
-            self.total_training_steps
-        )
-
-        self.optimizer.param_groups[0]["lr"] = learning_rate[self.n_step_calls]
-
+        # SOLUTION
         self.n_step_calls += 1
+        frac = self.n_step_calls / self.total_training_steps
+        assert frac <= 1
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = self.initial_lr + frac * (self.end_lr - self.initial_lr)
+
 
 def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float, end_lr: float) -> Tuple[optim.Adam, PPOScheduler]:
     '''Return an appropriately configured Adam with its attached scheduler.'''
@@ -455,8 +453,7 @@ def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float
     scheduler = PPOScheduler(optimizer, initial_lr, end_lr, total_training_steps)
     return (optimizer, scheduler)
 
-
-# tests.test_ppo_scheduler(PPOScheduler)
+tests.test_ppo_scheduler(PPOScheduler)
 # %%
 class MyDataset(Dataset):
     def __init__(self, batches: List[ReplayBufferSamples]):
@@ -559,6 +556,7 @@ def train(args: PPOArgs) -> PPOAgent:
 
     return trainer.agent
 # %%
+wandb.init()
 def test_probe(probe_idx: int):
 
     # Define a set of arguments for our probe experiment
@@ -592,13 +590,18 @@ def test_probe(probe_idx: int):
     print("Probe tests passed!")
 
 #%%
-# if MAIN:
-    # for probe_idx in range(1, 6):
-        # test_probe(probe_idx)
-
 test_probe(1)
+test_probe(2)
+test_probe(3)
+test_probe(4)
+test_probe(5)
 
 #%%
 # Train the model
-args = PPOArgs()
+args = PPOArgs(
+    use_wandb=True,
+    wandb_project_name="PPOCartClean",
+    total_timesteps=100000
+)
 agent = train(args)
+# %%
