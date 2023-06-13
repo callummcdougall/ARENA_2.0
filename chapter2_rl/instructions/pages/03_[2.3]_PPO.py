@@ -1480,6 +1480,7 @@ class PPOTrainer:
                         "episode_length": last_episode_len,
                         "episode_return": last_episode_return,
                     }, step=self.agent.steps)
+        # Return this for use in the progress bar
         return last_episode_len
 
 
