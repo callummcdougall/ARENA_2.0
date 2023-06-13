@@ -381,6 +381,9 @@ class PPOAgent(nn.Module):
         self.next_done = t.from_numpy(next_dones).to(device, dtype=t.float)
         self.steps += self.num_envs
 
+        for obs_i, info_i in zip(obs, infos):
+            info_i['obs'] = obs_i 
+
         return infos
 
     def get_minibatches(self) -> None:
@@ -506,7 +509,7 @@ class PPOLightning(pl.LightningModule):
         set_global_seeds(args.seed)
         self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
         self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
-        selPf.agent = PPOAgent(self.args, self.envs).to(device)
+        self.agent = PPOAgent(self.args, self.envs).to(device)
         self.rollout_phase()
 
 
@@ -519,6 +522,11 @@ class PPOLightning(pl.LightningModule):
         for _ in range(self.args.num_steps):
             infos = self.agent.play_step()
             self.log('new reward ratio', np.mean(infos[0]['new_reward_ratio']))
+            self.log('Position', infos[0]['obs'][0])
+            self.log('Velocity', infos[0]['obs'][1])
+            if 'episode' in infos[0].keys():
+                self.log('Episode duration', infos[0]['episode']['l'])
+                self.log('Reward in episode', infos[0]['episode']['r'])
 
     def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
         '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
@@ -527,16 +535,10 @@ class PPOLightning(pl.LightningModule):
         L_clip = calc_clipped_surrogate_objective(probs, minibatch.actions, minibatch.advantages, minibatch.logprobs, self.args.clip_coef)
         L_vf = calc_value_function_loss(values.squeeze(1), minibatch.returns, self.args.vf_coef)
         L_h = calc_entropy_bonus(probs, self.args.ent_coef)
-        # self.log('log', f'clip {L_clip}, vf {L_vf} h {L_h} probs.shape {probs.probs.shape}')
         self.log('clip', L_clip)
         self.log('vf', L_vf)
         self.log('entropy', L_h)
-        self.log('mean returns', t.mean(minibatch.returns))
-        self.log('mean rewards', t.mean(minibatch.returns - minibatch.advantages))
-        self.log('mean theta_1 velocity', t.mean(minibatch.obs[:, 4]))
-        self.log('mean theta_2 velocity', t.mean(minibatch.obs[:, 5]))
-        self.log('mean cos_1', t.mean(minibatch.obs[:, 0]))
-        # self.log('new reward ratio', t.mean(minibatch.info['new_reward_ratio']))
+        self.log('Mean Values', t.mean(minibatch.values))
         self.scheduler.step()
         return L_clip - L_vf + L_h
 
@@ -641,8 +643,9 @@ class AcrobotArgs:
 class EasyAcrobot(AcrobotEnv):
     def step(self, action):
         (obs, reward, done, info) = super().step(action)
-        new_reward_addn = abs(obs[4]) * 0.01 / (abs(obs[1])+1e-2)
-        info['new_reward_ratio'] = new_reward_addn / reward
+        # new_reward_addn = abs(obs[4]) * 0.01 / (abs(obs[1])+1e-2)
+        new_reward_addn = abs(obs[4] + obs[5])
+        info['new_reward_ratio'] = abs(new_reward_addn / reward)
         reward += new_reward_addn
         return (obs, reward, done, info)
 gym.envs.registration.register(id="EasyAcrobot-v1", entry_point=EasyAcrobot, max_episode_steps=500)
@@ -675,3 +678,68 @@ trainer = pl.Trainer(
 )
 trainer.fit(model=model)
 # %%
+
+
+from gym.envs.classic_control.mountain_car import MountainCarEnv
+
+@dataclass
+class MountainArgs:
+    exp_name: str = "EasyMountain_Implementation"
+    seed: int = 1
+    cuda: bool = t.cuda.is_available()
+    log_dir: str = "logs"
+    use_wandb: bool = True
+    wandb_project_name: str = "EasyMountain"
+    wandb_entity: str = None
+    capture_video: bool = True
+    env_id: str = "EasyMountain-v1"
+    # total_timesteps: int = 500000
+    total_timesteps: int = 1000000
+    learning_rate: float = 0.00025
+    num_envs: int = 4
+    num_steps: int = 128
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    num_minibatches: int = 4
+    batches_per_epoch: int = 4
+    clip_coef: float = 0.2
+    ent_coef: float = 0.01 # Changed
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.5
+    batch_size: int = 512
+    minibatch_size: int = 128
+
+    def __post_init__(self):
+        assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
+        self.total_epochs = self.total_timesteps // (self.num_steps * self.num_envs)
+        self.total_training_steps = self.total_epochs * self.batches_per_epoch * (self.batch_size // self.minibatch_size)
+
+class EasyMountain(MountainCarEnv):
+    def step(self, action):
+        (obs, reward, done, info) = super().step(action)
+        # new_reward_addn = abs(obs[4]) * 0.01 / (abs(obs[1])+1e-2)
+        new_reward_addn = 1 * (20 * obs[1]**2 + 10 * ((obs[0] + 0.5)*(obs[0] + 0.6)))
+        info['new_reward_ratio'] = abs(new_reward_addn / reward)
+        reward += new_reward_addn
+        return (obs, reward, done, info)
+
+gym.envs.registration.register(id="EasyMountain-v1", entry_point=EasyMountain, max_episode_steps=500)
+
+
+# Define a set of arguments for our probe experiment
+args = MountainArgs()
+wandb.finish()
+model = PPOLightning(args).to(device)
+logger = WandbLogger(project=args.wandb_project_name, save_dir=args.log_dir)
+# logger = CSVLogger(save_dir=args.log_dir)
+
+# Run our experiment
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=10,
+    gradient_clip_val=args.max_grad_norm,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False,
+)
+trainer.fit(model=model)
