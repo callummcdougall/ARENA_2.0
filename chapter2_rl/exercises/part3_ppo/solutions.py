@@ -587,7 +587,7 @@ class PPOTrainer:
 		self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
 		if args.use_wandb:
 			wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name)
-			wandb.gym.monitor()
+			if args.capture_video: wandb.gym.monitor()
 
 
 	def rollout_phase(self):
@@ -600,7 +600,7 @@ class PPOTrainer:
 				if "episode" in info.keys():
 					last_episode_len = info["episode"]["l"]
 					last_episode_return = info["episode"]["r"]
-					wandb.log({
+					if args.use_wandb: wandb.log({
 						"episode_length": last_episode_len,
 						"episode_return": last_episode_return,
 					}, step=self.agent.steps)
@@ -639,7 +639,7 @@ class PPOTrainer:
 			ratio = logratio.exp()
 			approx_kl = (ratio - 1 - logratio).mean().item()
 			clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
-		wandb.log(dict(
+		if args.use_wandb: wandb.log(dict(
 			total_steps = self.agent.steps,
 			values = values.mean().item(),
 			learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],
