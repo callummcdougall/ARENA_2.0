@@ -37,9 +37,9 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-
+Colab: [**exercises**](https://colab.research.google.com/drive/1USZJy9HCpq8rsAqfD6yYfpAfZvO5YDha) | [**solutions**](https://colab.research.google.com/drive/1f_RBuosHddwQrydZ7-iAnBs6lhkMMMSG)
+    
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/football.jpeg" width="350">
-
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
@@ -1434,7 +1434,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name)
-            wandb.gym.monitor()
+            if args.capture_video: wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1463,7 +1463,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
-            wandb.gym.monitor()
+            if args.capture_video: wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1476,7 +1476,7 @@ class PPOTrainer:
                 if "episode" in info.keys():
                     last_episode_len = info["episode"]["l"]
                     last_episode_return = info["episode"]["r"]
-                    wandb.log({
+                    if args.use_wandb: wandb.log({
                         "episode_length": last_episode_len,
                         "episode_return": last_episode_return,
                     }, step=self.agent.steps)
@@ -1515,7 +1515,7 @@ class PPOTrainer:
             ratio = logratio.exp()
             approx_kl = (ratio - 1 - logratio).mean().item()
             clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
-        wandb.log(dict(
+        if args.use_wandb: wandb.log(dict(
             total_steps = self.agent.steps,
             values = values.mean().item(),
             learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],
@@ -1538,11 +1538,9 @@ def train(args: PPOArgs) -> PPOAgent:
     progress_bar = tqdm(range(args.total_epochs))
 
     for epoch in progress_bar:
-        last_episode_len = trainer.rollout_phase()
-        
+        last_episode_len = trainer.rollout_phase()        
         if last_episode_len is not None:
             progress_bar.set_description(f"Epoch {epoch:02}, Episode length: {last_episode_len}")
-            if args.use_wandb: wandb.log({"episode_length": last_episode_len}, step=trainer.agent.steps)
 
         trainer.learning_phase()
     
@@ -1566,7 +1564,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name, config=args)
-            wandb.gym.monitor()
+            if args.capture_video: wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1632,7 +1630,7 @@ def test_probe(probe_idx: int):
     args = PPOArgs(
         env_id=f"Probe{probe_idx}-v0",
         exp_name=f"test-probe-{probe_idx}", 
-        total_timesteps=10000 if probe_idx <= 3 else 30000,
+        total_timesteps=[10000, 10000, 10000, 30000, 50000][probe_idx-1],
         learning_rate=0.001,
         capture_video=False,
         use_wandb=False,
@@ -1657,6 +1655,10 @@ def test_probe(probe_idx: int):
         t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
     clear_output()
     print("Probe tests passed!")
+
+
+for probe_idx in range(1, 6):
+    test_probe(probe_idx)
 ```
 
 Once you've passed the tests for all 5 probe environments, you should test your model on Cartpole.
