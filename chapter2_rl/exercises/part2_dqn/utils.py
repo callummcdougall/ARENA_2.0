@@ -55,7 +55,7 @@ class DQNArgs:
     torch_deterministic: bool = True
     cuda: bool = t.cuda.is_available()
     log_dir: str = "logs"
-    use_wandb: bool = True
+    use_wandb: bool = False
     wandb_project_name: str = "CartPoleDQN"
     wandb_entity: Optional[str] = None
     capture_video: bool = True

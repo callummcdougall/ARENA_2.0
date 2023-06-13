@@ -30,9 +30,8 @@ import copy
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Union, Callable, Optional
 from jaxtyping import Float, Int, Bool
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger, CSVLogger
 import wandb
+from IPython.display import clear_output
 
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
@@ -184,17 +183,21 @@ if MAIN:
 #          [0, 1, 2],
 #          [0, 0, 1]]
 
-#     If the array has >1D, it treats the later dimensions as batch dims
+#     If the array has >1D, it treats the later dimensions as batch dims (i.e.
+#     it does exactly the same thing as above, but along each slice of the
+#     latter dimensions). We'll use this function on arrays of shape (T, envs),
+#     so envs are treated as batch dims.
 #     """
 #     L = arr.shape[0]
 #     output = t.zeros(L, 2*L, *arr.shape[1:]).to(dtype=arr.dtype)
 #     output[:, :L] = arr[None, :]
-#     output = rearrange(output, "t1 t2 ... -> (t1 t2) ...")
+#     output = einops.rearrange(output, "i j ... -> (i j) ...")
 #     output = output[:L*(2*L-1)]
-#     output = rearrange(output, "(t1 t2) ... -> t1 t2 ...", t1=L)
+#     output = einops.rearrange(output, "(i j) ... -> i j ...", i=L)
 #     output = output[:, :L]
 
 #     return output
+
 
 # def compute_advantages_vectorized(
 #     next_value: t.Tensor,
@@ -202,38 +205,40 @@ if MAIN:
 #     rewards: t.Tensor,
 #     values: t.Tensor,
 #     dones: t.Tensor,
-#     device: t.device,
 #     gamma: float,
 #     gae_lambda: float,
 # ) -> t.Tensor:
 #     """
 #     Basic idea (assuming num_envs=1 in this description, but the case generalises):
 
-#         create a matrix of discount factors (gamma*lmda)**l, shape (t, l), suitably shifted
+#         create a matrix of discount factors (gamma*gae_lambda)**l, shape (t, l), suitably shifted
 #         create a matrix of deltas, shape (t, l), suitably shifted
 #         mask the deltas after the "done" points
 #         multiply two matrices and sum over l (second dim)
 #     """
 #     T, num_envs = rewards.shape
-#     next_values = torch.concat([values[1:], next_value.unsqueeze(0)])
-#     next_dones = torch.concat([dones[1:], next_done.unsqueeze(0)])
+#     next_values = t.concat([values[1:], next_value.unsqueeze(0)])
+#     next_dones = t.concat([dones[1:], next_done.unsqueeze(0)])
 #     deltas = rewards + gamma * next_values * (1.0 - next_dones) - values
 
-#     deltas_repeated = repeat(deltas, "t2 env -> t1 t2 env", t1=T)
-#     mask = repeat(next_dones, "t2 env -> t1 t2 env", t1=T).to(device)
-#     mask_uppertri = repeat(t.triu(t.ones(T, T)), "t1 t2 -> t1 t2 env", env=num_envs).to(device)
+#     deltas_repeated = einops.repeat(deltas, "j env -> i j env", i=T)
+#     mask = einops.repeat(next_dones, "j env -> i j env", i=T)
+#     mask_uppertri = einops.repeat(t.triu(t.ones(T, T)), "i j -> i j env", env=num_envs)
 #     mask = mask * mask_uppertri
 #     mask = 1 - (mask.cumsum(dim=1) > 0).float()
-#     mask = t.concat([t.ones(T, 1, num_envs).to(device), mask[:, :-1]], dim=1)
+#     mask = t.concat([t.ones(T, 1, num_envs), mask[:, :-1]], dim=1)
 #     mask = mask * mask_uppertri
 #     deltas_masked = mask * deltas_repeated
 
-#     discount_factors = (gamma * gae_lambda) ** t.arange(T).to(device)
-#     discount_factors_repeated = repeat(discount_factors, "t -> t env", env=num_envs)
-#     discount_factors_shifted = shift_rows(discount_factors_repeated).to(device)
+#     discount_factors = (gamma * gae_lambda) ** t.arange(T)
+#     discount_factors_repeated = einops.repeat(discount_factors, "t -> t env", env=num_envs)
+#     discount_factors_shifted = shift_rows(discount_factors_repeated)
 
 #     advantages = (discount_factors_shifted * deltas_masked).sum(dim=1)
 #     return advantages
+
+# if MAIN:
+# 	tests.test_compute_advantages(compute_advantages_vectorized)
 
 
 # %%
@@ -570,166 +575,141 @@ if MAIN:
 
 # %% 3️⃣ TRAINING LOOP
 
-class MyDataset(Dataset):
-	def __init__(self, batches: List[ReplayBufferSamples]):
-		self.batches = batches
+class PPOTrainer:
 
-	def __len__(self):
-		return len(self.batches)
-
-	def __getitem__(self, idx):
-		return self.batches[idx]
-
-
-class PPOLightning(pl.LightningModule):
-	agent: PPOAgent
-
-	def __init__(self, args: PPOArgs):
-		super().__init__()
-		self.args = args
-		set_global_seeds(args.seed)
-		self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-		self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
-		self.agent = PPOAgent(self.args, self.envs).to(device)
-		self.rollout_phase()
+    def __init__(self, args: PPOArgs):
+        super().__init__()
+        self.args = args
+        set_global_seeds(args.seed)
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
+        self.agent = PPOAgent(self.args, self.envs).to(device)
+        self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+        if args.use_wandb:
+            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name)
 
 
-	def on_train_epoch_end(self) -> None:
-		self.rollout_phase()
+    def rollout_phase(self):
+        '''Should populate the replay buffer with new experiences.'''
+        # SOLUTION
+        last_episode_len = None
+        for step in range(self.args.num_steps):
+            infos = self.agent.play_step()
+            for info in infos:
+                if "episode" in info.keys():
+                    last_episode_len = info["episode"]["l"]
+        return last_episode_len
 
 
-	def rollout_phase(self) -> None:
-		'''Should populate the replay buffer with new experiences.'''
-		all_infos = []
-		for step in range(self.args.num_steps):
-			infos = self.agent.play_step()
-			all_infos.extend(infos)
-		for info in all_infos:
-			if "episode" in info.keys():
-				self.log("episodic_return", info["episode"]["r"])
-				self.log("episodic_length", info["episode"]["l"])
-				if self.agent.steps <= self.args.total_timesteps:
-					print(f"Global Step {self.agent.steps}/{self.args.total_timesteps}, Episode length: {info['episode']['l']:<3}", end="\r")
-				break
+    def learning_phase(self) -> None:
+        '''Should get minibatches and iterate through them (performing an optimizer step at each one).'''
+        # SOLUTION
+        minibatches = self.agent.get_minibatches()
+        for minibatch in minibatches:
+            objective_fn = self._compute_ppo_objective(minibatch)
+            objective_fn.backward()
+            nn.utils.clip_grad_norm_(self.agent.parameters(), args.max_grad_norm)
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            self.scheduler.step()
 
 
-	def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
-		'''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+    def _compute_ppo_objective(self, minibatch: ReplayBufferSamples) -> Float[Tensor, ""]:
+        '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+        logits = self.agent.actor(minibatch.obs)
+        probs = Categorical(logits=logits)
+        values = self.agent.critic(minibatch.obs).squeeze()
 
-		# Calculate total objective function
-		logits = self.agent.actor(minibatch.obs)
-		probs = Categorical(logits=logits)
-		values = self.agent.critic(minibatch.obs).squeeze()
+        clipped_surrogate_objective = calc_clipped_surrogate_objective(probs, minibatch.actions, minibatch.advantages, minibatch.logprobs, self.args.clip_coef)
+        value_loss = calc_value_function_loss(values, minibatch.returns, self.args.vf_coef)
+        entropy_bonus = calc_entropy_bonus(probs, self.args.ent_coef)
 
-		clipped_surrogate_objective = calc_clipped_surrogate_objective(probs, minibatch.actions, minibatch.advantages, minibatch.logprobs, self.args.clip_coef)
-		value_loss = calc_value_function_loss(values, minibatch.returns, self.args.vf_coef)
-		entropy_bonus = calc_entropy_bonus(probs, self.args.ent_coef)
+        total_objective_function = clipped_surrogate_objective - value_loss + entropy_bonus
 
-		total_objective_function = clipped_surrogate_objective - value_loss + entropy_bonus
+        with t.inference_mode():
+            newlogprob = probs.log_prob(minibatch.actions)
+            logratio = newlogprob - minibatch.logprobs
+            ratio = logratio.exp()
+            approx_kl = (ratio - 1 - logratio).mean().item()
+            clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
+        wandb.log(dict(
+            total_steps = self.agent.steps,
+            values = values.mean().item(),
+            learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],
+            value_loss = value_loss.item(),
+            clipped_surrogate_objective = clipped_surrogate_objective.item(),
+            entropy = entropy_bonus.item(),
+            approx_kl = approx_kl,
+            clipfrac = np.mean(clipfracs)
+        ), step=self.agent.steps)
 
-		# Step the scheduler
-		self.scheduler.step()
-
-		# Do all logging
-		with t.inference_mode():
-			newlogprob = probs.log_prob(minibatch.actions)
-			logratio = newlogprob - minibatch.logprobs
-			ratio = logratio.exp()
-			approx_kl = (ratio - 1 - logratio).mean().item()
-			clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
-		self.log_dict(dict(
-			total_steps = self.agent.steps,
-			values = values.mean().item(),
-			learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],
-			value_loss = value_loss.item(),
-			clipped_surrogate_objective = clipped_surrogate_objective.item(),
-			entropy = entropy_bonus.item(),
-			approx_kl = approx_kl,
-			clipfrac = np.mean(clipfracs)
-		))
-
-		return total_objective_function    
-	
-
-	def configure_optimizers(self):
-		'''Returns optimizer and scheduler (sets scheduler as attribute, so we can call self.scheduler.step() during each training step)'''
-		optimizer, scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
-		self.scheduler = scheduler 
-		return optimizer
+        return total_objective_function
 
 
-	def train_dataloader(self):
-		return MyDataset(self.agent.get_minibatches())
 
-# %%
+def train(args: PPOArgs) -> PPOAgent:
+    '''Implements training loop, used like: agent = train(args)'''
 
+    trainer = PPOTrainer(args)
 
-if MAIN:
-	probe_idx = 5
-	
-	# Define a set of arguments for our probe experiment
-	args = PPOArgs(
-		env_id=f"Probe{probe_idx}-v0",
-		exp_name=f"test-probe-{probe_idx}", 
-		total_timesteps=10000 if probe_idx <= 3 else 30000,
-		learning_rate=0.001,
-		capture_video=False,
-		use_wandb=False,
-	)
-	model = PPOLightning(args).to(device)
-	logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
-	
-	# Run our experiment
-	trainer = pl.Trainer(
-		max_epochs=args.total_epochs,
-		logger=logger,
-		log_every_n_steps=10,
-		gradient_clip_val=args.max_grad_norm,
-		reload_dataloaders_every_n_epochs=1,
-		enable_progress_bar=False,
-	)
-	trainer.fit(model=model)
-	
-	# Check that our final results were the ones we expected from this probe
-	obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
-	expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
-	expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
-	tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
-	obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
-	model.to(device)
-	with t.inference_mode():
-		value = model.agent.critic(obs)
-		probs = model.agent.actor(obs).softmax(-1)
-	expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
-	t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
-	expected_probs = expected_probs_for_probes[probe_idx-1]
-	if expected_probs is not None:
-		t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
-	print("Probe tests passed!")
-	
-	# Use the code below to inspect your most recent logged results
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	metrics.tail()
+    progress_bar = tqdm(range(args.total_epochs))
+
+    for epoch in progress_bar:
+        last_episode_len = trainer.rollout_phase()
+        
+        if last_episode_len is not None:
+            progress_bar.set_description(f"Epoch {epoch:02}, Episode length: {last_episode_len}")
+            if args.use_wandb: wandb.log({"episode_length": last_episode_len}, step=trainer.agent.steps)
+
+        trainer.learning_phase()
+    
+    args = PPOArgs()
+
+    return trainer.agent
 
 # %%
 
-
 if MAIN:
-	wandb.finish()
-	
 	args = PPOArgs(use_wandb=True)
-	logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-	if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
-	model = PPOLightning(args).to(device)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.total_epochs,
-		logger=logger,
-		log_every_n_steps=5,
-		reload_dataloaders_every_n_epochs=1,
-		enable_progress_bar=False
-	)
-	trainer.fit(model=model)
+	agent = train(args)
+
+# %%
+
+
+def test_probe(probe_idx: int):
+
+    # Define a set of arguments for our probe experiment
+    args = PPOArgs(
+        env_id=f"Probe{probe_idx}-v0",
+        exp_name=f"test-probe-{probe_idx}", 
+        total_timesteps=10000 if probe_idx <= 3 else 30000,
+        learning_rate=0.001,
+        capture_video=False,
+        use_wandb=False,
+    )
+
+    # YOUR CODE HERE - create a PPOTrainer class, and train your agent
+    agent = train(args)
+
+    # Check that our final results were the ones we expected from this probe
+    obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+    expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
+    expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+    tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+    obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+    with t.inference_mode():
+        value = agent.critic(obs)
+        probs = agent.actor(obs).softmax(-1)
+    expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+    t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+    expected_probs = expected_probs_for_probes[probe_idx-1]
+    if expected_probs is not None:
+        t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
+    clear_output()
+    print("Probe tests passed!")
+    
+if MAIN:
+	test_probe(1)
 
 # %%
 
@@ -747,27 +727,30 @@ class EasyCart(CartPoleEnv):
 
 		return (obs, reward_2, done, info)
 
-# %%
-
-
 if MAIN:
 	gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
-	
-	wandb.finish()
-	
-	args = PPOArgs(env_id="EasyCart-v0")
-	logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-	if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
-	model = PPOLightning(args).to(device)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.total_epochs,
-		logger=logger,
-		log_every_n_steps=5,
-		reload_dataloaders_every_n_epochs=1,
-		enable_progress_bar=False
-	)
-	trainer.fit(model=model)
+
+	args = PPOArgs(env_id="EasyCart-v0", use_wandb=True)
+	agent = train(args)
 
 # %%
 
+class SpinCart(CartPoleEnv):
+
+    def step(self, action):
+        obs, rew, done, info = super().step(action)
+        # YOUR CODE HERE
+        x, v, theta, omega = obs
+        # Allow for 360-degree rotation
+        done = (abs(x) > self.x_threshold)
+        # Reward function incentivises fast spinning while staying still & near centre
+        rotation_speed_reward = min(1, 0.1*abs(omega))
+        stability_penalty = max(1, abs(x/2.5) + abs(v/10))
+        reward = rotation_speed_reward - 0.5 * stability_penalty
+        return (obs, reward, done, info)
+    
+if MAIN:
+	gym.envs.registration.register(id="SpinCart-v0", entry_point=SpinCart, max_episode_steps=500)
+
+	args = PPOArgs(env_id="SpinCart-v0", use_wandb=True)
+	agent = train(args)
