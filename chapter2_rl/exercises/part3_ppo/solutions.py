@@ -592,13 +592,19 @@ class PPOTrainer:
 
 	def rollout_phase(self):
 		'''Should populate the replay buffer with new experiences.'''
-		# SOLUTION
+        # SOLUTION
 		last_episode_len = None
 		for step in range(self.args.num_steps):
 			infos = self.agent.play_step()
 			for info in infos:
 				if "episode" in info.keys():
 					last_episode_len = info["episode"]["l"]
+					last_episode_return = info["episode"]["r"]
+					wandb.log({
+						"episode_length": last_episode_len,
+						"episode_return": last_episode_return,
+					}, step=self.agent.steps)
+		# Return this for use in the progress bar
 		return last_episode_len
 
 
