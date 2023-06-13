@@ -6,13 +6,27 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import re
-from transformer_lens import HookedTransformer
-from transformer_lens.utils import to_numpy
 from typing import Dict
 import pandas as pd
 from jaxtyping import Float
 import einops
 
+
+def to_numpy(tensor):
+    """
+    Helper function to convert a tensor to a numpy array. Also works on lists, tuples, and numpy arrays.
+    """
+    if isinstance(tensor, np.ndarray):
+        return tensor
+    elif isinstance(tensor, (list, tuple)):
+        array = np.array(tensor)
+        return array
+    elif isinstance(tensor, (t.Tensor, t.nn.parameter.Parameter)):
+        return tensor.detach().cpu().numpy()
+    elif isinstance(tensor, (int, float, bool, str)):
+        return np.array(tensor)
+    else:
+        raise ValueError(f"Input to to_numpy has invalid type: {type(tensor)}")
 
 # GENERIC PLOTTING FUNCTIONS
 
