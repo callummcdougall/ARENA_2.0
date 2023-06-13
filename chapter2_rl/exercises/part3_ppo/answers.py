@@ -611,8 +611,8 @@ def test_probe(probe_idx: int):
 
 from gym.envs.classic_control.cartpole import CartPoleEnv
 
-class EasyCart(CartPoleEnv):
-    name = "EasyCart-10-x-theta-squared"
+class EasyAcrobat(CartPoleEnv):
+    name = "EasyCart-x-penalty"
     def step(self, action):
         (obs, reward, done, info) = super().step(action)
 
@@ -622,9 +622,9 @@ class EasyCart(CartPoleEnv):
         theta_threshold = 12 * 2 * math.pi / 360
         
         x, x_dot, theta, theta_dot = obs
-        x_penalty = (abs(x) / x_threshold) / 2
-        theta_penalty = (abs(theta) / theta_threshold) / 2
-        new_reward = 1 - x_penalty - theta_penalty if reward > 0 else 0
+        x_penalty = (abs(x) / x_threshold) * 1
+        theta_penalty = (abs(theta) / theta_threshold) * 1
+        new_reward = 1 - theta_penalty if reward > 0 else 0
         
         return (obs, new_reward, done, info)
     
@@ -637,6 +637,40 @@ args = PPOArgs(
     wandb_project_name="PPOCartClean",
     seed=2,
     env_id=EasyCart.name,
+    total_timesteps=500000,
+)
+agent = train(args)
+# %%
+from gym.envs.classic_control.acrobot import AcrobotEnv
+
+class EasyAcrobot(AcrobotEnv):
+    name = "reward-velocity"
+    def step(self, action):
+        (obs, reward, done, info) = super().step(action)
+
+        cos_t1, sin_t1, cos_t2, sin_t2, v_t1, v_t2 = obs
+
+
+        if done:
+            new_reward = 0
+        elif v_t1 < 0:
+            new_reward = -100
+        else:
+            new_reward = max(-1 / abs(v_t1), -100)
+            
+
+        new_reward = 0 if done else -1 / abs(v_t1)
+        
+        return (obs, new_reward, done, info)
+    
+gym.envs.registration.register(id=EasyAcrobot.name, entry_point=EasyAcrobot, max_episode_steps=500)
+
+args = PPOArgs(
+    exp_name=EasyAcrobot.name,
+    use_wandb=True,
+    wandb_project_name="Acrobot",
+    seed=1,
+    env_id=EasyAcrobot.name,
     total_timesteps=500000,
 )
 agent = train(args)
