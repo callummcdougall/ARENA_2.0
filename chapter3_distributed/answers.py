@@ -1,6 +1,10 @@
+# %%
 import torch
 from torch import distributed as dist
+from torch.distributed import ReduceOp
 from typing import Callable
+
+import threading
 
 # %%
 from test import test_broadcast_naive
@@ -56,6 +60,7 @@ if __name__ == '__main__':
 from test import test_allreduce_butterfly
 
 def allreduce_butterfly(tensor: torch.Tensor):
+    print(f'INIT {dist.get_rank()} {tensor}')
     rank = bin(dist.get_rank())[2:].zfill(len(bin(dist.get_world_size()-1)[2:]))
     buff = torch.empty_like(tensor)
     for i in range(len(rank)):
@@ -64,15 +69,33 @@ def allreduce_butterfly(tensor: torch.Tensor):
         dist.send(tensor, partner_rank)
         dist.recv(buff, partner_rank)
         tensor += buff
-
+    print(f'FINAL {dist.get_rank()} {tensor}')
 if __name__ == '__main__':
     test_allreduce_butterfly(allreduce_butterfly)
 
 # %%
 from test import test_reduce_naive
 
-def reduce_naive():
-    pass
+def reduce_naive(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
+    # TODO: num reads/writes are correct but output value of dst tensor has race conditions
+    dist.barrier()
+    op_to_fn = {ReduceOp.SUM: lambda x, y: x + y,
+                ReduceOp.PRODUCT: lambda x, y: x * y,
+                ReduceOp.MAX: lambda x, y: torch.max(x, y),
+                ReduceOp.MIN: lambda x, y: torch.min(x, y)}
+    if dist.get_rank() == dst:
+        result = tensor.clone()
+    dist.barrier()
+    for i in range(dist.get_world_size()):
+        if i != dst:
+            if dist.get_rank() == dst:
+                dist.recv(result, i)
+                tensor = op_to_fn[op](tensor, result)
+                # print(f'{dist.get_rank()} <- {i}, output {tensor}')
+            elif dist.get_rank() == i:
+                # print(f'{i} <- {dst}')
+                dist.send(tensor, dst)
+        dist.barrier()
 
 if __name__ == '__main__':
     test_reduce_naive(reduce_naive)
@@ -85,3 +108,5 @@ def reduce_tree():
 
 if __name__ == '__main__':
     test_reduce_tree(reduce_tree)
+
+# %%

@@ -317,7 +317,7 @@ def test_scaffold(test_func: Callable, tensor_gen: Callable, args: list, world_s
     threads = []
     def run_test(tensor: torch.Tensor, args: list):
         with fake_dist.with_rank(rank):
-            print(tensor)
+            # print(tensor)
             test_func(tensor, *args)
     for rank in range(fake_dist.world_size):
         t = threading.Thread(target=run_test, args=(tensor_gen(rank), args))
@@ -346,6 +346,7 @@ def test_broadcast_ring(broadcast_impl: Callable):
     assert all(len(fake_dist.writes_from[i]) == 1 or i == (src_rank-1)%fake_dist.world_size for i in range(fake_dist.world_size))
 
 def test_allreduce_butterfly(allreduce_impl: Callable):
+    # TODO: add src_rank passed in as param (as in broadcast_* tests)
     fake_dist = test_scaffold(allreduce_impl, lambda x: torch.Tensor([x]), [], world_size=16)
     assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
     assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
@@ -363,7 +364,13 @@ def test_allreduce_butterfly(allreduce_impl: Callable):
             assert partner_rank in v
 
 def test_reduce_naive(reduce_impl: Callable):
-    fake_dist = test_scaffold(reduce_impl, 8)
+    dst_rank = 7
+    fake_dist = test_scaffold(reduce_impl, lambda x: torch.Tensor([x+1]), [dst_rank], world_size=8)
+    for i in range(fake_dist.world_size):
+        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
+    assert all((i != dst_rank and len(fake_dist.reads_by[i]) == 0) or (i == dst_rank and len(fake_dist.reads_by[i]) == fake_dist.world_size-1) for i in range(fake_dist.world_size))
+    assert all((i != dst_rank and len(fake_dist.writes_from[i]) == 1) or (i == dst_rank and len(fake_dist.writes_from[i]) == 0) for i in range(fake_dist.world_size))
+
 
 def test_reduce_tree(reduce_impl: Callable):
     fake_dist = test_scaffold(reduce_impl, 8)
