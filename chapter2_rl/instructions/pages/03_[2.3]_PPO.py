@@ -1564,7 +1564,7 @@ class PPOTrainer:
         self.agent = PPOAgent(self.args, self.envs).to(device)
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
-            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
+            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name, config=args)
             wandb.gym.monitor()
 
 
