@@ -1636,8 +1636,8 @@ def test_probe(probe_idx: int):
         use_wandb=False,
     )
 
-    # YOUR CODE HERE - create a PPOTrainer class, and train your agent
-
+    # YOUR CODE HERE - create a PPOTrainer instance, and train your agent
+    agent = None
 
     # Check that our final results were the ones we expected from this probe
     obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
@@ -1722,17 +1722,19 @@ Importance: 🟠🟠🟠🟠⚪
 You should spend up to 15-30 minutes on this exercise.
 ```
 
+Calculate and return a new reward.
+
 
 ```python
 from gym.envs.classic_control.cartpole import CartPoleEnv
 
 class EasyCart(CartPoleEnv):
     def step(self, action):
-        (obs, rew, done, info) = super().step(action)
-        x, v, theta, omega = obs
-        pass
+        (obs, reward, done, info) = super().step(action)
+        
+        # YOUR CODE HERE - calculate new reward
 
-
+        return (obs, new_reward, done, info)
 ```
 
 <details>
@@ -1742,9 +1744,8 @@ class EasyCart(CartPoleEnv):
 ```python
 class EasyCart(CartPoleEnv):
     def step(self, action):
-        (obs, rew, done, info) = super().step(action)
+        (obs, reward, done, info) = super().step(action)
         x, v, theta, omega = obs
-        # SOLUTION
 
         # First reward: angle should be close to zero
         reward_1 = 1 - abs(theta / 0.2095)
@@ -1752,37 +1753,15 @@ class EasyCart(CartPoleEnv):
         reward_2 = 1 - abs(x / 2.4)
 
         return (obs, reward_2, done, info)
+
+
+gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
+args = PPOArgs(env_id="EasyCart-v0", use_wandb=True)
+agent = train(args)
 ```
 </details>
 
-
-```python
-
-if MAIN:
-    gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
-    
-    wandb.finish()
-    
-    args = PPOArgs(env_id="EasyCart-v0")
-    logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-    if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
-    model = PPOLightning(args).to(device)
-    
-    trainer = pl.Trainer(
-        max_epochs=args.total_epochs,
-        logger=logger,
-        log_every_n_steps=5,
-        reload_dataloaders_every_n_epochs=1,
-        enable_progress_bar=False
-    )
-    trainer.fit(model=model)
-
-```
-
-Now, change the environment such that the reward incentivises the agent to "dance".
-
-It's up to you to define what qualifies as "dancing". Work out a sensible definition, and the reward function to incentive it. You may change the termination conditions of the environment if you think it helps teaching the cart to dance.
-
+Now, change the environment such that the reward incentivises the agent to spin very fast. You may change the termination conditions of the environment (i.e. return a different value for `done`) if you think this will help.
 
 <details>
 <summary>Solution (one possible implementation)</summary>
@@ -1794,7 +1773,7 @@ class SpinCart(CartPoleEnv):
         obs, rew, done, info = super().step(action)
         # YOUR CODE HERE
         x, v, theta, omega = obs
-        # Allow for 360-degree rotation
+        # Allow for 360-degree rotation (but keep the cart on-screen)
         done = (abs(x) > self.x_threshold)
         # Reward function incentivises fast spinning while staying still & near centre
         rotation_speed_reward = min(1, 0.1*abs(omega))
@@ -1805,6 +1784,7 @@ class SpinCart(CartPoleEnv):
 
 </details>
 
+Another thing you can try is "dancing". It's up to you to define what qualifies as "dancing" - work out a sensible definition, and the reward function to incentive it. 
 
 ## Bonus
 
