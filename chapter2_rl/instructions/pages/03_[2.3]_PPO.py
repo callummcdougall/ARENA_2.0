@@ -1661,6 +1661,17 @@ def test_probe(probe_idx: int):
 
 Once you've passed the tests for all 5 probe environments, you should test your model on Cartpole.
 
+<details>
+<summary>Question - if you've done this correctly (and logged everything), clipped surrogate objective will be close to zero. Does this mean that it's not important in the overall algorithm (compared to the components of the objective function which are larger)?</summary>
+
+No, this doesn't mean that it's not important.
+
+Clipped surrogate objective is a moving target. At each rollout phase, we generate new experiences, and the expected value of the clipped surrogate objective will be zero (because the expected value of advantages is zero). But this doesn't mean that differentiating clipped surrogate objective wrt the policy doesn't have a large gradient!
+
+As we make update steps in the learning phase, the policy values $\pi(a_t \mid s_t)$ will increase for actions which have positive advantages, and decrease for actions which have negative advantages, so the clipped surrogate objective will no longer be zero in expectation. But (thanks to the fact that we're clipping changes larger than $\epsilon$) it will still be very small.
+
+</details>
+
 ### Catastrophic forgetting
 
 Note - you might see performance very high initially and then drop off rapidly (before recovering again).
