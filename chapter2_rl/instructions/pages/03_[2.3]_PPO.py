@@ -1735,6 +1735,11 @@ class EasyCart(CartPoleEnv):
         # YOUR CODE HERE - calculate new reward
 
         return (obs, new_reward, done, info)
+
+        
+gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
+args = PPOArgs(env_id="EasyCart-v0", use_wandb=True)
+# YOUR CODE HERE - train agent
 ```
 
 <details>
@@ -1780,6 +1785,11 @@ class SpinCart(CartPoleEnv):
         stability_penalty = max(1, abs(x/2.5) + abs(v/10))
         reward = rotation_speed_reward - 0.5 * stability_penalty
         return (obs, reward, done, info)
+
+
+gym.envs.registration.register(id="SpinCart-v0", entry_point=SpinCart, max_episode_steps=500)
+args = PPOArgs(env_id="SpinCart-v0", use_wandb=True)
+agent = train(args)
 ```
 
 </details>
