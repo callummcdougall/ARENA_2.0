@@ -1343,9 +1343,10 @@ def section_3():
     <li class='margtop'><a class='contents-el' href='#bonus'>Bonus</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#trust-region-methods'>Trust Region Methods</a></li>
-        <li><a class='contents-el' href='#long-term-replay-buffer'>Long-term replay buffer</a></li>
+        <li><a class='contents-el' href='#long-term-replay-buffer'>Long-term Replay Buffer</a></li>
         <li><a class='contents-el' href='#vectorized-advantage-calculation'>Vectorized Advantage Calculation</a></li>
-        <li><a class='contents-el' href='#other-environments'>Other environments</a></li>
+        <li><a class='contents-el' href='#other-discrete-environments'>Other Discrete Environments</a></li>
+        <li><a class='contents-el' href='#minigrid-envs-procgen'>Minigrid envs / Procgen</a></li>
         <li><a class='contents-el' href='#continuous-action-spaces'>Continuous Action Spaces</a></li>
         <li><a class='contents-el' href='#atari'>Atari</a></li>
         <li><a class='contents-el' href='#atari'>Multi-Agent PPO</a></li>
@@ -1815,10 +1816,25 @@ Here are a few bonus exercises. They're ordered (approximately) from easiest to 
 Some versions of the PPO algorithm use a slightly different objective function. Rather than our clipped surrogate objective, they use constrained optimization (maximising the surrogate objective subject to a restriction on the [KL divergence](https://www.lesswrong.com/posts/no5jDTut5Byjqb4j5/six-and-a-half-intuitions-for-kl-divergence) between the old and new policies). 
 
 $$
-\underset{\theta}{\operatorname{maximize}} \hat{\mathbb{E}}_t\left[\frac{\pi_\theta\left(a_t \mid s_t\right)}{\pi_{\theta_{\text {old }}}\left(a_t \mid s_t\right)} \hat{A}_t-\beta \mathrm{KL}\left[\pi_{\theta_{\text {old }}}\left(\cdot \mid s_t\right), \pi_\theta\left(\cdot \mid s_t\right)\right]\right]
+\begin{array}{ll}
+\underset{\theta}{\operatorname{maximize}} & \hat{\mathbb{E}}_t\left[\frac{\pi_\theta\left(a_t \mid s_t\right)}{\pi_{\theta_{\text {old}}}\left(a_t \mid s_t\right)} \hat{A}_t\right] \\
+\text { subject to } & \hat{\mathbb{E}}_t\left[\mathrm{KL}\left[\pi_{\theta_{\text {old}}}\left(\cdot \mid s_t\right), \pi_\theta\left(\cdot \mid s_t\right)\right]\right] \leq \delta
+\end{array}
 $$
 
+The intuition behind this is similar to the clipped surrogate objective. For our clipped objective, we made sure the model wasn't rewarded for deviating from its old policy beyond a certain point (which encourages small updates). Adding an explicit KL constraint accomplishes something similar, because it forces the model to closely adhere to the old policy. For more on KL-divergence and why it's a principled measure, see [this post](https://www.lesswrong.com/posts/no5jDTut5Byjqb4j5/six-and-a-half-intuitions-for-kl-divergence). We call these algorithms trust-region methods because they incentivise the model to stay in a **trusted region of policy space**, i.e. close to the old policy (where we can be more confident in our results).
+
+The theory behind TRPO actually suggests the following variant - turning the strict constraint into a penalty term, which you should find easier to implement:
+
+$$
+\underset{\theta}{\operatorname{maximize}} \, \hat{\mathbb{E}}_t\left[\frac{\pi_\theta\left(a_t \mid s_t\right)}{\pi_{\theta_{\text {old}}}\left(a_t \mid s_t\right)} \hat{A}_t-\beta \mathrm{KL}\left[\pi_{\theta_{\text {old}}}\left(\cdot \mid s_t\right), \pi_\theta\left(\cdot \mid s_t\right)\right]\right]
+$$
+
+Rather than forcing the new policy to stay close to the previous policy, this adds a penalty term which incentivises this behaviour (in fact, there is a 1-1 correspondence between constrained optimization problems and the corresponding unconstrained version).
+
 Can you implement this? Does this approach work better than the clipped surrogate objective? What values of $\beta$ work best?
+
+Tip - you can calculate KL divergence using the PyTorch [KL Divergence function](https://pytorch.org/docs/stable/distributions.html#module-torch.distributions.kl). You could also try the approximate version, as described in [detail #12](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=Debug%20variables) of the "37 Implementational Details" post.
 
 ### Long-term replay buffer
 
@@ -1827,15 +1843,23 @@ Above, we discussed the problem of **catastrophic forgetting** (where the agent 
 * (simple version) You reserve e.g. 10% of your buffer for experiences generated at the start of training.
 * (galaxy-brained version) You design a custom scheduled method for removing experiences from the buffer, so that you always have a mix of old and new experiences.
 
-Can you implement one of these, and does it fix the catastrophic forgetting problem?
+Can you implement one of these, and does it fix the catastrophic forgetting problem (without needing to use reward shaping)?
 
 ### Vectorized Advantage Calculation
 
-Try optimizing away the for-loop in your advantage calculation. It's tricky, so an easier version of this is: find a vectorized calculation and try to explain what it does.
+Try optimizing away the for-loop in your advantage calculation. It's tricky (and quite messy), so an easier version of this is: find a vectorized calculation and try to explain what it does.
+
+<details>
+<summary>Hint (for your own implementation)</summary>
+
+*(Assume `num_envs=1` for simplicity)*
+
+Construct a 2D boolean array from `dones`, where the `(i, j)`-th element of the array tells you whether the expression for the `i`-th advantage function should include rewards / values at timestep `j`. You can do this via careful use of `torch.cumsum`, `torch.triu`, and some rearranging.
+</details>
 
 There are solutions available in `solutions.py` (commented out).
 
-### Other environments
+### Other Discrete Environments
 
 Two environments (supported by gym) which you might like to try are:
 
@@ -1843,17 +1867,29 @@ Two environments (supported by gym) which you might like to try are:
 * [`MountainCar-v0`](https://www.gymlibrary.dev/environments/classic_control/mountain_car/) - this is one of the [Classic Control environments](https://www.gymlibrary.dev/environments/classic_control/), and it's much harder to learn than cartpole. This is primarily because of **sparse rewards** (it's really hard to get to the top of the hill), so you'll definitely need reward shaping to get through it!
 * [`LunarLander-v2`](https://www.gymlibrary.dev/environments/box2d/lunar_lander/) - this is part of the [Box2d](https://www.gymlibrary.dev/environments/box2d/) environments. It's a bit harder still, because of the added environmental complexity (physics like gravity and friction, and constraints like fuel conservatino). The reward is denser (with the agent receiving rewards for moving towards the landing pad and penalties for moving away or crashing), but the increased complexity makes it overall a harder problem to solve. You might have to perform hyperparameter sweeps to find the best implementation (you can go back and look at the syntax for hyperparameter sweeps [here](https://arena-ch0-fundamentals.streamlit.app/[0.4]_Optimization)). Also, [this page](https://pylessons.com/LunarLander-v2-PPO) might be a useful reference (although the details of their implementation differs from the one we used today). You can look at the hyperparameters they used.
 
+### Minigrid envs / Procgen
+
+There are many more exciting environments to play in, but generally they're going to require more compute and more optimization than we have time for today. If you want to try them out, some we recommend are:
+
+- [Minimalistic Gridworld Environments](https://github.com/Farama-Foundation/gym-minigrid) - a fast gridworld environment for experiments with sparse rewards and natural language instruction.
+- [microRTS](https://github.com/santiontanon/microrts) - a small real-time strategy game suitable for experimentation.
+- [Megastep](https://andyljones.com/megastep/) - RL environment that runs fully on the GPU (fast!)
+- [Procgen](https://github.com/openai/procgen) - A family of 16 procedurally generated gym environments to measure the ability for an agent to generalize. Optimized to run quickly on the CPU.
+    - For this one, you might want to read [Jacob Hilton's online DL tutorial](https://github.com/jacobhilton/deep_learning_curriculum/blob/master/6-Reinforcement-Learning.md) (the RL chapter suggests implementing PPO on Procgen), and [Connor Kissane's solutions](https://github.com/ckkissane/deep_learning_curriculum/blob/master/solutions/6_Reinforcement_Learning.ipynb).
+
 ### Continuous Action Spaces
 
 The `MountainCar-v0` environment has discrete actions, but there's also a version `MountainCarContinuous-v0` with continuous action spaces. Unlike DQN, PPO can handle continuous actions with minor modifications. Try to adapt your agent; you'll need to handle `gym.spaces.Box` instead of `gym.spaces.Discrete` and make note of the ["9 details for continuous action domains"](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20details%20for%20continuous%20action%20domains) section of the reading.
 
 ### [Atari](https://www.gymlibrary.dev/environments/atari/)
 
-The [37 Implementational Details of PPO](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20Atari%2Dspecific%20implementation%20details) post describes how to get PPO working for games like Atari. You've already done a lot of the work here! Try to implement the remaining details and get PPO working on Atari. You'll need to read the Atari-specific implementation details section in the post (and you'll also have to spend some time working with a different library to `gym`). This could be a good capstone project, or just an extended project for the rest of the RL section (after we do RLHF) if you want to get more hands-on engineering experience!
+The [37 Implementational Details of PPO](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=9%20Atari%2Dspecific%20implementation%20details) post describes how to get PPO working for games like Atari. You've already done a lot of the work here! Try to implement the remaining details and get PPO working on Atari. You'll need to read the Atari-specific implementation details section in the post (and you'll also have to spend some time working with a different library to `gym`). This could be a good capstone project, or just an extended project for the rest of the RL section (after we do RLHF) if you want to get more challenging hands-on engineering experience!
 
 ### Multi-Agent PPO
 
 Multi-Agent PPO (MAPPO) is an extension of the standard PPO algorithm which trains multiple agents at once. It was first described in the paper [The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games](https://arxiv.org/abs/2103.01955). Can you implement MAPPO?
+
+Even if you choose not to implement it, you may wish to read some of the material relevant for MAPPO, including [Learning to Deceive in Multi-Agent Hidden Role Games](https://arxiv.org/abs/2209.01551), a paper written by Matthew Aitchison, who will be giving a talk on Tuesday evening.
 
 """, unsafe_allow_html=True)
 
