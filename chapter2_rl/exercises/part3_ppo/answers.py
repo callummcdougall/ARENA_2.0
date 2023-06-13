@@ -478,6 +478,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
+            # wandb.gym.monitor() # Makes sure we log video!
 
 
     def rollout_phase(self):
@@ -590,17 +591,53 @@ def test_probe(probe_idx: int):
     print("Probe tests passed!")
 
 #%%
-test_probe(1)
-test_probe(2)
-test_probe(3)
-test_probe(4)
-test_probe(5)
+# test_probe(1)
+# test_probe(2)
+# test_probe(3)
+# test_probe(4)
+# test_probe(5)
 
 #%%
 # Train the model
+# wandb.finish()
+# args = PPOArgs(
+#     use_wandb=True,
+#     wandb_project_name="PPOCartClean",
+#     seed=1,
+#     learning_rate = 0.00025 / 2
+# )
+# agent = train(args)
+# %%
+
+from gym.envs.classic_control.cartpole import CartPoleEnv
+
+class EasyCart(CartPoleEnv):
+    name = "EasyCart-10-x-theta-squared"
+    def step(self, action):
+        (obs, reward, done, info) = super().step(action)
+
+        # YOUR CODE HERE - calculate new reward
+        import math
+        x_threshold = 2.4
+        theta_threshold = 12 * 2 * math.pi / 360
+        
+        x, x_dot, theta, theta_dot = obs
+        x_penalty = (abs(x) / x_threshold) / 2
+        theta_penalty = (abs(theta) / theta_threshold) / 2
+        new_reward = 1 - x_penalty - theta_penalty if reward > 0 else 0
+        
+        return (obs, new_reward, done, info)
+    
+gym.envs.registration.register(id=EasyCart.name, entry_point=EasyCart, max_episode_steps=500)
+
+wandb.finish()
 args = PPOArgs(
+    exp_name = EasyCart.name,
     use_wandb=True,
     wandb_project_name="PPOCartClean",
+    seed=2,
+    env_id=EasyCart.name,
+    total_timesteps=500000,
 )
 agent = train(args)
 # %%
