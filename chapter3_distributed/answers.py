@@ -77,25 +77,33 @@ if __name__ == '__main__':
 from test import test_reduce_naive
 
 def reduce_naive(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
-    # TODO: num reads/writes are correct but output value of dst tensor has race conditions
-    dist.barrier()
-    op_to_fn = {ReduceOp.SUM: lambda x, y: x + y,
-                ReduceOp.PRODUCT: lambda x, y: x * y,
-                ReduceOp.MAX: lambda x, y: torch.max(x, y),
-                ReduceOp.MIN: lambda x, y: torch.min(x, y)}
+    print(f'rank {dist.get_rank()} {tensor}')
     if dist.get_rank() == dst:
-        result = tensor.clone()
-    dist.barrier()
-    for i in range(dist.get_world_size()):
-        if i != dst:
-            if dist.get_rank() == dst:
-                dist.recv(result, i)
-                tensor = op_to_fn[op](tensor, result)
-                # print(f'{dist.get_rank()} <- {i}, output {tensor}')
-            elif dist.get_rank() == i:
-                # print(f'{i} <- {dst}')
+        for i in range(dist.get_world_size()):
+            if i != dist.get_rank():
+                buff = torch.empty_like(tensor)
+                dist.recv(buff, i)
+                dist.barrier()
+                if op == ReduceOp.SUM:
+                    tensor += buff
+                elif op == ReduceOp.PRODUCT:
+                    tensor *= buff
+                elif op == ReduceOp.MAX:
+                    tensor = torch.max(tensor, buff)
+                elif op == ReduceOp.MIN:
+                    tensor = torch.min(tensor, buff)
+                else:
+                    raise NotImplementedError(f'op {op} not implemented')
+    else:
+        for i in range(dist.get_world_size()):
+            if i == dist.get_rank():
                 dist.send(tensor, dst)
-        dist.barrier()
+            elif i == dst:
+                continue
+            dist.barrier()
+    dist.barrier()
+
+
 
 if __name__ == '__main__':
     test_reduce_naive(reduce_naive)
