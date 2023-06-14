@@ -52,4 +52,174 @@ This page contains links to a bunch of things (blog posts, diagrams, tables) whi
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-full-red.png" width="1200">
 
 Link to excalidraw [here](https://link.excalidraw.com/l/9KwMnW35Xt8/6PEWgOPSxXH).
+
+## Quick reference
+
+Here's a list of some useful functions and methods in TransformerLens.
+
+### Weights
+
+You can index weights via the full name, e.g. `model.blocks[0].attn.W_Q` returns something of shape `(n_heads, d_head, d_model)`. But you can also use `model.W_Q` which returns all the matrices stacked along the layer dimension, i.e. shape `(n_layers, n_heads, d_head, d_model)`. This works for all other weights:
+
+```python
+model.W_Q -> query weights
+model.W_K -> key weights
+model.W_V -> value weights
+model.W_O -> output weights
+
+model.W_in -> MLP input weights
+model.W_out -> MLP output weights
+```
+
+and exactly the same for biases.
+
+### Hooks
+
+Template for a hook function is:
+
+```python
+def hook_fn(activation: Tensor, hook: HookPoint):
+    # Modify / store activation
+    # optionally return new (changed) value of activation
+    ...
+```
+
+Useful functions for hooks are:
+
+#### `model.add_hooks`
+
+Takes arguments `hook_name` and `hook_fn`. Adds a hook to the model, which will be called and removed after each forward pass.
+
+Note that `hook_name` can be a boolean function which takes names as arguments, in which case the hook will be added to all activations where the function evaluates to True.
+
+Example: `model.add_hooks(lambda name: name.endswith("z"), hook_fn)` adds hooks to `z` at all layers.
+
+#### `model.run_with_hooks`
+
+Used as follows:
+
+```python
+out = model.run_with_hooks(
+    inputs,
+    fwd_hooks = [(hook_name, hook_fn), ...],
+    return_type = "logits" # can also do "loss", "both", or None
+)
+```
+
+#### `model.run_with_cache`
+
+Used as follows:
+
+```python
+out, cache = model.run_with_cache(
+    inputs,
+    return_type = "logits" # can also do "loss", "both", or None
+)
+```
+
+An optional argument is `names_filter`, which is a boolean function taking names as arguments (we'll only cache the activations where `names_filter(name)` is True).
+
+### Cache methods
+
+The `ActivationCache` class has a few useful methods for performing operations on its activations. These include:
+
+* `cache.apply_ln_to_stack(resid_stack: Tensor)`
+    * Apply layernorm scaling to a stack of residual stream values.
+    * We used this to help us go from "final value in residual stream" to "projection of logits in logit difference directions", without getting the code too messy!
+* `cache.accumulated_resid(layer)`
+    * Returns the accumulated residual stream up to layer `layer` (or up to the final value of residual stream if layer is None), i.e. a stack of previous residual streams up to that layer's input.
+    * Useful when studying the **logit lens**.
+    * First dimension of output is `(0_pre, 0_mid, 1_pre, 1_mid, ..., final_post)`.
+* `cache.decompose_resid(layer)`.
+    * Decomposes the residual stream input to layer `layer` into a stack of the output of previous layers. The sum of these is the input to layer `layer`.
+    * First dimension of output is `(embed, pos_embed, 0_attn_out, 0_mlp_out, ...)`.
+* `cache.stack_head_results(layer)`
+    * Returns a stack of all head results (i.e. residual stream contribution) up to layer `layer`
+    * (i.e. like `decompose_resid` except it splits each attention layer by head rather than splitting each layer by attention/MLP)
+    * First dimension of output is `layer * head` (we needed to rearrange to `(layer, head)` to plot it).
+
+### Utils
+
+`utils.test_prompt(prompt, answer, model)`
+
+* Tests the model on a prompt, and prints useful output. 
+* Useful for exploratory analysis.
+* Example: `utils.test_prompt("One plus one equals", " two", gpt2_small)`
+
+`utils.to_numpy`
+
+* Converts a (possibly cuda, attached-to-computational-graph) tensor to a numpy array.
+* Don't have to mess around with clone, detach, cpu and numpy methods.
+
+`utils.get_act_name`
+
+* Works the same way as indexing into the cache (actually, this is what gets called under the hood when we index into the cache).
+* Returns full name of activation.
+* Example: `utils.get_act_name(q, 0)` (second argument is layer index).
+* Important - unlike the cache, you can't use negative layer indices.
+
+### Misc.
+
+There are way more tips than can possibly fit into a page without getting super excessive, but here are a few:
+
+#### Visualisation
+
+Plotly is great - you can find plotly utils functions in these directories (along with many examples of them being used). The `RdBu` colorscheme is your friend!
+
+Circuitsvis is also great! You can use it as follows:
+
+```python
+import circuitsvis as cv
+
+cv.attention.attention_patterns(
+    tokens, # list of strings
+    attention, # tensor of shape (n_heads, seq_len, seq_len),
+    attention_head_names
+)
+
+cv.attention.attention_heads(
+    attention, # tensor of shape (n_heads, seq_len, seq_len),
+    tokens, # list of strings
+    attention_head_names
+)
+```
+
+A few notes:
+* Attention heads and attention patterns have similar syntax, but present information in different ways. Which one you use depends on your use case, and personal preference.
+* The version of circuitsvis I'm having people use is a fork of the main library (because the main library doesn't offer the `attention_head_names` argument for the `attention_patterns`) function. I've kept the same order of the first 2 (non-optional) arguments so as not to break compatibility, which for some arcane reason isn't the same for both functions! It's probably safer to use them as keyword arguments so they don't get mixed up.
+* Make sure to check that tokens have the right length, and attention has the right shape, because there aren't error messages for this.
+* These functions can be called in a cell, but they also return an html object which you can display using `IPython.display.display(html_object)`.
+* Sometimes the visualisations can behave weirdly (in particular, the `attention_patterns` visualisation can shrink infinitely after being displayed). A hacky way around this is to save and open the plot in your browser:
+
+```python
+import webbrowser
+
+html_obj = cv.attention.attention_patterns(...)
+
+with open("temp.html", "w") as f:
+    f.write(str(html_obj))
+
+webbrowser.open("temp.html")
+```
+
+If you're in a remote machine then the latter method won't work, but you can right click -> download the html file and open it locally.
+
+#### Memory management
+
+Call `torch.enable_grad(False)` to disable gradient tracking, if you don't need it (which you won't most of the time). This saves a lot of memory!
+
+Call `torch.cuda.empty_cache()` to clear memory, if you find yourself needing to.
+
+#### Notebooks vs Python files vs Colabs
+
+It's important to konw what tools to use in different situations. All have advantages and disadvantages.
+
+**Google Colab** provides minimal setup cost, cheap GPU support, and is a good place to share results with others and get feedback. But it also doesn't have some of the same useful tools as VSCode (e.g. Copilot, better editing and navigation features, other extensions, etc).
+
+**VSCode-based ipynb notebooks** are good ways to display results, and are useful for exploratory analysis. Most people find them a more pleasant experience to code in than Colab. However, they do have a larger setup cost, and notebooks can also encourage bad practices (e.g. lack of structure, cluttered code, etc).
+
+**VSCode-based Python files** can be given notebook-like functionality by cell-separation comments `# %%`. You can also write functions in a Python file and import them from other python files and notebooks, which is extremely valuable. But unlike notebooks, then can't display results inline.
+
+Your workflow might use all three of these, e.g. working in VSCode using a combination of notebooks for exploratory analysis and Python files for writing functions that you'll import into your notebooks, then finally converting your notebooks to Colabs to publish your results.
+
 """, unsafe_allow_html=True)
