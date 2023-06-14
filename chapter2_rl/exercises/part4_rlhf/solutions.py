@@ -30,11 +30,13 @@ imdb = load_dataset("imdb", split="train+test")
 
 # %%
 
-def label_split(dataset) -> None:
+def label_split(dataset) -> Tuple[int, int]:
 	positive_samples = dataset['label'].count(1)
 	negative_samples = dataset['label'].count(0)
 
 	print(f"Positive reviews: {positive_samples}, Negative reviews: {negative_samples}")
+
+	return positive_samples, negative_samples
 
 
 if MAIN:
