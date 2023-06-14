@@ -431,7 +431,7 @@ You should spend up to 10-25 minutes on this exercise.
 
 You will need to use the `AutoTokenizer`, `AutoModelForCausalLM` from the transformers package. You might want to use the generate method of the GPT-2 model that you load, if you do you should use `top_p` sampling and set the `max_new_tokens` argument to something that's large enough.
 
-Play around with generating completions from this prompt and verify whether the completions approximately fit your initial expectaions of the sentiments that the model would output.
+Play around with generating completions from this prompt and verify whether the completions approximately fit your initial expectations of the sentiments that the model would output.
 
 **Note** - when you run `tokenizer(prompt)`, this will return a dictionary containing things like `token_ids` as well as a couple of other things that need to be passed into the model in a forward pass (e.g. a tensor indicating where you should mask `[PAD]` tokens). The best way to deal with this is to take `inputs = tokenizer(prompt)` and run `model.generate(**inputs)`.
 
@@ -492,7 +492,7 @@ Note - the model is not passed as an argument because we want you to call the mo
 ```python
 def reward_model(samples, **kwargs):
     '''
-    Returns the rewards for the given samples, using the reward model `model`.
+    Returns the rewards for the given samples (according to model which is defined inside function body).
 
     kwargs are passed to your model during a forward pass.
     '''
@@ -511,7 +511,7 @@ tests.test_reward_model(rewards)
 ```python
 def reward_model(samples, **kwargs):
     '''
-    Returns the rewards for the given samples, using the reward model `model`.
+    Returns the rewards for the given samples (according to model which is defined inside function body).
 
     kwargs are passed to your model during a forward pass.
     '''
