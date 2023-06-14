@@ -429,16 +429,20 @@ You will need to use the `AutoTokenizer`, `AutoModelForCausalLM` from the transf
 
 Play around with generating completions from this prompt and verify whether the completions approximately fit your initial expectaions of the sentiments that the model would output.
 
+**Note** - when you run `tokenizer(prompt)`, this will return a dictionary containing things like `token_ids` as well as a couple of other things that need to be passed into the model in a forward pass (e.g. a tensor indicating where you should mask `[PAD]` tokens). The best way to deal with this is to take `inputs = tokenizer(prompt)` and run `model.generate(**inputs)`.
+
 
 ```python
 def generate_completion(prompt) -> str:
     '''
     Loads the GPT2-IMDB tokenizer and model, and generates completions for the given prompt (in the form of a string).
+
+    Find name of model & tokenizer at the documentation page: https://huggingface.co/lvwerra/gpt2-imdb
     '''
     pass
 
+    
 generate_completion(prompts[0]) 
-
 ```
 
 <details>
@@ -449,6 +453,8 @@ generate_completion(prompts[0])
 def generate_completion(prompt) -> str:
     '''
     Loads the GPT2-IMDB tokenizer and model, and generates completions for the given prompt (in the form of a string).
+
+    Find name of model & tokenizer at the documentation page: https://huggingface.co/lvwerra/gpt2-imdb
     '''
     # SOLUTION
     tokenizer = AutoTokenizer.from_pretrained("lvwerra/gpt2-imdb")
