@@ -390,11 +390,14 @@ In the context of the exercise to push GPT2 towards outputting reviews with more
 
 We want to collect the first few (3-5, the choice is yours) words from each review to serve as prompts for our finetuned model. The generated text from these prompts will be later used to evaluate the performance of our finetuned model.
 
+Emphasis - **we want to capture these prompts straight from the imdb dataset rather than write them ourselves.**
 
 ```python
-prompts = []
-# YOUR CODE HERE - fill in the prompts
+def generate_prompts(dataset) -> List[str]:
+    '''Generate & return prompts from dataset.'''
+    # SOLUTION
 
+prompts = generate_prompts(imdb)
 ```
 
 <details>
@@ -403,6 +406,7 @@ prompts = []
 
 ```python
 def generate_prompts(dataset):
+    '''Generate & return prompts from dataset.'''
     prompts = [" ".join(review.split()[:4]) for review in dataset["text"]]
     return prompts
 
@@ -481,6 +485,8 @@ You should spend up to 15-30 minutes on this exercise.
 ```
 
 We can use the model mentioned above in eval mode to generate sentiment scores and then transform the sentiments into rewards to be fed into the RLHF training loop.
+
+Note - the model is not passed as an argument because we want you to call the model linked in the description **inside the function body**.
 
 
 ```python
@@ -629,9 +635,19 @@ def reward_model(samples: List[str], **kwargs) -> List[float]:
 
 
 ```python
+def get_positive_score(scores):
+    '''
+    Returns the score for the positive label.
+    '''
+	# SOLUTION
+	return dict(map(lambda x: tuple(x.values()), scores))["POSITIVE"]
+
+    
 def reward_model(samples: List[str], **kwargs) -> List[float]:
     '''
     Returns a list of reward values corresponding to the samples in `samples`.
+
+    Should call the `get_positive_score` function.
     '''
     # SOLUTION
     reward = list(map(get_positive_score, sentiment_fn(samples)))
