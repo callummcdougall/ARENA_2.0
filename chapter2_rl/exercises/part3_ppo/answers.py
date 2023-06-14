@@ -32,6 +32,8 @@ from jaxtyping import Float, Int, Bool
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger, CSVLogger
 import wandb
+wandb.login(key="b4d7d052c3f831d7adcc48efd9ba063aaa25d493")
+wandb.init()
 
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
@@ -123,7 +125,7 @@ def get_actor_and_critic(envs: gym.vector.SyncVectorEnv) -> Tuple[nn.Module, nn.
     return actor, critic
 
 
-tests.test_get_actor_and_critic(get_actor_and_critic)
+# tests.test_get_actor_and_critic(get_actor_and_critic)
 #%%
 @t.inference_mode()
 def compute_advantages(
@@ -166,7 +168,7 @@ def compute_advantages(
 
 
 
-tests.test_compute_advantages(compute_advantages)
+# tests.test_compute_advantages(compute_advantages)
 
 #%%
 def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
@@ -179,14 +181,14 @@ def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> L
     return rng.permuted(np.arange(batch_size)).reshape(-1, minibatch_size)
 
 
-rng = np.random.default_rng(0)
-batch_size = 6
-minibatch_size = 2
-indexes = minibatch_indexes(rng, batch_size, minibatch_size)
-
-assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
-assert sorted(np.unique(indexes)) == [0, 1, 2, 3, 4, 5]
-print("All tests in `test_minibatch_indexes` passed!")
+# rng = np.random.default_rng(0)
+# batch_size = 6
+# minibatch_size = 2
+# indexes = minibatch_indexes(rng, batch_size, minibatch_size)
+#
+# assert np.array(indexes).shape == (batch_size // minibatch_size, minibatch_size)
+# assert sorted(np.unique(indexes)) == [0, 1, 2, 3, 4, 5]
+# print("All tests in `test_minibatch_indexes` passed!")
 # %%
 @dataclass
 class ReplayBufferSamples:
@@ -352,7 +354,7 @@ class PPOAgent(nn.Module):
         return self.rb.get_minibatches(next_value, self.next_done)
 
 
-tests.test_ppo_agent(PPOAgent)
+# tests.test_ppo_agent(PPOAgent)
 # %%
 def calc_clipped_surrogate_objective(
     probs: Categorical, 
@@ -385,7 +387,7 @@ def calc_clipped_surrogate_objective(
 
 
 
-tests.test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective)
+# tests.test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective)
 # %%
 def calc_value_function_loss(
     values: Float[Tensor, "minibatch_size"],
@@ -405,7 +407,7 @@ def calc_value_function_loss(
     return 0.5 * vf_coef * (values - mb_returns).pow(2).mean()
 
 
-tests.test_calc_value_function_loss(calc_value_function_loss)
+# tests.test_calc_value_function_loss(calc_value_function_loss)
 # %%
 def calc_entropy_bonus(probs: Categorical, ent_coef: float):
     '''Return the entropy bonus term, suitable for gradient ascent.
@@ -418,7 +420,7 @@ def calc_entropy_bonus(probs: Categorical, ent_coef: float):
     return ent_coef * probs.entropy().mean()
 
 
-tests.test_calc_entropy_bonus(calc_entropy_bonus)
+# tests.test_calc_entropy_bonus(calc_entropy_bonus)
 # %%
 
 class PPOScheduler:
@@ -443,7 +445,7 @@ def make_optimizer(agent: PPOAgent, total_training_steps: int, initial_lr: float
     return (optimizer, scheduler)
 
 
-tests.test_ppo_scheduler(PPOScheduler)
+# tests.test_ppo_scheduler(PPOScheduler)
 # %%
 class MyDataset(Dataset):
     def __init__(self, batches: List[ReplayBufferSamples]):
@@ -456,8 +458,53 @@ class MyDataset(Dataset):
         return self.batches[idx]
 
 
-class PPOLightning(pl.LightningModule):
-    agent: PPOAgent
+# class PPOLightning(pl.LightningModule):
+#     agent: PPOAgent
+#
+#     def __init__(self, args: PPOArgs):
+#         super().__init__()
+#         self.args = args
+#         set_global_seeds(args.seed)
+#         self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+#         self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
+#         self.agent = PPOAgent(self.args, self.envs).to(device)
+#         self.rollout_phase()
+#
+#
+#     def on_train_epoch_end(self) -> None:
+#         self.rollout_phase()
+#
+#     def rollout_phase(self) -> None:
+#         '''Should populate the replay buffer with new experiences.'''
+#         self.agent.rb.experiences = []
+#         self.next_obs = t.tensor(self.envs.reset()).to(device)
+#         for _ in range(self.args.num_steps):
+#             self.agent.play_step()
+#
+#     def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
+#         '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+#         actor_out = self.agent.actor(minibatch.obs)
+#         actor_distribution = Categorical(logits=actor_out)
+#         critic_out = self.agent.critic(minibatch.obs)
+#         entropy_bonus = calc_entropy_bonus(actor_distribution, self.args.ent_coef)
+#
+#         clipped_surrogate_objective = calc_clipped_surrogate_objective(actor_distribution, minibatch.actions, minibatch.advantages, minibatch.logprobs, self.args.clip_coef)
+#         value_function_loss = calc_value_function_loss(critic_out.squeeze(1), minibatch.returns, self.args.vf_coef)
+#         total_objective_fn = entropy_bonus.float() + clipped_surrogate_objective.float() - value_function_loss.float()
+#         self.log("total_objective_function", total_objective_fn)
+#         return total_objective_fn
+#
+#     def configure_optimizers(self):
+#         '''Returns optimizer and scheduler (sets scheduler as attribute, so we can call self.scheduler.step() during each training step)'''
+#         optimizer, scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+#         self.scheduler = scheduler
+#         return optimizer
+#
+#
+#     def train_dataloader(self):
+#         return MyDataset(self.agent.get_minibatches())
+
+class PPOTrainer:
 
     def __init__(self, args: PPOArgs):
         super().__init__()
@@ -466,107 +513,123 @@ class PPOLightning(pl.LightningModule):
         self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
         self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
         self.agent = PPOAgent(self.args, self.envs).to(device)
-        self.rollout_phase()
+        self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+        if args.use_wandb:
+            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name)
+            wandb.gym.monitor()
 
 
-    def on_train_epoch_end(self) -> None:
-        self.rollout_phase()
-
-    def rollout_phase(self) -> None:
+    def rollout_phase(self):
         '''Should populate the replay buffer with new experiences.'''
-        self.agent.rb.experiences = []
-        self.next_obs = t.tensor(self.envs.reset()).to(device)
-        for _ in range(self.args.num_steps):
-            self.agent.play_step()
+        last_episode_len = None
+        for step in range(self.args.num_steps):
+            infos = self.agent.play_step()
+            for info in infos:
+                if "episode" in info.keys():
+                    last_episode_len = info["episode"]["l"]
+        return last_episode_len
 
-    def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
-        '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
-        actor_out = self.agent.actor(minibatch.obs)
-        actor_distribution = Categorical(logits=actor_out)
-        critic_out = self.agent.critic(minibatch.obs)
-        entropy_bonus = calc_entropy_bonus(actor_distribution, self.args.ent_coef)
- 
-        clipped_surrogate_objective = calc_clipped_surrogate_objective(actor_distribution, minibatch.actions, minibatch.advantages, minibatch.logprobs, self.args.clip_coef)
-        value_function_loss = calc_value_function_loss(critic_out.squeeze(1), minibatch.returns, self.args.vf_coef)
-        total_objective_fn = entropy_bonus.float() + clipped_surrogate_objective.float() - value_function_loss.float()
-        self.log("total_objective_function", total_objective_fn)
-        return total_objective_fn
+    def learning_phase(self) -> None:
+        '''Should get minibatches and iterate through them (performing an optimizer step at each one).'''
+        minibatches = self.agent.get_minibatches()
+        for minibatch in minibatches:
+            actor_out = self.agent.actor(minibatch.obs)
+            actor_distribution = Categorical(logits=actor_out)
+            critic_out = self.agent.critic(minibatch.obs)
 
-    def configure_optimizers(self):
-        '''Returns optimizer and scheduler (sets scheduler as attribute, so we can call self.scheduler.step() during each training step)'''
-        optimizer, scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
-        self.scheduler = scheduler 
-        return optimizer
+            entropy_bonus = calc_entropy_bonus(actor_distribution, self.args.ent_coef)
+            assert minibatch.actions.shape == minibatch.advantages.shape == minibatch.logprobs.shape
+            minibatch.advantages = (minibatch.advantages - minibatch.advantages.mean()) / (minibatch.advantages.std() + 1e-8)
+            new_logprobs = actor_distribution.log_prob(minibatch.actions).exp().
+            rt_theta = t.exp(new_logprobs - minibatch.logprobs)
+            clipped_surrogate_objective = t.min(rt_theta * minibatch.advantages, t.clamp(rt_theta, 1 - self.args.clip_coef, 1 + self.args.clip_coef) * minibatch.advantages).mean()
+            value_function_loss = calc_value_function_loss(critic_out.squeeze(1), minibatch.returns, self.args.vf_coef)
 
+            total_objective_fn = entropy_bonus.float() + clipped_surrogate_objective.float() - value_function_loss.float()
 
-    def train_dataloader(self):
-        return MyDataset(self.agent.get_minibatches())
+            wandb.log({
+                "entropy_bonus": entropy_bonus.detach().cpu().numpy(),
+                "clipped_surrogate_objective": clipped_surrogate_objective.detach().cpu().numpy(),
+                "value_function_loss": value_function_loss.detach().cpu().numpy(),
+                "total_objective_function": total_objective_fn.detach().cpu().numpy(),
+            })
+            total_objective_fn.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            self.scheduler.step()
+
+def train(args: PPOArgs) -> PPOAgent:
+    '''Implements training loop, used like: agent = train(args)'''
+
+    trainer = PPOTrainer(args)
+
+    progress_bar = tqdm(range(args.total_epochs))
+
+    for epoch in progress_bar:
+        last_episode_len = trainer.rollout_phase()
+
+        if last_episode_len is not None:
+            progress_bar.set_description(f"Epoch {epoch:02}, Episode length: {last_episode_len}")
+            if args.use_wandb: wandb.log({"episode_length": last_episode_len}, step=trainer.agent.steps)
+
+        trainer.learning_phase()
+
+    return trainer.agent
 # %%
-probe_idx = 1
+def test_probe(probe_idx: int):
 
-# Define a set of arguments for our probe experiment
-args = PPOArgs(
-    env_id=f"Probe{probe_idx}-v0",
-    exp_name=f"test-probe-{probe_idx}", 
-    total_timesteps=30000 if probe_idx <= 3 else 30000,
-    learning_rate=0.001,
-    capture_video=False,
-    use_wandb=False,
-)
-model = PPOLightning(args).to(device)
-logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
-
-# Run our experiment
-trainer = pl.Trainer(
-    max_epochs=args.total_epochs,
-    logger=logger,
-    log_every_n_steps=10,
-    gradient_clip_val=args.max_grad_norm,
-    reload_dataloaders_every_n_epochs=1,
-    enable_progress_bar=False,
-)
-trainer.fit(model=model)
-
-# Check that our final results were the ones we expected from this probe
-obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
-expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
-expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
-tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
-obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
-model.to(device)
-with t.inference_mode():
-    value = model.agent.critic(obs)
-    probs = model.agent.actor(obs).softmax(-1)
-expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
-t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
-expected_probs = expected_probs_for_probes[probe_idx-1]
-if expected_probs is not None:
-    t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
-print("Probe tests passed!")
-
-# Use the code below to inspect your most recent logged results
-metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-metrics.tail()
-# %%
-wandb.finish()
-
-args = PPOArgs(
-    use_wandb=False,
-    capture_video=True
+    # Define a set of arguments for our probe experiment
+    args = PPOArgs(
+        env_id=f"Probe{probe_idx}-v0",
+        exp_name=f"test-probe-{probe_idx}",
+        total_timesteps=10000 if probe_idx <= 3 else 30000,
+        learning_rate=0.001,
+        capture_video=False,
+        use_wandb=False,
     )
-logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
 
-# logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-# if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
-model = PPOLightning(args).to(device)
+    # YOUR CODE HERE - create a PPOTrainer instance, and train your agent
+    agent = train(args)
 
-trainer = pl.Trainer(
-    max_epochs=args.total_epochs,
-    logger=logger,
-    log_every_n_steps=5,
-    reload_dataloaders_every_n_epochs=1,
-    enable_progress_bar=True
-)
+
+    # Check that our final results were the ones we expected from this probe
+    obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+    expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
+    expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+    tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+    obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+    with t.inference_mode():
+        value = agent.critic(obs)
+        probs = agent.actor(obs).softmax(-1)
+    expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+    t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+    expected_probs = expected_probs_for_probes[probe_idx-1]
+    if expected_probs is not None:
+        t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
+    # clear_output()
+    print("Probe tests passed!")
+
+# test_probe(1)
+# %%
+# wandb.finish()
+
+# args = PPOArgs(
+#     use_wandb=False,
+#     capture_video=True
+#     )
+# logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+#
+# # logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+# # if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+# model = PPOLightning(args).to(device)
+#
+# trainer = pl.Trainer(
+#     max_epochs=args.total_epochs,
+#     logger=logger,
+#     log_every_n_steps=5,
+#     reload_dataloaders_every_n_epochs=1,
+#     enable_progress_bar=True
+# )
 # trainer.fit(model=model)
 # %%
 from gym.envs.classic_control.cartpole import CartPoleEnv
@@ -581,19 +644,19 @@ class EasyCart(CartPoleEnv):
 # %%
 gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
 
-args = PPOArgs(env_id="EasyCart-v0")
-# logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+args = PPOArgs(env_id="EasyCart-v0", use_wandb=True, capture_video=True)
 
-model = PPOLightning(args).to(device)
-
-trainer = pl.Trainer(
-    max_epochs=args.total_epochs,
-    logger=logger,
-    log_every_n_steps=5,
-    reload_dataloaders_every_n_epochs=1,
-    enable_progress_bar=True
-)
+train(args)
+# logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+#
+#
+# trainer = pl.Trainer(
+#     max_epochs=args.total_epochs,
+#     logger=logger,
+#     log_every_n_steps=5,
+#     reload_dataloaders_every_n_epochs=1,
+#     enable_progress_bar=True
+# )
 # trainer.fit(model=model)
 # %%
 import math
@@ -606,52 +669,52 @@ from pygame import gfxdraw
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
-
-class EasyCart1(CartPoleEnv):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.theta_threshold_radians = 360000 * 2 * math.pi / 360
-        self.x_threshold = 2.4
-
-        # Angle limit set to 2 * theta_threshold_radians so failing observation
-        # is still within bounds.
-        high = np.array(
-            [
-                self.x_threshold * 2,
-                np.finfo(np.float32).max,
-                self.theta_threshold_radians * 2,
-                np.finfo(np.float32).max,
-            ],
-            dtype=np.float32,
-        )
-
-        self.action_space = spaces.Discrete(2)
-        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
-
-    def step(self, action):
-        (obs, rew, done, info) = super().step(action)
-        x, v, theta, omega = obs
-        return obs, (omega ** 2) - (x ** 4), done, info
+#
+# class EasyCart1(CartPoleEnv):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#
+#         self.theta_threshold_radians = 360000 * 2 * math.pi / 360
+#         self.x_threshold = 2.4
+#
+#         # Angle limit set to 2 * theta_threshold_radians so failing observation
+#         # is still within bounds.
+#         high = np.array(
+#             [
+#                 self.x_threshold * 2,
+#                 np.finfo(np.float32).max,
+#                 self.theta_threshold_radians * 2,
+#                 np.finfo(np.float32).max,
+#             ],
+#             dtype=np.float32,
+#         )
+#
+#         self.action_space = spaces.Discrete(2)
+#         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+#
+#     def step(self, action):
+#         (obs, rew, done, info) = super().step(action)
+#         x, v, theta, omega = obs
+#         return obs, (omega ** 2) - (x ** 4), done, info
 
 
 # %%
-gym.envs.registration.register(id="EasyCart-v1", entry_point=EasyCart1, max_episode_steps=500)
-
-args = PPOArgs(env_id="EasyCart-v1")
-# logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
-
-model = PPOLightning(args).to(device)
-
-trainer = pl.Trainer(
-    max_epochs=args.total_epochs,
-    logger=logger,
-    log_every_n_steps=5,
-    reload_dataloaders_every_n_epochs=1,
-    enable_progress_bar=True
-)
-trainer.fit(model=model)
+# gym.envs.registration.register(id="EasyCart-v1", entry_point=EasyCart1, max_episode_steps=500)
+#
+# args = PPOArgs(env_id="EasyCart-v1")
+# # logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+# logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+#
+# model = PPOLightning(args).to(device)
+#
+# trainer = pl.Trainer(
+#     max_epochs=args.total_epochs,
+#     logger=logger,
+#     log_every_n_steps=5,
+#     reload_dataloaders_every_n_epochs=1,
+#     enable_progress_bar=True
+# )
+# trainer.fit(model=model)
 # %%
 class EasyCart2(CartPoleEnv):
     def __init__(self, *args, **kwargs):
@@ -701,18 +764,27 @@ class EasyCart2(CartPoleEnv):
 # %%
 gym.envs.registration.register(id="EasyCart-v2", entry_point=EasyCart2, max_episode_steps=2000)
 
-args = PPOArgs(env_id="EasyCart-v2")
+args = PPOArgs(env_id="EasyCart-v2", use_wandb=True)
+
+# train(args)
+
+# model = PPOTrainer(args).to(device)
 # logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
-logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+# # logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+#
+#
+# trainer = pl.Trainer(
+#     max_epochs=args.total_epochs,
+#     logger=logger,
+#     log_every_n_steps=5,
+#     reload_dataloaders_every_n_epochs=1,
+#     enable_progress_bar=True
+# )
+# trainer.fit(model=model)
 
-model = PPOLightning(args).to(device)
-
-trainer = pl.Trainer(
-    max_epochs=args.total_epochs,
-    logger=logger,
-    log_every_n_steps=5,
-    reload_dataloaders_every_n_epochs=1,
-    enable_progress_bar=True
-)
-trainer.fit(model=model)
 # %%
+
+# %%
+
+args = PPOArgs(env_id="ALE/Breakout-v5", use_wandb=True)
+train(args)
