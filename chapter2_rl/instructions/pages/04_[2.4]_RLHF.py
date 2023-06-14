@@ -490,7 +490,7 @@ Note - the model is not passed as an argument because we want you to call the mo
 
 
 ```python
-def reward_model(samples, **kwargs):
+def reward_model(samples, **kwargs) -> List[float]:
     '''
     Returns the rewards for the given samples (according to model which is defined inside function body).
 
@@ -509,7 +509,7 @@ tests.test_reward_model(rewards)
 
 
 ```python
-def reward_model(samples, **kwargs):
+def reward_model(samples, **kwargs) -> List[float]:
     '''
     Returns the rewards for the given samples (according to model which is defined inside function body).
 
