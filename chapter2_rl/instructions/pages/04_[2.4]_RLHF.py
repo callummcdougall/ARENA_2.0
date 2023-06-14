@@ -214,9 +214,6 @@ from trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, S
 from trlx.models.modeling_ppo import PPOConfig
 from trlx import train
 ```
-
-
-
 """, unsafe_allow_html=True)
 
 
