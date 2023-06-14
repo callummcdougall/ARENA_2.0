@@ -14,44 +14,70 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
+st.sidebar.markdown(r"""
+
+## Table of Contents
+
+<ul class="contents">
+    <li class='margtop'><a class='contents-el' href='#links'>Links</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#logistics'>Logistics</a></li>
+        <li><a class='contents-el' href='#general'>General</a></li>
+        <li><a class='contents-el' href='#how-transformers-work'>How Transformers Work</a></li>
+        <li><a class='contents-el' href='#transformerlens'>TransformerLens</a></li>
+        <li><a class='contents-el' href='#diagrams'>Diagrams</a></li>
+    </ul></li>
+    <li class='margtop'><a class='contents-el' href='#quick-reference'>Quick Reference</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#weights'>Weights</a></li>
+        <li><a class='contents-el' href='#hooks'>Hooks</a></li>
+        <li><a class='contents-el' href='#cache'>Cache</a></li>
+        <li><a class='contents-el' href='#utils'>Utils</a></li>
+        <li><a class='contents-el' href='#circuitsvis'>Circuitsvis</a></li>
+        <li><a class='contents-el' href='#misc'>Misc.</a></li>
+    </ul></li>
+</ul></li>""", unsafe_allow_html=True)
+
 st.markdown(r"""
 # [1.∞] Reference Page
 
-This page contains links to a bunch of things (blog posts, diagrams, tables) which are useful to have at hand when doing this chapter.
+This page contains links to a bunch of things (blog posts, diagrams, tables) as well as guides and code references, all of which are useful to have at hand when doing this chapter.
 
 *If you have any other suggestions for this page, please add them on Slack!*
 
-## Logistics
+## Links
+
+### Logistics
 
 * [Notion page](https://www.notion.so/ARENA-2-0-Virtual-Resources-7934b3cbcfbf4f249acac8842f887a99?pvs=4) for people studying virtually
 * [ARENA Slack group invite link](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ)
 * [Open Source Mechanistic Interpretability Slack group invite link](https://join.slack.com/t/opensourcemechanistic/shared_invite/zt-1qosyh8g3-9bF3gamhLNJiqCL_QqLFrA)
 
-## General
+### General
 
 * [Google Drive folder](https://drive.google.com/drive/folders/1N5BbZVh5_pZ3sH1lv4krp-2_wJrB-Ahg) containing Colab versions of all these exercises
 * Neel Nanda's [Mech Interp Dynalist notes](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J)
 * Neel Nanda's [Concrete Steps to Get Started in Transformer Mechanistic Interpretability](https://www.neelnanda.io/mechanistic-interpretability/getting-started)
 * Neel Nanda's [An Extremely Opinionated Annotated List of My Favourite Mechanistic Interpretability Papers](https://www.neelnanda.io/mechanistic-interpretability/favourite-papers)
 
-## How Transformers Work
+### How Transformers Work
 
 * Neel Nanda's Implementing a Transformer Walkthrough: [Part 1/2](https://www.youtube.com/watch?v=bOYE6E8JrtU), [Part 2/2](https://www.youtube.com/watch?v=dsjUDacBw8o)
 * Callum McDougall's [An Analogy for Understanding Transformers](https://www.lesswrong.com/posts/euam65XjigaCJQkcN/an-analogy-for-understanding-transformers)
 * Callum McDougall's [full transformer excalidraw diagram](https://link.excalidraw.com/l/9KwMnW35Xt8/4kxUsfrPeuS)
 * Jay Alammar's [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/)
 
-## TransformerLens
+### TransformerLens
 
 * TransformerLens documentation page:
     * [Homepage](https://neelnanda-io.github.io/TransformerLens/index.html)
     * [Table of model properties](https://neelnanda-io.github.io/TransformerLens/model_properties_table.html)
 
-## Diagrams
+### Diagrams
+
+[Link to excalidraw](https://link.excalidraw.com/l/9KwMnW35Xt8/6PEWgOPSxXH) for the diagram below.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-full-red.png" width="1200">
-
-Link to excalidraw [here](https://link.excalidraw.com/l/9KwMnW35Xt8/6PEWgOPSxXH).
 
 ## Quick reference
 
@@ -119,7 +145,7 @@ out, cache = model.run_with_cache(
 
 An optional argument is `names_filter`, which is a boolean function taking names as arguments (we'll only cache the activations where `names_filter(name)` is True).
 
-### Cache methods
+### Cache
 
 The `ActivationCache` class has a few useful methods for performing operations on its activations. These include:
 
@@ -158,15 +184,11 @@ The `ActivationCache` class has a few useful methods for performing operations o
 * Example: `utils.get_act_name(q, 0)` (second argument is layer index).
 * Important - unlike the cache, you can't use negative layer indices.
 
-### Misc.
+### Circuitsvis
 
-There are way more tips than can possibly fit into a page without getting super excessive, but here are a few:
+#### Attention
 
-#### Visualisation
-
-Plotly is great - you can find plotly utils functions in these directories (along with many examples of them being used). The `RdBu` colorscheme is your friend!
-
-Circuitsvis is also great! You can use it as follows:
+Circuitsvis is a great way to visualise attention patterns. You can use it as shown in the code below. On the left is an example of `attention_patterns`, on the right is `attention_heads`.
 
 ```python
 import circuitsvis as cv
@@ -182,7 +204,18 @@ cv.attention.attention_heads(
     tokens, # list of strings
     attention_head_names
 )
-```
+```""", unsafe_allow_html=True)
+
+cols = st.columns(2)
+
+with cols[0]:
+    with open("media/attention_patterns.html") as f:
+        st.components.v1.html(f.read(), height=800)
+with cols[1]:
+    with open("media/attention_heads.html") as f:
+        st.components.v1.html(f.read(), height=800)
+
+st.markdown(r"""
 
 A few notes:
 * Attention heads and attention patterns have similar syntax, but present information in different ways. Which one you use depends on your use case, and personal preference.
@@ -203,6 +236,44 @@ webbrowser.open("temp.html")
 ```
 
 If you're in a remote machine then the latter method won't work, but you can right click -> download the html file and open it locally.
+
+#### Neuron Activations
+
+A lesser-known fact is that circuitsvis can also help you visualise neuron activations. Below is some example code (we don't show all neurons, so the page doesn't slow down).
+
+```python
+cv.activations.text_neuron_activations(
+    tokens, # list of strings
+    activations, # list of tensors of shape (seq_pos, layers, neurons)
+)
+```""", unsafe_allow_html=True)
+
+with open("media/neurons_1.html") as f:
+    st.components.v1.html(f.read(), height=150)
+
+st.markdown(r"""
+
+The next function shows which words each of the neurons activates most / least on (note that it requires some weird indexing to work correctly). Again, we've not shown all neurons.
+
+```python
+cv.topk_tokens.topk_tokens(
+    tokens, # list of strings, each of length `seq_pos`
+    activations, # corresponding list of tensors, each of shape (layers, seq_pos, neurons)
+    max_k=4, # how many top/bottom activating tokens to show
+)
+```
+
+""", unsafe_allow_html=True)
+
+with open("media/neurons_2.html") as f:
+    st.components.v1.html(f.read(), height=400)
+
+st.markdown(r"""
+### Misc. 
+
+#### Visualisation
+
+Plotly is great - you can find plotly utils functions in these directories (along with many examples of them being used). The `RdBu` colorscheme is your friend!
 
 #### Memory management
 
