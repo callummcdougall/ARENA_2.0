@@ -501,11 +501,6 @@ def reward_model(samples, **kwargs) -> List[float]:
     kwargs are passed to your model during a forward pass.
     '''
     pass
-
-example_strings = ["Example string", "I'm having a good day", "You are an ugly person"]
-rewards = reward_model(example_strings)
-tests.test_reward_model(rewards)
-
 ```
 
 <details>
