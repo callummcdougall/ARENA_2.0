@@ -401,11 +401,7 @@ def calc_clipped_surrogate_objective(
     
     loss = t.min(pi_ratio * mb_advantages, clipped_term * mb_advantages).mean()
 
-    return loss
-
-
-
-    
+    return loss 
 
 
 
@@ -634,3 +630,258 @@ if MAIN:
     )
     trainer.fit(model=model)
 # %%
+
+### KL DIVERGENCE
+
+@dataclass
+class TRReplayBufferSamples(ReplayBufferSamples):
+    '''
+    Samples from the replay buffer, converted to PyTorch for use in neural network training.
+    '''
+    obs: Float[Tensor, "minibatch_size *obs_shape"]
+    dones: Float[Tensor, "minibatch_size"]
+    actions: Int[Tensor, "minibatch_size"]
+    logprobs: Float[Tensor, "minibatch_size num_actions"]
+    values: Float[Tensor, "minibatch_size"]
+    advantages: Float[Tensor, "minibatch_size"]
+    returns: Float[Tensor, "minibatch_size"]
+
+
+class TRReplayBuffer(ReplayBuffer):
+    '''
+    Contains buffer; has a method to sample from it to return a ReplayBufferSamples object.
+
+    Needs to be initialized with the first obs, dones and values.
+    '''
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
+        '''Defining all the attributes the buffer's methods will need to access.'''
+        super().__init__(args, envs)
+        self.rng = np.random.default_rng(args.seed)
+        self.num_envs = envs.num_envs
+        self.obs_shape = envs.single_observation_space.shape
+        self.gamma = args.gamma
+        self.gae_lambda = args.gae_lambda
+        self.batch_size = args.batch_size
+        self.minibatch_size = args.minibatch_size
+        self.num_steps = args.num_steps
+        self.batches_per_epoch = args.batches_per_epoch
+        self.num_actions = envs.single_action_space.n
+        self.experiences = []
+
+
+    def add(self, obs: Arr, actions: Arr, rewards: Arr, dones: Arr, logprobs: Arr, values: Arr) -> None:
+        '''
+        obs: shape (n_envs, *observation_shape) 
+            Observation before the action
+        actions: shape (n_envs,) 
+            Action chosen by the agent
+        rewards: shape (n_envs,) 
+            Reward after the action
+        dones: shape (n_envs,) 
+            If True, the episode ended and was reset automatically
+        logprobs: shape (n_envs,)
+            Log probability of the action that was taken (according to old policy)
+        values: shape (n_envs,)
+            Values, estimated by the critic (according to old policy)
+        '''
+        assert obs.shape == (self.num_envs, *self.obs_shape)
+        assert actions.shape == (self.num_envs,)
+        assert rewards.shape == (self.num_envs,)
+        assert dones.shape == (self.num_envs,)
+        assert logprobs.shape == (self.num_envs, self.num_actions)
+        assert values.shape == (self.num_envs,)
+
+        self.experiences.append((obs, dones, actions, logprobs, values, rewards))
+
+
+class TRPPOAgent(PPOAgent):
+    critic: nn.Sequential
+    actor: nn.Sequential
+
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
+        super().__init__(args, envs)
+        self.args = args
+        self.envs = envs
+        self.num_envs = envs.num_envs
+        self.obs_shape = envs.single_observation_space.shape
+        self.num_obs = np.array(self.obs_shape).prod()
+        self.num_actions = envs.single_action_space.n
+        self.rng = np.random.default_rng(self.args.seed)
+
+        # Keep track of global number of steps taken by agent
+        self.steps = 0
+        # Define actor and critic (using our previous methods)
+        self.actor, self.critic = get_actor_and_critic(envs)
+
+        # Define our first (obs, done, value), so we can start adding experiences to our replay buffer
+        self.next_obs = t.tensor(self.envs.reset()).to(device)
+        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+
+        # Create our replay buffer
+        self.rb = TRReplayBuffer(args, envs)
+
+
+    def play_step(self) -> List[dict]:
+        '''
+        Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
+        '''
+        self.steps += self.num_envs
+        obs = self.next_obs
+        dones = self.next_done
+        
+        with t.inference_mode():
+            logits = self.actor(obs)
+
+            values = self.critic(obs)
+
+        actions = Categorical(logits=logits).sample().to(device)
+        logprobs = t.log_softmax(logits, dim=-1)
+        next_obs, rewards, next_done, infos = self.envs.step(actions.cpu().numpy())
+
+        rewards = t.from_numpy(rewards).to(device)
+
+        self.rb.add(obs, actions, rewards, dones, logprobs, values.squeeze(dim=-1))
+
+        self.next_obs = t.from_numpy(next_obs).to(device)
+        self.next_done = t.from_numpy(next_done).to(device, dtype=t.float)
+
+        return infos
+
+
+def calc_trust_region_objective(
+    probs: Categorical, 
+    mb_action: Int[Tensor, "minibatch_size"], 
+    mb_advantages: Float[Tensor, "minibatch_size"], 
+    mb_logprobs: Float[Tensor, "minibatch_size num_actions"], 
+    beta: float, 
+    eps: float = 1e-8
+) -> Float[Tensor, ""]:
+    '''Return the trust region objective, suitable for maximisation with gradient ascent.
+
+    probs:
+        a distribution containing the actor's unnormalized logits of shape (minibatch_size, num_actions)
+    mb_action:
+        what actions actions were taken in the sampled minibatch
+    mb_advantages:
+        advantages calculated from the sampled minibatch
+    mb_logprobs:
+        logprobs of the actions taken in the sampled minibatch (according to the old policy)
+    clip_coef:
+        amount of clipping, denoted by epsilon in Eq 7.
+    eps:
+        used to add to std dev of mb_advantages when normalizing (to avoid dividing by zero)
+    '''
+    assert mb_action.shape == mb_advantages.shape
+    pi_current_logprobs = t.log(probs.probs)
+    assert mb_logprobs.shape == pi_current_logprobs.shape
+    pi_current = probs.log_prob(mb_action)
+    pi_old = mb_logprobs[t.arange(mb_action.shape[0]), mb_action]
+
+    pi_ratio = t.exp(pi_current - pi_old)
+
+    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + eps)
+
+    policy_divergence = t.nn.KLDivLoss(reduction='batchmean')(pi_current_logprobs, mb_logprobs)
+    
+    objective = (pi_ratio * mb_advantages - beta * policy_divergence).mean()
+
+    return objective 
+
+
+class TRPPOLightning(PPOLightning):
+    agent: PPOAgent
+
+    def __init__(self, args: PPOArgs):
+        super().__init__(args)
+        self.args = args
+        set_global_seeds(args.seed)
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name) for i in range(args.num_envs)])
+        self.agent = TRPPOAgent(self.args, self.envs).to(device)
+        self.rollout_phase()
+
+    def training_step(self, minibatch: ReplayBufferSamples, minibatch_idx: int) -> Float[Tensor, ""]:
+        '''Handles learning phase for a single minibatch. Returns objective function to be maximized.'''
+        # obs, _, actions, logprobs, _, advantages, returns = minibatch.__dict__().values()
+        obs = minibatch.obs
+        actions = minibatch.actions
+        logprobs = minibatch.logprobs
+        advantages = minibatch.advantages
+        returns = minibatch.returns
+
+        logits = self.agent.actor(obs)
+        values_new = self.agent.critic(obs).flatten()
+        probs_new = Categorical(logits=logits)
+        clipped_objective = calc_trust_region_objective(probs_new, actions, advantages, logprobs, self.args.clip_coef)
+        value_loss = calc_value_function_loss(values_new, returns, vf_coef=self.args.vf_coef)
+        entropy_bonus = calc_entropy_bonus(probs_new, ent_coef=self.args.ent_coef)
+
+        objective = clipped_objective - value_loss + entropy_bonus
+        self.log('objective', objective)
+        return objective
+
+# %%
+probe_idx = 1
+
+# Define a set of arguments for our probe experiment
+args = PPOArgs(
+    env_id=f"Probe{probe_idx}-v0",
+    exp_name=f"test-probe-{probe_idx}", 
+    total_timesteps=10000 if probe_idx <= 3 else 30000,
+    learning_rate=0.001,
+    capture_video=False,
+    use_wandb=False,
+)
+model = TRPPOLightning(args).to(device)
+logger = CSVLogger(save_dir=args.log_dir, name=args.exp_name)
+
+# Run our experiment
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=10,
+    gradient_clip_val=args.max_grad_norm,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False,
+)
+trainer.fit(model=model)
+
+# Check that our final results were the ones we expected from this probe
+obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[1.0]], [[1.0], [1.0]]]
+expected_probs_for_probes = [None, None, None, [[0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+tolerances = [5e-4, 5e-4, 5e-4, 1e-3, 1e-3]
+obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+model.to(device)
+with t.inference_mode():
+    value = model.agent.critic(obs)
+    probs = model.agent.actor(obs).softmax(-1)
+expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+expected_probs = expected_probs_for_probes[probe_idx-1]
+if expected_probs is not None:
+    t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
+print("Probe tests passed!")
+
+# Use the code below to inspect your most recent logged results
+try:
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    metrics.tail()
+except:
+    print("No logged metrics found. You can log things using `self.log(metric_name, metric_value)` or `self.log_dict(d)` where d is a dict of {name: value}.")
+# %%
+wandb.finish()
+
+args = PPOArgs(use_wandb=True)
+logger = WandbLogger(save_dir=args.log_dir, project=args.wandb_project_name, name=model.run_name)
+if args.use_wandb: wandb.gym.monitor() # Makes sure we log video!
+model = TRPPOLightning(args).to(device)
+
+trainer = pl.Trainer(
+    max_epochs=args.total_epochs,
+    logger=logger,
+    log_every_n_steps=5,
+    reload_dataloaders_every_n_epochs=1,
+    enable_progress_bar=False
+)
+trainer.fit(model=model)
