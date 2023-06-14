@@ -814,7 +814,7 @@ The evaluation prompts are a set of prompts that we will use to validate the tra
 We will have a single prompt repeated as the eval prompt for a number of times equal to the batch size of the reward model such as: 
 
 ```python
-['I am quite interested ' * batch_size_of_reward_model]
+['I am quite interested '] * batch_size_of_reward_model
 ```
 
 In this particular prompt, the initial prompt choice will cause the eval reward curve to have different starting points and end states.
