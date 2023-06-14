@@ -831,12 +831,18 @@ You should spend up to 10-20 minutes on this exercise.
 We will now be calling the train funcation and pass in the arguments as we've described above. The train function has already been imported for you and should be called like so:
 
 ```python
-train(
+trainer = train(
     reward_fn = ...,
     prompts = ...,
     eval_prompts = ...,
     config = ...
 ) 
+```
+
+If you want to save your model, you can save it using:
+
+```python
+trainer.save_pretrained("path/to/save")
 ```
 
 All that you need to do below is fill in these four arguments in the `main` function. Make sure you understand what the significance of all four of these arguments is before moving on.
@@ -901,15 +907,16 @@ main()
 
 
 ```python
-def main() -> None:
+def main() -> trlx.trainer:
     # Call the `train` function with appropriate arguments
     # SOLUTION
-    train(
+    trainer = train(
         reward_fn = reward_model,
         prompts = prompts,
         eval_prompts = ['In my opinion'] * 256, ## Feel free to try different prompts
         config =  ppo_config()
     )
+    return trainer
 ```
 </details>
 
@@ -933,7 +940,6 @@ Try out your RLHF'd model, ideally after a `gc.collect()` and a `t.cuda.empty_ca
 
 ```python
 generate_completion('< Insert prompt here >')
-
 ```
 
 ## Exercise: Change eval prompts to observe model behaviour
@@ -949,7 +955,7 @@ Have the recurring `eval_prompt` be overly positive or overly negative to see th
 
 
 ```python
-def main() -> None:
+def main() -> trlx.trainer:
     pass
 
 gc.collect()
@@ -963,9 +969,9 @@ main()
 
 
 ```python
-def main() -> None:
+def main() -> trlx.trainer:
     # SOLUTION
-    train(
+    return train(
         reward_fn = reward_model,
         prompts = prompts,
         eval_prompts = ['I was extremely disappointed'] * 256, ## Feel free to try other negative prompts
@@ -1017,9 +1023,9 @@ def neutral_reward_model(samples: List[str], **kwargs) -> List[float]:
     return reward
 
     
-def main() -> None:
+def main() -> trlx.trainer:
     # SOLUTION
-    train(
+    trainer = train(
         reward_fn = neutral_reward_model,
         prompts = prompts,
         eval_prompts = ['In my opinion'] * 256, ## Feel free to try other negative prompts
