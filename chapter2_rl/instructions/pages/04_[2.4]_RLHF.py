@@ -23,8 +23,8 @@ def section_0():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#context:-pretraining-is-not-enough'>Context: Pretraining is not enough</a></li>
-        <li><a class='contents-el' href='#context:-rlhf-as-a-naive-alignment-strategy'>Context: RLHF as a naive alignment strategy</a></li>
+        <li><a class='contents-el' href='#context-pretraining-is-not-enough'>Context - Pretraining is not enough</a></li>
+        <li><a class='contents-el' href='#context-rlhf-as-a-naive-alignment-strategy'>Context - RLHF as a naive alignment strategy</a></li>
         <li><a class='contents-el' href='#what-is-rlhf'>What is RLHF?</a></li>
         <li><a class='contents-el' href='#why-does-it-matter'>Why does it matter?</a></li>
         <li><a class='contents-el' href='#how-does-rlhf-work-in-practice'>How does RLHF work in practice?</a></li>
@@ -52,13 +52,13 @@ You can toggle dark mode from the buttons on the top-right of this page.
 ## Introduction
 
 
-### Context: Pretraining is not enough
+### Context - Pretraining is not enough
 
 You've seen earlier in the course that we are able to train very large and performant models like GPT2 using next-token prediction. Such models, prior to any fine-tuning, must be steered carefully with prompts in order to generate useful output. Most language models used in services of any kind today are not only pre-trained models. Rather, we use many training techniques to make them more useful. 
 
 RLHF is one of many techniques which can convert a pre-trained model, into a more useful model for practical application.
 
-### Context: RLHF as a naive alignment strategy
+### Context - RLHF as a naive alignment strategy
 
 The field AI alignment is concerned with aligning AI systems with our desired outcomes. There are many reasons to think that intelligent systems do not, by default, share human values or that whilst training against any objective will lead to reliable, expected outcomes being produced by AI systems. Nevertheless, training AI systems to produce outcomes that humans prefer over outcomes which they don't seems to be a concrete step towards AI alignment, which we can build on later. 
 
@@ -148,6 +148,7 @@ In the first section, we'll get set up with the prompt dataset and reward model 
 
 > ##### Learning objectives
 > 
+> * Learn about the BERT transformer model and how it can be used for sentiment analysis
 > * Load datasets from Huggingface and break them up into prompts
 > * Generate text from Huggingface models 
 > * Output positive sentiments from models in vanilla Pyt and Huggingface pipelines
@@ -179,7 +180,9 @@ from pathlib import Path
 import torch as t
 from datasets import load_dataset
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM,  AutoModelForSequenceClassification
-from typing import Any, List, Optional, Union, Tuple
+from transformers.models.bert.modeling_bert import BertForMaskedLM
+import logging
+from typing import cast, Any, List, Optional, Union, Tuple
 
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
@@ -188,10 +191,10 @@ section_dir = exercises_dir / "part3_ppo"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 import part4_rlhf.tests as tests
+import part4_rlhf.utils as utils
 from part4_rlhf.trlx.trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, SchedulerConfig, TokenizerConfig, ModelConfig
 from part4_rlhf.trlx.trlx.models.modeling_ppo import PPOConfig
 from part4_rlhf.trlx.trlx import train
-
 ```
 
 
@@ -206,17 +209,22 @@ def section_1():
 ## Table of Contents
 
 <ul class="contents">
+    <li class='margtop'><a class='contents-el' href='#background-bert'>Background - BERT</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#how-is-bert-trained'>How it BERT trained?</a></li>
+        <li><a class='contents-el' href='#how-do-we-turn-bert-into-a-classifier'>How do we turn BERT into a classifier?</a></li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#imdb-dataset'>IMDB dataset</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise:-figure-out-the-positive-negative-review-split-in-the-dataset'><b>Exercise</b>: Figure out the positive-negative review split in the dataset</a></li>
-        <li><a class='contents-el' href='#exercise:-create-a-set-of-prompts'><b>Exercise</b>: Create a set of prompts</a></li>
+        <li><a class='contents-el' href='#exercise-figure-out-the-positive-negative-review-split-in-the-dataset'><b>Exercise</b> - Figure out the positive-negative review split in the dataset</a></li>
+        <li><a class='contents-el' href='#exercise-create-a-set-of-prompts'><b>Exercise</b>: Create a set of prompts</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#gpt10-imdb'>GPT2-IMDB</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#exercise:-load-the-gpt-10-model-and-generate-reviews-from-prompts'><b>Exercise</b>: Load the GPT-2 model and generate reviews from prompts</a></li>
+        <li><a class='contents-el' href='#exercise-load-the-gpt-10-model-and-generate-reviews-from-prompts'><b>Exercise</b> - Load the GPT-2 model and generate reviews from prompts</a></li>
         <li><a class='contents-el' href='#the-reward-function'>The reward function</a></li>
-        <li><a class='contents-el' href='#exercise:-output-sentiment-scores-using-huggingface-pipelines'><b>Exercise</b>: Output sentiment scores using Huggingface pipelines</a></li>
-        <li><a class='contents-el' href='#exercise:-sentiment-playground'><b>Exercise</b>: Sentiment playground</a></li>
+        <li><a class='contents-el' href='#exercise-output-sentiment-scores-using-huggingface-pipelines'><b>Exercise</b> - Output sentiment scores using Huggingface pipelines</a></li>
+        <li><a class='contents-el' href='#exercise-sentiment-playground'><b>Exercise</b>: Sentiment playground</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -226,10 +234,79 @@ def section_1():
 
 > ##### Learning objectives
 > 
+> * Learn about the BERT transformer model and how it can be used for sentiment analysis
 > * Load datasets from Huggingface and break them up into prompts
 > * Generate text from Huggingface models 
 > * Output positive sentiments from models in vanilla Pyt and Huggingface pipelines
 
+## Background - BERT
+
+In the transformers chapter, we only worked with autoregressive transformers like GPT2 or OthelloGPT (unless you did the bracket classification task). Here, we'll work with BERT, a well-known **bidirectional transformer**. 
+
+BERT predates GPT2 slightly (it was released in 2018, one year after the seminal "Attention is all you need" paper). It was the next in a proud tradition of naming transformers after muppets (no, [that's](https://arxiv.org/pdf/1910.13034.pdf) [not](https://arxiv.org/pdf/1904.09223.pdf) [a](https://arxiv.org/pdf/1905.12616.pdf) [joke](https://arxiv.org/pdf/1906.01604.pdf)). It has bidirectional attention, meaning we don't apply masking to the attention patterns - information can flow backwards and forwards in the model. BERT is usually used for classification tasks, such as sentiment analysis. 
+
+### How is BERT trained?
+
+The architecture is similar to GPT, although the "core BERT" model doesn't have an unembedding (i.e. the output has shape `(batch, seq_len, d_model)`). 
+
+BERT is trained on two kinds of tasks: **next sentence prediction** (NSP) and **masked language modelling** (MLM).
+
+* In MLM, we take a sequence and replace some of its tokens with a special `[MASK]` token, then train the model to predict the original token.
+* In NSP, we take two sentences, and train the model to predict whether the second sentence follows the first (we do this by adding a small classifier at the end of BERT, which just reads from the final value of the residual stream at the zeroth sequence position, which is a special classification token `[CLS]`).
+
+Importantly, **both of these two tasks require the model to learn some kind of compressed representation of the input sequence** in its residual stream.
+
+### How do we turn BERT into a classifier?
+
+We usually stick a classification head onto the end of the "core BERT architecture" at the `[CLS]` token, then take the pretrained model and fine-tune it on a classification task. If pretraining has been successful, the model will have learned some kind of compressed representation of the input sequence in its residual stream, and the classifier will be doing something like feature extraction.
+
+In the RLHF exercises you'll be taking advantage of BERT's ability to be used as a classifier, but for now we'll have a look at how BERT does at masked language modelling.
+
+### Exercise - load BERT, and play around with it
+
+```c
+Difficulty: 🟠⚪⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
+We're going to use a HuggingFace tokenizer for now to encode text into a sequence of tokens that our model can use. The tokenizer has to match the model - our model was trained with the `bert-base-cased` tokenizer which is case-sensitive. If you tried to use the `bert-base-uncased` tokenizer which is case-insensitive, it wouldn't work at all.
+
+Check out `tokenizer.vocab` to get an idea of what sorts of strings are assigned to tokens. In WordPiece, tokens represent a whole word unless they start with `##`, which denotes this token is part of a word.
+
+You can also check out `tokenizer.special_tokens_map`. The strings here are mapped to tokens which have special meanings - for example `tokenizer.mask_token`, which is the literal string '[MASK]', is converted to `tokenizer.mask_token_id`, equal to 103.
+
+**Play around with this model**, until you get a sense of how it works. What kind of interesting completions can you find? Can BERT solve the IOI task? Can it do basic arithmetic?
+
+```python
+bert = utils.load_pretrained_bert()
+tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+
+
+def predict(model: BertForMaskedLM, tokenizer: AutoTokenizer, text: str, k=15) -> List[List[str]]:
+    '''
+    Return a list of k strings for each [MASK] in the input.
+    '''
+    
+    # Make sure we're in eval mode
+    model.eval()
+
+    # Tokenizer returns a bunch of special BERT-specific things, we just want input ids
+    input_ids = tokenizer(text, return_tensors="pt")["input_ids"]
+
+    # Get top predictions at all the places we masked
+    out = model(input_ids).logits
+    preds = out[input_ids == tokenizer.mask_token_id]
+    tops = preds.topk(k, dim=-1).indices
+
+    return [[tokenizer.decode(t) for t in mask] for mask in tops]
+
+
+your_text = "The Answer to the Ultimate Question of Life, The Universe, and Everything is [MASK]."
+predictions = predict(bert, tokenizer, your_text)
+print("Model predicted: \n", "\n".join(map(str, predictions)))
+```
 
 ## IMDB dataset
 
@@ -242,7 +319,7 @@ imdb = load_dataset("imdb", split="train+test")
 
 ```
 
-### Exercise: Figure out the positive-negative review split in the dataset
+### Exercise - Figure out the positive-negative review split in the dataset
 
 ```c
 Difficulty: 🟠⚪⚪⚪⚪
@@ -281,7 +358,7 @@ def label_split(dataset) -> None:
 </details>
 
 
-### Exercise: Create a set of prompts 
+### Exercise - Create a set of prompts 
 
 ```c
 Difficulty: 🟠🟠⚪⚪⚪
@@ -321,7 +398,7 @@ prompts = generate_prompts(imdb)
 The model that we will perform RLHF on is a GPT-2 model fine-tuned on the IMDB dataset, which can be found here: https://huggingface.co/lvwerra/gpt2-imdb. Since this model is finetuned on the IMDB dataset, the distribution of sentiments of its generations will be close to the distribution of sentiments of the original dataset. 
 
 
-### Exercise: Load the GPT-2 model and generate reviews from prompts
+### Exercise - Load the GPT-2 model and generate reviews from prompts
 
 ```c
 Difficulty: 🟠🟠🟠⚪⚪
@@ -370,7 +447,7 @@ def generate_completion(prompt) -> str:
 Judging by the name of this chapter you might think that you would be providing the reward function yourself but sadly we will not be doing this. Instead, we will be using a language model trained to perform sentiment analysis to generate the sentiment score (higher is positive). The language model we will be using to generate sentiment scores can be found here: https://huggingface.co/lvwerra/distilbert-imdb. 
 
 
-#### Exercise: Get sentiment scores for a review
+#### Exercise - Get sentiment scores for a review
 
 ```c
 Difficulty: 🟠🟠🟠🟠⚪
@@ -437,7 +514,7 @@ tests.test_reward_model(rewards)
 
 ```
 
-### Exercise: Output sentiment scores using Huggingface pipelines
+### Exercise - Output sentiment scores using Huggingface pipelines
 
 This is an alternate way to get a reward model working directly using Huggingface pipelines. This will enable you to use a diverse range of models quite easily by changing a couple of arguments and provide you with more functionality than the vanilla Pyt loop you implemented above. Reading the relevant documentation is the key to success here.
 
@@ -529,7 +606,7 @@ def reward_model(samples: List[str], **kwargs) -> List[float]:
 </details>
 
 
-### Exercise: Sentiment playground
+### Exercise - Sentiment playground
 
 ```c
 Difficulty: 🟠⚪⚪⚪⚪
@@ -580,10 +657,10 @@ def section_2():
         <li><a class='contents-el' href='#what-is-trlx'>What is TRLX?</a></li>
         <li><a class='contents-el' href='#using-trlx'>Using trLX</a></li>
     </ul></li>
-    <li class='margtop'><a class='contents-el' href='#exercise:-putting-it-all-together-reinforcing-positive-sentiment'><b>Exercise</b>: Putting it all together - Reinforcing positive sentiment</a></li>
-    <li class='margtop'><a class='contents-el' href='#exercise:-sentiment-playground-post-rlhf'><b>Exercise</b>: Sentiment playground - Post RLHF</a></li>
-    <li class='margtop'><a class='contents-el' href='#exercise:-change-eval-prompts-to-observe-model-behaviour'><b>Exercise</b>: Change eval prompts to observe model behaviour</a></li>
-    <li class='margtop'><a class='contents-el' href='#exercise:-change-reward-function-to-return-high-reward-for-neutral-sentiment'><b>Exercise</b>: Change reward function to return high reward for neutral sentiment</a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise-putting-it-all-together-reinforcing-positive-sentiment'><b>Exercise</b>: Putting it all together - Reinforcing positive sentiment</a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise-sentiment-playground-post-rlhf'><b>Exercise</b>: Sentiment playground - Post RLHF</a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise-change-eval-prompts-to-observe-model-behaviour'><b>Exercise</b>: Change eval prompts to observe model behaviour</a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise-change-reward-function-to-return-high-reward-for-neutral-sentiment'><b>Exercise</b>: Change reward function to return high reward for neutral sentiment</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
