@@ -441,7 +441,9 @@ def generate_completion(prompt) -> str:
     '''
     Loads the GPT2-IMDB tokenizer and model, and generates completions for the given prompt (in the form of a string).
 
-    Find name of model & tokenizer at the documentation page: https://huggingface.co/lvwerra/gpt2-imdb
+    Find name of model & tokenizer at the documentation page: https://huggingface.co/lvwerra/gpt2-imdb.
+
+    Remember to set the `do_sample=True` flag when you call `model.generate`.
     '''
     pass
 
@@ -458,7 +460,9 @@ def generate_completion(prompt) -> str:
     '''
     Loads the GPT2-IMDB tokenizer and model, and generates completions for the given prompt (in the form of a string).
 
-    Find name of model & tokenizer at the documentation page: https://huggingface.co/lvwerra/gpt2-imdb
+    Find name of model & tokenizer at the documentation page: https://huggingface.co/lvwerra/gpt2-imdb.
+
+    Remember to set the `do_sample=True` flag when you call `model.generate`.
     '''
     # SOLUTION
     tokenizer = AutoTokenizer.from_pretrained("lvwerra/gpt2-imdb")
