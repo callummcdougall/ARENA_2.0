@@ -91,6 +91,7 @@ A key point to make here is that, perhaps more so than any other section in this
 > 
 > - Understand the concept of superposition, and why models need to do it
 > - Understand the difference between superposition and polysemanticity
+> - Understand the difference between neuron and bottleneck superposition (or computational and representational superposition)
 > - Build & train the toy model from Anthropic's paper, replicate the main results
 > - Understand the geometric intuitions behind superposition, and how they relate to the more general ideas of superposition in larger models
 > - See how superposition varies when you change the following characteristics of the features:
@@ -1207,7 +1208,7 @@ for n_features in [5, 6, 8]:
 
     config = Config(
         n_instances = 10,
-        n_features = n_features,
+        n_features = 8,
         n_hidden = 5,
     )
 
