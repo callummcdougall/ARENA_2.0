@@ -187,7 +187,7 @@ from typing import cast, Any, List, Optional, Union, Tuple
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part3_ppo"
+section_dir = exercises_dir / "part4_rlhf"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 import part4_rlhf.tests as tests
