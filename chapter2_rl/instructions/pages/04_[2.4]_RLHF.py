@@ -856,7 +856,7 @@ def ppo_config():
             pipeline="PromptPipeline",
             trainer="AcceleratePPOTrainer",
         ),
-        model=ModelConfig(model_path="lvwerra/gpt2", num_layers_unfrozen=2),
+        model=ModelConfig(model_path="lvwerra/gpt2-imdb", num_layers_unfrozen=2),
         tokenizer=TokenizerConfig(tokenizer_path="gpt2", truncation_side="right"),
         optimizer=OptimizerConfig(
             name="adamw", kwargs=dict(lr=3e-5, betas=(0.9, 0.95), eps=1.0e-8, weight_decay=1.0e-6)
