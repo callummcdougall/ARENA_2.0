@@ -629,13 +629,137 @@ class DQNAgent:
 
         Returns `infos` (list of dictionaries containing info we will log).
         '''
-        pass
+        obs = self.next_obs
+        actions = self.get_actions(self.next_obs)
+        next_obs, rews, dones, infos = self.envs.step(actions)
+        self.rb.add(obs, actions, rews, dones, next_obs)
+        self.next_obs = next_obs
+        self.steps += 1
+        return infos
 
     def get_actions(self, obs: np.ndarray) -> np.ndarray:
         '''
         Samples actions according to the epsilon-greedy policy using the linear schedule for epsilon.
         '''
-        pass
+        self.epsilon = linear_schedule(current_step=self.steps, 
+                                       start_e=args.start_e, 
+                                       end_e=args.end_e, 
+                                       exploration_fraction=args.exploration_fraction,
+                                       total_timesteps=args.total_timesteps
+                                       )
+        acts = epsilon_greedy_policy(envs=self.envs,
+                              q_network=self.q_network,
+                              rng=self.rng,
+                              obs=t.tensor(obs).to(device),
+                              epsilon=self.epsilon
+                              )
+        return acts
 
 
 tests.test_agent(DQNAgent)
+# %%
+class DQNTrainer:
+
+    def __init__(self, args: DQNArgs):
+        super().__init__()
+        self.args = args
+        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+        if args.use_wandb: 
+            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name)
+            if args.capture_video: wandb.gym.monitor()
+
+        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, self.run_name)])
+        self.start_time = time.time()
+        self.rng = np.random.default_rng(args.seed)
+
+        num_actions = self.envs.single_action_space.n
+        obs_shape = self.envs.single_observation_space.shape
+        num_observations = np.array(obs_shape, dtype=int).prod()
+
+        self.q_network = QNetwork(num_observations, num_actions).to(device)
+        self.target_network = QNetwork(num_observations, num_actions).to(device)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.optimizer = t.optim.Adam(self.q_network.parameters(), lr=args.learning_rate)
+
+        self.rb = ReplayBuffer(args.buffer_size, len(self.envs.envs), args.seed)
+        self.agent = DQNAgent(self.envs, self.args, self.rb, self.q_network, self.target_network, self.rng)
+
+        self.add_to_replay_buffer(args.buffer_size)
+
+
+    def add_to_replay_buffer(self, n: int):
+        '''Makes n steps, adding to the replay buffer (and logging any results).'''
+        last_episode_len = None
+        for step in range(n):
+            infos = self.agent.play_step()
+            for info in infos:
+                if "episode" in info.keys():
+                    last_episode_len = info["episode"]["l"]
+                    if args.use_wandb: 
+                        wandb.log({"episode_len": last_episode_len}, step=self.agent.steps)
+        return last_episode_len
+
+
+
+    def training_step(self) -> Float[Tensor, ""]:
+        '''Samples once from the replay buffer, and takes a single training step.'''
+        data = self.rb.sample(args.batch_size, device)
+        s, a, r, d, s_new = data.observations, data.actions, data.rewards, data.dones, data.next_observations
+
+        with t.inference_mode():
+            target_max = self.target_network(s_new).max(-1).values
+        predicted_q_vals = self.q_network(s)[range(args.batch_size), a.flatten()]
+
+        td_error = r.flatten() + args.gamma * target_max * (1 - d.float().flatten()) - predicted_q_vals
+        loss = td_error.pow(2).mean()
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+
+        if self.agent.steps % args.target_network_frequency == 0:
+            self.target_network.load_state_dict(self.q_network.state_dict())
+
+        if args.use_wandb:
+            wandb.log(
+                {"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}, 
+                step=self.agent.steps
+            )
+
+def train(args: DQNArgs) -> nn.Module:
+    trainer = DQNTrainer(args)
+    progress_bar = tqdm(range(args.total_training_steps))
+    for step in progress_bar:
+        last_episode_len = trainer.add_to_replay_buffer(args.train_frequency)
+        if last_episode_len is not None:
+            progress_bar.set_description(f"Step = {trainer.agent.steps}, Episodic return = {last_episode_len}")
+        trainer.training_step()
+    return trainer.q_network
+
+# %%
+def test_probe(probe_idx: int):
+    args = DQNArgs(
+        env_id=f"Probe{probe_idx}-v0",
+        exp_name=f"test-probe-{probe_idx}", 
+        total_timesteps=2000 if probe_idx <= 2 else 4000,
+        learning_rate=0.001,
+        buffer_size=500,
+        capture_video=False,
+        use_wandb=True
+    )
+
+    obs_for_probes = [[[0.0]], [[-1.0], [+1.0]], [[0.0], [1.0]], [[0.0]], [[0.0], [1.0]]]
+    expected_value_for_probes = [[[1.0]], [[-1.0], [+1.0]], [[args.gamma], [1.0]], [[-1.0, 1.0]], [[1.0, -1.0], [-1.0, 1.0]]]
+    tolerances = [5e-4, 5e-4, 5e-4, 5e-4, 1e-3]
+    obs = t.tensor(obs_for_probes[probe_idx-1]).to(device)
+
+    # YOUR CODE HERE - create a PPOTrainer instance, and train your agent
+    q_network = train(args)
+
+    value = q_network(obs)
+    expected_value = t.tensor(expected_value_for_probes[probe_idx-1]).to(device)
+    t.testing.assert_close(value, expected_value, atol=tolerances[probe_idx-1], rtol=0)
+    clear_output()
+    print("Probe tests passed!")
+
+test_probe(1)
+# %%
