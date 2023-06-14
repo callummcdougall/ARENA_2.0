@@ -892,6 +892,7 @@ def ppo_config():
         ),
     )
 
+
 def main() -> None:
     # Call the `train` function with appropriate arguments
     pass
@@ -907,7 +908,7 @@ main()
 
 
 ```python
-def main() -> trlx.trainer:
+def main() -> None:
     # Call the `train` function with appropriate arguments
     # SOLUTION
     trainer = train(
@@ -916,7 +917,7 @@ def main() -> trlx.trainer:
         eval_prompts = ['In my opinion'] * 256, ## Feel free to try different prompts
         config =  ppo_config()
     )
-    return trainer
+    # You can save trainer here if you want, using trainer.save_pretrained("path/to/save")
 ```
 </details>
 
@@ -955,7 +956,7 @@ Have the recurring `eval_prompt` be overly positive or overly negative to see th
 
 
 ```python
-def main() -> trlx.trainer:
+def main() -> None:
     pass
 
 gc.collect()
@@ -969,7 +970,7 @@ main()
 
 
 ```python
-def main() -> trlx.trainer:
+def main() -> None:
     # SOLUTION
     return train(
         reward_fn = reward_model,
@@ -1023,7 +1024,7 @@ def neutral_reward_model(samples: List[str], **kwargs) -> List[float]:
     return reward
 
     
-def main() -> trlx.trainer:
+def main() -> None:
     # SOLUTION
     trainer = train(
         reward_fn = neutral_reward_model,
