@@ -80,6 +80,56 @@ def plot_W(W):
     plt.show()
 
 
+def plot_feature_geometry(model, dim_fracs = None):
+    fig = px.line(
+        x=1/model.feature_probability[:, 0].cpu(),
+        y=(model.config.n_hidden/(torch.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
+        log_x=True,
+        markers=True,
+        template="ggplot2",
+        height=600,
+        width=1000,
+        title=""
+    )
+    fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
+    fig.update_yaxes(title=f"m/||W||_F^2")
+    if dim_fracs is not None:
+        dim_fracs = dim_fracs.detach().cpu().numpy()
+        density = model.feature_probability[:, 0].cpu()
+
+        for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
+            val = a/b
+            fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
+
+        for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
+            val = a/b
+            fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
+
+        for i in range(len(dim_fracs)):
+            fracs_ = dim_fracs[i]
+            N = fracs_.shape[0]
+            xs = 1/density
+            if i!= len(dim_fracs)-1:
+                dx = xs[i+1]-xs[i]
+            fig.add_trace(
+                go.Scatter(
+                    x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
+                    y=fracs_,
+                    marker=dict(
+                        color='black',
+                        size=1,
+                        opacity=0.5,
+                    ),
+                    mode='markers',
+                )
+            )
+        fig.update_xaxes(showgrid=False)
+        fig.update_yaxes(showgrid=False)
+        fig.update_layout(showlegend=False)
+    fig.show()
+
+
+
 def render_features(model, which=np.s_[:]):
     cfg = model.config
     W = model.W.detach().transpose(-1, -2)
@@ -89,13 +139,10 @@ def render_features(model, which=np.s_[:]):
     interference[:, torch.arange(cfg.n_features), torch.arange(cfg.n_features)] = 0
 
     polysemanticity = torch.linalg.norm(interference, dim=-1).cpu()
-    # net_interference = (interference**2 * model.feature_probability[:, None, :]).sum(-1).cpu()
     norms = torch.linalg.norm(W, 2, dim=-1).cpu()
 
     WtW = torch.einsum('sih,soh->sio', W, W).cpu()
 
-    # width = weights[0].cpu()
-    # x = torch.cumsum(width+0.1, 0) - width[0]
     x = torch.arange(cfg.n_features)
     width = 0.9
 
@@ -149,53 +196,3 @@ def render_features(model, which=np.s_[:]):
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False)
     return fig
-
-
-
-def plot_feature_geometry(model, dim_fracs = None):
-    fig = px.line(
-        x=1/model.feature_probability[:, 0].cpu(),
-        y=(model.config.n_hidden/(torch.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
-        log_x=True,
-        markers=True,
-        template="ggplot2",
-        height=600,
-        width=1000,
-        title=""
-    )
-    fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
-    fig.update_yaxes(title=f"m/||W||_F^2")
-    if dim_fracs is not None:
-        dim_fracs = dim_fracs.detach().cpu().numpy()
-        density = model.feature_probability[:, 0].cpu()
-
-        for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
-            val = a/b
-            fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
-
-        for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
-            val = a/b
-            fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
-
-        for i in range(len(dim_fracs)):
-            fracs_ = dim_fracs[i]
-            N = fracs_.shape[0]
-            xs = 1/density
-            if i!= len(dim_fracs)-1:
-                dx = xs[i+1]-xs[i]
-            fig.add_trace(
-                go.Scatter(
-                    x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
-                    y=fracs_,
-                    marker=dict(
-                        color='black',
-                        size=1,
-                        opacity=0.5,
-                    ),
-                    mode='markers',
-                )
-            )
-        fig.update_xaxes(showgrid=False)
-        fig.update_yaxes(showgrid=False)
-        fig.update_layout(showlegend=False)
-    fig.show()
