@@ -147,6 +147,9 @@ Here are a few recommended resources to help you get started. Each one is labell
     * Read the post, up to and including "Tips" (although some parts of it might make more sense after you've read the other things here).
 * Neel Nanda's [Dynalist notes on superposition](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=3br1psLRIjQCOv2T4RN3V6F2)
     * These aren't long, you should skim through them, and also use them as a reference during these exercises.
+* Appendix of [Finding Neurons in a Haystack: Case Studies with Sparse Probing](https://arxiv.org/abs/2305.01610)
+    * Despite this paper not *just* being about superposition, it has some of the best-written explanations of superposition concepts.
+    * Sections A.6 - A.9 are particularly good.
 * [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html) (Anthropic paper)
     * You should read up to & including the "Summary: A Hierarchy of Feature Properties" section.
     * The first few sections ("Key Results", "Definitions and Motivation", and "Empirical Phenomena" are particularly important).

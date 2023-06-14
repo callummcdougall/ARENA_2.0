@@ -196,3 +196,98 @@ def render_features(model, which=np.s_[:]):
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False)
     return fig
+
+
+# Neuron stack plots (work in progress)
+# Also, the plots aren't very good because the training is hard, see comments in blog post
+
+# def render_neurons(model, which=np.s_[:]):
+#     cfg: Config = model.config
+#     W = model.W.detach().transpose(-1, -2) # shape (instances, features, neurons)
+#     W_norm = W / (1e-5 + t.linalg.norm(W, 2, dim=-1, keepdim=True))
+
+#     interference = einops.einsum(W_norm, W, "inst feat1 hidden, inst feat2 hidden -> inst feat1 feat2")
+#     interference[:, t.arange(cfg.n_features), t.arange(cfg.n_features)] = 0
+#     # interference[:, t.arange(cfg.n_features), t.arange(cfg.n_features)] = 0
+#     # print(interference.shape)
+
+#     polysemanticity = interference.norm(dim=-1).cpu()
+
+#     x = t.arange(cfg.n_hidden)
+
+#     which_instances = np.arange(cfg.n_instances)[which]
+#     fig = make_subplots(
+#         rows=len(which_instances),
+#         cols=2, # 3,
+#         shared_xaxes=True,
+#         vertical_spacing=0.02,
+#         horizontal_spacing=0.0,
+#         # specs=[[{}, {"colspan": 2}, None] for _ in range(len(which_instances))]
+#     )
+#     for (row, inst) in enumerate(which_instances):
+#         for feature_idx in range(cfg.n_features):
+#             fig.add_trace(
+#                 go.Bar(
+#                     x=x.cpu().numpy(), 
+#                     y=W[inst, feature_idx].cpu().numpy(),
+#                     marker=dict(
+#                         color=np.clip(polysemanticity[inst].cpu().numpy(), 0.0, 0.85),
+#                         cmin=0,
+#                         cmax=1,
+#                     ),
+#                 ),
+#                 row=1+row, col=2
+#             )
+#         fig.add_hline(y=0.0, line_width=1.0, col=2, row=1+row)
+#         data = W.cpu().numpy()[inst]
+#         fig.add_trace(
+#             go.Image(
+#                 z=plt.cm.coolwarm((1 + data)/2, bytes=True),
+#                 colormodel='rgba256',
+#                 customdata=data,
+#             ),
+#             row=1+row, col=1
+#         )
+
+#     # fig.update_traces(marker_size=1)
+#     fig.update_layout(
+#         showlegend=False, 
+#         width=320,
+#         height=180*len(which_instances),
+#         margin=dict(t=40, b=40, r=0, l=0),
+#         barmode='overlay',
+#     )
+#     fig.update_xaxes(visible=False)
+#     fig.update_yaxes(visible=False)
+#     # print(fig["layout"])
+#     for i in range(1, 1+2*len(which_instances), 2):
+#         fig["layout"][f"xaxis{i}"]["domain"] = [0.2, 0.5]
+#     for i in range(2, 1+2*len(which_instances), 2):
+#         fig["layout"][f"xaxis{i}"]["domain"] = [0.55, 0.8]
+#         fig["layout"][f"yaxis{i}"]["range"] = [-2.5, 2.5]
+#     return fig
+
+
+# n_instances = 6
+# n_features = 10
+
+# importance = 0.75 ** t.arange(n_features)[None, :]
+# feature_probability = t.tensor([0.6, 0.3, 0.12, 0.08, 0.05, 0.02])[:, None]
+
+# config = Config(
+#     n_instances = n_instances,
+#     n_features = n_features,
+#     n_hidden = 5,
+# )
+
+# model = NeuronModel(
+#     config=config,
+#     device=device,
+#     feature_probability=feature_probability,
+# )
+
+# optimize(model, steps=10_000)
+
+# fig = render_neurons(model)
+
+# fig.show()

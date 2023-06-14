@@ -938,7 +938,7 @@ class DQNTrainer:
 			for info in infos:
 				if "episode" in info.keys():
 					last_episode_len = info["episode"]["l"]
-					if args.use_wandb: 
+					if self.args.use_wandb: 
 						wandb.log({"episode_len": last_episode_len}, step=self.agent.steps)
 		return last_episode_len
 
@@ -946,23 +946,23 @@ class DQNTrainer:
 	def training_step(self) -> Float[Tensor, ""]:
 		'''Samples once from the replay buffer, and takes a single training step.'''
 		# SOLUTION
-		data = self.rb.sample(args.batch_size, device)
+		data = self.rb.sample(self.args.batch_size, device)
 		s, a, r, d, s_new = data.observations, data.actions, data.rewards, data.dones, data.next_observations
 
 		with t.inference_mode():
 			target_max = self.target_network(s_new).max(-1).values
-		predicted_q_vals = self.q_network(s)[range(args.batch_size), a.flatten()]
+		predicted_q_vals = self.q_network(s)[range(self.args.batch_size), a.flatten()]
 
-		td_error = r.flatten() + args.gamma * target_max * (1 - d.float().flatten()) - predicted_q_vals
+		td_error = r.flatten() + self.args.gamma * target_max * (1 - d.float().flatten()) - predicted_q_vals
 		loss = td_error.pow(2).mean()
 		loss.backward()
 		self.optimizer.step()
 		self.optimizer.zero_grad()
 		
-		if self.agent.steps % args.target_network_frequency == 0:
+		if self.agent.steps % self.args.target_network_frequency == 0:
 			self.target_network.load_state_dict(self.q_network.state_dict())
 
-		if args.use_wandb:
+		if self.args.use_wandb:
 			wandb.log(
 				{"td_loss": loss, "q_values": predicted_q_vals.mean().item(), "SPS": int(self.agent.steps / (time.time() - self.start_time))}, 
 				step=self.agent.steps
