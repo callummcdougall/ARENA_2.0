@@ -70,6 +70,8 @@ if MAIN:
 def reward_model(samples, **kwargs):
     '''
     Returns the rewards for the given samples, using the reward model `model`.
+    
+    kwargs are passed to your model during a forward pass.
     '''
     # SOLUTION
     tokenizer = AutoTokenizer.from_pretrained("lvwerra/distilbert-imdb")

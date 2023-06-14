@@ -69,16 +69,16 @@ For more detail on RLHF, see Paul Christiano's blog post [here](https://www.alig
 
 ### What is RLHF?
 
-Reinforcement Learning with Human Feedback (RLHF) is a RL technique where the rewards issued by the environment are determined from a human operator. 
-Often, it can be hard to specify the reward function $R : S \times A \to \mathbb{R}$ that the environment uses to issue reward to the agent, so we ask a human instead to reward/punish the agent based on the action it took. [OpenAI](https://openai.com/research/learning-from-human-preferences) uses RLHF to adjust the behaviour of models to desirable behaviour, but this can also incentivise the agent to hack the reward signal (by taking actions that look good to the human, or influencing the human to always give good rewards.)
+Reinforcement Learning with Human Feedback (RLHF) is a RL technique where the rewards issued by a reward model, which is itself trained from labelled data from a human operator. Often, it can be hard to specify the reward function $R : S \times A \to \mathbb{R}$ that the environment uses to issue reward to the agent, so we ask a human instead to reward/punish the agent based on the action it took. [OpenAI](https://openai.com/research/learning-from-human-preferences) uses RLHF to adjust the behaviour of models to desirable behaviour, but this can also incentivise the agent to hack the reward signal (by taking actions that look good to the human, or influencing the human to always give good rewards.)
 
-
+One should note that in the framework of RLHF, the environment only has one state, and the model that we are trying to fine-tune with RLHF no longer needs to "plan ahead", so in this sense it is closer to a bandit problem than the MDPs we saw in previous days.
 
 ### Why does it matter?
 
 RLHF (at the moment) is a successful method of nudging large language models towards desired behaviour when that behaviour is difficult to write as an algorithm.
+
 For chess, it's easy to evaluate whether an agent won/lost the game, so we can reward that directly. For text generation, it can be hard to formally specify
-that we mean by harmful or abusive text. One could have simple proxies like a filter to encourage/discourge use of particular words, and use that
+what we mean by harmful or abusive text. One could have simple proxies like a filter to encourage/discourge use of particular words, and use that
 to train against, but it's very easy to construct harmful text such that no particular word in the sentence would be classed as offensive:
 "I would love to eat your pet puppy" contains no offensive words, even though the semantic meaning of the entire sentence is quite offensive. 
 A simple proxy for offensiveness might even rate this as a positive statement, as it contains "nice" words like *love* and *puppy*.
@@ -98,9 +98,8 @@ RLHF involves 3 stages:
 
 #### 1. Pretraining
 
-Since reinforcement learning is very sample inefficient, it is unreasonable to expect to be able 
-to train a language model from scratch using online learning. Rather, we must start with an existing 
-pre-trained model and then fine-tune it. 
+Since reinforcement learning is very sample inefficient, it is unreasonable to expect to be able to train a language model from scratch using online learning. Rather, we must start with an existing pre-trained model and then fine-tune it. 
+
 We will be using GPT-2-small as our base model to finetune.
 
 <img src="https://raw.githubusercontent.com/jbloomAus/ARENA_2.0-RLHF/main/media/pretraining.png" width="500">
@@ -110,12 +109,12 @@ We will be using GPT-2-small as our base model to finetune.
 The reward model is used to assign a reward to any given output of the model during training. 
 Rather than have reward be a simple function of the state of the world (as for RL environments like CartPole), 
 the reward model assigns a reward to a given piece of text. 
-The reward model acts like a text classifier, rewarding "good" piece of text, and punishing "bad" text.
+The reward model acts like a text classifier, rewarding "good" pieces of text, and punishing "bad" text.
 
 The reward model is trained on a set of prompts, hand labelled by humans into "good" and "bad".
 This is then used to train the reward model, to act as a stand-in for the human during the fine-tuning stage.
 
-The model acts as a mapping between arbitrary text and human prefernces. 
+The model acts as a mapping between arbitrary text and human preferences. 
 
 <img src="https://raw.githubusercontent.com/jbloomAus/ARENA_2.0-RLHF/main/media/reward-model.png" width="700">
 
@@ -130,13 +129,26 @@ which is then used to compute the loss, and update the weights of the model.
 
 <img src="https://raw.githubusercontent.com/jbloomAus/ARENA_2.0-RLHF/main/media/rlhf.png" width="800">
 
-
 ### How does RHLF differ from PPO?
 
 - No "environment". RLHF operates on text completions made by the pre-trained generative model.
 - Reward Model. Reward itself is generated by the reward model which itself must be trained.
 - Adding a Value Head. We add a value head to the policy/LM architecture so that we have both an actor and a critic for PPO. 
 - KL Divergence penalty. The KL divergence term penalizes the RL policy from moving substantially away from the initial pretrained model with each training batch, to ensure we maintain coherent outputs, and the fine-tuned model avoids generating text that overfits to what the reward model is looking for.
+
+#### Aside - value heads
+
+The "actor" in our PPO setup is the GPT model. We get the "critic" by adding a **value head** to the GPT architecture - i.e. you stick a classifier to GPT2 and train that as our value function. 
+
+For an example, see the source code for AutoModelForCausalLMWithValueHead in the [TRLX github](https://github.com/CarperAI/trlx/blob/main/trlx/models/modeling_ppo.py). This gives us an autoregressive transformer which has 2 outputs: one corresponding to the standard next token prediction objective, and one which sticks a classifier on the end to get a value function. It does this by adding `self.v_head`, a function which reads from the final value of the residual stream in GPT (which stores some compressed embedding of the prompt), and extracts a value function from this representation. You can think of this as a kind of feature extraction, analogous to the feature extraction that we implemented with out ResNet models in the first week.
+
+The TRLX library we'll be working with today handles all of this under the hood. However, you should definitely have a poke around this library to get a feel for how it works.
+
+#### Aside - KL divergence term
+
+**Important note** - the KL div penalty is not the same as the version of PPO which uses a KL div penalty term in the surrogate objective function. The first one is a feature of the RHLF setup; it makes sure we don't get too far from the original model (i.e. it's static throughout training, used to constrain how much we change from the original model by the end). The second one is a feature of PPO setup; it makes sure we don't make huge updates from where we were before the last training step (i.e. it's a moving target, used to constrain how much we change each step).
+
+The KL div term we use in RL heavily penalises our new model when it outputs something which **would have low probability in the original model.** This is related to the reason RLHF'ed models are sometimes described as ["lobotomized"](https://twitter.com/repligate/status/1640488734192726018) - they converge to a subset of the kinds of outputs that our original model might have had, meaning they lose some of the variance and creativity of the original model.
 
 ## Readings for RHLF
 
@@ -401,7 +413,7 @@ prompts = generate_prompts(imdb)
 
 ## GPT2-IMDB
 
-The model that we will perform RLHF on is a GPT-2 model fine-tuned on the IMDB dataset, which can be found here: https://huggingface.co/lvwerra/gpt2-imdb. Since this model is finetuned on the IMDB dataset, the distribution of sentiments of its generations will be close to the distribution of sentiments of the original dataset. 
+The model that we will perform RLHF on is a GPT-2 model fine-tuned on the IMDB dataset, which can be found here: https://huggingface.co/lvwerra/gpt2-imdb. Since this model is finetuned on the IMDB dataset, the distribution of sentiments of its generations will be close to the distribution of sentiments of the original dataset. This means that after fine-tuning, the responses that are categorized as "nice" tend to lean towards being positive movie reviews rather than just generically positive continuations.
 
 
 ### Exercise - Load the GPT-2 model and generate reviews from prompts
@@ -413,7 +425,7 @@ Importance: 🟠🟠🟠⚪⚪
 You should spend up to 10-25 minutes on this exercise.
 ```
 
-You will need to use the `AutoTokenizer`, `AutoModelForCausalLM` from the transformers package. You might want to use the generate method of the GPT-2 model that you load, if you do you should use top_p sampling and set the max_new_tokens argument to something that's large enough.
+You will need to use the `AutoTokenizer`, `AutoModelForCausalLM` from the transformers package. You might want to use the generate method of the GPT-2 model that you load, if you do you should use `top_p` sampling and set the `max_new_tokens` argument to something that's large enough.
 
 Play around with generating completions from this prompt and verify whether the completions approximately fit your initial expectaions of the sentiments that the model would output.
 
@@ -469,6 +481,8 @@ We can use the model mentioned above in eval mode to generate sentiment scores a
 def reward_model(samples, **kwargs):
     '''
     Returns the rewards for the given samples, using the reward model `model`.
+
+    kwargs are passed to your model during a forward pass.
     '''
     pass
 
@@ -486,6 +500,8 @@ tests.test_reward_model(rewards)
 def reward_model(samples, **kwargs):
     '''
     Returns the rewards for the given samples, using the reward model `model`.
+
+    kwargs are passed to your model during a forward pass.
     '''
     # SOLUTION
     tokenizer = AutoTokenizer.from_pretrained("lvwerra/distilbert-imdb")
@@ -522,7 +538,7 @@ tests.test_reward_model(rewards)
 
 ### Exercise - Output sentiment scores using Huggingface pipelines
 
-This is an alternate way to get a reward model working directly using Huggingface pipelines. This will enable you to use a diverse range of models quite easily by changing a couple of arguments and provide you with more functionality than the vanilla Pyt loop you implemented above. Reading the relevant documentation is the key to success here.
+This is an alternate way to get a reward model working directly using Huggingface pipelines. This will enable you to use a diverse range of models quite easily by changing a couple of arguments and provide you with more functionality than the vanilla PyTorch loop you implemented above. Reading the relevant documentation is the key to success here.
 
 **Part A: Create a huggingface pipeline to output sentiment scores for a generated review**
 
@@ -544,6 +560,12 @@ We would ideally also want to use the truncation flag and the batch_size argumen
 
 ```python
 def create_pipeline(model_path):
+    if t.cuda.is_available():
+        device = int(os.environ.get("LOCAL_RANK", 0))
+    else:
+        device = -1
+
+    # YOUR CODE HERE - Create a sentiment pipeline
     pass
 
 sentiment_fn = create_pipeline("lvwerra/distilbert-imdb")
@@ -589,11 +611,11 @@ We want the reward function to return a single number corresponding to the value
 
 
 ```python
-
 def reward_model(samples: List[str], **kwargs) -> List[float]:
+    '''
+    Returns a list of reward values corresponding to the samples in `samples`.
+    '''
     pass
-
-
 ```
 
 <details>
@@ -602,13 +624,14 @@ def reward_model(samples: List[str], **kwargs) -> List[float]:
 
 ```python
 def reward_model(samples: List[str], **kwargs) -> List[float]:
+    '''
+    Returns a list of reward values corresponding to the samples in `samples`.
+    '''
     # SOLUTION
     reward = list(map(get_positive_score, sentiment_fn(samples)))
     return reward
 ```
-```python
 
-```
 </details>
 
 
@@ -633,10 +656,6 @@ test_prompts = ['I am happy', 'I am sad']
 
 rewards = reward_model(test_prompts)
 tests.test_reward_test_prompts(rewards)
-
-print('I want to eat', reward_model('I want to eat'))
-print('I want your puppy', reward_model('I want your puppy'))
-print('I want to eat your puppy', reward_model('I want to eat your puppy'))
 
 ## Code below has an interesting set of examples:
 
@@ -847,6 +866,7 @@ def ppo_config():
     )
 
 def main() -> None:
+    # Call the `train` function with appropriate arguments
     pass
 
 gc.collect()
@@ -861,6 +881,7 @@ main()
 
 ```python
 def main() -> None:
+    # Call the `train` function with appropriate arguments
     # SOLUTION
     train(
         reward_fn = reward_model,
@@ -872,7 +893,7 @@ def main() -> None:
 </details>
 
 
-Notice that we call `t.cuda.empty_cache()` here, which is essential to free up GPU memory that might be held up as remnants of completed GPU operations or past failed runs. Running out of memory might be a common issue that you run in and running `t.cuda.empty_cache()` will help you not get stuck as much. There are times when this is insufficient and you might need to restart the kernel to free up memory, you can call nvidia-smi on your terminal to see how much GPU memory is currently being used. Jupyter is unfortunately quite opaque in terms of memory management and you might need to call `t.cuda.empty_cache()` and `gc.collect()` more often than you would expect. 
+Notice that we call `t.cuda.empty_cache()` here, which is essential to free up GPU memory that might be held up as remnants of completed GPU operations or past failed runs. Running out of memory might be a common issue that you run in and running `t.cuda.empty_cache()` will help you not get stuck as much. There are times when this is insufficient and you might need to restart the kernel to free up memory, you can call `nvidia-smi` on your terminal to see how much GPU memory is currently being used, and you can run `watch -n 1 nvidia-smi` to constantly keep an eye on GPU utilisation & available memory. Jupyter is unfortunately quite opaque in terms of memory management and you might need to call `t.cuda.empty_cache()` and `gc.collect()` more often than you would expect. 
 
 TRLX logs to W&B and you should be prompted to add in your W&B key at some point. Take a look at the reward graph that shows the change in reward received by completions from the eval_prompts over the course of the training run. All the prompt completions are stored in the files section under the media folder. 
 
@@ -946,11 +967,12 @@ Can you change the `reward_fn` to reinforce neutral sentiment?
 
 
 ```python
-
 def neutral_reward_model(samples: List[str], **kwargs) -> List[float]:
+    # YOUR CODE HERE - define a reward function that returns high reward for neutral sentiment
     pass
 
 def main() -> None:
+    # YOUR CODE HERE - call the train function with appropriate arguments
     pass
 
 gc.collect()
@@ -964,11 +986,16 @@ main()
 
 
 ```python
+def get_neutral_score(scores):
+    return 1 - abs(dict(map(lambda x: tuple(x.values()), scores))["POSITIVE"] - dict(map(lambda x: tuple(x.values()), scores))["NEGATIVE"])
+
+
 def neutral_reward_model(samples: List[str], **kwargs) -> List[float]:
     # SOLUTION
     reward = list(map(get_neutral_score, sentiment_fn(samples)))
     return reward
 
+    
 def main() -> None:
     # SOLUTION
     train(
@@ -977,9 +1004,6 @@ def main() -> None:
         eval_prompts = ['In my opinion'] * 256, ## Feel free to try other negative prompts
         config =  ppo_config()
     )
-```
-```python
-
 ```
 </details>
 
@@ -1046,7 +1070,7 @@ Reward model: https://huggingface.co/roneneldan/TinyStories-1M
 
 ### RLHF on DALL-E
 
-Train a [version of DALL-E](https://github.com/lucidrains/DALLE2-pyt) (or a smaller version) using reinforcement learning from human feedback, so that it’s better at following human instructions.
+Train a [version of DALL-E](https://github.com/lucidrains/DALLE-pytorch) (or a smaller version) using reinforcement learning from human feedback, so that it’s better at following human instructions.
 
 Probably a useful first step here is finding something that the model isn’t good at because its training data didn’t incentivize it to be, but that it probably could be good at with a bit of data.
 
