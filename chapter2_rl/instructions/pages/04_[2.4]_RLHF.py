@@ -138,6 +138,12 @@ which is then used to compute the loss, and update the weights of the model.
 - Adding a Value Head. We add a value head to the policy/LM architecture so that we have both an actor and a critic for PPO. 
 - KL Divergence penalty. The KL divergence term penalizes the RL policy from moving substantially away from the initial pretrained model with each training batch, to ensure we maintain coherent outputs, and the fine-tuned model avoids generating text that overfits to what the reward model is looking for.
 
+## Readings for RHLF
+
+* [Fine-Tuning Language Models from Human Preferences](https://arxiv.org/abs/1909.08593) (paper)
+* [Learning to summarize from human feedback](https://arxiv.org/abs/2009.01325) (paper)
+* [AI safety via debate](https://openai.com/research/debate) (OpenAI blog post)
+* [Thoughts on the impact of RLHF research](https://www.alignmentforum.org/posts/vwu4kegAEZTBtpT6p/thoughts-on-the-impact-of-rlhf-research), by Paul Christiano
 
 ## Content & Learning Objectives
 
