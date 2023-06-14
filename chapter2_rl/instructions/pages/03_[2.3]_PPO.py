@@ -37,9 +37,10 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-
+   
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/football.jpeg" width="350">
 
+Colab: [**exercises**](https://colab.research.google.com/drive/1USZJy9HCpq8rsAqfD6yYfpAfZvO5YDha) | [**solutions**](https://colab.research.google.com/drive/1f_RBuosHddwQrydZ7-iAnBs6lhkMMMSG)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
@@ -125,13 +126,8 @@ There are 3 main classes you'll be using today:
         * In other words, it contains both the thing doing the inference and the thing which interacts with environment & stores results
         * This is a design choice, other designs might keep these separate
     * Also has a `get_minibatches` method which calls the corresponding buffer method (and uses the agent's current state) 
-* `PPOLightning`
-    * This is the main class for training our model
-    * The `rollout` phase happens once at the start of every epoch (in the `on_train_epoch_start` method)
-        * This fills our buffer with experiences
-        * We use the `train_dataloader` method to sample from the buffer to get our actual dataset (i.e. the thing we iterate over in `training_step`)
-    * The `learning` phase happens once per training step (in the `training_step` method)
-        * This returns our total objective function, then we update our model based on the data generated from `rollout`
+* `PPOTrainer`
+    * This is the main class for training our model, it helps us keep methods like `rollout_phase` and `learning_phase` separate
 
 The image below shows the high-level details of this, and how they relate to the conceptual overview above.
 
@@ -217,8 +213,6 @@ import copy
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Union, Callable, Optional
 from jaxtyping import Float, Int, Bool
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger, CSVLogger
 import wandb
 from IPython.display import clear_output
 
@@ -1333,7 +1327,7 @@ def section_3():
     <li class='margtop'><a class='contents-el' href='#writing-your-training-loop'>Writing your training loop</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#logging'>Logging</a></li>
-        <li><a class='contents-el' href='#exercise-complete-the-ppolightning-training-function'><b>Exercise</b> - complete the <code>PPOLightning</code> training function</a></li>
+        <li><a class='contents-el' href='#exercise-complete-the-ppotrainer-classer'><b>Exercise</b> - complete the <code>PPOTrainer</code> class</a></li>
         <li><a class='contents-el' href='#catastrophic-forgetting'>Catastrophic forgetting</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#reward-shaping'>Reward Shaping</a></li>
@@ -1417,7 +1411,7 @@ As an indication, the solution's implementation (ignoring logging) has the follo
 You should only focus on logging once you've got a mininal version of the code working. Once you do, you can try logging variables in the way described by [detail #12](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=Debug%20variables). This will involve adding code to the `rollout_phase` and `learning_phase` methods.
 
 
-### Exercise - complete the `PPOLightning` training function
+### Exercise - complete the `PPOTrainer` class
 
 ```c
 Difficulty: 🟠🟠🟠🟠🟠
@@ -1441,6 +1435,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name)
+            if args.capture_video: wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1469,6 +1464,7 @@ class PPOTrainer:
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
+            if args.capture_video: wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1480,6 +1476,12 @@ class PPOTrainer:
             for info in infos:
                 if "episode" in info.keys():
                     last_episode_len = info["episode"]["l"]
+                    last_episode_return = info["episode"]["r"]
+                    if args.use_wandb: wandb.log({
+                        "episode_length": last_episode_len,
+                        "episode_return": last_episode_return,
+                    }, step=self.agent.steps)
+        # Return this for use in the progress bar
         return last_episode_len
 
 
@@ -1514,7 +1516,7 @@ class PPOTrainer:
             ratio = logratio.exp()
             approx_kl = (ratio - 1 - logratio).mean().item()
             clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
-        wandb.log(dict(
+        if args.use_wandb: wandb.log(dict(
             total_steps = self.agent.steps,
             values = values.mean().item(),
             learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],
@@ -1537,11 +1539,9 @@ def train(args: PPOArgs) -> PPOAgent:
     progress_bar = tqdm(range(args.total_epochs))
 
     for epoch in progress_bar:
-        last_episode_len = trainer.rollout_phase()
-        
+        last_episode_len = trainer.rollout_phase()        
         if last_episode_len is not None:
             progress_bar.set_description(f"Epoch {epoch:02}, Episode length: {last_episode_len}")
-            if args.use_wandb: wandb.log({"episode_length": last_episode_len}, step=trainer.agent.steps)
 
         trainer.learning_phase()
     
@@ -1564,7 +1564,8 @@ class PPOTrainer:
         self.agent = PPOAgent(self.args, self.envs).to(device)
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
-            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
+            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name, config=args)
+            if args.capture_video: wandb.gym.monitor()
 
 
     def rollout_phase(self):
@@ -1630,7 +1631,7 @@ def test_probe(probe_idx: int):
     args = PPOArgs(
         env_id=f"Probe{probe_idx}-v0",
         exp_name=f"test-probe-{probe_idx}", 
-        total_timesteps=10000 if probe_idx <= 3 else 30000,
+        total_timesteps=[10000, 10000, 10000, 30000, 50000][probe_idx-1],
         learning_rate=0.001,
         capture_video=False,
         use_wandb=False,
@@ -1655,9 +1656,24 @@ def test_probe(probe_idx: int):
         t.testing.assert_close(probs, t.tensor(expected_probs).to(device), atol=tolerances[probe_idx-1], rtol=0)
     clear_output()
     print("Probe tests passed!")
+
+
+for probe_idx in range(1, 6):
+    test_probe(probe_idx)
 ```
 
 Once you've passed the tests for all 5 probe environments, you should test your model on Cartpole.
+
+<details>
+<summary>Question - if you've done this correctly (and logged everything), clipped surrogate objective will be close to zero. Does this mean that it's not important in the overall algorithm (compared to the components of the objective function which are larger)?</summary>
+
+No, this doesn't mean that it's not important.
+
+Clipped surrogate objective is a moving target. At each rollout phase, we generate new experiences, and the expected value of the clipped surrogate objective will be zero (because the expected value of advantages is zero). But this doesn't mean that differentiating clipped surrogate objective wrt the policy doesn't have a large gradient!
+
+As we make update steps in the learning phase, the policy values $\pi(a_t \mid s_t)$ will increase for actions which have positive advantages, and decrease for actions which have negative advantages, so the clipped surrogate objective will no longer be zero in expectation. But (thanks to the fact that we're clipping changes larger than $\epsilon$) it will still be very small.
+
+</details>
 
 ### Catastrophic forgetting
 
@@ -1735,6 +1751,11 @@ class EasyCart(CartPoleEnv):
         # YOUR CODE HERE - calculate new reward
 
         return (obs, new_reward, done, info)
+
+        
+gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
+args = PPOArgs(env_id="EasyCart-v0", use_wandb=True)
+# YOUR CODE HERE - train agent
 ```
 
 <details>
@@ -1780,6 +1801,11 @@ class SpinCart(CartPoleEnv):
         stability_penalty = max(1, abs(x/2.5) + abs(v/10))
         reward = rotation_speed_reward - 0.5 * stability_penalty
         return (obs, reward, done, info)
+
+
+gym.envs.registration.register(id="SpinCart-v0", entry_point=SpinCart, max_episode_steps=500)
+args = PPOArgs(env_id="SpinCart-v0", use_wandb=True)
+agent = train(args)
 ```
 
 </details>
