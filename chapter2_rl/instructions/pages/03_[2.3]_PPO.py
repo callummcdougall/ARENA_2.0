@@ -37,9 +37,10 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-Colab: [**exercises**](https://colab.research.google.com/drive/1USZJy9HCpq8rsAqfD6yYfpAfZvO5YDha) | [**solutions**](https://colab.research.google.com/drive/1f_RBuosHddwQrydZ7-iAnBs6lhkMMMSG)
-    
+   
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/football.jpeg" width="350">
+
+Colab: [**exercises**](https://colab.research.google.com/drive/1USZJy9HCpq8rsAqfD6yYfpAfZvO5YDha) | [**solutions**](https://colab.research.google.com/drive/1f_RBuosHddwQrydZ7-iAnBs6lhkMMMSG)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
