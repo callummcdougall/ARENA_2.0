@@ -11,7 +11,6 @@ from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM,  AutoMod
 from transformers.models.bert.modeling_bert import BertForMaskedLM
 import logging
 from typing import cast, Any, List, Optional, Union, Tuple
-
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
@@ -187,7 +186,7 @@ def main() -> None:
 
 gc.collect()
 t.cuda.empty_cache()
-main()
+# main()
 # %%
 
 
