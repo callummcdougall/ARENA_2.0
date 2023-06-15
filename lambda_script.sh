@@ -6,3 +6,5 @@ pip install einops
 pip install git+https://github.com/callummcdougall/CircuitsVis.git#subdirectory=python
 pip install transformer_lens
 pip install protobuf==3.20.*
+pip install torchinfo
+pip install --upgrade torchvision
