@@ -74,7 +74,6 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
     '''
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
-    names = kwargs_pre.pop("names", None)
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     if "xaxis_tickvals" in kwargs_pre:
@@ -107,6 +106,7 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
     else:
         y = list(map(to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else to_numpy(y)
         fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
+        names = kwargs_pre.pop("names", None)
         if names is not None:
             fig.for_each_trace(lambda trace: trace.update(name=names.pop(0)))
         fig.show(renderer)
