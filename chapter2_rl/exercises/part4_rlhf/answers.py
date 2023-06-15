@@ -11,6 +11,7 @@ from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM,  AutoMod
 from transformers.models.bert.modeling_bert import BertForMaskedLM
 import logging
 from typing import cast, Any, List, Optional, Union, Tuple
+import wandb
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
@@ -84,22 +85,22 @@ def generate_completion(prompt) -> str:
 
 generate_completion(prompts[0])
 # %%
-reward_model_bruh = AutoModelForSequenceClassification.from_pretrained("lvwerra/distilbert-imdb")
-reward_model_tokenizer = AutoTokenizer.from_pretrained("lvwerra/distilbert-imdb")
-reward_model_bruh.eval()
-def reward_model(samples, **kwargs):
-    '''
-    Returns the rewards for the given samples, using the reward model `model`.
+# reward_model_bruh = AutoModelForSequenceClassification.from_pretrained("lvwerra/distilbert-imdb")
+# reward_model_tokenizer = AutoTokenizer.from_pretrained("lvwerra/distilbert-imdb")
+# reward_model_bruh.eval()
+# def reward_model(samples, **kwargs):
+#     '''
+#     Returns the rewards for the given samples, using the reward model `model`.
 
-    kwargs are passed to your model during a forward pass.
-    '''
-    return reward_model_bruh(**reward_model_tokenizer(samples, return_tensors='pt', padding=True), **kwargs)
+#     kwargs are passed to your model during a forward pass.
+#     '''
+#     return reward_model_bruh(**reward_model_tokenizer(samples, return_tensors='pt', padding=True), **kwargs)
 
 
 
-example_strings = ["Example string", "I'm having a good day", "You are an ugly person"]
-rewards = reward_model(example_strings)
-tests.test_reward_model(rewards)
+# example_strings = ["Example string", "I'm having a good day", "You are an ugly person"]
+# rewards = reward_model(example_strings)
+# tests.test_reward_model(rewards)
 # %%
 def create_pipeline(model_path):
     if t.cuda.is_available():
@@ -110,30 +111,30 @@ def create_pipeline(model_path):
     return pipeline('sentiment-analysis', model=model_path, top_k=2,
                     truncation=True, batch_size=256, device=device)
 
-sentiment_fn = create_pipeline("lvwerra/distilbert-imdb")
-# %%
-def reward_model(samples: List[str], **kwargs) -> List[float]:
-    '''
-    Returns a list of reward values corresponding to the samples in `samples`.
-    '''
-    return [reduce(lambda s, d: d['score'] if d['label'] == 'POSITIVE' else s, row, 0) for row in sentiment_fn(samples, )]
-# %%
-test_prompts = ['I am happy', 'I am sad']
+# sentiment_fn = create_pipeline("lvwerra/distilbert-imdb")
+# # %%
+# def reward_model(samples: List[str], **kwargs) -> List[float]:
+#     '''
+#     Returns a list of reward values corresponding to the samples in `samples`.
+#     '''
+#     return [reduce(lambda s, d: d['score'] if d['label'] == 'POSITIVE' else s, row, 0) for row in sentiment_fn(samples, )]
+# # %%
+# test_prompts = ['I am happy', 'I am sad']
 
-rewards = reward_model(test_prompts)
-tests.test_reward_test_prompts(rewards)
+# rewards = reward_model(test_prompts)
+# tests.test_reward_test_prompts(rewards)
 
 ## Code below has an interesting set of examples:
 
-print('I want to eat', reward_model('I want to eat'))
-print('I want your puppy', reward_model('I want your puppy'))
-print('I want to eat your puppy', reward_model('I want to eat your puppy'))
+# print('I want to eat', reward_model('I want to eat'))
+# print('I want your puppy', reward_model('I want your puppy'))
+# print('I want to eat your puppy', reward_model('I want to eat your puppy'))
 # %%
 def ppo_config():
     return TRLConfig(
         train=TrainConfig(
             seq_length=1024,
-            epochs=100,
+            epochs=1000,
             total_steps=10000,
             batch_size=32,
             checkpoint_interval=10000,
@@ -258,51 +259,39 @@ Never gonna make you cry
 Never gonna say goodbye
 Never gonna tell a lie and hurt you
 """
+#%%
 def bincount(tokens):
-    return t.where(t.arange(50257) == tokenizer_gpt.eos_token_id, t.tensor(0), t.stack([t.bincount(tokens['input_ids'][i], minlength=50257) for i in range(len(tokens['input_ids']))]))
+    return t.clamp(t.where(t.arange(50257) == tokenizer_gpt.eos_token_id, t.tensor(0), t.stack([t.bincount(tokens['input_ids'][i], minlength=50257) for i in range(len(tokens['input_ids']))])), 10e-7, len(tokens['input_ids']))
 
 rickroll_tokens = tokenizer_gpt(rickroll, return_tensors='pt')
 rickroll_bincounts = bincount(rickroll_tokens)
 rickroll_bincounts = rickroll_bincounts / rickroll_bincounts.sum(-1, keepdim=True)
 
-fluency = create_pipeline("dennlinger/roberta-cls-consec")
+#%%
+# fluency = create_pipeline("dennlinger/roberta-cls-consec")
+def lcs(X , Y):
+    X = X.split()
+    Y = Y.split()
+    M = len(X)
+    N = len(Y)
 
-def largest_common_subsequence(seq1: str, seq2: str) -> int:
-    # split by space and new line
-    seq1 = seq1.split()
-    seq2 = seq2.split()
-
-    m = len(seq1)
-    n = len(seq2)
-
-    # Create matrix
-    matrix = [[0] * (n + 1) for _ in range(m + 1)]
-
-    # Fill the matrix
-    for i in range(1, m + 1):
-        for j in range(1, n + 1):
-            if seq1[i - 1] == seq2[j - 1]:
-                matrix[i][j] = matrix[i - 1][j - 1] + 1
+    LCSuff = [[0 for k in range(N+1)] for l in range(M+1)]
+    mx = 0
+    for i in range(M + 1):
+        for j in range(N + 1):
+            if (i == 0 or j == 0):
+                LCSuff[i][j] = 0
+            elif (X[i-1] == Y[j-1]):
+                LCSuff[i][j] = LCSuff[i-1][j-1] + 1
+                mx = max(mx, LCSuff[i][j])
             else:
-                matrix[i][j] = max(matrix[i - 1][j], matrix[i][j - 1])
+                LCSuff[i][j] = 0
+    return mx
 
-    # Backtrack to find the subsequence
-    subsequence = []
-    i, j = m, n
-    while i > 0 and j > 0:
-        if seq1[i - 1] == seq2[j - 1]:
-            subsequence.append(seq1[i - 1])
-            i -= 1
-            j -= 1
-        elif matrix[i][j - 1] > matrix[i - 1][j]:
-            j -= 1
-        else:
-            i -= 1
-
-    return len(subsequence)
 
 tokenizer_gpt.pad_token = tokenizer_gpt.eos_token
 
+#%%
 def reward_model(samples: List[str], **kwargs) -> List[float]:
     # rewards = []
     # for sample in samples:
@@ -325,7 +314,7 @@ def reward_model(samples: List[str], **kwargs) -> List[float]:
     # return [fluency_rewards[i]['score'] + t.cosine_similarity(rickroll_resid, resid[i].unsqueeze(0)).item() for i in range(len(samples))]
 
     # reward 1: largest common subsequence
-    lcs_reward = t.tensor([largest_common_subsequence(sample, rickroll) for sample in samples])
+    lcs_reward = t.tensor([lcs(sample, rickroll) for sample in samples]).pow(2)
 
     # reward 2: distribution of words in samples is similar to distribution of words in rickroll
     sample_tokens = tokenizer_gpt(samples, return_tensors='pt', padding=True)
@@ -333,11 +322,19 @@ def reward_model(samples: List[str], **kwargs) -> List[float]:
     sample_bincounts = sample_bincounts / sample_bincounts.sum(-1, keepdim=True)
     # compare the distributions of the two bincounts
     avg_bincount = (sample_bincounts + rickroll_bincounts) / 2
-    kl1 = t.nn.functional.kl_div(sample_bincounts.log(), avg_bincount, reduction='sum')
-    kl2 = t.nn.functional.kl_div(rickroll_bincounts.log(), avg_bincount, reduction='sum')
+    kl1 = t.nn.functional.kl_div(sample_bincounts.log(), avg_bincount, reduction='none').sum(-1)
+    kl2 = t.nn.functional.kl_div(rickroll_bincounts.log(), avg_bincount, reduction='none').sum(-1)
     kl_divergence = (kl1 + kl2) / 2
+    sample_lengths = t.where(sample_tokens['input_ids'] == tokenizer_gpt.eos_token_id, t.tensor(0), t.tensor(1)).sum(-1)
+    kl_divergence = kl_divergence * sample_lengths / 10
+    kl_reward = 100 / (kl_divergence + 1e-3)
 
-    return lcs_reward + kl_divergence
+    wandb.log({'lcs_reward': lcs_reward,
+               'lcs_reward_mean': lcs_reward.mean(dtype=t.float32),
+               'kl_reward': kl_reward,
+               'kl_reward_mean': kl_reward.mean(dtype=t.float32)})
+
+    return (lcs_reward + kl_reward)/100
     
     # reward 3: fluency (maybe add this later)
         
@@ -346,7 +343,7 @@ def main() -> None:
     train(
         reward_fn=reward_model,
         prompts=prompts,
-        eval_prompts=['Never gonna give you up', 'Never gonna let you down', 'Never gonna run around and desert you', 'Never gonna make you cry', 'Never gonna say goodbye', 'Never gonna tell a lie, and hurt you'],
+        eval_prompts=['This is such a good', 'I found it really interesting how', 'Why are you gay?'],
         config=ppo_config()
     )
 
