@@ -1058,6 +1058,7 @@ def section_3():
     <li class='margtop'><a class='contents-el' href='#bonus-exercises-non-rlhf'>Bonus exercises (non-RLHF)</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#reimplement-a-bunch-of-rl-algorithms'>Reimplement a bunch of RL algorithms</a></li>
+        <li><a class='contents-el' href='#decision-transformers'>Decision Transformers</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -1142,14 +1143,38 @@ e.g. a bunch of the algorithms from [https://spinningup.openai.com/](https://spi
 
 This project was recommended as a capstone for the last week of MLAB2, by Buck Shlegeris.
 
+### Decision Transformers
 
+*This section is taken from Joseph Bloom's guidelines on decision transformers.*
 
+What to read:
 
+* [[2106.01345] Decision Transformer: Reinforcement Learning via Sequence Modeling](https://arxiv.org/abs/2106.01345)
+* [[2106.02039] Offline Reinforcement Learning as One Big Sequence Modeling Problem](https://arxiv.org/abs/2106.02039)
+* [[2205.06175] A Generalist Agent](https://arxiv.org/abs/2205.06175)
+
+Offline-RL, general steps:
+
+1. Collect trajectories (process into sequence)
+2. Set up architecture (decision transformer or other model)
+    a. Ensure you have ways to embed your states and actions (and reward to go’s if it’s a decision transformer)
+    b. Main model is GPT2 like, but without an embedding (you do that manually)
+    c. Predict one of the allowed actions (if in discrete space)
+3. Train
+    a. Use predictive loss on actions to update weights (so ignore outputs of 2 out of 3 tokens in each timestep)
+    b. Can calculate test loss (important) but also essential to look at performance on actual task (real measure of generalisation). During inference, need an environment to generate reward/observation every timestep that your model predicts an action for.
+
+Github repo of original paper: https://github.com/kzl/decision-transformer/tree/master
+
+My github repo: GitHub - jbloomAus/DecisionTransformerInterpretability: Interpreting how transformers simulate agents performing RL tasks (I’m not sure my implementation is that much more readable since I’ve worked on it for a while and done lots of stuff that’s non-trivial). People can also try to use my library and see how they go. I suspect it's pretty hard to use at the moment, but I'd love if someone could make it through and then help me clean it up/make it more accessible. The core functions are pretty good.
 """, unsafe_allow_html=True)
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Prompt Dataset & Reward Model"),     (section_2, "2️⃣ Using RLHF for Finetuning"),     (section_3, "3️⃣ Bonus"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Prompt Dataset & Reward Model"),
+    (section_2, "2️⃣ Using RLHF for Finetuning"),
+    (section_3, "3️⃣ Bonus"), 
 ]
 
 func_list = [func for func, page in func_page_list]

@@ -31,9 +31,13 @@ st.sidebar.markdown(r"""
     <li><ul class="contents">
         <li><a class='contents-el' href='#weights'>Weights</a></li>
         <li><a class='contents-el' href='#hooks'>Hooks</a></li>
+        <li><a class='contents-el' href='#making-your-own-hooked-model'>Making your own hooked model</a></li>
         <li><a class='contents-el' href='#cache'>Cache</a></li>
+        <li><a class='contents-el' href='#tokenization'>Tokenization</a></li>
         <li><a class='contents-el' href='#utils'>Utils</a></li>
+        <li><a class='contents-el' href='#factoredmatrix'>FactoredMatrix</a></li>
         <li><a class='contents-el' href='#circuitsvis'>Circuitsvis</a></li>
+        <li><a class='contents-el' href='#pre-trained-checkpoints'>Pre-Trained Checkpoints</a></li>
         <li><a class='contents-el' href='#misc'>Misc.</a></li>
     </ul></li>
 </ul></li>""", unsafe_allow_html=True)
@@ -145,6 +149,54 @@ out, cache = model.run_with_cache(
 
 An optional argument is `names_filter`, which is a boolean function taking names as arguments (we'll only cache the activations where `names_filter(name)` is True).
 
+### Making your own hooked model
+
+Hooks are implemented as special instances of `nn.Identity` modules, which come some special functionality.
+
+The following code snipped shows how to define a simple hooked model, which will have methods like `run_with_hooks` and `run_with_cache`.
+
+```python
+from transformer_lens.hook_points import HookedRootModule, HookPoint
+
+
+class SquareThenAdd(nn.Module):
+    def __init__(self, offset):
+        super().__init__()
+        self.offset = nn.Parameter(torch.tensor(offset))
+        self.hook_square = HookPoint()
+
+    def forward(self, x):
+        # The hook_square doesn't change the value, but lets us access it
+        square = self.hook_square(x * x)
+        return self.offset + square
+
+
+class TwoLayerModel(HookedRootModule):
+    def __init__(self):
+        super().__init__()
+        self.layer1 = SquareThenAdd(3.0)
+        self.layer2 = SquareThenAdd(-4.0)
+        self.hook_in = HookPoint()
+        self.hook_mid = HookPoint()
+        self.hook_out = HookPoint()
+
+        # We need to call the setup function of HookedRootModule to build an
+        # internal dictionary of modules and hooks, and to give each hook a name
+        super().setup()
+
+    def forward(self, x):
+        # We wrap the input and each layer's output in a hook - they leave the
+        # value unchanged (unless there's a hook added to explicitly change it),
+        # but allow us to access it.
+        x_in = self.hook_in(x)
+        x_mid = self.hook_mid(self.layer1(x_in))
+        x_out = self.hook_out(self.layer2(x_mid))
+        return x_out
+
+
+model = TwoLayerModel()
+```
+
 ### Cache
 
 The `ActivationCache` class has a few useful methods for performing operations on its activations. These include:
@@ -163,6 +215,18 @@ The `ActivationCache` class has a few useful methods for performing operations o
     * Returns a stack of all head results (i.e. residual stream contribution) up to layer `layer`
     * (i.e. like `decompose_resid` except it splits each attention layer by head rather than splitting each layer by attention/MLP)
     * First dimension of output is `layer * head` (we needed to rearrange to `(layer, head)` to plot it).
+
+### Tokenization
+
+Here are some useful functions for tokenization:
+
+* `model.to_str_tokens` maps strings -> list of strings
+* `model.to_tokens` maps strings -> tokens (as tensor)
+* `model.to_single_tokens` maps a string for a single token -> that token id (as an int)
+* `model.to_string` maps an int token id -> string
+* `model.get_token_position(token, string)` returns the (first) position of the token in the string
+
+**Gotcha** - remember the `prepend_bos` argument in all of these! When this is true, we prepend the BOS token to the start of the string, and the token positions are shifted by 1.
 
 ### Utils
 
@@ -269,6 +333,43 @@ with open("media/neurons_2.html") as f:
     st.components.v1.html(f.read(), height=400)
 
 st.markdown(r"""
+### FactoredMatrix
+
+In transformer interpretability, we often need to analyse low rank factorized matrices - a matrix $M = AB$, where M is `[large, large]`, but A is `[large, small]` and B is `[small, large]`. This is a common structure in transformers, and the `FactoredMatrix` class is a convenient way to work with these. It implements efficient algorithms for various operations on these, acting as a drop-in replacement for the actual matrix product. 
+
+We define a factored matrix as follows:
+
+```python
+AB_factored = FactoredMatrix(A, B)
+```
+
+Some supported methods are:
+
+```python
+AB.eigenvalues # returns eigenvalues
+AB.U, AB.S, AB.Vh # returns SVD
+AB.norm() # returns Frobenius norm
+AB.A, AB.B # returns left and right matrices used in product
+```
+
+### Pre-Trained Checkpoints
+
+All of TransformerLens' interpretability-friendly models have available checkpoints, including the toy models, SoLU models, and stanford-gpt models.
+
+The checkpoint structure and labels is somewhat messy and ad-hoc, so you're recommended to use the `checkpoint_index` syntax (where you can just count from 0 to the number of checkpoints) rather than `checkpoint_value` syntax (where you need to know the checkpoint schedule, and whether it was labelled with the number of tokens or steps). The helper function `get_checkpoint_labels` tells you the checkpoint schedule for a given model - ie what point was each checkpoint taken at, and what type of label was used.
+
+```python
+from transformer_lens.loading_from_pretrained import get_checkpoint_labels
+from plotly_utils import line
+
+for model_name in ["attn-only-2l", "solu-12l", "stanford-gpt2-small-a"]:
+    checkpoint_labels, checkpoint_label_type = get_checkpoint_labels(model_name)
+    line(checkpoint_labels, labels={"x": "Checkpoint Index", "y": f"Checkpoint Value ({checkpoint_label_type})"}, title=f"Checkpoint Values for {model_name} (Log scale)", log_y=True, markers=True)
+for model_name in ["solu-1l-pile", "solu-6l-pile"]:
+    checkpoint_labels, checkpoint_label_type = get_checkpoint_labels(model_name)
+    line(checkpoint_labels, labels={"x": "Checkpoint Index", "y": f"Checkpoint Value ({checkpoint_label_type})"}, title=f"Checkpoint Values for {model_name} (Linear scale)", log_y=False, markers=True)
+```
+
 ### Misc. 
 
 #### Visualisation
