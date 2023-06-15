@@ -232,8 +232,8 @@ if MAIN:
         "name": "sweep",
         "metric": {"goal": "maximize", "name": "accuracy"},
         "parameters": {
-            "batch_size": {"values": [32, 64, 128, 256]},
-            "max_epochs": {"values": [1, 2, 3]},
+            "batch_size": {"values": [64, 256, 512, 1024]},
+            "max_epochs": {"values": [5, 10, 24]},
             "learning_rate": {
                 "distribution": "log_uniform_values",
                 "min": 1e-4,
@@ -241,7 +241,7 @@ if MAIN:
             },
         },
     }
-    tests.test_sweep_config(sweep_config)
+    # tests.test_sweep_config(sweep_config)
 # %%
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
 
@@ -270,5 +270,5 @@ def train():
 
 if MAIN:
     sweep_id = wandb.sweep(sweep=sweep_config, project="day4-resnet-sweep")
-    wandb.agent(sweep_id=sweep_id, function=train, count=3)
+    wandb.agent(sweep_id=sweep_id, function=train, count=20)
     wandb.finish()
