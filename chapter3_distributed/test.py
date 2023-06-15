@@ -59,9 +59,10 @@ class DistWithRank(Dist):
         self.writes_from[self.get_rank()].append(rank)
         with self.source_dest_tensors_lock:
             if len(self.source_dest_tensors[rank][self.get_rank()]['to_read']) > 0:
-                assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].shape} != {tensor.shape}"
-                assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0].dtype} != {tensor.dtype}"
-                self.source_dest_tensors[rank][self.get_rank()]['to_read'].pop(0)[:] = tensor[:]
+                assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0][0].shape} != {tensor.shape}"
+                assert self.source_dest_tensors[rank][self.get_rank()]['to_read'][0][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_read'][0][0].dtype} != {tensor.dtype}"
+                self.source_dest_tensors[rank][self.get_rank()]['to_read'][0][0][:] = tensor[:]
+                self.source_dest_tensors[rank][self.get_rank()]['to_read'].pop(0)[1].release()
             else:
                 self.source_dest_tensors[self.get_rank()][rank]['to_write'].append(tensor)
     def read_from(self, tensor, rank):
@@ -74,7 +75,10 @@ class DistWithRank(Dist):
                 assert self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].dtype} != {tensor.dtype}"
                 tensor[:] = self.source_dest_tensors[rank][self.get_rank()]['to_write'].pop(0)[:]
             else:
-                self.source_dest_tensors[self.get_rank()][rank]['to_read'].append(tensor)
+                lock = threading.Lock()
+                self.source_dest_tensors[self.get_rank()][rank]['to_read'].append((tensor, lock))
+                lock.acquire()
+                lock.acquire()
 
 
     def is_available(self):
