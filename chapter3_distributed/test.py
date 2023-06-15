@@ -69,16 +69,16 @@ class DistWithRank(Dist):
         assert rank >= 0 and rank < self.get_world_size(), f"Invalid rank: {rank}"
         assert rank != self.get_rank(), f"Cannot read from self"
         self.reads_by[self.get_rank()].append(rank)
+        lock = threading.Semaphore()
         with self.source_dest_tensors_lock:
             if len(self.source_dest_tensors[rank][self.get_rank()]['to_write']) > 0:
                 assert self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].shape == tensor.shape, f"Shape mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].shape} != {tensor.shape}"
                 assert self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].dtype == tensor.dtype, f"Dtype mismatch: {self.source_dest_tensors[rank][self.get_rank()]['to_write'][0].dtype} != {tensor.dtype}"
                 tensor[:] = self.source_dest_tensors[rank][self.get_rank()]['to_write'].pop(0)[:]
             else:
-                lock = threading.Lock()
+                lock.acquire()
                 self.source_dest_tensors[self.get_rank()][rank]['to_read'].append((tensor, lock))
-                lock.acquire()
-                lock.acquire()
+        lock.acquire()
 
 
     def is_available(self):
