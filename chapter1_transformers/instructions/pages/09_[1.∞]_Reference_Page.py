@@ -310,7 +310,8 @@ cv.activations.text_neuron_activations(
     tokens, # list of strings
     activations, # list of tensors of shape (seq_pos, layers, neurons)
 )
-```""", unsafe_allow_html=True)
+```
+""", unsafe_allow_html=True)
 
 with open("media/neurons_1.html") as f:
     st.components.v1.html(f.read(), height=150)

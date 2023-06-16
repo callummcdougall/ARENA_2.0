@@ -81,6 +81,8 @@ You'll apply the technique of DQN to master the famous CartPole environment (bel
 
 
 ```python
+%pip install wandb==0.13.10 # makes sure video works!
+
 import os
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 os.environ["SDL_VIDEODRIVER"] = "dummy"

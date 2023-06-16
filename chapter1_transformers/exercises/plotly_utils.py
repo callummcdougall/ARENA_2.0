@@ -50,7 +50,6 @@ def reorder_list_in_plotly_way(L: list, col_wrap: int):
     while len(L) > 0:
         L_new.extend(L[-col_wrap:])
         L = L[:-col_wrap]
-
     return L_new
 
 
