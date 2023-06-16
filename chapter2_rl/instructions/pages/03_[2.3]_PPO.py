@@ -181,6 +181,8 @@ You might find it helpful to make a physical checklist of the 13 items and marki
 
 
 ```python
+%pip install wandb==0.13.10 # makes sure video works!
+
 import os
 os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 os.environ["SDL_VIDEODRIVER"] = "dummy"
