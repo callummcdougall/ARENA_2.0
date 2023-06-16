@@ -25,13 +25,11 @@ from test import test_broadcast_tree
 
 def broadcast_tree(tensor: torch.Tensor, src: int):
     curr_mult = 1
-    rank_shifted = lambda: (dist.get_rank() + dist.get_world_size() - src) % dist.get_world_size()
+    rank_shifted = lambda: (dist.get_rank() - src) % dist.get_world_size()
     while curr_mult * 2 <= dist.get_world_size():
         if rank_shifted() < curr_mult:
-            print(f"{dist.get_rank()} -> {dist.get_rank() + curr_mult}")
             dist.send(tensor, (dist.get_rank() + curr_mult) % dist.get_world_size())
         elif rank_shifted() < curr_mult * 2:
-            print(f"{dist.get_rank()} <- {dist.get_rank() - curr_mult}")
             dist.recv(tensor, (dist.get_rank() - curr_mult) % dist.get_world_size())
         curr_mult *= 2
         dist.barrier()
@@ -56,28 +54,10 @@ def broadcast_ring(tensor: torch.Tensor, src: int):
 if __name__ == '__main__':
     test_broadcast_ring(broadcast_ring)
 
-#%%
-from test import test_allreduce_butterfly
-
-def allreduce_butterfly(tensor: torch.Tensor):
-    print(f'INIT {dist.get_rank()} {tensor}')
-    rank = bin(dist.get_rank())[2:].zfill(len(bin(dist.get_world_size()-1)[2:]))
-    buff = torch.empty_like(tensor)
-    for i in range(len(rank)):
-        partner_rank = rank[:i] + str(1-int(rank[i])) + rank[i+1:]
-        partner_rank = int(partner_rank, 2)
-        dist.send(tensor, partner_rank)
-        dist.recv(buff, partner_rank)
-        tensor += buff
-    print(f'FINAL {dist.get_rank()} {tensor}')
-if __name__ == '__main__':
-    test_allreduce_butterfly(allreduce_butterfly)
-
 # %%
 from test import test_reduce_naive
 
 def reduce_naive(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
-    print(f'rank {dist.get_rank()} {tensor}')
     if dist.get_rank() == dst:
         for i in range(dist.get_world_size()):
             if i != dist.get_rank():
@@ -103,18 +83,74 @@ def reduce_naive(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
             dist.barrier()
     dist.barrier()
 
-
-
 if __name__ == '__main__':
     test_reduce_naive(reduce_naive)
 
 # %%
 from test import test_reduce_tree
 
-def reduce_tree():
-    pass
+def reduce_tree(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
+    curr_mult = dist.get_world_size() / 2
+    rank_shifted = lambda: (dist.get_rank() - dst) % dist.get_world_size()
+    while curr_mult >= 1:
+        if rank_shifted() < curr_mult:
+            buff = torch.empty_like(tensor)
+            dist.recv(buff, (dist.get_rank() + curr_mult) % dist.get_world_size())
+            if op == ReduceOp.SUM:
+                tensor += buff
+            elif op == ReduceOp.PRODUCT:
+                tensor *= buff
+            elif op == ReduceOp.MAX:
+                tensor = torch.max(tensor, buff)
+            elif op == ReduceOp.MIN:
+                tensor = torch.min(tensor, buff)
+            else:
+                raise NotImplementedError(f'op {op} not implemented')
+        elif rank_shifted() < curr_mult * 2:
+            dist.send(tensor, (dist.get_rank() - curr_mult) % dist.get_world_size())
+        curr_mult /= 2
+    dist.barrier()
 
 if __name__ == '__main__':
     test_reduce_tree(reduce_tree)
+
+#%%
+from test import test_allreduce_naive
+
+def allreduce_naive(tensor: torch.Tensor, op=ReduceOp.SUM):
+    reduce_naive(tensor, dst=0, op=op)
+    broadcast_naive(tensor, src=0)
+
+if __name__ == '__main__':
+    test_allreduce_naive(allreduce_naive)
+
+#%%
+from test import test_allreduce_butterfly
+
+def allreduce_butterfly(tensor: torch.Tensor, op=ReduceOp.SUM):
+    # TODO: does not produce consistent results in tensor
+    print(f'INIT {dist.get_rank()} {tensor}')
+    rank = bin(dist.get_rank())[2:].zfill(len(bin(dist.get_world_size()-1)[2:]))
+    buff = torch.empty_like(tensor)
+    for i in range(len(rank)):
+        partner_rank = rank[:i] + str(1-int(rank[i])) + rank[i+1:]
+        partner_rank = int(partner_rank, 2)
+        dist.send(tensor, partner_rank)
+        dist.recv(buff, partner_rank)
+        if op == ReduceOp.SUM:
+                tensor += buff
+        elif op == ReduceOp.PRODUCT:
+            tensor *= buff
+        elif op == ReduceOp.MAX:
+            tensor = torch.max(tensor, buff)
+        elif op == ReduceOp.MIN:
+            tensor = torch.min(tensor, buff)
+        else:
+            raise NotImplementedError(f'op {op} not implemented')
+    dist.barrier()
+    print(f'FINAL {dist.get_rank()} {tensor}')
+
+if __name__ == '__main__':
+    test_allreduce_butterfly(allreduce_butterfly)
 
 # %%

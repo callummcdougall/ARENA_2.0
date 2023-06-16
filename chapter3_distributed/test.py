@@ -311,6 +311,9 @@ class DistWithRank(Dist):
         torch.distributed.scatter = self._scatter
         torch.distributed.barrier = self._barrier
 
+def is_power_of_two(num: int) -> bool:
+    return (num & (num-1) == 0) and num != 0
+
 def test_scaffold(test_func: Callable, tensor_gen: Callable, args: list, world_size: int) -> Dist:
     """
     Run a test function with a fake distributed environment. Will return a Dist object that can be used to check what
@@ -332,15 +335,20 @@ def test_scaffold(test_func: Callable, tensor_gen: Callable, args: list, world_s
     return fake_dist
 
 def test_broadcast_naive(broadcast_impl: Callable):
-    src_rank = 0
-    fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=8)
-    assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
-    assert all(len(fake_dist.writes_from[i]) == fake_dist.world_size - 1 for i in range(fake_dist.world_size) if i == 0)
-
-def test_broadcast_tree(broadcast_impl: Callable):
     src_rank = 1
     fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=8)
     assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
+    assert all(len(fake_dist.writes_from[i]) == fake_dist.world_size - 1 for i in range(fake_dist.world_size) if i == src_rank)
+
+def test_broadcast_tree(broadcast_impl: Callable):
+    src_rank = 2
+    world_size = 4
+    assert is_power_of_two(world_size), 'world_size must be power of two'
+    fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=world_size)
+    # for i in range(fake_dist.world_size):
+    #     print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
+    assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
+    print(list(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size)))
     assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == src_rank)
 
 def test_broadcast_ring(broadcast_impl: Callable):
@@ -349,9 +357,36 @@ def test_broadcast_ring(broadcast_impl: Callable):
     assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
     assert all(len(fake_dist.writes_from[i]) == 1 or i == (src_rank-1)%fake_dist.world_size for i in range(fake_dist.world_size))
 
+def test_reduce_naive(reduce_impl: Callable):
+    dst_rank = 7
+    fake_dist = test_scaffold(reduce_impl, lambda x: torch.Tensor([x+1]), [dst_rank], world_size=8)
+    for i in range(fake_dist.world_size):
+        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
+    assert all((i != dst_rank and len(fake_dist.reads_by[i]) == 0) or (i == dst_rank and len(fake_dist.reads_by[i]) == fake_dist.world_size-1) for i in range(fake_dist.world_size))
+    assert all((i != dst_rank and len(fake_dist.writes_from[i]) == 1) or (i == dst_rank and len(fake_dist.writes_from[i]) == 0) for i in range(fake_dist.world_size))
+
+
+def test_reduce_tree(reduce_impl: Callable):
+    dst_rank = 7
+    world_size = 8
+    assert is_power_of_two(world_size), 'world_size must be power of two'
+    fake_dist = test_scaffold(reduce_impl, lambda x: torch.Tensor([x]), [dst_rank], world_size=world_size) # world_size = power of 2
+    for i in range(fake_dist.world_size):
+        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
+    assert all(len(fake_dist.writes_from[i]) == 1 for i in range(fake_dist.world_size) if i != dst_rank)
+    assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == dst_rank)
+
+def test_allreduce_naive(allreduce_impl: Callable):
+    fake_dist = test_scaffold(allreduce_impl, lambda x: torch.Tensor([x]), [], world_size=8)
+    assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
+    assert len(fake_dist.reads_by[0]) == fake_dist.world_size-1
+    assert all(len(fake_dist.writes_from[i]) == 1 for i in range(fake_dist.world_size) if i != 0)
+    assert len(fake_dist.writes_from[0]) == fake_dist.world_size-1
+
 def test_allreduce_butterfly(allreduce_impl: Callable):
-    # TODO: add src_rank passed in as param (as in broadcast_* tests)
-    fake_dist = test_scaffold(allreduce_impl, lambda x: torch.Tensor([x]), [], world_size=16)
+    world_size = 8
+    assert is_power_of_two(world_size), 'world_size must be power of two'
+    fake_dist = test_scaffold(allreduce_impl, lambda x: torch.Tensor([x]), [], world_size=world_size) # world_size = power of 2
     assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
     assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
     for k, v in fake_dist.writes_from.items():
@@ -366,15 +401,3 @@ def test_allreduce_butterfly(allreduce_impl: Callable):
             partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
             partner_rank = int(partner_rank, 2)
             assert partner_rank in v
-
-def test_reduce_naive(reduce_impl: Callable):
-    dst_rank = 7
-    fake_dist = test_scaffold(reduce_impl, lambda x: torch.Tensor([x+1]), [dst_rank], world_size=8)
-    for i in range(fake_dist.world_size):
-        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
-    assert all((i != dst_rank and len(fake_dist.reads_by[i]) == 0) or (i == dst_rank and len(fake_dist.reads_by[i]) == fake_dist.world_size-1) for i in range(fake_dist.world_size))
-    assert all((i != dst_rank and len(fake_dist.writes_from[i]) == 1) or (i == dst_rank and len(fake_dist.writes_from[i]) == 0) for i in range(fake_dist.world_size))
-
-
-def test_reduce_tree(reduce_impl: Callable):
-    fake_dist = test_scaffold(reduce_impl, 8)
