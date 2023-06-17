@@ -51,6 +51,7 @@ We now apply an optimisation to the code i.e. running it in inference mode. Thin
 Think about what running a model in inference mode does and the answer should present itself to you. Run the code below to compare your expectations with reality.
 
 ```
+# %%
 inputs = torch.randn(5, 3, 224, 224)
 model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
 
@@ -180,6 +181,7 @@ Readings:
 
 ## Demonstration on the daxpy function:
 ```
+# %%
 def daxpy(alpha,x,y):
   return alpha*x + y
 
@@ -618,3 +620,32 @@ def testQuant(model, test_loader, quant=False, stats=None):
         100. * correct / len(test_loader.dataset)))
 ```
 
+# Bonus section
+
+## Estimating Compute
+
+Readings:
+
+1. https://blog.eleuther.ai/transformer-math/
+2. https://kipp.ly/blog/transformer-inference-arithmetic/
+3. https://docs.google.com/document/d/1J2BX9jkE5nN5EA1zYRN0lHhdCf1YkiFERc_nwiYqCOA/edit
+
+Estimating compute for large training runs is a large part of forecasting literature and the readings above contain almost all of the high-quality readings on this topic.
+
+Suggested exercises:
+
+1. Find a model not on Epoch AI's datasheet: https://docs.google.com/spreadsheets/d/1AAIebjNsnJj_uKALHbXNfn3_YsT6sHXtCU0q7OIPuc4/edit#gid=0 and contribute an entry to it
+2. Verify the theoretical estimate of a model's compute by training your own and calculating the FLOPs
+
+## Brrrr-ing your dataloader
+
+1. https://docs.google.com/spreadsheets/d/1AAIebjNsnJj_uKALHbXNfn3_YsT6sHXtCU0q7OIPuc4/edit#gid=0
+2. https://docs.google.com/spreadsheets/d/1AAIebjNsnJj_uKALHbXNfn3_YsT6sHXtCU0q7OIPuc4/edit#gid=0
+
+Use multiprocessing and memory pinning to make your dataloaders fast!
+
+## PyTorch AMP
+
+1. https://pytorch.org/docs/stable/amp.html
+
+Automatic Mixed Precision is an easy to use tool that automatically quantizes models during training time to cut down training time by a large margin (upto ~4x). Try using PyTorch AMP to train the ResNet model from Week 0 faster.
