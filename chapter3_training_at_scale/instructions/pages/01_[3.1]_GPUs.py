@@ -815,7 +815,7 @@ def calcScaleZeroPoint(min_val, max_val, num_bits=8) -> Tuple[float, float]:
 
 ```
 
-### Provided - The gatherstats and gatherActivations functions
+### Provided - The <code>gatherstats</code> and <code>gatherActivations</code> functions
 
 We provide the function to gather stats regarding the minimum and maximum values of all the tensors that are used in the forward passs of our model. We will use these stats to quantize our model in the next exercise.
 
