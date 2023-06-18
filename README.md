@@ -46,7 +46,7 @@ Some highlights from this chapter include:
 * Implementing a Deep Q-Network (DQN) and Proximal Policy Optimization (PPO) to play the CartPole game
 * Applying RLHF to autoregressive transformers like the ones you built in the previous chapter
 
-# Chapter 3: Training at Scale
+# [Chapter 3: Training at Scale](https://arena-ch3-training-at-scale.streamlit.app/)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/training_at_scale.png" width="400">
 
