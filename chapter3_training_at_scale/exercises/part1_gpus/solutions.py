@@ -61,8 +61,8 @@ if MAIN:
 	
 	with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
 		with record_function("model_inference"):
-		with torch.inference_mode():
-			model(inputs)
+			with torch.inference_mode():
+				model(inputs)
 	
 	print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 	
@@ -89,8 +89,8 @@ if MAIN:
 	
 	with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
 		with record_function("model_inference"):
-		with torch.inference_mode():
-			model(inputs)
+			with torch.inference_mode():
+				model(inputs)
 	print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 
 # %%
@@ -149,10 +149,9 @@ if MAIN:
 
 # %% 2️⃣ KERNEL FUSION AND BENCHMARKING
 
-def daxpy(alpha,x,y):
-
 if MAIN:
-	return alpha*x + y
+	def daxpy(alpha,x,y):
+		return alpha*x + y
 	
 @torch.jit.script
 def fused_daxpy(alpha,x,y):
@@ -474,7 +473,7 @@ def gatherStats(model, test_loader):
 	
 	final_stats = {}
 	for key, value in stats.items():
-	final_stats[key] = { "max" : value["max"] / value["total"], "min" : value["min"] / value["total"] }
+		final_stats[key] = { "max" : value["max"] / value["total"], "min" : value["min"] / value["total"] }
 	return final_stats
 
 # %%
@@ -538,12 +537,12 @@ def testQuant(model, test_loader, device='cuda', quant=False, stats=None):
 		for data, target in test_loader:
 			data, target = data.to(device), target.to(device)
 			if quant:
-			output = quantForward(model, data, stats)
+				output = quantForward(model, data, stats)
 			else:
-			output = model(data)
-			test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
-			pred = output.argmax(dim=1, keepdim=True) #bm get the index of the max log-probability
-			correct += pred.eq(target.view_as(pred)).sum().item()
+				output = model(data)
+				test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
+				pred = output.argmax(dim=1, keepdim=True) #bm get the index of the max log-probability
+				correct += pred.eq(target.view_as(pred)).sum().item()
 
 	test_loss /= len(test_loader.dataset)
 
