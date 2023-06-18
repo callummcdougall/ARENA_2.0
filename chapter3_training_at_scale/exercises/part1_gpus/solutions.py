@@ -26,8 +26,6 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part7_toy_models_of_superposition"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-import part1_gpus.tests as tests
-
 # Add root dir, so we can import from chapter 0 material
 root_dir = exercises_dir.parent.parent.resolve()
 if str(root_dir) not in sys.path: sys.path.append(str(root_dir))
