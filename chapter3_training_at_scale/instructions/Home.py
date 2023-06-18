@@ -44,9 +44,11 @@ st.sidebar.markdown(r"""
 def section_home():
     # start
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/rl.png" width="600">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/training_at_scale.png" width="600">
 
-# Chapter 2: Reinforcement Learning
+# Chapter 3: Traning at Scale
+
+## TODO - fill in!
 
 Reinforcement learning is an important field of machine learning. It works by teaching agents to take actions in an environment to maximise their accumulated reward.
 
