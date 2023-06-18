@@ -50,4 +50,10 @@ Some highlights from this chapter include:
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/training_at_scale.png" width="400">
 
-Links coming soon!
+With the advent of large language models, training at scale has become a necessity to create highly competent models. In this chapter we will go through the basics of GPUs and distributed training, along with introductions to libraries that make training at scale easier.
+
+Some highlights from this chapter include:
+
+* Quantizing your model to INT8 for blazing fast inference
+* Implementing distributed training loops using `torch.dist`
+* Getting hands on with Huggingface Accelerate and Microsoft DeepsSpeed

@@ -46,17 +46,15 @@ def section_home():
     st.markdown(r"""
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/training_at_scale.png" width="600">
 
-# Chapter 3: Traning at Scale
+# Chapter 3: Training at Scale
 
-Reinforcement learning is an important field of machine learning. It works by teaching agents to take actions in an environment to maximise their accumulated reward.
-
-In this chapter, you will be learning about some of the fundamentals of RL, and working with OpenAI’s Gym environment to run your own experiments.
+With the advent of large language models, training at scale has become a necessity to create highly competent models. In this chapter we will go through the basics of GPUs and distributed training, along with introductions to libraries that make training at scale easier.
 
 Some highlights from this chapter include:
 
-* Building your own agent to play the multi-armed bandit problem, implementing methods from [Sutton & Bardo](https://www.andrew.cmu.edu/course/10-703/textbook/BartoSutton.pdf)
-* Implementing a Deep Q-Network (DQN) and Proximal Policy Optimization (PPO) to play the CartPole game
-* Applying RLHF to autoregressive transformers like the ones you built in the previous chapter
+* Quantizing your model to INT8 for blazing fast inference
+* Implementing distributed training loops using `torch.dist`
+* Getting hands on with Huggingface Accelerate and Microsoft DeepsSpeed
 
 ---
 
@@ -84,16 +82,16 @@ First, clone the [GitHub repo](https://github.com/callummcdougall/ARENA_2.0) int
 ├── chapter0_fundamentals
 ├── chapter1_transformers
 ├── chapter2_rl
+├── chapter3_training_at_scale
 │   ├── exercises
-│   │   ├── part1_intro_to_rl
+│   │   ├── part1_gpus
 │   │   │   ├── solutions.py
 │   │   │   ├── tests.py
 │   │   │   └── answers.py*
-│   │   ├── part2_dqn
+│   │   ├── part2_distributed_computing
 │   │   ⋮    ⋮
 │   └── instructions
 │       └── Home.py
-├── chapter3_training_at_scale
 └── requirements.txt
 ```
 
