@@ -68,7 +68,7 @@ This chapter contains exercises to get you familiar with the internal workings o
 
 > ##### Learning objectives
 > 
-> - Understand the effects of <code>quantisation</code> on inference time
+> - Understand the effects of quantisation on inference time
 > - Using PyTorch AMP and understanding tradeoffs
 
 #### 4️⃣ Bonus
