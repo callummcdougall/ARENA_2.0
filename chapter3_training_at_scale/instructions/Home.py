@@ -48,8 +48,6 @@ def section_home():
 
 # Chapter 3: Traning at Scale
 
-## TODO - fill in!
-
 Reinforcement learning is an important field of machine learning. It works by teaching agents to take actions in an environment to maximise their accumulated reward.
 
 In this chapter, you will be learning about some of the fundamentals of RL, and working with OpenAI’s Gym environment to run your own experiments.
