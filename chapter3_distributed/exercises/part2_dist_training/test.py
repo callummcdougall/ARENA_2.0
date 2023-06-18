@@ -334,6 +334,9 @@ def test_scaffold(test_func: Callable, tensor_gen: Callable, args: list, world_s
         t.join()
     return fake_dist
 
+def test_increment(increment_impl: Callable):
+    _ = test_scaffold(increment_impl, lambda x: torch.Tensor([0]), [], world_size=8)
+
 def test_broadcast_naive(broadcast_impl: Callable):
     src_rank = 1
     fake_dist = test_scaffold(broadcast_impl, lambda x: torch.Tensor([x]), [src_rank], world_size=8)
@@ -399,32 +402,3 @@ def test_allreduce_butterfly(allreduce_impl: Callable):
             partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
             partner_rank = int(partner_rank, 2)
             assert partner_rank in v
-
-def test_gather_tree(gather_impl: Callable):
-    dst_rank = 0
-    world_size = 8
-    assert is_power_of_two(world_size), 'world_size must be power of two'
-    fake_dist = test_scaffold(gather_impl, lambda x: torch.Tensor([x]), [dst_rank], world_size=world_size) # world_size = power of 2
-    for i in range(fake_dist.world_size):
-        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
-    # assert all(len(fake_dist.writes_from[i]) == 1 for i in range(fake_dist.world_size) if i != dst_rank)
-    # assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == dst_rank)
-
-def test_allgather_butterfly(allgather_impl: Callable):
-    world_size = 8
-    assert is_power_of_two(world_size), 'world_size must be power of two'
-    fake_dist = test_scaffold(allgather_impl, lambda x: torch.Tensor([x]), [], world_size=world_size) # world_size = power of 2
-    assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
-    assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size))
-    # for k, v in fake_dist.writes_from.items():
-    #     rank = bin(k)[2:].zfill(len(bin(fake_dist.world_size - 1)[2:]))
-    #     for i in range(len(rank)):
-    #         partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
-    #         partner_rank = int(partner_rank, 2)
-    #         assert partner_rank in v
-    # for k, v in fake_dist.reads_by.items():
-    #     rank = bin(k)[2:].zfill(len(bin(fake_dist.world_size - 1)[2:]))
-    #     for i in range(len(rank)):
-    #         partner_rank = rank[:i] + str(1 - int(rank[i])) + rank[i + 1:]
-    #         partner_rank = int(partner_rank, 2)
-    #         assert partner_rank in v
