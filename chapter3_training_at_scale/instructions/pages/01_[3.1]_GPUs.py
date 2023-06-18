@@ -525,7 +525,7 @@ def section_3():
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-fill-in-quantize-and-dequantize-functions'><b>Exercise</b> - fill in <code>quantize</code> and <code>dequantize</code> functions</a></li>
         <li><a class='contents-el' href='#exercise-finish-the-calcscalezeropoint-function'><b>Exercise</b> - Finish the calcScaleZeroPoint function</a></li>
-        <li><a class='contents-el' href='#provided-the-gatherstats-and-gatheractivations-functions'>Provided - The gatherstats and gatherActivations functions</a></li>
+        <li><a class='contents-el' href='#provided-the-gatherstats-and-gatheractivations-functions'>Provided - The <code>gatherstats</code> and <code>gatherActivations</code> functions</a></li>
         <li><a class='contents-el' href='#provided-initialising-the-q-model-and-gathering-stats'>Provided - Initialising the q_model and gathering stats</a></li>
         <li><a class='contents-el' href='#exercise-fill-out-the-quantizelayer-function'><b>Exercise</b> - Fill out the quantizeLayer function</a></li>
         <li><a class='contents-el' href='#provided-the-quantforward-function'>Provided - The quantForward function</a></li>
