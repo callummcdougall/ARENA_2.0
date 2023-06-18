@@ -168,17 +168,14 @@ Copy the below code to profile a pretrained ResNet-18 model from torchvision. Th
 
 
 ```python
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
+inputs = torch.randn(5, 3, 224, 224)
 
-if MAIN:
-    model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
-    inputs = torch.randn(5, 3, 224, 224)
-    
-    with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
-        with record_function("model_inference"):
-            model(inputs)
-    
-    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+    with record_function("model_inference"):
+        model(inputs)
 
+print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
 We now apply an optimisation to the code i.e. running it in inference mode. Think about how this would change the execution time of different kernels in the model and where you would expect to see the results of this optimisation.
@@ -187,19 +184,15 @@ Think about what running a model in inference mode does and the answer should pr
 
 
 ```python
+inputs = torch.randn(5, 3, 224, 224)
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
 
-if MAIN:
-    inputs = torch.randn(5, 3, 224, 224)
-    model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
-    
-    with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
-        with record_function("model_inference"):
-          with torch.inference_mode():
-            model(inputs)
-    
-    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-    
+with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+    with record_function("model_inference"):
+        with torch.inference_mode():
+        model(inputs)
 
+print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
 ### Profiling CPU and GPU time
@@ -208,49 +201,40 @@ Let's see what happens when we profile both CPU and CUDA operations and add in o
 
 
 ```python
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
+inputs = torch.randn(5, 3, 224, 224).cuda()
 
-if MAIN:
-    model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
-    inputs = torch.randn(5, 3, 224, 224).cuda()
-    
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-        with record_function("model_inference"):
-            model(inputs)
-    
-    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+    with record_function("model_inference"):
+        model(inputs)
 
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
 ```
 
 ```python
+inputs = torch.randn(5, 3, 224, 224).cuda()
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
 
-if MAIN:
-    inputs = torch.randn(5, 3, 224, 224).cuda()
-    model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
-    
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-        with record_function("model_inference"):
-          with torch.inference_mode():
-            model(inputs)
-    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+    with record_function("model_inference"):
+        with torch.inference_mode():
+        model(inputs)
+print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
 Let's look at another way to profile and understand our model, the profile trace. Run the code below to generate a json file containing our trace. You can open this JSON file on any compatible web browser (Chrome or Edge) by going to the `chrome://tracing webpage`. The webpage should have a 'load JSON file' field that you can use to open the JSON file and view the profile trace. The profile trace is an extremely rich description of the model execution and helps us understand which functions are calling which other functions. 
 
 
 ```python
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
+inputs = torch.randn(5, 3, 224, 224).cuda()
 
-if MAIN:
-    model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
-    inputs = torch.randn(5, 3, 224, 224).cuda()
-    
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        model(inputs)
-    
-    output = prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
-    print(output)
-    prof.export_chrome_trace("trace.json")
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+    model(inputs)
 
+output = prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
+print(output)
+prof.export_chrome_trace("trace.json")
 ```
 
 You might have noticed an extremely large section of non-activity in the beginning of the trace and this is due to warmup. The first time you run a model on a GPU various kernels are compiled in the way that the model needs them to function, this compilation time adds a large overhead over the first execution of the model on the GPU. Get another trace from the profiler and this overhead should be removed now.
@@ -259,16 +243,13 @@ NOTE: Depending on the order of execution of these cells, you might not notice a
 
 
 ```python
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
+inputs = torch.randn(5, 3, 224, 224).cuda()
 
-if MAIN:
-    model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
-    inputs = torch.randn(5, 3, 224, 224).cuda()
-    
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        model(inputs)
-    
-    prof.export_chrome_trace("trace_afterwarmup.json")
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+    model(inputs)
 
+prof.export_chrome_trace("trace_afterwarmup.json")
 ```
 
 ### Exercise: Profile your ResNet-34 model from Chapter 0
@@ -296,33 +277,27 @@ It is imperative that you identify bottlenecks and post screenshots of your trac
 
 
 ```python
+model = ResNet34()
+inputs = torch.randn(5, 3, 224, 224)
 
-if MAIN:
-    model = ResNet34()
-    inputs = torch.randn(5, 3, 224, 224)
-    
-    with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
-        with record_function("model_inference"):
-            model(inputs)
-    
-    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+    with record_function("model_inference"):
+        model(inputs)
 
+print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
 ```python
+model = ResNet34().cuda()
+inputs = torch.randn(5, 3, 224, 224).cuda()
 
-if MAIN:
-    model = ResNet34().cuda()
-    inputs = torch.randn(5, 3, 224, 224).cuda()
-    
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        model(inputs)
-    
-    prof.export_chrome_trace("trace.json")
-    
-    output = prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
-    print(output)
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+    model(inputs)
 
+prof.export_chrome_trace("trace.json")
+
+output = prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
+print(output)
 ```
 
 
@@ -367,10 +342,8 @@ Look into the test_daxpy_random_input and try experimenting with the arguments o
 
 ```python
 def daxpy(alpha,x,y):
+  return alpha*x + y
 
-if MAIN:
-      return alpha*x + y
-    
 @torch.jit.script
 def fused_daxpy(alpha,x,y):
     return alpha*x + y
@@ -384,35 +357,32 @@ def test_daxpy_random_input(fn1, fn2):
     assert torch.allclose(fn1(alpha, x, y), fn2(alpha, x, y), 0, 1e-6), "Implementations are not analogous"
     print('Tests passed')
 
+test_daxpy_random_input(daxpy, fused_daxpy)
 
-if MAIN:
-    test_daxpy_random_input(daxpy, fused_daxpy)
-    
-    print("benching...")
-    bench_results = []
-    for contender in [daxpy, fused_daxpy]:
-        try:
-            name = contender.__name__
-        except:
-            name = contender.name
-    
-        t = benchmark.Timer(
-            setup="alpha, x, y = torch.rand(1, device='cuda'),torch.randn(1823, 1823, device='cuda'), torch.randn(1823, 1823, device='cuda') ",
-            stmt="function(alpha, x, y)",
-            description=f"cuda",
-            label="daxpy",
-            sub_label=name,
-            globals={
-                'function': contender
-            }
-          )
-        bench_results.append(t.blocked_autorange(min_run_time=5))
-    
-    
-    compare = benchmark.Compare(bench_results)
-    compare.colorize()
-    compare.print()
+print("benching...")
+bench_results = []
+for contender in [daxpy, fused_daxpy]:
+    try:
+        name = contender.__name__
+    except:
+        name = contender.name
 
+    t = benchmark.Timer(
+        setup="alpha, x, y = torch.rand(1, device='cuda'),torch.randn(1823, 1823, device='cuda'), torch.randn(1823, 1823, device='cuda') ",
+        stmt="function(alpha, x, y)",
+        description=f"cuda",
+        label="daxpy",
+        sub_label=name,
+        globals={
+            'function': contender
+        }
+      )
+    bench_results.append(t.blocked_autorange(min_run_time=5))
+
+
+compare = benchmark.Compare(bench_results)
+compare.colorize()
+compare.print()
 ```
 
 ## Exercise: Apply kernel fusion by using torch jit and triton jit as decorators
@@ -686,16 +656,19 @@ def main():
     return model
 
 
-if MAIN:
-    model = main()
-    test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('../data', train=False, transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=64, shuffle=True)
-    test(model, test_loader)
+model = main()
+test_loader = torch.utils.data.DataLoader(
+    datasets.MNIST(
+        '../data', 
+        train=False, 
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+    ),
+    batch_size=64, shuffle=True)
 
+test(model, test_loader)
 ```
 
 ### Exercise - fill in `quantize` and `dequantize` functions
@@ -727,8 +700,7 @@ The QTensor namedtuple is a clean abstraction that lets you store scale and zero
 
 ```python
 
-if MAIN:
-    QTensor = namedtuple('QTensor', ['tensor', 'scale', 'zero_point'])
+QTensor = namedtuple('QTensor', ['tensor', 'scale', 'zero_point'])
     
 def quantize_tensor(x, min_val=None, max_val=None, num_bits=8) -> QTensor:
     '''
@@ -737,16 +709,17 @@ def quantize_tensor(x, min_val=None, max_val=None, num_bits=8) -> QTensor:
     pass
 
 
-if MAIN:
-    tests.test_quantize_tensor(quantize_tensor)
-    
+tests.test_quantize_tensor(quantize_tensor)
+
+
 def dequantize_tensor(q_x) -> torch.tensor:
     '''
     Dequantize the input QTensor to obtain the float Tensor.
     '''
     pass
+    
 
-
+tests.test_dequantize_tensor(dequantize_tensor)
 ```
 
 <details>
@@ -783,6 +756,7 @@ def quantize_tensor(x, min_val=None, max_val=None, num_bits=8) -> QTensor:
     q_x = q_x.round().byte()
     return QTensor(tensor=q_x, scale=scale, zero_point=zero_point)
 
+    
 def dequantize_tensor(q_x) -> torch.tensor:
     '''
     Dequantize the input QTensor to obtain the float Tensor.
@@ -879,11 +853,8 @@ We initialise the model to be quantised as q_model and copy it directly from our
 
 
 ```python
-
-if MAIN:
-    q_model = copy.deepcopy(model)
-    stats = gatherStats(q_model, test_loader)
-
+q_model = copy.deepcopy(model)
+stats = gatherStats(q_model, test_loader)
 ```
 
 ### Exercise - Fill out the quantizeLayer function
@@ -1051,10 +1022,7 @@ def testQuant(model, test_loader, device='cuda', quant=False, stats=None):
         100. * correct / len(test_loader.dataset)))
   
 
-
-if MAIN:
-    testQuant(model, test_loader=test_loader, quant=True, stats=stats)
-
+testQuant(model, test_loader=test_loader, quant=True, stats=stats)
 ```
 
 ### Exercise - Benchmark q_model and model
