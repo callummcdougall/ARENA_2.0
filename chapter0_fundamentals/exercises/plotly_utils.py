@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import re
-from transformer_lens import utils
+from transformer_lens.utils import to_numpy
 import pandas as pd
 
 update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap"}
@@ -23,7 +23,7 @@ def imshow(tensor, renderer=None, **kwargs):
         kwargs_pre["color_continuous_midpoint"] = 0.0
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    fig = px.imshow(utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post)
+    fig = px.imshow(to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post)
     if facet_labels:
         # Weird thing where facet col wrap means labels are in wrong order
         if "facet_col_wrap" in kwargs_pre:
@@ -72,20 +72,24 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
             if k in kwargs_pre:
                 kwargs_post[k] = kwargs_pre.pop(k)
         fig = make_subplots(specs=[[{"secondary_y": True}]]).update_layout(**kwargs_post)
-        y0 = utils.to_numpy(y[0])
-        y1 = utils.to_numpy(y[1])
+        y0 = to_numpy(y[0])
+        y1 = to_numpy(y[1])
         x0, x1 = kwargs_pre.pop("x", [np.arange(len(y0)), np.arange(len(y1))])
         name0, name1 = kwargs_pre.pop("names", ["yaxis1", "yaxis2"])
         fig.add_trace(go.Scatter(y=y0, x=x0, name=name0), secondary_y=False)
         fig.add_trace(go.Scatter(y=y1, x=x1, name=name1), secondary_y=True)
         fig.show(renderer)
     else:
-        y = list(map(utils.to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else utils.to_numpy(y)
-        px.line(y=y, **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+        y = list(map(to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else to_numpy(y)
+        fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
+        names = kwargs_pre.pop("names", None)
+        if names is not None:
+            fig.for_each_trace(lambda trace: trace.update(name=names.pop(0)))
+        fig.show(renderer)
 
 def scatter(x, y, renderer=None, **kwargs):
-    x = utils.to_numpy(x)
-    y = utils.to_numpy(y)
+    x = to_numpy(x)
+    y = to_numpy(y)
     add_line = None
     if "add_line" in kwargs:
         add_line = kwargs.pop("add_line")
@@ -116,7 +120,7 @@ def bar(tensor, renderer=None, **kwargs):
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    px.bar(y=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+    px.bar(y=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
 
 def hist(tensor, renderer=None, **kwargs):
     '''
@@ -127,7 +131,7 @@ def hist(tensor, renderer=None, **kwargs):
         kwargs_post["bargap"] = 0.1
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    px.histogram(x=utils.to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+    px.histogram(x=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
 
 def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title: str) -> None:
     # Separate train and test metrics from the dataframe containing all metrics

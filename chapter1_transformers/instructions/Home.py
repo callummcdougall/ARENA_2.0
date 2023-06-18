@@ -30,8 +30,8 @@ st.sidebar.markdown(r"""
     <li class="margtop"><a class="contents-el" href="#about-this-page">About this page</a></li>
     <li class="margtop"><a class="contents-el" href="#how-you-should-use-this-material">How you should use this material</a></li>
     <li class="margtop"><ul class="contents">
-        <li><a class="contents-el" href="#option-1-colab">Option 1: Colab</a></li>
-        <li><a class="contents-el" href="#option-2-your-own-ide">Option 2: Your own IDE</a></li>
+        <li><a class="contents-el" href="#option-1-vscode">Option 1: VSCode</a></li>
+        <li><a class="contents-el" href="#option-2-colab">Option 2: Colab</a></li>
         <li><a class="contents-el" href="#chatbot-assistant">Chatbot assistant</a></li>
     </ul></li>
     <li class="margtop"><a class="contents-el" href="#hints">Hints</a></li>
@@ -99,7 +99,9 @@ First, clone the [GitHub repo](https://github.com/callummcdougall/ARENA_2.0) int
 └── requirements.txt
 ```
 
-There is a directory for each chapter of the course (e.g. `chapter0_fundamentals`). Each of these directories has an `instructions` folder (which contain the files used to generate the pages you're reading right now) `exercises` folder (where you'll be doing the actual exercises). The latter will contain a subfolder for each day of exercises, and that folder will contain files such as `solutions.py` and `tests.py` (as well as other data sometimes, which gets used as part of the exercises). You'll be completing the exercises in an `answers.py` file in this subfolder (which you'll need to create).
+There is a directory for each chapter of the course (e.g. `chapter0_fundamentals`). Each of these directories has an `instructions` folder (which contain the files used to generate the pages you're reading right now) `exercises` folder (where you'll be doing the actual exercises). The latter will contain a subfolder for each day of exercises, and that folder will contain files such as `solutions.py` and `tests.py` (as well as other data sometimes, which gets used as part of the exercises). To do the exercises, you'll be creating a file `answers.py` (or `.ipynb` if you prefer) in the same folder as the solutions and tests files. You'll then go through the corresponding streamlit page, copying over & running code (filling in the blanks as you go).
+
+You'll be completing the exercises in an `answers.py` (or file in this subfolder (which you'll need to create).
 
 Once you've cloned the repo and navigated into it (at the root directory), there are two possible ways you can proceed (use the tabs to see both options).
 
@@ -113,8 +115,6 @@ Once you've cloned the repo and navigated into it (at the root directory), there
         * If you're on Windows, the command is `conda install pytorch=1.13.1 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia`.
         * If you're on MAC/Linux, the command is `conda install pytorch=1.13.1 torchvision`.
     * Then install the rest of the requirements by navigating running `pip install -r requirements.txt`.
-* To run a set of exercises, navigate to the appropriate `instructions` directory (e.g. `chapter0_fundamentals/instructions`) and run `streamlit run Home.py` in your terminal.
-    * This should open up a local copy of the page you're reading right now, and you're good to go!
 
 ### Option 1B: Docker
 
@@ -314,13 +314,6 @@ For each of these sections, you can make a copy of the **exercises** notebooks i
 ### Chatbot assistant
 
 We've created an experimental chatbot assistant to help you answer questions about the material. It performs a low-dimensional embedding of any questions that it is asked, then assembles context from the curriculum by choosing blocks of content with an embedding that has high cosine similarity of the question's embedding. This was inspired by [AlignmentSearch](https://www.lesswrong.com/posts/bGn9ZjeuJCg7HkKBj/introducing-alignmentsearch-an-ai-alignment-informed), and has similar benefits and drawbacks relative to the alternative of using GPT directly.
-
-You'll be able to access the assistant just fine using the public link, but if you want to use the chatbot while running the page locally, you'll need to do the following:
-
-* Go to the [OpenAI API](https://openai.com/blog/openai-api) and sign up for an account.
-* Create a secret key from [this page](https://platform.openai.com/account/api-keys). Copy this key.
-* Create a file `.streamlit/secrets.toml` in the appropriate `instructions` directory, and have the first line be `openai_api_key = "<your key>"`.
-* Refresh the Streamlit page, and you should now be able to use the chatbot.
 
 You can see example questions to ask the chatbot if you navigate to the chatbot page.
 

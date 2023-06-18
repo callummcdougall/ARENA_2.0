@@ -147,7 +147,7 @@ This is a fine first-pass understanding of how the circuit works. A few other fe
 <details>
 <summary>Diagram 2 (complex)</summary>
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-d.png" width="1250">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ioi-main-full-corrected.png" width="1250">
 
 </details>
 
@@ -925,7 +925,7 @@ imshow(
 )
 ```
 
-We see that only a few heads really matter - heads 9.6 and 9.9 contribute a lot positively (explaining why attention layer 9 is so important), while heads 10.7 and 11.10 contribute a lot negatively (explaining why attention layer 10 and layer 11 are actively harmful). These correspond to (some of) the name movers and negative name movers discussed in the paper. There are also several heads that matter positively or negatively but less strongly (other name movers and backu name movers)
+We see that only a few heads really matter - heads 9.6 and 9.9 contribute a lot positively (explaining why attention layer 9 is so important), while heads 10.7 and 11.10 contribute a lot negatively (explaining why attention layer 10 and layer 11 are actively harmful). These correspond to (some of) the name movers and negative name movers discussed in the paper. There are also several heads that matter positively or negatively but less strongly (other name movers and backup name movers)
 
 There are a few meta observations worth making here - our model has 144 heads, yet we could localise this behaviour to a handful of specific heads, using straightforward, general techniques. This supports the claim in [A Mathematical Framework](https://transformer-circuits.pub/2021/framework/index.html) that attention heads are the right level of abstraction to understand attention. It also really surprising that there are *negative* heads - eg 10.7 makes the incorrect logit 7x *more* likely. I'm not sure what's going on there, though the paper discusses some possibilities.
 
@@ -1045,6 +1045,15 @@ You're taking the mean over 8 sentences: 4 with an `ABA` structure (i.e. `"When 
 This is a good lesson in making sure you're aware of what it is you're plotting!
 </details>
 
+**Question** - for your top 3 positive logit attribution heads, you should see `" gave"` also attending to `" Mary"`. Can you guess why?
+
+<details>
+<summary>Answer</summary>
+
+This is (probably) also the IOI circuit in action! These heads are attending to `" Mary"` because they're completing the sentence "When John and Mary went to the store, John gave Mary..."`. This requires the same algorithm - identifying the indirect object in the sentence, and then predicting it as the next token.
+
+Also note that the comma is attending to both John and Mary - this is probably because either name following the comma is a logical continuation of the sentence.
+</details>
 
 """, unsafe_allow_html=True)
 
@@ -2042,6 +2051,9 @@ def section_4():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
     <li class='margtop'><a class='contents-el' href='#what-is-path-patching'>What is path patching?</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#why-mlps'>Why MLPs</li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#path-patching:-name-mover-heads'>Path Patching: Name Mover Heads</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-path-patching-to-the-final-residual-stream-value'><b>Exercise</b> - implement path patching to the final residual stream value</a></li>
@@ -2258,7 +2270,30 @@ Our 3-step process looks like the diagram below (remember green is corrupted, gr
 
 Why does this work? If you stare at the middle picture above for long enough, you'll realise that the contribution from every non-direct path from `0.0` $\to$ `2.0` is the same as it would be on the clean distribution, while all the direct paths' contributions are the same as they would be on the corrupted distribution. 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/simpler-patching-path-illustration-dup.png" width="900">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-decomp-four.png" width="850">
+
+### Why MLPs?
+
+You might be wondering why we're including MLPs as part of our direct path. The short answer is that this is what the IOI paper does, and we're trying to replicate it! The slightly longer answer is that both this method and a method which doesn't count MLPs as the direct path are justifiable.
+
+To take one example, suppose the output of head `0.0` is being used directly by head `2.0`, but one of the MLPs is acting as a mediator. To oversimplify, we might imagine that `0.0` writes the vector $v$ into the residual stream, some neuron detects $v$ and writes $w$ to the residual stream, and `2.0` detects $w$. If we didn't count MLPs as a direct path then we wouldn't catch this causal relationship. The drawback is that things get a bit messier, because now we're essentially passing a "fake input" into our MLPs, and it's dangerous to assume that any operation as clean as the one previously described (with vectors $v$, $w$) would still happen under these new circumstances.
+
+Also, having MLPs as part of the direct path doesn't help us understand what role the MLPs play in the circuit, all it does is tell us that some of them are important! Luckily, in the IOI circuit, MLPs aren't important (except for MLP0), and so doing both these forms of path patching get pretty similar results. As an optional exercise, you can reproduce the results from the following few sections using this different form of path patching. It's actually algorithmically easier to implement, because we only need one forward pass rather than two. Can you see why?
+
+<details>
+<summary>Answer</summary>
+
+Because the MLPs were part of the direct paths between sender and receiver in the previous version of the algorithm, we had to do a forward pass to find the value we'd be patching into the receivers. But if MLPs aren't part of the direct path, then we can directly compute what to patch into the receiver nodes:
+
+```
+orig_receiver_input <- orig_receiver_input + (new_sender_output - old_sender_output)
+```
+
+Diagram with direct paths not including MLPs:
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-decomp-one.png" width="1200">
+
+</details>
 
 
 ## Path Patching: Name Mover Heads
@@ -2589,8 +2624,8 @@ def get_path_patch_head_to_heads(
     patching_metric: Callable,
     new_dataset: IOIDataset = abc_dataset,
     orig_dataset: IOIDataset = ioi_dataset,
-    new_cache: Optional[ActivationCache] = None,
-    orig_cache: Optional[ActivationCache] = None,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
     '''
     Performs path patching (see algorithm in appendix B of IOI paper), with:
@@ -2599,7 +2634,7 @@ def get_path_patch_head_to_heads(
         receiver node = input to a later head (or set of heads)
 
     The receiver node is specified by receiver_heads and receiver_input.
-    Example (for S-inhibition path patching the queries):
+    Example (for S-inhibition path patching the values):
         receiver_heads = [(8, 6), (8, 10), (7, 9), (7, 3)],
         receiver_input = "v"
 
@@ -2662,8 +2697,8 @@ def get_path_patch_head_to_heads(
     patching_metric: Callable,
     new_dataset: IOIDataset = abc_dataset,
     orig_dataset: IOIDataset = ioi_dataset,
-    new_cache: Optional[ActivationCache] = None,
-    orig_cache: Optional[ActivationCache] = None,
+    new_cache: Optional[ActivationCache] = abc_cache,
+    orig_cache: Optional[ActivationCache] = ioi_cache,
 ) -> Float[Tensor, "layer head"]:
     '''
     Performs path patching (see algorithm in appendix B of IOI paper), with:
@@ -3010,7 +3045,7 @@ for i, name in enumerate(["name mover", "negative name mover"]):
         colnames=["Head", "Score"],
         cols=[
             list(map(str, heads[name])) + ["[dark_orange bold]Average"],
-            [f"{copying_results[i, layer, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
+            [f"{copying_results[i, layer-1, head]:.2%}" for (layer, head) in heads[name]] + [f"[dark_orange bold]{copying_results[i].mean():.2%}"]
         ]
     )
 ```

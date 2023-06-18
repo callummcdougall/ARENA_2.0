@@ -99,7 +99,7 @@ from dataclasses import dataclass
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Type
 from PIL import Image
 from IPython.display import display
 from pathlib import Path
@@ -742,7 +742,7 @@ class ConvNetTrainingArgs():
     '''
     batch_size: int = 64
     max_epochs: int = 3
-    optimizer: t.optim.Optimizer = t.optim.Adam
+    optimizer = t.optim.Adam
     learning_rate: float = 1e-3
     log_dir: str = os.getcwd() + "/logs"
     log_name: str = "day3-convenet"
@@ -2220,7 +2220,7 @@ class ResNetTrainingArgs():
     batch_size: int = 64
     max_epochs: int = 3
     max_steps: int = 500
-    optimizer: t.optim.Optimizer = t.optim.Adam
+    optimizer: Type[t.optim.Optimizer] = t.optim.Adam
     learning_rate: float = 1e-3
     log_dir: str = os.getcwd() + "/logs"
     log_name: str = "day3-resnet"
