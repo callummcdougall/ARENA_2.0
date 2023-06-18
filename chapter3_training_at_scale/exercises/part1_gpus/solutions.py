@@ -26,6 +26,8 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part7_toy_models_of_superposition"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
+import tests as tests
+
 # Add root dir, so we can import from chapter 0 material
 root_dir = exercises_dir.parent.parent.resolve()
 if str(root_dir) not in sys.path: sys.path.append(str(root_dir))
@@ -355,8 +357,7 @@ if MAIN:
 # %%
 
 
-if MAIN:
-	QTensor = namedtuple('QTensor', ['tensor', 'scale', 'zero_point'])
+QTensor = namedtuple('QTensor', ['tensor', 'scale', 'zero_point'])
 	
 def quantize_tensor(x, min_val=None, max_val=None, num_bits=8) -> QTensor:
 	'''
@@ -425,7 +426,7 @@ def calcScaleZeroPoint(min_val, max_val, num_bits=8) -> Tuple[float, float]:
 # %%
 
 # Get Min and max of x tensor, and stores it
-def updateStats(x, stats, key) -> Dict[Dict]:
+def updateStats(x, stats, key) -> Dict[str, float]:  # is this the right type hint?
 	max_val, _ = torch.max(x, dim=1)
 	min_val, _ = torch.min(x, dim=1)
 	
