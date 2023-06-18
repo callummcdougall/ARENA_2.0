@@ -526,6 +526,22 @@ def quantizeLayer(x, layer, stat, scale_x, zp_x) -> Tuple[torch.tensor, float, f
 
 # %%
 
+def quantForward(model, data, stats):
+	# p.s.: copilot wrote this, and I have no idea if it works
+	# - pranav
+	x = data
+	x, scale_next, zero_point_next = quantizeLayer(x, model.conv1, stats['conv1'], 1, 0)
+	x = F.max_pool2d(x, 2, 2)
+	x, scale_next, zero_point_next = quantizeLayer(x, model.conv2, stats['conv2'], scale_next, zero_point_next)
+	x = F.max_pool2d(x, 2, 2)
+	x = x.view(-1, 4*4*50)
+	x, scale_next, zero_point_next = quantizeLayer(x, model.fc1, stats['fc1'], scale_next, zero_point_next)
+	x, scale_next, zero_point_next = quantizeLayer(x, model.fc2, stats['fc2'], scale_next, zero_point_next)
+	x = F.log_softmax(x, dim=1)
+
+	return x
+
+
 def testQuant(model, test_loader, device='cuda', quant=False, stats=None):
 
 	model = model.to(device)
