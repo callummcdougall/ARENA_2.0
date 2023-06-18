@@ -2051,6 +2051,9 @@ def section_4():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
     <li class='margtop'><a class='contents-el' href='#what-is-path-patching'>What is path patching?</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#why-mlps'>Why MLPs</li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#path-patching:-name-mover-heads'>Path Patching: Name Mover Heads</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-path-patching-to-the-final-residual-stream-value'><b>Exercise</b> - implement path patching to the final residual stream value</a></li>
@@ -2267,7 +2270,30 @@ Our 3-step process looks like the diagram below (remember green is corrupted, gr
 
 Why does this work? If you stare at the middle picture above for long enough, you'll realise that the contribution from every non-direct path from `0.0` $\to$ `2.0` is the same as it would be on the clean distribution, while all the direct paths' contributions are the same as they would be on the corrupted distribution. 
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/simpler-patching-path-illustration-dup.png" width="900">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-decomp-four.png" width="850">
+
+### Why MLPs?
+
+You might be wondering why we're including MLPs as part of our direct path. The short answer is that this is what the IOI paper does, and we're trying to replicate it! The slightly longer answer is that both this method and a method which doesn't count MLPs as the direct path are justifiable.
+
+To take one example, suppose the output of head `0.0` is being used directly by head `2.0`, but one of the MLPs is acting as a mediator. To oversimplify, we might imagine that `0.0` writes the vector $v$ into the residual stream, some neuron detects $v$ and writes $w$ to the residual stream, and `2.0` detects $w$. If we didn't count MLPs as a direct path then we wouldn't catch this causal relationship. The drawback is that things get a bit messier, because now we're essentially passing a "fake input" into our MLPs, and it's dangerous to assume that any operation as clean as the one previously described (with vectors $v$, $w$) would still happen under these new circumstances.
+
+Also, having MLPs as part of the direct path doesn't help us understand what role the MLPs play in the circuit, all it does is tell us that some of them are important! Luckily, in the IOI circuit, MLPs aren't important (except for MLP0), and so doing both these forms of path patching get pretty similar results. As an optional exercise, you can reproduce the results from the following few sections using this different form of path patching. It's actually algorithmically easier to implement, because we only need one forward pass rather than two. Can you see why?
+
+<details>
+<summary>Answer</summary>
+
+Because the MLPs were part of the direct paths between sender and receiver in the previous version of the algorithm, we had to do a forward pass to find the value we'd be patching into the receivers. But if MLPs aren't part of the direct path, then we can directly compute what to patch into the receiver nodes:
+
+```
+orig_receiver_input <- orig_receiver_input + (new_sender_output - old_sender_output)
+```
+
+Diagram with direct paths not including MLPs:
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/path-patching-decomp-one.png" width="1200">
+
+</details>
 
 
 ## Path Patching: Name Mover Heads
