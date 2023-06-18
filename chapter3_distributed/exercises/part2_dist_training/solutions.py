@@ -4,7 +4,6 @@ from torch import distributed as dist
 from torch.distributed import ReduceOp
 from typing import List
 
-import threading
 
 # %%
 from test import test_broadcast_naive
@@ -45,7 +44,6 @@ def broadcast_ring(tensor: torch.Tensor, src: int):
     to_orig = lambda i: (i + src) % dist.get_world_size()
     for i in range(1, dist.get_world_size()):
         if to_shifted(dist.get_rank()) == i-1:
-            print(f'{dist.get_rank()} | {to_shifted(dist.get_rank())} -> {to_orig(i)}')
             dist.send(tensor, to_orig(i))
         elif to_shifted(dist.get_rank()) == i:
             dist.recv(tensor, to_orig(i-1))
@@ -151,44 +149,45 @@ if __name__ == '__main__':
     test_allreduce_butterfly(allreduce_butterfly)
 
 # %%
-from test import test_gather_tree
+# from test import test_gather_tree
 
-def gather_tree(tensor: torch.Tensor, dst: int):
-    def indir_ranks(curr_mult: int) -> List[int]:
-        indir_rank = 0
-        out = [indir_rank]
-        indir_mult = curr_mult
-        while indir_rank + indir_mult < dist.get_world_size():
-            indir_rank += indir_mult
-            out.append(int(indir_rank))
-            indir_mult *= 2
-        return out
-    # TODO: Have changed code for tmp_buff to receive full buffer from src rank, need to debug extraction of indices
-    # and sending to identify deadlock
-    curr_mult = dist.get_world_size() // 2
-    rank_shifted = lambda: (dist.get_rank() - dst) % dist.get_world_size()
-    buff = torch.zeros([tensor.shape[0] * dist.get_world_size()] + list(tensor.shape[1:]))
-    b_idx = lambda x: int(tensor.shape[0] * x)
-    buff[b_idx(dist.get_rank()):b_idx(dist.get_rank()+1)] = tensor
-    while curr_mult >= 1:
-        if rank_shifted() < curr_mult:
-            print(f'rank {dist.get_rank()} receiving, curr_mult {curr_mult}, addns {indir_ranks(curr_mult)}')
-            src_rank = int((dist.get_rank()+curr_mult)%dist.get_world_size())
-            tmp_buff = torch.empty_like(buff)
-            dist.recv(tmp_buff, src_rank)
-            for r in indir_ranks(curr_mult):
-                data_src_rank = (src_rank+r)%dist.get_world_size()
-                print(f'rank {src_rank} to {dist.get_rank()} - recv idx {b_idx(data_src_rank)}:{b_idx(data_src_rank+1)}')
-                buff[b_idx(data_src_rank):b_idx(data_src_rank+1)] = tmp_buff[b_idx(data_src_rank):b_idx(data_src_rank+1)]
-                print(f'rank {src_rank} to {dist.get_rank()} - DONE recv idx {b_idx(data_src_rank)}:{b_idx(data_src_rank+1)} - {buff}')
-        elif rank_shifted() < curr_mult * 2:
-            print(f'rank {dist.get_rank()} sending')
-            for r in indir_ranks(curr_mult):
-                dst_rank = int((dist.get_rank()-curr_mult)%dist.get_world_size())
-                dist.send(buff, dst_rank)
-        curr_mult //= 2
-    dist.barrier()
+# def gather_tree(tensor: torch.Tensor, dst: int):
+#     def indir_ranks(curr_mult: int) -> List[int]:
+#         indir_rank = 0
+#         out = [indir_rank]
+#         indir_mult = curr_mult
+#         while indir_rank + indir_mult < dist.get_world_size():
+#             indir_rank += indir_mult
+#             out.append(int(indir_rank))
+#             indir_mult *= 2
+#         return out
+#     # TODO: Have changed code for tmp_buff to receive full buffer from src rank, need to debug extraction of indices
+#     # and sending to identify deadlock
+#     curr_mult = dist.get_world_size() // 2
+#     rank_shifted = lambda: (dist.get_rank() - dst) % dist.get_world_size()
+#     buff = torch.zeros([tensor.shape[0] * dist.get_world_size()] + list(tensor.shape[1:]))
+#     b_idx = lambda x: int(tensor.shape[0] * x)
+#     buff[b_idx(dist.get_rank()):b_idx(dist.get_rank()+1)] = tensor
+#     while curr_mult >= 1:
+#         if rank_shifted() < curr_mult:
+#             print(f'rank {dist.get_rank()} receiving, curr_mult {curr_mult}, addns {indir_ranks(curr_mult)}')
+#             src_rank = int((dist.get_rank()+curr_mult)%dist.get_world_size())
+#             tmp_buff = torch.empty_like(buff)
+#             dist.recv(tmp_buff, src_rank)
+#             for r in indir_ranks(curr_mult):
+#                 data_src_rank = (src_rank+r)%dist.get_world_size()
+#                 print(f'rank {src_rank} to {dist.get_rank()} - recv idx {b_idx(data_src_rank)}:{b_idx(data_src_rank+1)}')
+#                 buff[b_idx(data_src_rank):b_idx(data_src_rank+1)] = tmp_buff[b_idx(data_src_rank):b_idx(data_src_rank+1)]
+#                 print(f'rank {src_rank} to {dist.get_rank()} - DONE recv idx {b_idx(data_src_rank)}:{b_idx(data_src_rank+1)} - {buff}')
+#         elif rank_shifted() < curr_mult * 2:
+#             print(f'rank {dist.get_rank()} sending')
+#             for r in indir_ranks(curr_mult):
+#                 dst_rank = int((dist.get_rank()-curr_mult)%dist.get_world_size())
+#                 dist.send(buff, dst_rank)
+#         curr_mult //= 2
+#     dist.barrier()
 
-if __name__ == '__main__':
-    test_gather_tree(gather_tree)
+# if __name__ == '__main__':
+#     test_gather_tree(gather_tree)
 # %%
+

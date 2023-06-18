@@ -348,7 +348,6 @@ def test_broadcast_tree(broadcast_impl: Callable):
     # for i in range(fake_dist.world_size):
     #     print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
     assert all(len(fake_dist.reads_by[i]) == 1 for i in range(fake_dist.world_size) if i != src_rank)
-    print(list(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size)))
     assert all(len(fake_dist.writes_from[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == src_rank)
 
 def test_broadcast_ring(broadcast_impl: Callable):
@@ -360,8 +359,8 @@ def test_broadcast_ring(broadcast_impl: Callable):
 def test_reduce_naive(reduce_impl: Callable):
     dst_rank = 7
     fake_dist = test_scaffold(reduce_impl, lambda x: torch.Tensor([x+1]), [dst_rank], world_size=8)
-    for i in range(fake_dist.world_size):
-        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
+    # for i in range(fake_dist.world_size):
+    #     print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
     assert all((i != dst_rank and len(fake_dist.reads_by[i]) == 0) or (i == dst_rank and len(fake_dist.reads_by[i]) == fake_dist.world_size-1) for i in range(fake_dist.world_size))
     assert all((i != dst_rank and len(fake_dist.writes_from[i]) == 1) or (i == dst_rank and len(fake_dist.writes_from[i]) == 0) for i in range(fake_dist.world_size))
 
@@ -370,8 +369,8 @@ def test_reduce_tree(reduce_impl: Callable):
     world_size = 8
     assert is_power_of_two(world_size), 'world_size must be power of two'
     fake_dist = test_scaffold(reduce_impl, lambda x: torch.Tensor([x]), [dst_rank], world_size=world_size) # world_size = power of 2
-    for i in range(fake_dist.world_size):
-        print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
+    # for i in range(fake_dist.world_size):
+    #     print('rank', i, 'reads by', len(fake_dist.reads_by[i]), 'writes from', len(fake_dist.writes_from[i]))
     assert all(len(fake_dist.writes_from[i]) == 1 for i in range(fake_dist.world_size) if i != dst_rank)
     assert all(len(fake_dist.reads_by[i]) == math.ceil(math.log(fake_dist.world_size, 2)) for i in range(fake_dist.world_size) if i == dst_rank)
 
