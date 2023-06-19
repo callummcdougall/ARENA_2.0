@@ -1,0 +1,17 @@
+*__pycache__
+*generate_*.py
+*drafts
+*colab
+*chunk_*.txt
+*.chroma
+*.pytest_cache
+*models
+*data
+*wandb
+*logs
+secrets.toml
+*attn_only_2L_half.pth
+serimats_app
+*othello_world*
+*Grokking
+*04_PPO.py
