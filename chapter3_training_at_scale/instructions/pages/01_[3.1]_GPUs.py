@@ -64,12 +64,11 @@ This chapter contains exercises to get you familiar with the internal workings o
 > - Understand the fundamentals of benchmarking and using torch.utils.benchmark
 > - Create your own custom CUDA kernels
 
-#### 3️⃣ Quantization and AMP
+#### 3️⃣ Quantization
 
 > ##### Learning objectives
 > 
 > - Understand the effects of quantisation on inference time
-> - Using PyTorch AMP and understanding tradeoffs
 
 #### 4️⃣ Bonus
 
@@ -190,7 +189,7 @@ model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
 with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
     with record_function("model_inference"):
         with torch.inference_mode():
-        model(inputs)
+            model(inputs)
 
 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
@@ -218,11 +217,11 @@ model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
 with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
     with record_function("model_inference"):
         with torch.inference_mode():
-        model(inputs)
+            model(inputs)
 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
-Let's look at another way to profile and understand our model, the profile trace. Run the code below to generate a json file containing our trace. You can open this JSON file on any compatible web browser (Chrome or Edge) by going to the `chrome://tracing webpage`. The webpage should have a 'load JSON file' field that you can use to open the JSON file and view the profile trace. The profile trace is an extremely rich description of the model execution and helps us understand which functions are calling which other functions. 
+Let's look at another way to profile and understand our model, the profile trace. Run the code below to generate a json file containing our trace. You can open this JSON file on any compatible web browser (Chrome or Edge) by going to the `chrome://tracing` webpage. The webpage should have a 'load JSON file' field that you can use to open the JSON file and view the profile trace. The profile trace is an extremely rich description of the model execution and helps us understand which functions are calling which other functions. 
 
 
 ```python
@@ -314,7 +313,7 @@ def section_2():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#readings'>Readings</a></li>
     <li class='margtop'><a class='contents-el' href='#demonstration-on-the-daxpy-function:'>Demonstration on the daxpy function:</a></li>
-    <li class='margtop'><a class='contents-el' href='#exercise:-apply-kernel-fusion-by-using-torch-jit-and-triton-jit-as-decorators'><b>Exercise</b>: Apply kernel fusion by using torch jit and triton jit as decorators</a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise:-apply-kernel-fusion-by-using-torch-jit-decorator'><b>Exercise</b>: Apply kernel fusion by using torch jit decorator</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -385,7 +384,7 @@ compare.colorize()
 compare.print()
 ```
 
-## Exercise: Apply kernel fusion by using torch jit and triton jit as decorators
+## Exercise: Apply kernel fusion by using torch jit decorator
 ```c
 Difficulty: 2/5
 Importance: 🟠🟠🟠🟠⚪
@@ -504,13 +503,12 @@ def section_3():
 
     st.markdown(r"""
 
-# 3️⃣ Quantization and AMP
+# 3️⃣ Quantization and 
 
 
 > ##### Learning objectives
 > 
 > - Understand the effects of quantisation on inference time
-> - Using PyTorch AMP and understanding tradeoffs
 
 
 ## Readings
@@ -796,7 +794,7 @@ We provide the function to gather stats regarding the minimum and maximum values
 
 ```python
 # Get Min and max of x tensor, and stores it
-def updateStats(x, stats, key) -> Dict[Dict]:
+def updateStats(x, stats, key) -> Dict[Dict, Dict[str, int]]:
     max_val, _ = torch.max(x, dim=1)
     min_val, _ = torch.min(x, dim=1)
     
@@ -1113,7 +1111,11 @@ def section_4():
 
 # 4️⃣ Bonus section
 
+## Create your own custom kernel for kernel fusion
 
+Go through the CUDA workshop [material](https://colab.research.google.com/gist/pranavgade20/aac9c6532e8cb262dcb7adeda9b9edba/gpu_basics.ipynb) and use the techniques discussed here to create your own kernel.
+
+Another way to perform kernel fusion is usung Torchscript, here's a great article listing the [basics](https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html).
 
 ## Estimating Compute
 
@@ -1150,7 +1152,7 @@ Automatic Mixed Precision is an easy to use tool that automatically quantizes mo
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Profiling - ATen out of Ten"),     (section_2, "2️⃣ Kernel Fusion and Benchmarking"),     (section_3, "3️⃣ Quantization and AMP"),     (section_4, "4️⃣ Bonus section"), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Profiling - ATen out of Ten"),     (section_2, "2️⃣ Kernel Fusion and Benchmarking"),     (section_3, "3️⃣ Quantization"),     (section_4, "4️⃣ Bonus section"), 
 ]
 
 func_list = [func for func, page in func_page_list]
