@@ -328,11 +328,28 @@ if __name__ == '__main__':
 
 Finally, implement the all-reduce operation using the following topologies:
 1. Implement all-reduce using a naive (all-to-one-to-all) topology
+    1. Init tensors in respective processes based on the rank
+    2. Send all tensors to rank 0, using dist.barrier to ensure synchronization (reduce step)
+    3. Send the result from rank 0 process to all process (scatter step)
+```mermaid
+flowchart TD
+    A1(A&#91&#x30&#93) --> A2(A&#91&#x30&#93)
+    B1(A&#91&#x31&#93) --> A2(A&#91&#x30&#93)
+    C1(A&#91&#x32&#93) --> A2(A&#91&#x30&#93)
+    D1(A&#91&#x33&#93) --> A2(A&#91&#x30&#93)
+    A2(A&#91&#x30&#93) --> A5(A&#91&#x30&#93)
+    A2(A&#91&#x30&#93) --> B5(A&#91&#x31&#93)
+    A2(A&#91&#x30&#93) --> C5(A&#91&#x32&#93)
+    A2(A&#91&#x30&#93) --> D5(A&#91&#x33&#93)
+
+```
 2. Implement all-reduce using a butterfly topology as depicted in `(c)` below:
 <img src="allreduce_topologies.png"
      alt="All-reduce topologies"/>
 
-Which topology do you expect would be faster in most settings? Consider pros and cons of this approach.
+Which topology do you expect would be faster in most settings? Consider the pros and cons of this approach.
+
+Modify the test cases imported here to run the same operation using `dist.all_reduce` and compare the performance for larger tensors of size 1024x1024. You can also try seeing how these methods differ in speed for different tensor sizes. Which one do you expect to perform better, and why? What happens when the world size (as initialized in the test case) is changed?
 
 ```python
 from test import test_allreduce_naive
