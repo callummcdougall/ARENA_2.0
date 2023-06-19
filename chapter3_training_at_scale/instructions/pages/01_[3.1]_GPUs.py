@@ -64,12 +64,11 @@ This chapter contains exercises to get you familiar with the internal workings o
 > - Understand the fundamentals of benchmarking and using torch.utils.benchmark
 > - Create your own custom CUDA kernels
 
-#### 3️⃣ Quantization and AMP
+#### 3️⃣ Quantization
 
 > ##### Learning objectives
 > 
 > - Understand the effects of quantisation on inference time
-> - Using PyTorch AMP and understanding tradeoffs
 
 #### 4️⃣ Bonus
 
@@ -504,13 +503,12 @@ def section_3():
 
     st.markdown(r"""
 
-# 3️⃣ Quantization and AMP
+# 3️⃣ Quantization and 
 
 
 > ##### Learning objectives
 > 
 > - Understand the effects of quantisation on inference time
-> - Using PyTorch AMP and understanding tradeoffs
 
 
 ## Readings
@@ -796,7 +794,7 @@ We provide the function to gather stats regarding the minimum and maximum values
 
 ```python
 # Get Min and max of x tensor, and stores it
-def updateStats(x, stats, key) -> Dict[Dict]:
+def updateStats(x, stats, key) -> Dict[Dict, Dict[str, int]]:
     max_val, _ = torch.max(x, dim=1)
     min_val, _ = torch.min(x, dim=1)
     
@@ -1154,7 +1152,7 @@ Automatic Mixed Precision is an easy to use tool that automatically quantizes mo
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Profiling - ATen out of Ten"),     (section_2, "2️⃣ Kernel Fusion and Benchmarking"),     (section_3, "3️⃣ Quantization and AMP"),     (section_4, "4️⃣ Bonus section"), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Profiling - ATen out of Ten"),     (section_2, "2️⃣ Kernel Fusion and Benchmarking"),     (section_3, "3️⃣ Quantization"),     (section_4, "4️⃣ Bonus section"), 
 ]
 
 func_list = [func for func, page in func_page_list]
