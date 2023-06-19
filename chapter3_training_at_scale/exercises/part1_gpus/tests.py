@@ -18,6 +18,8 @@ def test_quantize_tensor(fn):
     test = fn(test_tensor)
 
     #assert type(correct) == type(test), 'output types are different'
+    print(correct[0], correct[1], correct[2])
+    print(test[0], test[1], test[2])
     assert torch.all(torch.eq(correct[0],test[0])) , 'quantized tensors are incorrect'
     assert correct[1] == test[1], 'the scale in incorrect'
     assert correct[2] == test[2], 'the zero point is incorrect'
