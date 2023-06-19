@@ -190,7 +190,7 @@ model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
 with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
     with record_function("model_inference"):
         with torch.inference_mode():
-        model(inputs)
+            model(inputs)
 
 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
@@ -218,7 +218,7 @@ model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda()
 with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
     with record_function("model_inference"):
         with torch.inference_mode():
-        model(inputs)
+            model(inputs)
 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
