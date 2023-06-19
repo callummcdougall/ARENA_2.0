@@ -12,7 +12,7 @@ In distributed GPU training, a model's computations are spread across multiple G
 
 Distributed GPU training is a valuable skill in the modern era of machine learning and deep learning. Mastering it with PyTorch will unlock new levels of computational power and efficiency for your models, enabling you to tackle larger and more complex problems.
 
-## Content & Learning Objectives
+## Content and learning objectives
 
 ### 1. Basics of distributed programming
 
@@ -36,7 +36,7 @@ Learning objectives:
 Learning objectives:
 * Load and divide a model across multiple processes/GPUs
 * Send partial results calculated after a partial forward pass to the next process to continue inference
-* Bonus: divide data into minibatches and minimze gpu idle time
+* Bonus: divide data into minibatches and minimize gpu idle time
 
 ### 4. Bonus
 * Implement a backward pass for a pipeline parallel transformer
@@ -380,12 +380,12 @@ Batch normalization poses a unique challenge because it normally computes a mean
 
 Assuming all special cases are addressed and all GPUs hold an identical sum of gradients, each GPU can independently execute an identical optimizer step, deterministically modifying the parameters to produce the same result. This concludes a single iteration, keeping all the devices synchronized.
 
-### Advantages of Data Parallelism
+### Advantages of data parallelism
 The primary advantage is that any model that fits on a single GPU can be adapted to a data parallel version without substantial modifications. As the batch elements are independent (except for batch normalization), devices only need to communicate once per batch to sum their gradients.
 
 In contrast, tensor parallelism and pipeline parallelism necessitate sending activations during both forward and backward passes, requiring clever strategies to reduce the amount of communication.
 
-### Disadvantages of Data Parallelism
+### Disadvantages of data parallelism
 One downside is that the communication between GPUs can become overwhelmed, as all GPUs aim to transmit data simultaneously while summing gradients. This issue can be partially mitigated by sending gradients of the later layers as soon as they're calculated, alternating with computing gradients of the earlier layers, and also by utilizing fast interconnects like NVLink.
 
 If a model can't run on a single GPU even with a minibatch size of 1, data parallelism alone isn't viable; instead, one of the other two methods, potentially in combination with data parallelism, must be employed.
@@ -394,7 +394,7 @@ From a memory standpoint, data parallelism is inefficient as it duplicates all p
 
 As N increases, the minibatch size B/N becomes too small to fully utilize the GPU. While one can increase the total batch size B to compensate, large batches tend to have worse generalization, setting a problem-dependent limit to B's increase.
 
-## torch.dist multi-server setup
+## `torch.dist` multi-server setup
 
 Here's a template that implements a naive broadcast algorithm - you'll be using the same setup/teardown code everywhere, so it's worth spending some time here trying to understand what is happening - create a new file called broadcast.py, and run it with `run.sh broadcast.py`
 
@@ -473,10 +473,10 @@ if __name__ == '__main__':
         os.waitid(os.P_ALL, 0, os.WEXITED)
 ```
 
-## Data Parallel Inference
+## Data parallel inference
 
 We often have really large datasets and/or models that would take forever to train if you only use one GPU - in cases like this, we like to use multiple GPUs to speed up computation. We will start with implementing the forward pass and calculate the loss using the resnet model you made previously.
-1. After iniitializing the distributed process group, load the model(`resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)`) and the dataset:
+1. After initializing the distributed process group, load the model(`resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)`) and the dataset:
     ```python
     file_mappings = json.load(open('/dataset/file_mappings_imagenet.json'))
     logging.warning("Loading Data:")
@@ -537,7 +537,7 @@ from torchvision.io import read_image
 assert torch.cuda.device_count() > 0  # make sure we have GPUs
 
 
-CLUSTER_SIZE = 1  # the number of seperate compute nodes we have
+CLUSTER_SIZE = 1  # the number of separate compute nodes we have
 WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
 TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
 UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
@@ -616,7 +616,7 @@ if __name__ == '__main__':
         os.waitid(os.P_ALL, 0, os.WEXITED)
 ```
 
-## Data Parallel Traninig
+## Data parallel training
 Now that we know how a forward pass through our resnet looks like, we can write a backward pass so that we can train our model faster by sharing the gradient computation across multiple GPUs. This looks a lot like a regular forward pass, so start by writing a training loop that does a forward pass, computes the loss, and then computes the gradient of the loss with respect to the parameters of the model. At this point, we will share the gradients across all GPUs and then update the parameters of the model. After you have calculated the gradients with `loss.backward()`, you can access the gradients of the parameters with `parameter.grad`. use `dist.all_reduce` to average the gradients across all GPUs. You can then update the parameters with `optimizer.step()`.
 
 Optionally, log the loss and accuracy metrics, and see how they improve as you train the model.
