@@ -1,0 +1,7 @@
+{
+  "bos_token": "<|endoftext|>",
+  "eos_token": "<|endoftext|>",
+  "pad_token": "<|endoftext|>",
+  "sep_token": "<sep>",
+  "unk_token": "<|endoftext|>"
+}
