@@ -5,24 +5,37 @@ from torch.distributed import ReduceOp
 from typing import List
 
 # %% Race conditions
-import random
-from test import test_increment
-from time import sleep
+from threading import Thread
 
-tensor = torch.Tensor([0])
-
-def increment(tensor2: torch.Tensor):
-    def helper(tensor2: torch.Tensor):
-        global tensor
-        tensor += 1
-        sleep(random.random())
-        print(f'Rank {dist.get_rank()}, count {tensor}')
-        print('---------------')
-    for i in range(5):
-        helper(tensor2)
+# Add to the global variable
+def adder(amount, repeats):
+    global value
+    for _ in range(repeats):
+        value += amount
+ 
+# Subtract from the global variable
+def subtractor(amount, repeats):
+    global value
+    for _ in range(repeats):
+        value -= amount
+        
+def add_and_subtract():
+    # Start a thread making additions
+    adder_thread = Thread(target=adder, args=(1, 1000000))
+    adder_thread.start()
+    # Start a thread making subtractions
+    subtractor_thread = Thread(target=subtractor, args=(1, 1000000))
+    subtractor_thread.start()
+    # Wait for both threads to finish
+    print('Waiting for threads to finish...')
+    adder_thread.join()
+    subtractor_thread.join()
+    # Print the value
+    print(f'Value: {value}')
 
 if __name__ == '__main__':
-    test_increment(increment)  # Spawns the `increment` function on multiple threads
+    value = 0
+    add_and_subtract()
     
 # %% Broadcast
 

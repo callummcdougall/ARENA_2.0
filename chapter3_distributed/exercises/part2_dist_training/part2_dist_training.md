@@ -93,30 +93,40 @@ To avoid such race conditions, strategies such as locking or synchronization bar
 * Difficulty: 1/5
 * Importance: 3/5
 
-Read the code below, which creates a function to increment a shared variable (`torch.Tensor`) and increments the value of this tensor on multiple threads running this function, printing the result to the console after a variable delay using `sleep()` intended to simulate a race condition caused by lines of code that are not executed simultaneously across threads. Consider how the delay might affect the output that is printed, and run the function to see what happens.
-
-Change the function by introducing new delays or removing delays to see how this affects data accesses.
+Read the code below, which creates functions to add to and subtract from a shared variable multiple times on two different threads, printing the result to the console. Consider how multiple threads accessing the global `value` variable might affect the output. Will this output be deterministic? Run the code to verify your predictions and feel free to adjust values or add delays to explore how this changes the results.
 
 ```python
-# %%
-import random
-from test import test_increment
-from time import sleep
+from threading import Thread
 
-tensor = torch.Tensor([0])
-
-def increment(tensor2: torch.Tensor):
-    def helper(tensor2: torch.Tensor):
-        global tensor
-        tensor += 1
-        sleep(random.random())
-        print(f'Rank {dist.get_rank()}, count {tensor}')
-        print('---------------')
-    for i in range(5):
-        helper(tensor2)
+# Add to the global variable
+def adder(amount, repeats):
+    global value
+    for _ in range(repeats):
+        value += amount
+ 
+# Subtract from the global variable
+def subtractor(amount, repeats):
+    global value
+    for _ in range(repeats):
+        value -= amount
+        
+def add_and_subtract():
+    # Start a thread making additions
+    adder_thread = Thread(target=adder, args=(1, 1000000))
+    adder_thread.start()
+    # Start a thread making subtractions
+    subtractor_thread = Thread(target=subtractor, args=(1, 1000000))
+    subtractor_thread.start()
+    # Wait for both threads to finish
+    print('Waiting for threads to finish...')
+    adder_thread.join()
+    subtractor_thread.join()
+    # Print the value
+    print(f'Value: {value}')
 
 if __name__ == '__main__':
-    test_increment(increment) # Spawns the `increment` function on multiple threads
+    value = 0
+    add_and_subtract()
 ```
 
 <!-------------------------------------------------->
