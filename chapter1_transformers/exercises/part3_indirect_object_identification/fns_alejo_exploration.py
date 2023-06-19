@@ -142,10 +142,10 @@ def plot_patching_experiments(clean_tokens: Float[Tensor, "batch seq"],
 
 # %%
 
-def print_predictions_from_prompt(prompt: str, model: HookedTransformer, top_k: int = 5) -> None:
+def topk_predictions_from_prompt(prompt: str, model: HookedTransformer, top_k: int = 5
+    ) -> Tuple[List[str], Float[Tensor, "top_k"]]:
     tokens = model.to_tokens(prompt)
-    logits = model(tokens)
+    logits = model(tokens)[:,-1,:] # Index the last token position
     probs = t.softmax(logits, dim=-1)
-    top_probs, top_words = probs.topk(k=top_k, dim=-1)
-    for top_prob, top_word in zip(top_probs, top_words):
-        print(f"{model.to_str_tokens(top_word)}: {100*top_prob:.3f}")
+    top_probs, top_tokens = probs.topk(k=top_k, dim=-1)
+    return model.to_str_tokens(top_tokens), top_probs
