@@ -889,7 +889,8 @@ if MAIN:
 
 <details>
 <summary>Solution</summary>
-    
+ 
+```python 
     dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=32, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
     resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
     losses = []
@@ -911,6 +912,7 @@ if MAIN:
     if rank == 0:
         logging.warning(f'average loss {t.tensor(losses).mean()}')
         logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
+ ```
 </details>
 
 ### Exercise - Data parallel training
@@ -1021,6 +1023,7 @@ if __name__ == '__main__':
 
 <details>
 <summary>Solution</summary>
+```python
     dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=256, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
     resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
     resnet34.train()
@@ -1059,6 +1062,7 @@ if __name__ == '__main__':
         if rank == 0:
             logging.warning(f'average loss {t.tensor(losses).mean()}')
             logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
+ ```
 </details>
 
 """, unsafe_allow_html=True)
@@ -1414,7 +1418,7 @@ if __name__ == '__main__':
 <summary>Solution</summary>
 
 ```python
-
+</details>
 
 ## Bonus exercises
 
