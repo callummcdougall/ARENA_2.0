@@ -1113,7 +1113,11 @@ def section_4():
 
 # 4️⃣ Bonus section
 
+## Create your own custom kernel for kernel fusion
 
+Go through the CUDA workshop [material](https://colab.research.google.com/gist/pranavgade20/aac9c6532e8cb262dcb7adeda9b9edba/gpu_basics.ipynb) and use the techniques discussed here to create your own kernel.
+
+Another way to perform kernel fusion is usung Torchscript, here's a great article listing the (basics)[https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html].
 
 ## Estimating Compute
 

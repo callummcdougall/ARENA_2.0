@@ -580,7 +580,7 @@ def testQuant(model, test_loader, device='cuda', quant=False, stats=None):
 if MAIN:
 	testQuant(model, test_loader=test_loader, quant=True, stats=stats)
 
-# %% 4️⃣ BONUS SECTION
+# %%
 
 # SOLUTION
 if MAIN:
