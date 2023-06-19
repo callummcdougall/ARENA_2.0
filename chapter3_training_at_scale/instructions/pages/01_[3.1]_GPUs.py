@@ -314,7 +314,7 @@ def section_2():
 <ul class="contents">
     <li class='margtop'><a class='contents-el' href='#readings'>Readings</a></li>
     <li class='margtop'><a class='contents-el' href='#demonstration-on-the-daxpy-function:'>Demonstration on the daxpy function:</a></li>
-    <li class='margtop'><a class='contents-el' href='#exercise:-apply-kernel-fusion-by-using-torch-jit-and-triton-jit-as-decorators'><b>Exercise</b>: Apply kernel fusion by using torch jit and triton jit as decorators</a></li>
+    <li class='margtop'><a class='contents-el' href='#exercise:-apply-kernel-fusion-by-using-torch-jit-decorator'><b>Exercise</b>: Apply kernel fusion by using torch jit decorator</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -385,7 +385,7 @@ compare.colorize()
 compare.print()
 ```
 
-## Exercise: Apply kernel fusion by using torch jit and triton jit as decorators
+## Exercise: Apply kernel fusion by using torch jit decorator
 ```c
 Difficulty: 2/5
 Importance: 🟠🟠🟠🟠⚪
