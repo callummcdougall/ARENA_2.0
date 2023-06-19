@@ -544,6 +544,8 @@ class IOIDataset:
         prepend_bos=False,
         manual_word_idx=None,
         has_been_flipped:bool=False,
+        use_long_template:bool=False, # Whether to use the long or short BABA templates
+        toks_len:Optional[int] = None, # If not None, then the length of the toks will be toks_len
         seed=0,
         device="cuda"
     ):
@@ -568,10 +570,15 @@ class IOIDataset:
         if nb_templates is None:
             nb_templates = len(BABA_TEMPLATES)
 
+
+
         if prompt_type == "ABBA":
             self.templates = ABBA_TEMPLATES[:nb_templates].copy()
         elif prompt_type == "BABA":
-            self.templates = BABA_TEMPLATES[:nb_templates].copy()
+            if use_long_template: # TODO: Extend for ABBA
+                self.templates = BABA_LONG_TEMPLATES[:nb_templates].copy()
+            else:
+                self.templates = BABA_TEMPLATES[:nb_templates].copy()
         elif prompt_type == "mixed":
             self.templates = (
                 BABA_TEMPLATES[: nb_templates // 2].copy()
@@ -643,7 +650,14 @@ class IOIDataset:
             (self.tokenizer.bos_token if prepend_bos else "") + prompt["text"]
             for prompt in self.ioi_prompts
         ]
-        self.toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
+
+        if toks_len is not None:
+            texts.append("".join(toks_len*self.tokenizer.decode(1000))) # Adding a string of lenght toks_len full of random tokens
+            toks = t.Tensor(self.tokenizer(texts, padding=True, max_length=toks_len).input_ids).long()
+            self.toks = toks[:-1] # Getting rid of the random string
+
+        else:
+            self.toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
 
         self.word_idx = get_idx_dict(
             self.ioi_prompts,

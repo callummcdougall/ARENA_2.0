@@ -24,6 +24,7 @@ from pathlib import Path
 from transformer_lens.hook_points import HookPoint
 from transformer_lens import utils, HookedTransformer, ActivationCache
 from transformer_lens.components import Embed, Unembed, LayerNorm, MLP
+from ioi_dataset import NAMES, IOIDataset
 
 t.set_grad_enabled(False)
 
@@ -34,7 +35,7 @@ section_dir = (exercises_dir / "part3_indirect_object_identification").resolve()
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line, scatter, bar
-import part3_indirect_object_identification.tests as tests
+import tests as tests
 
 device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
 
@@ -60,6 +61,23 @@ def logits_to_ave_logit_diff(
     correct_logits, incorrect_logits = answer_logits.unbind(dim=-1)
     answer_logit_diff = correct_logits - incorrect_logits
     return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+
+
+def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset, per_prompt=False):
+    '''
+    Returns logit difference between the correct and incorrect answer.
+
+    If per_prompt=True, return the array of differences rather than the average.
+    '''
+    
+    # Only the final logits are relevant for the answer
+    # Get the logits corresponding to the indirect object / subject tokens respectively
+    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+    s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+    # Find logit difference
+    answer_logit_diff = io_logits - s_logits
+    return answer_logit_diff if per_prompt else answer_logit_diff.mean()
+
 
 def ioi_metric(
     logits: Float[Tensor, "batch seq d_vocab"], 
