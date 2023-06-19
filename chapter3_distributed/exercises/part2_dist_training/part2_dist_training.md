@@ -20,21 +20,26 @@ Learning objectives:
 * Learn the structure of the PyTorch distributed class
 * Understand what a process, thread, and rank is
 * Explore what might cause race conditions
-
-### 2. Data parallelism
-
-Learning objectives:
 * Learn about common collective operations
 * Implement broadcast, reduce, and all-reduce
 * Consider the effects of different connection topologies
 
-### 3. Pipeline parallelism, DDP
+### 2. Data parallelism, DDP
 
 Learning objectives:
-* TODO
+* Load and divide a dataset across multiple processes/GPUs
+* Perform independant parallel forward passes on different batches of data, and aggregate the results
+* Compute gradients and share the means across all GPUs with allreduce
+
+### 3. Pipeline parallelism
+
+Learning objectives:
+* Load and divide a model across multiple processes/GPUs
+* Send partial results calculated after a partial forward pass to the next process to continue inference
+* Bonus: divide data into minibatches and minimze gpu idle time
 
 ### 4. Bonus
-Includes some suggested bonus exercises and further reading.
+* Implement a backward pass for a pipeline parallel transformer
 
 
 ## Setup
@@ -118,39 +123,6 @@ def increment(tensor2: torch.Tensor):
 if __name__ == '__main__':
     test_increment(increment) # Spawns the `increment` function on multiple threads
 ```
-
-<!-------------------------------------------------->
-
-# Data parallelism
-
-Data parallelism is our focus today. While it's not the most efficient method, it's relatively straightforward to grasp and implement, and can be further optimized or combined with other approaches for better performance.
-
-Data parallelism works with N identical GPUs:
-
-* We initialize by copying the same weights to each GPU.
-* Then, we divide a batch of size B into N "minibatches", each of size M=B//N. For simplicity, let's assume N evenly divides B.
-* Every GPU executes a forward and backward pass on its respective minibatch to calculate the local gradients.
-* Lastly, the gradients are synchronized across all GPUs with "all-reduce."
-
-"All-reduce" signifies that each GPU exchanges minibatch gradients until all devices possess the same sum. The summed gradients are equivalent to those obtained from a single forward pass on the full batch B, with certain exceptions for batch normalization and dropout layers.
-
-Batch normalization poses a unique challenge because it normally computes a mean over the full batch, but in this case, each device computes a mean over its minibatch. To replicate dropout across all devices, the random number generator on each device needs careful initialization.
-
-Assuming all special cases are addressed and all GPUs hold an identical sum of gradients, each GPU can independently execute an identical optimizer step, deterministically modifying the parameters to produce the same result. This concludes a single iteration, keeping all the devices synchronized.
-
-### Advantages of Data Parallelism
-The primary advantage is that any model that fits on a single GPU can be adapted to a data parallel version without substantial modifications. As the batch elements are independent (except for batch normalization), devices only need to communicate once per batch to sum their gradients.
-
-In contrast, tensor parallelism and pipeline parallelism necessitate sending activations during both forward and backward passes, requiring clever strategies to reduce the amount of communication.
-
-### Disadvantages of Data Parallelism
-One downside is that the communication between GPUs can become overwhelmed, as all GPUs aim to transmit data simultaneously while summing gradients. This issue can be partially mitigated by sending gradients of the later layers as soon as they're calculated, alternating with computing gradients of the earlier layers, and also by utilizing fast interconnects like NVLink.
-
-If a model can't run on a single GPU even with a minibatch size of 1, data parallelism alone isn't viable; instead, one of the other two methods, potentially in combination with data parallelism, must be employed.
-
-From a memory standpoint, data parallelism is inefficient as it duplicates all parameters N times, along with the optimizer state. This duplication can be lessened by distributing the optimizer state across devices, albeit at the cost of increased communication.
-
-As N increases, the minibatch size B/N becomes too small to fully utilize the GPU. While one can increase the total batch size B to compensate, large batches tend to have worse generalization, setting a problem-dependent limit to B's increase.
 
 ## Collective operations
 
@@ -362,13 +334,291 @@ def allreduce_butterfly(tensor: torch.Tensor, op=ReduceOp.SUM):
 if __name__ == '__main__':
     test_allreduce_butterfly(allreduce_butterfly)
 ```
+<!-------------------------------------------------->
 
+# Data parallelism
+
+Data parallelism is our focus today. While it's not the most efficient method, it's relatively straightforward to grasp and implement, and can be further optimized or combined with other approaches for better performance.
+
+Data parallelism works with N identical GPUs:
+
+* We initialize by copying the same weights to each GPU.
+* Then, we divide a batch of size B into N "minibatches", each of size M=B//N. For simplicity, let's assume N evenly divides B.
+* Every GPU executes a forward and backward pass on its respective minibatch to calculate the local gradients.
+* Lastly, the gradients are synchronized across all GPUs with "all-reduce."
+
+"All-reduce" signifies that each GPU exchanges minibatch gradients until all devices possess the same sum. The summed gradients are equivalent to those obtained from a single forward pass on the full batch B, with certain exceptions for batch normalization and dropout layers.
+
+Batch normalization poses a unique challenge because it normally computes a mean over the full batch, but in this case, each device computes a mean over its minibatch. To replicate dropout across all devices, the random number generator on each device needs careful initialization.
+
+Assuming all special cases are addressed and all GPUs hold an identical sum of gradients, each GPU can independently execute an identical optimizer step, deterministically modifying the parameters to produce the same result. This concludes a single iteration, keeping all the devices synchronized.
+
+### Advantages of Data Parallelism
+The primary advantage is that any model that fits on a single GPU can be adapted to a data parallel version without substantial modifications. As the batch elements are independent (except for batch normalization), devices only need to communicate once per batch to sum their gradients.
+
+In contrast, tensor parallelism and pipeline parallelism necessitate sending activations during both forward and backward passes, requiring clever strategies to reduce the amount of communication.
+
+### Disadvantages of Data Parallelism
+One downside is that the communication between GPUs can become overwhelmed, as all GPUs aim to transmit data simultaneously while summing gradients. This issue can be partially mitigated by sending gradients of the later layers as soon as they're calculated, alternating with computing gradients of the earlier layers, and also by utilizing fast interconnects like NVLink.
+
+If a model can't run on a single GPU even with a minibatch size of 1, data parallelism alone isn't viable; instead, one of the other two methods, potentially in combination with data parallelism, must be employed.
+
+From a memory standpoint, data parallelism is inefficient as it duplicates all parameters N times, along with the optimizer state. This duplication can be lessened by distributing the optimizer state across devices, albeit at the cost of increased communication.
+
+As N increases, the minibatch size B/N becomes too small to fully utilize the GPU. While one can increase the total batch size B to compensate, large batches tend to have worse generalization, setting a problem-dependent limit to B's increase.
+
+## torch.dist multi-server setup
+
+Here's a template that implements a naive broadcast algorithm - you'll be using the same setup/teardown code everywhere, so it's worth spending some time here trying to understand what is happening - create a new file called broadcast.py, and run it with `run.sh broadcast.py`
+
+```python
+import argparse
+import os
+import logging
+import time
+import random
+import string
+
+import torch.distributed as dist
+import torch
+from torchvision import datasets, transforms, models
+
+CLUSTER_SIZE = 1  # the number of seperate compute nodes we have
+WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
+TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
+UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
+
+
+def main(args):
+    rank = args.rank
+    world_size = args.world_size
+    logging.basicConfig(format=f'[rank {args.rank}] %(message)s')
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.warning(f'hello')
+    # you can use a variety of backends - nccl is the fastest but requires you to have a GPU; gloo is slower but also sometimes works on CPUs (see https://pytorch.org/docs/stable/distributed.html#backends)
+    # dist.init_process_group(backend='nccl', init_method=f'file:///tmp/{"".join(random.choice(string.ascii_letters) for _ in range(10))}', world_size=WORLD_SIZE, rank=args.rank)
+    dist.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:12345', world_size=WORLD_SIZE, rank=args.rank)  # this should be a globally accessible IP
+    logging.warning(f'distributed.is_initialized {torch.distributed.is_initialized()}')
+    logging.warning(f'distributed.is_mpi_available {torch.distributed.is_mpi_available()}')
+    logging.warning(f'distributed.is_nccl_available {torch.distributed.is_nccl_available()}')
+    logging.warning(f'distributed.is_gloo_available {torch.distributed.is_gloo_available()}')
+    logging.warning(f'distributed.is_torchelastic_launched {torch.distributed.is_torchelastic_launched()}')
+
+    time.sleep(1)
+
+    # your code starts here - everything before this is setup code
+
+    # method 1 to implement broadcast
+    if rank == 0:
+        tensor = torch.ones((10, 10), device='cuda:'+str(0 if UNIGPU else rank))
+        # import pdb; pdb.set_trace()
+        for i in range(1, world_size):
+            dist.send(tensor, dst=i)  # send tensor to all other ranks
+        logging.warning(f'sent tensor {tensor}')
+    else:
+        tensor = torch.zeros((10, 10), device='cuda:'+str(0 if UNIGPU else rank))
+        dist.recv(tensor, src=0)  # every other rank receives tensoor from rank 0
+        logging.warning(f'received tensor {tensor}')
+
+    # method 2 to implement broadcast
+    dist.broadcast(tensor, src=0)
+
+    logging.warning(f'tensor {tensor}')
+
+    # your code ends here - this is followed by teardown code
+    dist.barrier()  # wait for all process to reach this point
+    dist.destroy_process_group()
+
+
+if __name__ == '__main__':
+    args = argparse.Namespace(cluster_id=0, rank=-1, world_size=WORLD_SIZE)
+    if args.rank == -1:
+        # we are the parent process, spawn children
+        for rank in range(args.cluster_id, TOTAL_RANKS, CLUSTER_SIZE):
+            pid = os.fork()
+            if pid == 0:
+                # child process
+                args.rank = rank
+                main(args=args)
+                break
+    # wait for all children to finish
+    if args.rank == -1:
+        os.waitid(os.P_ALL, 0, os.WEXITED)
+```
+
+## Data Parallel Inference
+
+We often have really large datasets and/or models that would take forever to train if you only use one GPU - in cases like this, we like to use multiple GPUs to speed up computation. We will start with implementing the forward pass and calculate the loss using the resnet model you made previously.
+1. After iniitializing the distributed process group, load the model(`resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)`) and the dataset:
+    ```python
+    file_mappings = json.load(open('/dataset/file_mappings_imagenet.json'))
+    logging.warning("Loading Data:")
+
+    imagenet_valset = list((lambda k=k: read_image(f'/dataset/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())
+    imagenet_valset = Subset(imagenet_valset, indices=range(rank, len(imagenet_valset), TOTAL_RANKS))
+    imagenet_valset = [(x(), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
+    imagenet_valset = [(torch.cat([x,x,x],0) if x.shape[0] == 1 else x, y) for x, y in imagenet_valset]
+    transform = torch.jit.script(torch.nn.Sequential(transforms.ConvertImageDtype(torch.float32),transforms.Resize((224, 224)), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])))
+    logging.warning("Transforming Data:")
+    imagenet_valset = [(transform(x), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
+    ```
+1. Create a dataloader with batch size 32 and shuffle set to True
+1. Create lists to store the loss and accuracy. These are the metrics we would like to track.
+1. Create a loop to iterate through the dataloader. For each batch:
+    1. Move the batch to the GPU
+    1. Run the forward pass
+    1. Calculate the loss
+    1. Calculate the accuracy
+    1. Average the loss and accuracy across all GPUs using [`dist.reduce`](https://pytorch.org/docs/stable/distributed.html#torch.distributed.reduce)
+    1. Append the loss and accuracy to the lists
+
+    Finally, print the averaged loss and accuracy on rank 0.
+1. Remember to destroy the process group at the end of the script. You can use `dist.barrier()` to ensure that all processes have reached this point before destroying the process group, and `dist.destroy_process_group()` to destroy the process group.
+1. Run the script with 2 GPUs and compare the results with the single GPU version. You should see that the loss and accuracy are the same, but the time taken is much shorter. To run on two local GPUs, you can use the following command:
+    ```bash
+    screen -d -m ./deploy.sh 0.0.0.0 --world-size 2 --cluster-size 1 --cluster-id 0;
+    ```
+    You can also run this on multiple machines by changing the IP address and cluster id. Make sure to run `screen -r` to see the output of the script:
+    ```bash
+    screen -d -m ./deploy.sh <ip address> --world-size 1 --cluster-size 2 --cluster-id 0;
+    screen -d -m ./deploy.sh <ip address> --world-size 1 --cluster-size 2 --cluster-id 1;
+    ```
+   Running on colab should be easier - simply use run.sh `!bash run.sh resnet_fwd.py --world-size 2 --cluster-size 1 --cluster-id 0` and change the world size and cluster id accordingly.
+  
+You might want to start by copying the setup/teardown template from broadcast.py. Then, follow the instructions above to write a forward pass. Remember to use dist.all_reduce to average loss/accuracy after each minibatch's forward pass before you log it.
+
+```
+import tqdm
+import argparse
+import os
+import logging
+import time
+import random
+import string
+
+import torch.distributed as dist
+
+import torch as t
+import torch
+from torchvision import datasets, transforms, models
+from torch.utils.data import DataLoader, Subset
+import numpy as np
+import json
+from torchvision.io import read_image
+
+
+assert torch.cuda.device_count() > 0  # make sure we have GPUs
+
+
+CLUSTER_SIZE = 1  # the number of seperate compute nodes we have
+WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
+TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
+UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
+
+def main(args):
+    rank = args.rank
+
+    world_size = args.world_size
+    logging.basicConfig(format=f'[rank {args.rank}] %(message)s')
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.warning(f'hello')
+    # you can use a variety of backends - nccl is the fastest but requires you to have a GPU; gloo is slower but also sometimes works on CPUs (see https://pytorch.org/docs/stable/distributed.html#backends)
+    # dist.init_process_group(backend='nccl', init_method=f'file:///tmp/{"".join(random.choice(string.ascii_letters) for _ in range(10))}', world_size=WORLD_SIZE, rank=args.rank)
+    dist.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:12346', world_size=WORLD_SIZE, rank=args.rank)  # this should be a globally accessible IP
+    logging.warning(f'distributed.is_initialized {torch.distributed.is_initialized()}')
+    logging.warning(f'distributed.is_mpi_available {torch.distributed.is_mpi_available()}')
+    logging.warning(f'distributed.is_nccl_available {torch.distributed.is_nccl_available()}')
+    logging.warning(f'distributed.is_gloo_available {torch.distributed.is_gloo_available()}')
+    logging.warning(f'distributed.is_torchelastic_launched {torch.distributed.is_torchelastic_launched()}')
+
+    resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    file_mappings = json.load(open('/home/ubuntu/file_mappings_imagenet.json'))
+    logging.warning("Loading Data:")
+
+    imagenet_valset = list((lambda k=k: read_image(f'/home/ubuntu/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())
+    imagenet_valset = Subset(imagenet_valset, indices=range(rank, len(imagenet_valset), TOTAL_RANKS))
+    imagenet_valset = [(x(), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
+    imagenet_valset = [(torch.cat([x,x,x],0) if x.shape[0] == 1 else x, y) for x, y in imagenet_valset]
+    transform = torch.jit.script(torch.nn.Sequential(transforms.ConvertImageDtype(torch.float32),transforms.Resize((224, 224)), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])))
+    logging.warning("Transforming Data:")
+    imagenet_valset = [(transform(x), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
+
+    time.sleep(1)
+
+    # your code starts here - everything before this is setup code
+    dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=32, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
+    resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
+    losses = []
+    accuracies = []
+
+    with torch.no_grad():
+        for x, y in dataloader:
+            x = x.to(device='cuda:'+str(0 if UNIGPU else rank))
+            y = y.to(device='cuda:'+str(0 if UNIGPU else rank))
+            y_hat = resnet34(x)
+            loss = torch.nn.functional.cross_entropy(y_hat, y)
+            accuracy = (y_hat.argmax(1) == y).float().mean()
+            # logging.warning(f'loss {loss}')
+            dist.reduce(loss, 0, op=dist.ReduceOp.AVG)  # average the loss across all processes
+            dist.reduce(accuracy, 0, op=dist.ReduceOp.AVG)  # average the accuracy across all processes
+            losses.append(loss.item())
+            accuracies.append(accuracy.item())
+
+    if rank == 0:
+        logging.warning(f'average loss {t.tensor(losses).mean()}')
+        logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
+
+    # your code ends here - this is followed by teardown code
+    dist.barrier()  # wait for all process to reach this point
+    dist.destroy_process_group()
+
+
+if __name__ == '__main__':
+    args = argparse.Namespace(cluster_id=0, rank=-1, world_size=WORLD_SIZE)
+    if args.rank == -1:
+        # we are the parent process, spawn children
+        for rank in range(args.cluster_id, TOTAL_RANKS, CLUSTER_SIZE):
+            pid = os.fork()
+            if pid == 0:
+                # child process
+                args.rank = rank
+                main(args=args)
+                break
+    # wait for all children to finish
+    if args.rank == -1:
+        os.waitid(os.P_ALL, 0, os.WEXITED)
+```
+
+## Data Parallel Traninig
+Now that we know how a forward pass through our resnet looks like, we can write a backward pass so that we can train our model faster by sharing the gradient computation across multiple GPUs. This looks a lot like a regular forward pass, so start by writing a training loop that does a forward pass, computes the loss, and then computes the gradient of the loss with respect to the parameters of the model. At this point, we will share the gradients across all GPUs and then update the parameters of the model. After you have calculated the gradients with `loss.backward()`, you can access the gradients of the parameters with `parameter.grad`. use `dist.all_reduce` to average the gradients across all GPUs. You can then update the parameters with `optimizer.step()`.
+
+Optionally, log the loss and accuracy metrics, and see how they improve as you train the model.
+
+If you are training a model from scratch, remember to ensure that all the models have the same weights - this can be done by setting a random seed, or `dist.broadcast()`
 <!-------------------------------------------------->
 
 # Pipeline parallelism
 
-TODO
+## Pipeline parallel inference
 
+Although data parallelism can be used to speed up inference and training in several scenarios, you are still limited by the memory of a single GPU. To work with models that are too large to fit on a single GPU, you have to use pipeline parallelism - splitting the model into several parts, each on a separate GPU. The forward pass is then performed sequentially, with the output of one part being fed into the next part. This allows you to use models that are too large to fit on a single GPU.
+
+Here's a couple of things to consider when using pipeline parallelism:
+- The model has to be split into parts that are roughly equal in size. If one part is much larger than the others, it will become the bottleneck.
+- Sending data between GPUs is expensive. So, you should try to split up your model in places that minimize the amount of data that needs to be sent between GPUs - for transformers, this is probably between each attention block.
+- Ideally, each GPU will get some data, process it, and send it to the next GPU. Avoid a GPU getting data multiple times during a forward pass, as this will cause it to be idle while waiting for data.
+
+The version of pipeline parallelism we are going to implement is fairly basic - split up the model into a bunch of parts depending on the number of GPUs you have (two to start with), and write forward pass that transfers the data between the GPUs whenever required.
+
+1. To start, load the model we will be using for this exercise(`model = AutoModelForCausalLM.from_pretrained("bigscience/bloomz-560m")`) on all ranks. If your model is too large to fit in memory (for example, [bloomz-176b](https://huggingface.co/bigscience/bloomz/tree/main)), you will have to dig around the code to figure out which shard corresponds to what weight and assemble the model manually, but that is out of scope for this exercise.
+1. In each rank, calculate the layers that rank is responsible for. You should also set the other layers to None to be extra sure that they are not used. Looking at [bloom's forward pass](https://github.com/huggingface/transformers/blob/main/src/transformers/models/bloom/modeling_bloom.py#L883) might be belpful - I basically copied the forward function, and added `dist.send` and `dist.recv` calls wherever applicable.
+1. Start the forward pass by sending the input to the first rank. The first rank should then perform the forward pass on its layers, and send the output to the next rank. The next rank should then perform the forward pass on its layers, and send the output to the next rank. Repeat until you reach the last rank, which should return the output to the first rank (which should then return the output to the user).
+
+
+
+Bonus exercises
+- implement key-value caching to reduce the amount of computation that needs to be done in each forward pass. You can also look at the solution for a way of doing this.
+- write a backward pass and train the model!
 <!-------------------------------------------------->
 
 # Bonus
