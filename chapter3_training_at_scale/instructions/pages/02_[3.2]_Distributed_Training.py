@@ -890,6 +890,7 @@ if MAIN:
 <details>
 <summary>Solution</summary>
  
+ 
 ```python 
     dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=32, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
     resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
@@ -1023,6 +1024,8 @@ if __name__ == '__main__':
 
 <details>
 <summary>Solution</summary>
+
+
 ```python
     dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=256, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
     resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
@@ -1062,7 +1065,6 @@ if __name__ == '__main__':
         if rank == 0:
             logging.warning(f'average loss {t.tensor(losses).mean()}')
             logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
- ```
 </details>
 
 """, unsafe_allow_html=True)
@@ -1414,12 +1416,6 @@ if __name__ == '__main__':
         os.waitid(os.P_ALL, 0, os.WEXITED)
 ```
 
-<details>
-<summary>Solution</summary>
-
-```python
-</details>
-
 ## Bonus exercises
 
 - Implement [key-value caching](https://arena-ch1-transformers.streamlit.app/[1.1]_Transformer_from_Scratch#exercise-implement-caching) to reduce the amount of computation that needs to be done in each forward pass. You can also look at the solution for a way of doing this.
@@ -1650,7 +1646,7 @@ Implement gather and all-gather using naive and tree topologies, based on the de
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Basics of distributed programming"),     (section_2, "2️⃣ Data parallelism, DDP"),     (section_3, "3️⃣ Pipeline parallelism"),     (section_4, "3️⃣ Tensor parallelism"),     (section_5, "5️⃣ Bonus"), 
+    (section_0, "🏠 Home"),     (section_1, "1️⃣ Basics of distributed programming"),     (section_2, "2️⃣ Data parallelism, DDP"),     (section_3, "3️⃣ Pipeline parallelism"),     (section_4, "4️⃣ Tensor parallelism"),     (section_5, "5️⃣ Bonus"), 
 ]
 
 func_list = [func for func, page in func_page_list]
