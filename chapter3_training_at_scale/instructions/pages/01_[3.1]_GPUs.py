@@ -222,7 +222,7 @@ with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_sh
 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
 
-Let's look at another way to profile and understand our model, the profile trace. Run the code below to generate a json file containing our trace. You can open this JSON file on any compatible web browser (Chrome or Edge) by going to the `chrome://tracing webpage`. The webpage should have a 'load JSON file' field that you can use to open the JSON file and view the profile trace. The profile trace is an extremely rich description of the model execution and helps us understand which functions are calling which other functions. 
+Let's look at another way to profile and understand our model, the profile trace. Run the code below to generate a json file containing our trace. You can open this JSON file on any compatible web browser (Chrome or Edge) by going to the `chrome://tracing` webpage. The webpage should have a 'load JSON file' field that you can use to open the JSON file and view the profile trace. The profile trace is an extremely rich description of the model execution and helps us understand which functions are calling which other functions. 
 
 
 ```python
