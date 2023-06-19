@@ -28,7 +28,7 @@ Learning objectives:
 
 Learning objectives:
 * Load and divide a dataset across multiple processes/GPUs
-* Perform independant parallel forward passes on different batches of data, and aggregate the results
+* Perform independent parallel forward passes on different batches of data, and aggregate the results
 * Compute gradients and share the means across all GPUs with allreduce
 
 ### 3. Pipeline parallelism
@@ -37,6 +37,12 @@ Learning objectives:
 * Load and divide a model across multiple processes/GPUs
 * Send partial results calculated after a partial forward pass to the next process to continue inference
 * Bonus: divide data into minibatches and minimize gpu idle time
+
+### 4. Tensor parallelism
+
+Learning objectives:
+* Understand how parameter tensors are split across GPUs
+* Understand how bias tensors can be partitioned
 
 ### 4. Bonus
 * Implement a backward pass for a pipeline parallel transformer
@@ -510,7 +516,7 @@ We often have really large datasets and/or models that would take forever to tra
     screen -d -m ./deploy.sh <ip address> --world-size 1 --cluster-size 2 --cluster-id 0;
     screen -d -m ./deploy.sh <ip address> --world-size 1 --cluster-size 2 --cluster-id 1;
     ```
-   Running on colab should be easier - simply use run.sh `!bash run.sh resnet_fwd.py --world-size 2 --cluster-size 1 --cluster-id 0` and change the world size and cluster id accordingly.
+   Running on Colab should be easier - simply use run.sh `!bash run.sh resnet_fwd.py --world-size 2 --cluster-size 1 --cluster-id 0` and change the world size and cluster id accordingly.
   
 You might want to start by copying the setup/teardown template from broadcast.py. Then, follow the instructions above to write a forward pass. Remember to use dist.all_reduce to average loss/accuracy after each minibatch's forward pass before you log it.
 
@@ -647,6 +653,160 @@ Bonus exercises
 - implement key-value caching to reduce the amount of computation that needs to be done in each forward pass. You can also look at the solution for a way of doing this.
 - write a backward pass and train the model!
 <!-------------------------------------------------->
+
+# Tensor parallelism
+
+(This content is from MLAB 2.0 curriculum.)
+
+In tensor parallelism, we divide up individual parameter tensors across GPUs. In some cases like the transformer's embedding weight, this could be necessary because the parameter itself is too large to fit on one GPU.
+
+Once divided, each GPU does as much as possible on its own, and we insert the minimum amount of communication between GPUs needed.
+
+Today, we'll build up a tensor parallel implementation of the GPT architecture and use it to perform inference on 4 GPUs simultaneously. We will need tensor parallel versions of these layers that you've previously implemented:
+
+- Linear
+- Embedding
+- UnidirectionalAttention
+
+To start, we'll test with a simulated multi-GPU setup and then once our code is working, move up to a real machine with multiple GPUs.
+
+
+## Tensor parallel - Linear layer
+
+A `Linear(in_channels, out_channels)` has a weight matrix of shape `(out_channels, in_channels)`, and the forward method computes $y = x {W}^\intercal + b$.
+
+The fact that the weight is transposed is an implementation detail: it means that columns of ${W}^\intercal$ are contiguous in memory which allows faster multiplication.
+
+We will implement two different methods for splitting up the calculation: partitioning either rows or columns of ${W}^\intercal$ across devices. To be specific, for `Linear(3, 4)` the weight multiplication could look like this:
+
+Partition columns, concatenating results to form output:
+$$
+\begin{equation*}
+\begin{gather*}
+\left[
+\begin{array}{ccc}
+x_0 & x_1 & x_2
+\end{array}
+\right]
+\left[
+\begin{array}{cc:cc}
+w_{00} & w_{01} & w_{02} & w_{03} \\
+w_{10} & w_{11} & w_{12} & w_{13} \\
+w_{20} & w_{21} & w_{22} & w_{23} \\
+\end{array}
+\right] \\
+\begin{array}{cc}
+\hspace{7.4em}\text{\scriptsize GPU 0}&\hspace{2.2em} \text{\scriptsize GPU 1}
+\end{array}
+\end{gather*}
+=
+\begin{gather*}
+\left[
+\begin{array}{c}
+\sum_i w_{i0} x_i \\
+\sum_i w_{i1} x_i
+\end{array} \\
+\right] \\
+\left[
+\begin{array}{c}
+\sum_i w_{i0} x_i \\
+\sum_i w_{i1} x_i
+\end{array} \\
+\right]
+\end{gather*}
+
+\begin{array}{c}
+\text{\scriptsize GPU 0} \\ \\
+\text{\scriptsize GPU 1}
+\end{array}
+
+\end{equation*}
+$$
+
+Partition rows, adding elementwise to combine contributions:
+$$
+\begin{equation*}
+\begin{gather*}
+\begin{array}{c}
+\end{array}\\
+
+\left[
+\begin{array}{cc:c}
+x_0 & x_1 & x_2
+\end{array}
+\right] \\
+
+\begin{array}{cc}
+\hspace{1em}\text{\scriptsize GPU 0} & \text{\scriptsize GPU 1}
+\end{array}
+\end{gather*}
+
+\left[
+\begin{array}{cccc}
+w_{00} & w_{01} & w_{02} & w_{03} \\
+w_{10} & w_{11} & w_{12} & w_{13} \\
+\hdashline
+w_{20} & w_{21} & w_{22} & w_{23} \\
+\end{array}
+\right]
+
+\begin{array}{c}
+\\[0.5pt]
+\text{\scriptsize GPU 0} \\[4pt]
+\text{\scriptsize GPU 1}
+\end{array}
+
+=
+\begin{gather*}
+\left[
+\begin{array}{c}
+w_{00} x_0 + w_{10} x_1 \\
+w_{01} x_0 + w_{11} x_1 \\
+w_{02} x_0 + w_{12} x_1 \\
+w_{03} x_0 + w_{13} x_1
+\end{array} \\
+\right] \\
+\text{\scriptsize GPU 0}
+\end{gather*}
++
+\begin{gather*}
+\left[
+\begin{array}{c}
+w_{20} x_2 \\
+w_{21} x_2 \\
+w_{22} x_2 \\
+w_{23} x_2
+\end{array} \\
+\right] \\
+\text{\scriptsize GPU 1}
+\end{gather*}
+\end{equation*}
+$$
+
+In the first scheme, each device needs the full input `x` and is solely responsible for a subset of the output elements. Concatenating all the subsets gives the full output.
+
+In the second scheme, each device can take a partition of `x` and computes partial sums for every output element. Summing all the partial sums gives the full output.
+
+Exercise: 
+
+### Exercise: Tensor parallelism for bias parameter
+
+We have described partitioning the weight parameter above. In each scheme, how would you partition the bias parameter?
+
+* Difficulty: 1/5
+* Importance: 2/5
+
+# SOLUTION
+Solution - Partitioning the Bias
+
+In the first scheme, if we want each rank to have the final output for a subset, then we should partition the bias along the output dimension as well.
+
+In the second scheme, two reasonable ideas are:
+
+- Storing the entire bias on rank 0 and just adding it there before communicating.
+- Partitioning the bias and having each rank add their slice at the appropriate offset
+
+The second way distributes the work evenly, but in practice both the storage for the bias and the computation are negligible.
 
 # Bonus
 
