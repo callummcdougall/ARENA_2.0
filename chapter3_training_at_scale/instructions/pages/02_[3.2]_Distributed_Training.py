@@ -99,6 +99,7 @@ Distributed GPU training is a valuable skill in the modern era of machine learni
 
 
 ```python
+import sys
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import torch
 from torch import distributed as dist
