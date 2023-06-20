@@ -89,6 +89,7 @@ from torchvision import transforms
 from accelerate import Accelerator
 from pathlib import Path
 import time
+from transformers import Trainer, TrainingArguments, AutoModelForImageClassification
 
 from trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, SchedulerConfig, TokenizerConfig, ModelConfig
 from trlx.models.modeling_ppo import PPOConfig
@@ -110,16 +111,31 @@ os.chdir(orig_dir)
 
 ## Huggingface Accelerate
 
-Below is a standard training loop that you've most likely seen before:
+
+Huggingface Accelerate is a high-level library developed by Hugging Face, a leading provider of natural language processing (NLP) tools and models. Accelerate is designed to simplify and optimize the training and inference processes for deep learning models, particularly in the context of NLP tasks.
+
+The primary goal of Huggingface Accelerate is to provide a user-friendly and efficient framework for distributed training. It aims to make it easier for researchers and practitioners to leverage multiple GPUs or even distributed computing setups to train their models faster and more effectively.
+
+Accelerate achieves this by abstracting away the complexities of distributed training, allowing users to focus on model development and experimentation rather than low-level distributed computing details. It provides a simple and consistent interface that works across different deep learning frameworks, such as PyTorch and TensorFlow, and supports various distributed training strategies like data parallelism and model parallelism.
+
+### Exercise - Convert into distributed training loop using Huggingface Accelerate
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 30-40 minutes on this exercise.
+```
+
+Take a look at the Huggingface documentation for [Accelerate](https://huggingface.co/docs/accelerate/basic_tutorials/migration) and apply the recommended changes to turn a vanilla PyTorch loop into an Accelerate loop.
+
+Below is the vanilla PyTroch training loop that you'll be modifying today:
 
 ```python
-def train():
+def train(model, train_dataset, num_epochs=10):
 
     # Set device (GPU or CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Define your model
-    model = torchvision.models.resnet18().to(device)
 
     # Define loss function
     criterion = nn.CrossEntropyLoss()
@@ -164,18 +180,6 @@ def train():
 
     print("Training finished.")
 ```
-
-### Exercise - Convert into distributed training loop using Huggingface Accelerate
-
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
-
-You should spend up to 30-40 minutes on this exercise.
-```
-
-Take a look at the Huggingface documentation for [Accelerate](https://huggingface.co/docs/accelerate/basic_tutorials/migration) and apply the recommended changes to turn a vanilla PyTorch loop into an Accelerate loop.
-
 ```python
 def accelerate_train(model, train_dataset, num_epochs=10):
     pass
@@ -257,45 +261,109 @@ end_time = time.time()
 print(f'Time taken for Accelerate training = {end_time -start_time} seconds')
 ```
 
-We don't use Huggingface Accelerate for speed, we use it for convenience. The difference in the number of lines in our training functions above is quite small but when you move to a distributed setup, the resent_train.py function which contains vanilla distributed tranining code will be many times larger than the Huggingface training loop above.
+### Huggingface Accelerate Pros and Cons
+
+Pros:
+
+1. Simplified Distributed Training: Huggingface Accelerate provides a high-level abstraction for distributed training, making it easier to leverage multiple GPUs or distributed computing setups. It abstracts away the complexities of parallelization and synchronization, allowing researchers and practitioners to focus on model development and experimentation.
+
+2. Framework Agnostic: Accelerate supports multiple deep learning frameworks, including PyTorch and TensorFlow. This flexibility allows users to work with their preferred framework and seamlessly switch between them, depending on their project requirements.
+
+3. Efficient Data Loading: The library includes optimized data loading utilities, such as the DistributedDataLoader, which efficiently distribute and preprocess data across multiple processes or nodes. This feature ensures maximum data throughput during training, enhancing overall training efficiency.
+
+4. Automatic Mixed Precision: Accelerate supports automatic mixed precision training, which takes advantage of GPU capabilities to perform calculations in lower-precision formats. This feature accelerates training without compromising numerical stability, leading to faster training times.
+
+5. Experiment Tracking: Accelerate integrates well with the Hugging Face Trainer API, allowing easy tracking and logging of training metrics. This facilitates experiment management and comparison, making it simpler to analyze and reproduce results.
+
+Cons:
+
+1. Learning Curve: While Accelerate simplifies the process of distributed training, it still requires some understanding of distributed computing concepts. Users who are unfamiliar with distributed training may need to invest time in learning and understanding the library's concepts and usage.
+
+2. Limited to Deep Learning: Huggingface Accelerate is primarily designed for deep learning tasks, particularly in the field of natural language processing. If you are working on non-deep learning tasks or outside the realm of NLP, other libraries or frameworks might be more suitable.
+
+3. Dependency on Hugging Face Ecosystem: Accelerate is closely tied to the Hugging Face ecosystem, which means you may need to use other Hugging Face libraries or tools for certain functionalities or models. If you prefer a more modular approach or want to use different libraries or models, this dependency may limit your flexibility.
+
+4. Performance Trade-offs: While Accelerate offers efficient distributed training, the performance gains might vary depending on the specific hardware and network setup. It's important to carefully evaluate the performance impact of distributed training and assess whether the gains justify the additional complexity.
+
+5. Lack of Customization: While Accelerate provides a convenient and straightforward interface, it may lack certain customization options compared to lower-level frameworks. If you require fine-grained control over distributed training strategies or have unique requirements, you may find the abstraction of Accelerate limiting.
+
 
 ## Microsoft DeepSpeed
 
-DeepSpeed was built with training efficiency in mind and provides a production-ready library experience. The full list of features that come with DeepSpeed can be seen [here](https://www.deepspeed.ai/training/). We also need to move to a production ML folder structure that looks something like this:
+Microsoft DeepSpeed is a library and optimization engine designed to accelerate and scale deep learning training on large-scale models. It focuses on reducing memory consumption and increasing throughput. DeepSpeed implements everything in the [ZeRo](https://arxiv.org/pdf/1910.02054.pdf) paper and is worth a read to understand the specific optimisations implemented in the library. 
+Out of the optimisations bundled in with DeepSpeed the following are the most notable:
 
+1. ZeRO Memory Optimization: DeepSpeed introduces the ZeRO (Zero Redundancy Optimizer) technique, which optimizes memory consumption during training. ZeRO allows training models that are much larger than the GPU memory capacity by partitioning and optimizing memory usage across multiple devices.
+
+2. Activation Checkpointing: DeepSpeed implements activation checkpointing, a technique that trades compute time for memory consumption. It selectively recomputes activations on the fly during backward passes, reducing the memory footprint of large models and enabling the training of larger models on limited memory resources.
+
+3. Offload Optimizations: DeepSpeed leverages mixed-precision training and tensor offloading to reduce compute time and memory utilization. It offloads computation to the CPU or lower-precision hardware, such as tensor cores, to speed up training and conserve GPU memory.
+
+4. Pipeline Parallelism: The library supports pipeline parallelism, a technique for distributing large models across multiple GPUs or devices. It partitions models into stages and parallelizes the computation, enabling training of extremely large models that would otherwise exceed the memory capacity of individual GPUs.
+
+5. Gradient Compression: DeepSpeed incorporates gradient compression algorithms to reduce the communication overhead during distributed training. It uses techniques like gradient accumulation and quantization to compress gradients, enabling efficient gradient exchange and improving scalability for distributed training.
+
+6. Automatic Loss Scaling: DeepSpeed provides automatic loss scaling, a technique that mitigates numerical instability issues associated with training in lower-precision formats. It dynamically adjusts the scaling factor for gradients, ensuring stable training with mixed-precision calculations.
+
+7. Integration with PyTorch Ecosystem: DeepSpeed is designed to seamlessly integrate with the PyTorch ecosystem. It can be easily integrated into existing PyTorch codebases and is compatible with various PyTorch libraries, models, and optimization techniques.
+
+Huggingface Accelerate comes prepackaged with Microsoft DeepSpeed optimisations and the only way to use them in a Jupyter notebook is through the (Huggingface Trainer class)[https://huggingface.co/docs/transformers/main_classes/trainer]. 
+
+### Exercise - Huggingface Trainer class
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-30 minutes on this exercise.
 ```
-- project_folder/
-  - dataset/
-    - train/
-    - validation/
-    - test/
-  - models/
-    - deepspeed/
-      - model.py
-      - model_config.json
-  - scripts/
-    - train.py
-    - evaluate.py
-    - utils.py
-  - checkpoints/
-  - logs/
-  - requirements.txt
+The (Trainer)[https://huggingface.co/docs/transformers/main_classes/trainer#trainer] class has three arguments that are essential to starting any training run which are:
+
+1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted (here)[https://huggingface.co/microsoft/resnet-18]
+2. args - The args is an object of the (TrainingArguments)[https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments] class that will contain all the hyperparameters the Trainer will use for training and/or evaluation.
+3. train_dataset - The train_dataset is a (torch.utils.data.Dataset)[https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#datasets-dataloaders] object
+
+Additionally you might want to add arguments if you want to work with other models especially language transformers:
+
+1. eval_dataset - The dataset to use for evaluation
+2. tokenizer - The tokenizer used to preprocess the data
+
+Things to note:
+
+1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays
+```python
+
+def huggingface_train_with_Trainer():
+ 	## Initialise model and training dataset here
+ 	model = ...
+  	train_dataset = ...
+ 
+ 	training_args = TrainingArguments(...) # fill in hyperparameters similar to previous training runs
+	
+ 	trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset)
+	trainer.train()
 ```
 
-For the purposes of the following exercise we won't be moving to the above folder but will be creating a config file that contains the parameters of the trianing run that we wish to execute. A sample config file looks likes this:
+<details>
+<summary>Solution</summary>
 
+
+```python
+
+def huggingface_train_with_Trainer():	
+	#SOLUTION
+ 	model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
+  	train_dataset = torchvision.datasets.CIFAR100(root='/data/', download=True, train=True, transform=transform_train)
+
+ 	training_args = TrainingArguments(
+  					output_dir='output',
+       					num_train_epochs=10,
+	    				optim=optim.SGD(model.parameters(), lr=0.001), 				
+  					) 
+       
+ 	trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset)
+	trainer.train()
 ```
-{
-  "train_batch_size": 8,
-  "gradient_accumulation_steps": 1,
-  "optimizer": {
-    "type": "Adam",
-    "params": {
-      "lr": 0.00015
-    }
-  },
-}
-```
+</details>
 
 ### Exercise - DeepSpeed training loop
 
