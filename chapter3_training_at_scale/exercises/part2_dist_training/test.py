@@ -130,15 +130,15 @@ class DistWithRank(Dist):
     def get_process_group_ranks(self, *args, **kwargs):
         raise NotImplementedError("groups are not implemented")
 
-    def send(self, tensor, rank, group=None):
+    def send(self, tensor, dst, group=None):
         if group not in (None, torch.distributed.group.WORLD):
             raise NotImplementedError("groups are not implemented")
-        self.write_to(tensor, rank)
+        self.write_to(tensor, dst)
 
-    def recv(self, tensor, rank, group=None):
+    def recv(self, tensor, src, group=None):
         if group not in (None, torch.distributed.group.WORLD):
             raise NotImplementedError("groups are not implemented")
-        self.read_from(tensor, rank)
+        self.read_from(tensor, src)
 
     def broadcast(self, tensor, rank):
         if self.get_rank() == rank:
