@@ -332,8 +332,9 @@ Things to note:
 1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays
 ```python
 
-def huggingface_train_with_Trainer():
+#SOLUTION
 
+def huggingface_train_with_Trainer():
 	## Initialise model and training dataset here
  	model = ...
   	train_dataset = ...
