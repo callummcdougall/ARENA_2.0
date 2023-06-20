@@ -250,11 +250,9 @@ def add_and_subtract():
     print(f'Value: {value}')
 
 
-if MAIN:
-    if __name__ == '__main__':
-        value = 0
-        add_and_subtract()
-
+if __name__ == '__main__':
+    value = 0
+    add_and_subtract()
 ```
 
 ## Collective operations
@@ -300,10 +298,8 @@ def broadcast_naive(tensor: torch.Tensor, src: int):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_broadcast_naive(broadcast_naive)
-
+if __name__ == '__main__':
+    test_broadcast_naive(broadcast_naive)
 ```
 
 <details>
@@ -330,10 +326,8 @@ def broadcast_tree(tensor: torch.Tensor, src: int):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_broadcast_tree(broadcast_tree)
-
+if __name__ == '__main__':
+    test_broadcast_tree(broadcast_tree)
 ```
 
 <details>
@@ -363,9 +357,8 @@ def broadcast_ring(tensor: torch.Tensor, src: int):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_broadcast_ring(broadcast_ring)
+if __name__ == '__main__':
+    test_broadcast_ring(broadcast_ring)
 
 ```
 
@@ -419,9 +412,8 @@ def reduce_naive(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_reduce_naive(reduce_naive)
+if __name__ == '__main__':
+    test_reduce_naive(reduce_naive)
 
 ```
 
@@ -467,9 +459,8 @@ def reduce_tree(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_reduce_tree(reduce_tree)
+if __name__ == '__main__':
+    test_reduce_tree(reduce_tree)
 
 ```
 
@@ -528,9 +519,8 @@ def allreduce_naive(tensor: torch.Tensor, op=ReduceOp.SUM):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_allreduce_naive(allreduce_naive)
+if __name__ == '__main__':
+    test_allreduce_naive(allreduce_naive)
 
 ```
 
@@ -568,9 +558,8 @@ def allreduce_butterfly(tensor: torch.Tensor, op=ReduceOp.SUM):
     pass
 
 
-if MAIN:
-    if __name__ == '__main__':
-        test_allreduce_butterfly(allreduce_butterfly)
+if __name__ == '__main__':
+    test_allreduce_butterfly(allreduce_butterfly)
 
 ```
 
@@ -685,12 +674,10 @@ import torch.distributed as dist
 import torch
 from torchvision import datasets, transforms, models
 
-
-if MAIN:
-    CLUSTER_SIZE = 1  # the number of seperate compute nodes we have
-    WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
-    TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
-    UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
+CLUSTER_SIZE = 1  # the number of seperate compute nodes we have
+WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
+TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
+UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
     
     
 def main(args):
@@ -735,22 +722,20 @@ def main(args):
 
 
 
-if MAIN:
-    if __name__ == '__main__':
-        args = argparse.Namespace(cluster_id=0, rank=-1, world_size=WORLD_SIZE)
-        if args.rank == -1:
-            # we are the parent process, spawn children
-            for rank in range(args.cluster_id, TOTAL_RANKS, CLUSTER_SIZE):
-                pid = os.fork()
-                if pid == 0:
-                    # child process
-                    args.rank = rank
-                    main(args=args)
-                    break
-        # wait for all children to finish
-        if args.rank == -1:
-            os.waitid(os.P_ALL, 0, os.WEXITED)
-
+if __name__ == '__main__':
+    args = argparse.Namespace(cluster_id=0, rank=-1, world_size=WORLD_SIZE)
+    if args.rank == -1:
+        # we are the parent process, spawn children
+        for rank in range(args.cluster_id, TOTAL_RANKS, CLUSTER_SIZE):
+            pid = os.fork()
+            if pid == 0:
+                # child process
+                args.rank = rank
+                main(args=args)
+                break
+    # wait for all children to finish
+    if args.rank == -1:
+        os.waitid(os.P_ALL, 0, os.WEXITED)
 ```
 
 ### Exercise - Data parallel inference
@@ -820,16 +805,12 @@ import numpy as np
 import json
 from torchvision.io import read_image
 
+assert torch.cuda.device_count() > 0  # make sure we have GPUs
 
-
-if MAIN:
-    assert torch.cuda.device_count() > 0  # make sure we have GPUs
-    
-    
-    CLUSTER_SIZE = 1  # the number of separate compute nodes we have
-    WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
-    TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
-    UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
+CLUSTER_SIZE = 1  # the number of separate compute nodes we have
+WORLD_SIZE = 2  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
+TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
+UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
     
 def main(args):
     rank = args.rank
@@ -868,23 +849,20 @@ def main(args):
     dist.destroy_process_group()
 
 
-
-if MAIN:
-    if __name__ == '__main__':
-        args = argparse.Namespace(cluster_id=0, rank=-1, world_size=WORLD_SIZE)
-        if args.rank == -1:
-            # we are the parent process, spawn children
-            for rank in range(args.cluster_id, TOTAL_RANKS, CLUSTER_SIZE):
-                pid = os.fork()
-                if pid == 0:
-                    # child process
-                    args.rank = rank
-                    main(args=args)
-                    break
-        # wait for all children to finish
-        if args.rank == -1:
-            os.waitid(os.P_ALL, 0, os.WEXITED)
-
+if __name__ == '__main__':
+    args = argparse.Namespace(cluster_id=0, rank=-1, world_size=WORLD_SIZE)
+    if args.rank == -1:
+        # we are the parent process, spawn children
+        for rank in range(args.cluster_id, TOTAL_RANKS, CLUSTER_SIZE):
+            pid = os.fork()
+            if pid == 0:
+                # child process
+                args.rank = rank
+                main(args=args)
+                break
+    # wait for all children to finish
+    if args.rank == -1:
+        os.waitid(os.P_ALL, 0, os.WEXITED)
 ```
 
 <details>
