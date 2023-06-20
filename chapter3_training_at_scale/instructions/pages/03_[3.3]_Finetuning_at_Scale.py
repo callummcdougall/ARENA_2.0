@@ -332,10 +332,8 @@ Things to note:
 1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays
 ```python
 
-#SOLUTION
-
 def huggingface_train_with_Trainer():
-	## Initialise model and training dataset here
+ 	## Initialise model and training dataset here
  	model = ...
   	train_dataset = ...
  
@@ -347,10 +345,12 @@ def huggingface_train_with_Trainer():
 
 <details>
 <summary>Solution</summary>
+
+
 ```python
 
-def huggingface_train_with_Trainer():
-
+def huggingface_train_with_Trainer():	
+	#SOLUTION
  	model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
   	train_dataset = torchvision.datasets.CIFAR100(root='/data/', download=True, train=True, transform=transform_train)
 
