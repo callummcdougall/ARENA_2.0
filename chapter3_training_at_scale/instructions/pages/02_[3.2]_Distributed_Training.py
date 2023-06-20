@@ -783,6 +783,8 @@ We often have really large datasets and/or models that would take forever to tra
   
 You might want to start by copying the setup/teardown template from broadcast.py. Then, follow the instructions above to write a forward pass. Remember to use dist.all_reduce to average loss/accuracy after each minibatch's forward pass before you log it.
 
+From this point onwards in this chapter all code will be executed as individual python files. Also they will need to be executed using the <code>run.sh</code> file like so: <code>run.sh <example.py></code>.
+
 ```c
 Difficulty: 🟠🟠🟠🟠⚪
 Importance: 🟠🟠🟠🟠🟠
@@ -906,8 +908,6 @@ Now that we know how a forward pass through our resnet looks like, we can write 
 Optionally, log the loss and accuracy metrics, and see how they improve as you train the model.
 
 If you are training a model from scratch, remember to ensure that all the models have the same weights - this can be done by setting a random seed, or `dist.broadcast()`
-
-From this point onwards in this chapter all code will be executed as individual python files. Also they will need to be executed using the <code>run.sh</code> file like so: <code>run.sh <example.py></code>.
 
 ```c
 Difficulty: 🟠🟠🟠🟠🟠
