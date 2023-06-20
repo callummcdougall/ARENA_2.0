@@ -1489,8 +1489,8 @@ w_{20} & w_{21} & w_{22} & w_{23} \\
 \right] \\
 \left[
 \begin{array}{c}
-\sum_i w_{i0} x_i \\
-\sum_i w_{i1} x_i
+\sum_i w_{i2} x_i \\
+\sum_i w_{i3} x_i
 \end{array} \\
 \right]
 \end{gather*}
