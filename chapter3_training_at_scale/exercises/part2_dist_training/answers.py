@@ -216,3 +216,17 @@ if __name__ == '__main__':
     test_allreduce_butterfly(allreduce_butterfly)
 # %%
 ### 2️⃣ Data parallelism, DDP
+
+import argparse
+import os
+import logging
+import time
+import random
+import string
+import json
+import tqdm
+
+import torch.distributed as dist
+import torch
+from torchvision import datasets, transforms, models
+resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
