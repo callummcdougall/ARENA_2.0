@@ -63,7 +63,7 @@ def logits_to_ave_logit_diff(
     return answer_logit_diff if per_prompt else answer_logit_diff.mean()
 
 
-def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset, per_prompt=False):
+def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], dataset: IOIDataset, per_prompt=False):
     '''
     Returns logit difference between the correct and incorrect answer.
 
@@ -72,8 +72,8 @@ def logits_to_ave_logit_diff_2(logits: Float[Tensor, "batch seq d_vocab"], ioi_d
     
     # Only the final logits are relevant for the answer
     # Get the logits corresponding to the indirect object / subject tokens respectively
-    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
-    s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.s_tokenIDs]
+    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), dataset.word_idx["end"], dataset.io_tokenIDs]
+    s_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), dataset.word_idx["end"], dataset.s_tokenIDs]
     # Find logit difference
     answer_logit_diff = io_logits - s_logits
     return answer_logit_diff if per_prompt else answer_logit_diff.mean()
@@ -167,3 +167,65 @@ def topk_predictions_from_prompt(prompt: str, model: HookedTransformer, top_k: i
     probs = t.softmax(logits, dim=-1)
     top_probs, top_tokens = probs.topk(k=top_k, dim=-1)
     return model.to_str_tokens(top_tokens), top_probs
+
+
+# %%
+
+def get_custom_patch_logits(
+    model: HookedTransformer,
+    orig_dataset: IOIDataset, 
+    new_dataset: IOIDataset,
+    patch_list: List[Tuple[Union[Callable, str], Callable]], # The patching function can receive the patching cache as cache and both datasets
+    patching_metric: Optional[Callable] = None,
+) -> float:
+    
+    def patch_cache_filter(name: str) -> bool:
+        included = []
+        for names_filter, _ in patch_list:
+            if isinstance(names_filter, str):
+                if name is names_filter:
+                    return True
+            elif isinstance(names_filter, Callable):
+                if names_filter(name):
+                    return True
+        return False
+    
+    _, cache_for_patching = model.run_with_cache(
+        new_dataset.toks,
+        names_filter=patch_cache_filter,
+        return_type=None
+    )
+
+    hooks_ready = [(names_filter, partial(hook_fn, cache=cache_for_patching, orig_dataset=orig_dataset, new_dataset=new_dataset))
+             for names_filter, hook_fn in patch_list]
+
+    patched_logits = model.run_with_hooks(
+        orig_dataset.toks,
+        fwd_hooks=hooks_ready
+    )
+
+    if patching_metric is None:
+        patching_metric = partial(logits_to_ave_logit_diff_2, dataset=orig_dataset)
+    return patching_metric(patched_logits)
+
+
+def patch_hook_z(z: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
+                     orig_dataset: IOIDataset, new_dataset: IOIDataset, head_list: List[Tuple[int, int]],
+                     pos: str = 'end', *args, **kwargs) -> Float[Tensor, "batch seq head d_head"]:
+    
+    end_pos_orig, end_pos_cache = orig_dataset.word_idx[pos], new_dataset.word_idx[pos]
+    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+    batch_idx = t.arange(z.shape[0]).to(z.device)
+    
+    z[batch_idx[:, None], end_pos_orig[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], end_pos_cache[:, None], heads_to_patch]
+    return z
+
+def patch_hook_z_all_pos(z: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
+                        orig_dataset: IOIDataset, new_dataset: IOIDataset, head_list: List[Tuple[int, int]],
+                        *args, **kwargs) -> Float[Tensor, "batch seq head d_head"]:
+    
+    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+    batch_idx = t.arange(z.shape[0]).to(z.device)
+    
+    z[:, :, heads_to_patch] = cache[hook.name][:, :, heads_to_patch]
+    return z

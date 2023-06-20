@@ -190,10 +190,11 @@ BABA_EARLY_IOS = [
 ]
 
 ABBA_TEMPLATES = BABA_TEMPLATES[:]
+ABBA_LONG_TEMPLATES = BABA_LONG_TEMPLATES[:]
 ABBA_LATE_IOS = BABA_LATE_IOS[:]
 ABBA_EARLY_IOS = BABA_EARLY_IOS[:]
 
-for TEMPLATES in [ABBA_TEMPLATES, ABBA_LATE_IOS, ABBA_EARLY_IOS]:
+for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_LATE_IOS, ABBA_EARLY_IOS]:
     for i in range(len(TEMPLATES)):
         first_clause = True
         for j in range(1, len(TEMPLATES[i]) - 1):
@@ -492,8 +493,6 @@ def get_end_idxs(toks, tokenizer, name_tok_len=1, prepend_bos=False):
 
 
 
-
-
 def get_idx_dict(ioi_prompts, tokenizer, prepend_bos=False, toks=None):
     (IO_idxs, S1_idxs, S2_idxs,) = get_name_idxs(
         ioi_prompts,
@@ -524,10 +523,10 @@ def get_idx_dict(ioi_prompts, tokenizer, prepend_bos=False, toks=None):
         "punct": punct_idxs,
     }
 
-
-
-
-
+PROMPT_DETAIL = {
+    "ABBA": {'NORMAL': ABBA_TEMPLATES, 'LONG': ABBA_LONG_TEMPLATES},
+    "BABA": {'NORMAL': BABA_TEMPLATES, 'LONG': BABA_LONG_TEMPLATES},
+}
 
 class IOIDataset:
     def __init__(
@@ -544,8 +543,7 @@ class IOIDataset:
         prepend_bos=False,
         manual_word_idx=None,
         has_been_flipped:bool=False,
-        use_long_template:bool=False, # Whether to use the long or short BABA templates
-        toks_len:Optional[int] = None, # If not None, then the length of the toks will be toks_len
+        prompt_detail='NORMAL',
         seed=0,
         device="cuda"
     ):
@@ -570,21 +568,19 @@ class IOIDataset:
         if nb_templates is None:
             nb_templates = len(BABA_TEMPLATES)
 
-
+        abba_templates, baba_templates = PROMPT_DETAIL['ABBA'][prompt_detail], PROMPT_DETAIL['BABA'][prompt_detail]
 
         if prompt_type == "ABBA":
-            self.templates = ABBA_TEMPLATES[:nb_templates].copy()
+            self.templates = abba_templates[:nb_templates].copy()
         elif prompt_type == "BABA":
-            if use_long_template: # TODO: Extend for ABBA
-                self.templates = BABA_LONG_TEMPLATES[:nb_templates].copy()
-            else:
-                self.templates = BABA_TEMPLATES[:nb_templates].copy()
+            self.templates = baba_templates[:nb_templates].copy()
         elif prompt_type == "mixed":
             self.templates = (
-                BABA_TEMPLATES[: nb_templates // 2].copy()
-                + ABBA_TEMPLATES[: nb_templates // 2].copy()
+                baba_templates[: nb_templates // 2].copy()
+                + abba_templates[: nb_templates // 2].copy()
             )
             random.shuffle(self.templates)
+        
         elif prompt_type == "ABC":
             self.templates = ABC_TEMPLATES[:nb_templates].copy()
         elif prompt_type == "BAC":
@@ -651,13 +647,7 @@ class IOIDataset:
             for prompt in self.ioi_prompts
         ]
 
-        if toks_len is not None:
-            texts.append("".join(toks_len*self.tokenizer.decode(1000))) # Adding a string of lenght toks_len full of random tokens
-            toks = t.Tensor(self.tokenizer(texts, padding=True, max_length=toks_len).input_ids).long()
-            self.toks = toks[:-1] # Getting rid of the random string
-
-        else:
-            self.toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
+        self.toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
 
         self.word_idx = get_idx_dict(
             self.ioi_prompts,
