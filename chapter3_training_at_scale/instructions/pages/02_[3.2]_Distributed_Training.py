@@ -194,12 +194,13 @@ These concepts provide the foundation for distributed computing in PyTorch, wher
 
 ## Comparing `nccl` and alternatives
 
-`gloo`: Gloo, developed by Facebook, is a library that is equipped to support both CPU and GPU operations. However, its GPU function significantly trails in speed compared to NVIDIA's NCCL. A key merit of Gloo is its superior error message system, making it useful for debugging before transitioning to NCCL.
+The torch.distributed package in PyTorch supports multiple backends like NCCL (NVIDIA Collective Communications Library) and Gloo to cater to different needs and use-cases in distributed computing. The torch.distributed package (`init_process_group`) can be initialized with one of these backends specified as a parameter, and this backend provides the implementation of data transfer between devices.
 
-`nccl`: On the other hand, NCCL (pronounced 'nickel') is the brainchild of NVIDIA. It is exclusively tailored for NVIDIA GPUs, demonstrating the high level of optimization and specialization for NVIDIA's GPU and products like NVLink and NVSwitch.
+`nccl`: Pronounced 'nickel', this is the brainchild of NVIDIA. It is exclusively tailored for NVIDIA GPUs, demonstrating the high level of optimization and specialization for NVIDIA's GPU and products like NVLink and NVSwitch. This backend is designed and optimized specifically for NVIDIA GPUs, and it provides routines that are fundamental to constructing multi-GPU and multi-node deep learning applications. NCCL provides fast inter-GPU communication and is especially beneficial when using multiple GPUs on a single node or across multiple nodes for deep learning tasks. It handles operations like all-reduce, all-gather, reduce, broadcast, etc., on multi-dimensional tensors very efficiently.
+
+`gloo`: Gloo, developed by Facebook, is a library that is equipped to support both CPU and GPU operations. However, Gloo is not specific to NVIDIA GPUs and is a more general-purpose library for distributed computing, and its GPU function significantly trails in speed compared to NVIDIA's NCCL. A key merit of Gloo is its superior error message system, making it useful for debugging before transitioning to NCCL. It's beneficial for tasks where the NCCL backend might not be applicable or optimal, especially for CPU operations.
 
 `mpi`: Meanwhile, MPI, an abbreviation for Message Passing Interface, is not a specific library but an open standard dating back to the 90s. Unlike Gloo and NCCL, MPI is primarily designed for clusters with thousands of CPUs. It won't be applicable in our present context.
-
 
 ## Race conditions
 
