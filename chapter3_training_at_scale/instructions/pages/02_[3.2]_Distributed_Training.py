@@ -875,27 +875,27 @@ if __name__ == '__main__':
  
 ```python 
     
-        dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=32, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
-    resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
-    losses = []
-    accuracies = []
+dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=32, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
+resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
+losses = []
+accuracies = []
 
-    with torch.no_grad():
-        for x, y in dataloader:
-            x = x.to(device='cuda:'+str(0 if UNIGPU else rank))
-            y = y.to(device='cuda:'+str(0 if UNIGPU else rank))
-            y_hat = resnet34(x)
-            loss = torch.nn.functional.cross_entropy(y_hat, y)
-            accuracy = (y_hat.argmax(1) == y).float().mean()
-            # logging.warning(f'loss {loss}')
-            dist.reduce(loss, 0, op=dist.ReduceOp.AVG)  # average the loss across all processes
-            dist.reduce(accuracy, 0, op=dist.ReduceOp.AVG)  # average the accuracy across all processes
-            losses.append(loss.item())
-            accuracies.append(accuracy.item())
+with torch.no_grad():
+    for x, y in dataloader:
+        x = x.to(device='cuda:'+str(0 if UNIGPU else rank))
+        y = y.to(device='cuda:'+str(0 if UNIGPU else rank))
+        y_hat = resnet34(x)
+        loss = torch.nn.functional.cross_entropy(y_hat, y)
+        accuracy = (y_hat.argmax(1) == y).float().mean()
+        # logging.warning(f'loss {loss}')
+        dist.reduce(loss, 0, op=dist.ReduceOp.AVG)  # average the loss across all processes
+        dist.reduce(accuracy, 0, op=dist.ReduceOp.AVG)  # average the accuracy across all processes
+        losses.append(loss.item())
+        accuracies.append(accuracy.item())
 
-    if rank == 0:
-        logging.warning(f'average loss {t.tensor(losses).mean()}')
-        logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
+if rank == 0:
+    logging.warning(f'average loss {t.tensor(losses).mean()}')
+    logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
  ```
 </details>
 
@@ -1010,44 +1010,44 @@ if __name__ == '__main__':
 
 
 ```python
-    dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=256, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
-    resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
-    resnet34.train()
-    losses = []
-    accuracies = []
+dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=256, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
+resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
+resnet34.train()
+losses = []
+accuracies = []
 
-    optim = torch.optim.Adam(resnet34.parameters(), lr=1e-6)
+optim = torch.optim.Adam(resnet34.parameters(), lr=1e-6)
 
-    for i in range(args.epochs):
-        logging.warning(f'epoch {i}')
-        if rank == 0:
-            dataloader = tqdm.tqdm(dataloader)
-        for x, y in dataloader:
-            resnet34.zero_grad()
-            # optim.zero_grad()  # what's the difference?
+for i in range(args.epochs):
+    logging.warning(f'epoch {i}')
+    if rank == 0:
+        dataloader = tqdm.tqdm(dataloader)
+    for x, y in dataloader:
+        resnet34.zero_grad()
+        # optim.zero_grad()  # what's the difference?
 
-            x = x.to(device='cuda:'+str(0 if UNIGPU else rank))
-            y = y.to(device='cuda:'+str(0 if UNIGPU else rank))
-            y_hat = resnet34(x)
-            loss = torch.nn.functional.cross_entropy(y_hat, y)
+        x = x.to(device='cuda:'+str(0 if UNIGPU else rank))
+        y = y.to(device='cuda:'+str(0 if UNIGPU else rank))
+        y_hat = resnet34(x)
+        loss = torch.nn.functional.cross_entropy(y_hat, y)
 
-            loss.backward()
+        loss.backward()
 
-            for p in resnet34.parameters():
-                dist.all_reduce(p.grad, op=dist.ReduceOp.SUM)  # sum the gradients across all processes
-                p.grad = p.grad / TOTAL_RANKS  # average the gradients across all processes - alternatively, you can tweak the batch size:learning rate ratio to achieve the same effect
+        for p in resnet34.parameters():
+            dist.all_reduce(p.grad, op=dist.ReduceOp.SUM)  # sum the gradients across all processes
+            p.grad = p.grad / TOTAL_RANKS  # average the gradients across all processes - alternatively, you can tweak the batch size:learning rate ratio to achieve the same effect
 
-            optim.step()
+        optim.step()
 
-            accuracy = (y_hat.argmax(1) == y).float().mean()
-            dist.reduce(loss, 0, op=dist.ReduceOp.AVG)  # average the loss across all processes
-            dist.reduce(accuracy, 0, op=dist.ReduceOp.AVG)  # average the accuracy across all processes
-            losses.append(loss.item())
-            accuracies.append(accuracy.item())
+        accuracy = (y_hat.argmax(1) == y).float().mean()
+        dist.reduce(loss, 0, op=dist.ReduceOp.AVG)  # average the loss across all processes
+        dist.reduce(accuracy, 0, op=dist.ReduceOp.AVG)  # average the accuracy across all processes
+        losses.append(loss.item())
+        accuracies.append(accuracy.item())
 
-        if rank == 0:
-            logging.warning(f'average loss {t.tensor(losses).mean()}')
-            logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
+    if rank == 0:
+        logging.warning(f'average loss {t.tensor(losses).mean()}')
+        logging.warning(f'average accuracy {t.tensor(accuracies).mean()}')
 </details>
 
 """, unsafe_allow_html=True)
