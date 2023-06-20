@@ -287,6 +287,7 @@ Cons:
 
 5. Lack of Customization: While Accelerate provides a convenient and straightforward interface, it may lack certain customization options compared to lower-level frameworks. If you require fine-grained control over distributed training strategies or have unique requirements, you may find the abstraction of Accelerate limiting.
 
+
 ## Microsoft DeepSpeed
 
 Microsoft DeepSpeed is a library and optimization engine designed to accelerate and scale deep learning training on large-scale models. It focuses on reducing memory consumption and increasing throughput. DeepSpeed implements everything in the [ZeRo](https://arxiv.org/pdf/1910.02054.pdf) paper and is worth a read to understand the specific optimisations implemented in the library. 
@@ -346,6 +347,7 @@ def huggingface_train_with_Trainer():
 <details>
 <summary>Solution</summary>
 ```python
+
 def huggingface_train_with_Trainer():
 
  	model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
