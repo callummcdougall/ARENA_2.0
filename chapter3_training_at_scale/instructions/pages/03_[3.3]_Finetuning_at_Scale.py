@@ -493,6 +493,7 @@ Config file:
 }
 
 ```
+</details>
 
 ## TRLX
 
