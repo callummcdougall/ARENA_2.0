@@ -213,7 +213,7 @@ To avoid such race conditions, strategies such as locking or synchronization bar
 ### Exercise - Test simulated race conditions on multiple threads
 
 ```c
-Difficulty: 🟠⚪⚪⚪⚪
+Difficulty: 🟠🟠⚪⚪⚪
 Importance: 🟠🟠🟠⚪⚪
 
 You should spend up to 5 minutes on this exercise.
@@ -1571,10 +1571,10 @@ In the second scheme, each device can take a partition of `x` and computes parti
 ### Exercise - Tensor parallelism for bias parameter
 
 ```c
-Difficulty: 🟠⚪⚪⚪⚪
+Difficulty: 🟠🟠⚪⚪⚪
 Importance: 🟠🟠⚪⚪⚪
 
-You should spend up to 3-5 minutes on this exercise.
+You should spend up to 5-10 minutes on this exercise.
 ```
 
 We have described partitioning the weight parameter above. In each scheme, how would you partition the bias parameter?
