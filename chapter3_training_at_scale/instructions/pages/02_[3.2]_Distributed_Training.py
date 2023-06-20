@@ -907,6 +907,8 @@ Optionally, log the loss and accuracy metrics, and see how they improve as you t
 
 If you are training a model from scratch, remember to ensure that all the models have the same weights - this can be done by setting a random seed, or `dist.broadcast()`
 
+From this point onwards in this chapter all code will be executed as individual python files. Also they will need to be executed using the <code>run.sh</code> file like so: <code>run.sh <example.py></code>.
+
 ```c
 Difficulty: 🟠🟠🟠🟠🟠
 Importance: 🟠🟠🟠🟠🟠
