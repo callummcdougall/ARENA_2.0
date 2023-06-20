@@ -1,11 +1,12 @@
-
+import gdown
 import os, sys
 from pathlib import Path
 chapter = r"chapter3_training_at_scale"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
-
+gdown.download("https://drive.google.com/file/d/1QgkqHSPDwQD-Z0K0-4CUhp8fW-X0hWds/view", '/tmp/libnccl.so.2.18.1', quiet=False, fuzzy=True)
+gdown.download("https://drive.google.com/file/d/1tqUv0OktQdarW8hUyHjqNnxDP1JyUdkq/view?usp=sharing", quiet=False. fuzzy=True)
 import streamlit as st
 import st_dependencies
 
