@@ -110,7 +110,25 @@ os.chdir(orig_dir)
 
 ## Huggingface Accelerate
 
-Below is a standard training loop that you've most likely seen before:
+
+Huggingface Accelerate is a high-level library developed by Hugging Face, a leading provider of natural language processing (NLP) tools and models. Accelerate is designed to simplify and optimize the training and inference processes for deep learning models, particularly in the context of NLP tasks.
+
+The primary goal of Huggingface Accelerate is to provide a user-friendly and efficient framework for distributed training. It aims to make it easier for researchers and practitioners to leverage multiple GPUs or even distributed computing setups to train their models faster and more effectively.
+
+Accelerate achieves this by abstracting away the complexities of distributed training, allowing users to focus on model development and experimentation rather than low-level distributed computing details. It provides a simple and consistent interface that works across different deep learning frameworks, such as PyTorch and TensorFlow, and supports various distributed training strategies like data parallelism and model parallelism.
+
+### Exercise - Convert into distributed training loop using Huggingface Accelerate
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 30-40 minutes on this exercise.
+```
+
+Take a look at the Huggingface documentation for [Accelerate](https://huggingface.co/docs/accelerate/basic_tutorials/migration) and apply the recommended changes to turn a vanilla PyTorch loop into an Accelerate loop.
+
+Below is the vanilla PyTroch training loop that you'll be modifying today:
 
 ```python
 def train():
@@ -164,18 +182,6 @@ def train():
 
     print("Training finished.")
 ```
-
-### Exercise - Convert into distributed training loop using Huggingface Accelerate
-
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
-
-You should spend up to 30-40 minutes on this exercise.
-```
-
-Take a look at the Huggingface documentation for [Accelerate](https://huggingface.co/docs/accelerate/basic_tutorials/migration) and apply the recommended changes to turn a vanilla PyTorch loop into an Accelerate loop.
-
 ```python
 def accelerate_train(model, train_dataset, num_epochs=10):
     pass
