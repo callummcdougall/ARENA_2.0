@@ -273,7 +273,7 @@ You can read more about these operations, as well as other popular collective op
 
 ## Implementing collective operations
 
-Here, we will implement broadcast, reduce, and all-reduce using multiple topologies to explore the efficiency of different implementations. The main building blocks of these exercises will be <code>torch.distributed.send()</code> and <code>torch.distributed.receive()</code>, more informations on these can be found [here](https://pytorch.org/docs/stable/distributed.html#point-to-point-communication)
+Here, we will implement broadcast, reduce, and all-reduce using multiple topologies to explore the efficiency of different implementations. The main building blocks of these exercises will be <code>torch.distributed.send()</code> and <code>torch.distributed.recv()</code>, more informations on these can be found [here](https://pytorch.org/docs/stable/distributed.html#point-to-point-communication)
 
 
 ### Exercise - Broadcast
