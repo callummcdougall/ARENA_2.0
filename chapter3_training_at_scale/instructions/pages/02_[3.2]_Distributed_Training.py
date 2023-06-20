@@ -1,12 +1,9 @@
-import gdown
 import os, sys
 from pathlib import Path
 chapter = r"chapter3_training_at_scale"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
-gdown.download("https://drive.google.com/file/d/1QgkqHSPDwQD-Z0K0-4CUhp8fW-X0hWds/view", '/tmp/libnccl.so.2.18.1', quiet=False, fuzzy=True)
-gdown.download("https://drive.google.com/file/d/1tqUv0OktQdarW8hUyHjqNnxDP1JyUdkq/view?usp=sharing", quiet=False, fuzzy=True)
 import streamlit as st
 import st_dependencies
 
@@ -108,6 +105,10 @@ from torch import distributed as dist
 from torch.distributed import ReduceOp
 from typing import List
 from pathlib import Path
+import gdown
+
+gdown.download("https://drive.google.com/file/d/1QgkqHSPDwQD-Z0K0-4CUhp8fW-X0hWds/view", '/tmp/libnccl.so.2.18.1', quiet=False, fuzzy=True)
+gdown.download("https://drive.google.com/file/d/1tqUv0OktQdarW8hUyHjqNnxDP1JyUdkq/view?usp=sharing", quiet=False, fuzzy=True)
 
 # Make sure exercises are in the path
 chapter = r"chapter3_training_at_scale"
@@ -1573,7 +1574,7 @@ In the second scheme, each device can take a partition of `x` and computes parti
 Difficulty: 🟠⚪⚪⚪⚪
 Importance: 🟠🟠⚪⚪⚪
 
-You should spend up to ??? minutes on this exercise.
+You should spend up to 3-5 minutes on this exercise.
 ```
 
 We have described partitioning the weight parameter above. In each scheme, how would you partition the bias parameter?
