@@ -873,6 +873,7 @@ if __name__ == '__main__':
  
  
 ```python 
+    
     dataloader = DataLoader(imagenet_valset, shuffle=True, batch_size=32, num_workers=4, pin_memory=True, pin_memory_device='cuda:'+str(0 if UNIGPU else rank))
     resnet34 = resnet34.to(device='cuda:'+str(0 if UNIGPU else rank))
     losses = []
