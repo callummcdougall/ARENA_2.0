@@ -1092,6 +1092,9 @@ Importance: 🟠🟠🟠🟠
 
 You should spend up to 30-40 minutes on this exercise.
 ```
+<details>
+<summary>Solution</summary>
+
 ```python
 from typing import Optional, Tuple, Union
 
@@ -1393,6 +1396,7 @@ if __name__ == '__main__':
     if args.rank == -1:
         os.waitid(os.P_ALL, 0, os.WEXITED)
 ```
+</details>
 
 ## Bonus exercises
 
