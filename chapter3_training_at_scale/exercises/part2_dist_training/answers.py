@@ -11,7 +11,7 @@ import sys
 
 gdown.download("https://drive.google.com/file/d/1QgkqHSPDwQD-Z0K0-4CUhp8fW-X0hWds/view", '/tmp/libnccl.so.2.18.1', quiet=False, fuzzy=True)
 # gdown.download("https://drive.google.com/file/d/1tqUv0OktQdarW8hUyHjqNnxDP1JyUdkq/view?usp=sharing", quiet=False, fuzzy=True)
-!wget http://192.9.158.9:8000/imagenet_38k.zip
+# !wget http://192.9.158.9:8000/imagenet_38k.zip
 # Make sure exercises are in the path
 chapter = r"chapter3_training_at_scale"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
@@ -215,18 +215,11 @@ def allreduce_butterfly(tensor: torch.Tensor, op=ReduceOp.SUM):
 if __name__ == '__main__':
     test_allreduce_butterfly(allreduce_butterfly)
 # %%
-### 2️⃣ Data parallelism, DDP
-
-import argparse
-import os
-import logging
-import time
-import random
-import string
-import json
-import tqdm
-
-import torch.distributed as dist
-import torch
-from torchvision import datasets, transforms, models
-resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+# import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM
+model = AutoModelForCausalLM.from_pretrained("bigscience/bloomz-560m")
+# %%
+model
+# %%
+model.transformer.h[0]
+# %%
