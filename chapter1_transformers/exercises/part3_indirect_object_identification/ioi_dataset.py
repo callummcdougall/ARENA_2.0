@@ -167,6 +167,25 @@ BABA_LONG_TEMPLATES = [
     "Friends separated at birth [B] and [A] found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
 ]
 
+BABA_EXPANDED_TEMPLATES = [
+"Then in the morning, [B] along with [A] went directly to the [PLACE]. [B] gave a beautiful [OBJECT] to [A]",
+"Then in the morning, [B] along with [A] enjoyed a day full of fun at the [PLACE]. In the end, [B] gave a lovely [OBJECT] to [A]",
+"Then in the morning, [B] in collaboration with [A], were industriously working at the [PLACE]. Subsequently, [B] decided to give a precious [OBJECT] to [A]",
+"Then in the morning, [B] and [A], after contemplating their options, thought about visiting the [PLACE]. [B] expressed his desire to give an interesting [OBJECT] to [A]",
+"Then in the morning, following a lengthy, heated argument between [B] and [A], [B] finally said to [A]",
+"After a rejuvenating long break, [B] with [A] went to the [PLACE]. There, [B] gave a unique [OBJECT] to [A]",
+"When soon afterwards, [B] and [A], much to their surprise, found a [OBJECT] at the [PLACE], [B] instantly decided to give it to [A]",
+"When soon afterwards, [B] and [A] happened upon a [OBJECT] at the [PLACE], [B] made the choice to give the [OBJECT] to [A]",
+"While enjoying their shared time, [B] and [A] were diligently working at the [PLACE]. In that moment, [B] gave a helpful [OBJECT] to [A]",
+"While making the most of their shared time, [B] and [A] were commuting to the [PLACE]. En route, [B] handed over a handy [OBJECT] to [A]",
+"After a hearty lunch in the afternoon, [B] accompanied by [A] went to the [PLACE]. [B] then gave a thoughtful [OBJECT] to [A]",
+"Afterwards, while cherishing their time spent together, [B] and [A] decided to go to the [PLACE]. There, [B] gave a sentimental [OBJECT] to [A]",
+"Then in the morning, after a long, drawn-out argument between [B] and [A]. [B] eventually said to [A]",
+"The famous local [PLACE] that [B] and [A] visited had an intriguing [OBJECT]. [B] ended up giving it to [A]",
+"Long-lost friends, [B] and [A] discovered a hidden [OBJECT] at the [PLACE]. In a moment of kindness, [B] gave it to [A]",
+]
+
+
 BABA_LATE_IOS = [
     "Then, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
     "Then, [B] and [A] had a lot of fun at the [PLACE]. [B] gave a [OBJECT] to [A]",
@@ -191,10 +210,11 @@ BABA_EARLY_IOS = [
 
 ABBA_TEMPLATES = BABA_TEMPLATES[:]
 ABBA_LONG_TEMPLATES = BABA_LONG_TEMPLATES[:]
+ABBA_EXPANDED_TEMPLATES = BABA_EXPANDED_TEMPLATES[:]
 ABBA_LATE_IOS = BABA_LATE_IOS[:]
 ABBA_EARLY_IOS = BABA_EARLY_IOS[:]
 
-for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_LATE_IOS, ABBA_EARLY_IOS]:
+for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_LATE_IOS, ABBA_EARLY_IOS, ABBA_EXPANDED_TEMPLATES]:
     for i in range(len(TEMPLATES)):
         first_clause = True
         for j in range(1, len(TEMPLATES[i]) - 1):
@@ -418,9 +438,15 @@ def get_name_idxs(prompts, tokenizer, idx_types=["IO", "S1", "S2"], prepend_bos=
             toks.index(tokenizer.tokenize(" " + prompt["IO"])[0])
         )
         # Get the first instance of S token
-        name_idx_dict["S1"].append(
-            toks.index(tokenizer.tokenize(" " + prompt["S"])[0])
-        )
+        try:
+            name_idx_dict["S1"].append(
+                toks.index(tokenizer.tokenize(" " + prompt["S"])[0]))
+        except:
+            print(prompt)
+            print(tokenizer.tokenize(" " + prompt["S"]))
+            print(toks)
+            print(" ".join(text_split[:-1]))
+            raise Exception("S1 token not found")
         # Get the last instance of S token
         name_idx_dict["S2"].append(
             len(toks) - toks[::-1].index(tokenizer.tokenize(" " + prompt["S"])[0]) - 1
@@ -524,8 +550,8 @@ def get_idx_dict(ioi_prompts, tokenizer, prepend_bos=False, toks=None):
     }
 
 PROMPT_DETAIL = {
-    "ABBA": {'NORMAL': ABBA_TEMPLATES, 'LONG': ABBA_LONG_TEMPLATES},
-    "BABA": {'NORMAL': BABA_TEMPLATES, 'LONG': BABA_LONG_TEMPLATES},
+    "ABBA": {'NORMAL': ABBA_TEMPLATES, 'LONG': ABBA_LONG_TEMPLATES, 'EXPANDED': ABBA_EXPANDED_TEMPLATES},
+    "BABA": {'NORMAL': BABA_TEMPLATES, 'LONG': BABA_LONG_TEMPLATES, 'EXPANDED': BABA_EXPANDED_TEMPLATES},
 }
 
 class IOIDataset:
@@ -544,6 +570,7 @@ class IOIDataset:
         manual_word_idx=None,
         has_been_flipped:bool=False,
         prompt_detail='NORMAL',
+        toks_len:Optional[int]=None,
         seed=0,
         device="cuda"
     ):
@@ -647,7 +674,12 @@ class IOIDataset:
             for prompt in self.ioi_prompts
         ]
 
-        self.toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
+        toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
+        if toks_len is None:
+            self.toks = toks
+        else:
+            self.toks = t.nn.functional.pad(toks, (0, toks_len - toks.shape[1]), value=tokenizer.eos_token_id)
+
 
         self.word_idx = get_idx_dict(
             self.ioi_prompts,

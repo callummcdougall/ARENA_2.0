@@ -229,3 +229,30 @@ def patch_hook_z_all_pos(z: Float[Tensor, "batch seq head d_head"], hook: HookPo
     
     z[:, :, heads_to_patch] = cache[hook.name][:, :, heads_to_patch]
     return z
+
+
+def visualize_selected_heads(model: HookedTransformer, 
+                             prompts: Union[List[str], Int[Tensor, "batch seq"]],
+                             heads: List[Tuple[int, int]],
+                             idx = 0,
+                             max_seq_len: int = 30
+    ):
+
+    if isinstance(prompts, list):
+        tokens = model.to_tokens(prompts[idx])[:, :max_seq_len]
+    else:
+        tokens = prompts[idx, :max_seq_len]
+    
+    str_tokens = model.to_str_tokens(tokens)
+
+    _, text_cache = model.run_with_cache(tokens,
+                                    names_filter=lambda n: 'pattern' in n)
+
+    selected_attn_patterns = t.stack([text_cache['pattern', layer][:, head][0]
+                                for layer, head in heads])
+
+    display(cv.attention.attention_patterns(
+        attention = selected_attn_patterns,
+        tokens = str_tokens,
+        attention_head_names = [f"{layer}.{head}" for layer, head in heads],
+    ))
