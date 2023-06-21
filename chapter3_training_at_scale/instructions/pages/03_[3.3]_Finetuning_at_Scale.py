@@ -283,6 +283,46 @@ Cons:
 
 5. Lack of Customization: While Accelerate provides a convenient and straightforward interface, it may lack certain customization options compared to lower-level frameworks. If you require fine-grained control over distributed training strategies or have unique requirements, you may find the abstraction of Accelerate limiting.
 
+### Exercise - Huggingface Finetuning
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 30-40 minutes on this exercise.
+```
+
+All of the instructions for this exercise can be found [here](https://huggingface.co/docs/transformers/main/training#train-with-pytorch-trainer), this exercise will also test your aptitude with reading documentation and translating it into working code.
+
+Task: Finetune BERT with the Yelp dataset to output Yelp reviews
+
+Get the dataset from Huggingface hosted [here](https://huggingface.co/datasets/yelp_review_full), we will be using the BERT model hosted [here](https://huggingface.co/bert-base-cased).
+
+<details>
+<summary>Solution</summary>
+
+```python
+model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
+metric = evaluate.load("accuracy")
+
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
+    return metric.compute(predictions=predictions, references=labels)
+
+training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=small_train_dataset,
+    eval_dataset=small_eval_dataset,
+    compute_metrics=compute_metrics,
+)
+trainer.train()
+```
+
+</details>
 
 ## Microsoft DeepSpeed
 
@@ -510,49 +550,6 @@ Config file:
 
 ```
 </details>
-
-### Exercise - Huggingface Finetuning
-
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
-
-You should spend up to 30-40 minutes on this exercise.
-```
-
-All of the instructions for this exercise can be found [here](https://huggingface.co/docs/transformers/main/training#train-with-pytorch-trainer), the previous exercises should have made you familiar with everything that the blogpost talks about.
-
-Task: Finetune BERT with the Yelp dataset to output Yelp reviews
-
-Get the dataset from Huggingface hosted [here](https://huggingface.co/datasets/yelp_review_full), we will be using the BERT model hosted [here](https://huggingface.co/bert-base-cased).
-
-<details>
-<summary>Solution</summary>
-
-```python
-model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
-metric = evaluate.load("accuracy")
-
-def compute_metrics(eval_pred):
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
-
-training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
-
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=small_train_dataset,
-    eval_dataset=small_eval_dataset,
-    compute_metrics=compute_metrics,
-)
-trainer.train()
-```
-
-</details>
-
-
 
 ## TRLX
 
