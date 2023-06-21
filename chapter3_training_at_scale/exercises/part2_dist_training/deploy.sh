@@ -6,7 +6,7 @@ if [ $# -lt 2 ]; then
     exit 1
 fi
 
-scp pipeline_parallel.py ubuntu@$2:~/
+scp dp.py ubuntu@$2:~/
 
 ssh ubuntu@$2 'bash -s' < run-on-server.sh "$1" "${@:3}"
 
