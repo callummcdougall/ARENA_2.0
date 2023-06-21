@@ -282,7 +282,7 @@ This option is recommended if either of the following is true:
 * You have limited access to GPU support
 * You want to avoid the hassle of setting up your own environment
 
-You can see all files in [this Google Drive folder](https://drive.google.com/drive/folders/1N5BbZVh5_pZ3sH1lv4krp-2_wJrB-Ahg?usp=share_link). Also, you can get individual links in the dropdown below.
+You can see all files in [this Google Drive folder](https://drive.google.com/drive/folders/1Ik1O_xhiEv5qXmrfAG7cB9EphYiGrb44?usp=sharing). Also, you can get individual links in the dropdown below.
 
 <details>
 <summary>Click this dropdown for links to each of the colab exercises.</summary>
