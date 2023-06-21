@@ -663,7 +663,7 @@ As N increases, the minibatch size B/N becomes too small to fully utilize the GP
 
 
 
-Here's a template that implements a naive broadcast algorithm - you'll be using the same setup/teardown code everywhere, so it's worth spending some time here trying to understand what is happening - create a new file called broadcast.py, and run it with `run.sh broadcast.py`
+Here's a template that implements a naive broadcast algorithm - you'll be using the same setup/teardown code everywhere, so it's worth spending some time here trying to understand what is happening - create a new file called broadcast.py, and run it with `run-on-server.sh broadcast.py`
 
 
 ```python
@@ -782,6 +782,8 @@ We often have really large datasets and/or models that would take forever to tra
    Running on Colab should be easier - simply use run.sh `!bash run.sh resnet_fwd.py --world-size 2 --cluster-size 1 --cluster-id 0` and change the world size and cluster id accordingly.
   
 You might want to start by copying the setup/teardown template from broadcast.py. Then, follow the instructions above to write a forward pass. Remember to use dist.all_reduce to average loss/accuracy after each minibatch's forward pass before you log it.
+
+From this point onwards in this chapter all code will be executed as individual python files. Also they will need to be executed using the <code>run.sh</code> file like so: <code>run.sh <example.py></code>.
 
 ```c
 Difficulty: 🟠🟠🟠🟠⚪

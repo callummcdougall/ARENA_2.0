@@ -280,28 +280,7 @@ This option is recommended if either of the following is true:
 * You have limited access to GPU support
 * You want to avoid the hassle of setting up your own environment
 
-You can see all files in [this Google Drive folder](https://drive.google.com/drive/folders/1N5BbZVh5_pZ3sH1lv4krp-2_wJrB-Ahg?usp=share_link). Also, you can get individual links in the dropdown below.
-
-<details>
-<summary>Click this dropdown for links to each of the colab exercises.</summary>
-
-<div style='text-align: center'>
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bandit.png" width="160" style="margin-bottom:3px;margin-top:15px">
-
-Intro to RL<br>[**exercises**](https://colab.research.google.com/drive/1H9xSZ1W6U36NsqpzapDeu8RjmMQ9vyyx) | [**solutions**](https://colab.research.google.com/drive/1_KbxLVtugLSFQcGuwHPAMMj-7Lt5w20k)
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/dqn.png" width="160" style="margin-bottom:3px;margin-top:15px">
-
-Deep Q-Learning<br>[**exercises**](https://colab.research.google.com/drive/1SmYxyb3aIqP8VI684jwvE6C7_6seOasz) | [**solutions**](https://colab.research.google.com/drive/1OCifbztO_XAj53y_gSsP_NO5WoCBPlQl)
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/football.jpeg" width="160" style="margin-bottom:3px;margin-top:15px">
-
-Proximal Policy Optimization<br>[**exercises**](https://colab.research.google.com/drive/1USZJy9HCpq8rsAqfD6yYfpAfZvO5YDha) | [**solutions**](https://colab.research.google.com/drive/1f_RBuosHddwQrydZ7-iAnBs6lhkMMMSG)
-</div>
-
-</details>
-
-For each of these sections, you can make a copy of the **exercises** notebooks in your own drive, and fill in the code cells whenever indicated. The solutions will be available in dropdowns next to each of the code cells (or you can look at the **solutions** notebooks, which have all code pre-run and output displayed).
+Colab links are coming soon (will probably be available by some point in the first week of July).
 
 ### Chatbot assistant
 

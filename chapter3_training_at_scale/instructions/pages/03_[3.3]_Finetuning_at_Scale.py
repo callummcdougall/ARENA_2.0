@@ -91,10 +91,6 @@ from pathlib import Path
 import time
 from transformers import Trainer, TrainingArguments, AutoModelForImageClassification
 
-from trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, SchedulerConfig, TokenizerConfig, ModelConfig
-from trlx.models.modeling_ppo import PPOConfig
-from trlx import train
-
 orig_dir = os.getcwd()
 
 chapter = r"chapter3_training_at_scale"
@@ -287,6 +283,71 @@ Cons:
 
 5. Lack of Customization: While Accelerate provides a convenient and straightforward interface, it may lack certain customization options compared to lower-level frameworks. If you require fine-grained control over distributed training strategies or have unique requirements, you may find the abstraction of Accelerate limiting.
 
+### Exercise - Huggingface Finetuning
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 30-40 minutes on this exercise.
+```
+
+All of the instructions for this exercise can be found [here](https://huggingface.co/docs/transformers/main/training#train-with-pytorch-trainer), this exercise will also test your aptitude with reading documentation and translating it into working code.
+
+Task: Finetune BERT with the Yelp dataset to output Yelp reviews
+
+Get the dataset from Huggingface hosted [here](https://huggingface.co/datasets/yelp_review_full), we will be using the BERT model hosted [here](https://huggingface.co/bert-base-cased).
+
+We will also briefly talk about the Huggingface Trainer object:
+
+The (Trainer)[https://huggingface.co/docs/transformers/main_classes/trainer#trainer] class has three arguments that are essential to starting any training run which are:
+
+1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted [here](https://huggingface.co/microsoft/resnet-18)
+2. args - The args is an object of the [TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments) class that will contain all the hyperparameters the Trainer will use for training and/or evaluation.
+3. train_dataset - The train_dataset is a Huggingface dataset object
+
+Additionally you might want to add arguments if you want to work with other models especially language transformers:
+
+1. eval_dataset - The dataset to use for evaluation
+2. tokenizer - The tokenizer used to preprocess the data
+
+Things to note:
+
+1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays nicely with the models in the Transformers library.
+2. We need to use a compute_metrics function that will do the training evaluations for us during the training run
+
+<details>
+<summary>Solution</summary>
+
+```python
+raw_dataset = load_dataset("glue", "mrpc")
+
+tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+
+def tokenize_function(examples):
+  return tokenizer(examples['sentence1'], examples['sentence2'], truncation=True)
+
+tokenized_dataset = raw_dataset.map(tokenize_function, batched=True)
+
+data_collator = DataCollatorWithPadding(tokenizer)
+
+model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
+
+training_args = TrainingArguments('test')
+
+trainer = Trainer(
+                  model,
+                  training_args,
+                  train_dataset = tokenized_datasets['train'],
+                  eval_dataset = tokenized_dataset['validation'],
+                  data_collator = data_collator,
+                  tokenizer = tokenizer
+)
+
+trainer.train()
+```
+
+</details>
 
 ## Microsoft DeepSpeed
 
@@ -316,20 +377,7 @@ Importance: 🟠🟠🟠🟠⚪
 
 You should spend up to 20-30 minutes on this exercise.
 ```
-The (Trainer)[https://huggingface.co/docs/transformers/main_classes/trainer#trainer] class has three arguments that are essential to starting any training run which are:
 
-1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted (here)[https://huggingface.co/microsoft/resnet-18]
-2. args - The args is an object of the (TrainingArguments)[https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments] class that will contain all the hyperparameters the Trainer will use for training and/or evaluation.
-3. train_dataset - The train_dataset is a (torch.utils.data.Dataset)[https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#datasets-dataloaders] object
-
-Additionally you might want to add arguments if you want to work with other models especially language transformers:
-
-1. eval_dataset - The dataset to use for evaluation
-2. tokenizer - The tokenizer used to preprocess the data
-
-Things to note:
-
-1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays
 ```python
 
 def huggingface_train_with_Trainer():
@@ -354,13 +402,32 @@ def huggingface_train_with_Trainer():
  	model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
   	train_dataset = torchvision.datasets.CIFAR100(root='/data/', download=True, train=True, transform=transform_train)
 
- 	training_args = TrainingArguments(
-  					output_dir='output',
-       					num_train_epochs=10,
-	    				optim=optim.SGD(model.parameters(), lr=0.001), 				
-  					) 
+	training_args = TrainingArguments(
+    			output_dir="./results",
+    			num_train_epochs=100,
+    			per_device_train_batch_size=128,
+    			per_device_eval_batch_size=128,
+    			learning_rate=0.1,
+    			weight_decay=1e-4,
+    			logging_dir="./logs",
+    			logging_steps=100,
+    			evaluation_strategy="epoch",
+    			save_strategy="epoch",
+    			save_total_limit=3,
+    			gradient_accumulation_steps=1,
+		)
        
- 	trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset)
+ 	# Define the Trainer
+	trainer = Trainer(
+    		model=model,
+    		args=training_args,
+    		train_dataset=train_dataset,
+    		eval_dataset=test_dataset,
+    		data_collator=None,
+    		compute_metrics=None,
+    		optimizers=(torch.optim.SGD(model.parameters(), lr=training_args.learning_rate, momentum=0.9), None),
+		)
+  
 	trainer.train()
 ```
 </details>
@@ -376,106 +443,124 @@ You should spend up to 30-40 minutes on this exercise.
 
 Create a DeepSpeed training loop which mimics the properties of the earlier training loops.
 
-This will involve creating two new files, the config file and the training script. The training script should look something like this:
+This will involve creating a new file, the config file which we will name config ds_config.json. To create a config file from the jupyter notebook start with:
 
 ```python
-import deepspeed
-import argparse
 
+%%bash
+cat <<'EOT' > ds_config.json
 
-parser = argparse.ArgumentParser(description='My training script.')
-parser.add_argument('--local_rank', type=int, default=-1,
-                    help='local rank passed from distributed launcher')
-# Include DeepSpeed configuration arguments
-parser = deepspeed.add_config_arguments(parser)
-cmd_args = parser.parse_args()
+{
+    "optimizer": {
+        "type": "AdamW",
+        "params": {
+            "lr": "auto",
+            "betas": "auto",
+            "eps": "auto",
+            "weight_decay": "auto"
+        }
+    },
 
-model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
-                                                     model=net,
-                                                     model_parameters=net.parameters())
-
-transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),])
-
-train_dataset = torchvision.datasets.CIFAR100(root='/data/', download=True, train=True, transform=transform_train)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-
-num_epochs = 5
-
-for epoch in num_epochs:
-  
-  epoch_loss = 0
-
-  for step, batch in enumerate(train_loader):
-    #forward() method
-    loss = model_engine(batch)
-    epoch_loss += loss
-
-    #runs backpropagation
-    model_engine.backward(loss)
-
-    #weight update
-    model_engine.step()
-    
-  print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
-
-print('DeepSpeed training finished')
+    "scheduler": {
+        "type": "WarmupLR",
+        "params": {
+            "warmup_min_lr": "auto",
+            "warmup_max_lr": "auto",
+            "warmup_num_steps": "auto"
+        }
+    },
+}
 ```
 
-Make sure your config file looks similar to the previous training runs and add a timing element to the script above to benchmark the training time with the other frameworks. You can try different training optimisations by going [here](https://www.deepspeed.ai/training/) and modifying the config file appropriately.
+Examples of how config files can look like can be found [here](https://huggingface.co/docs/transformers/main_classes/deepspeed#deployment-in-notebooks) and the optimisations available on DeepSpeed can be found [here](https://www.deepspeed.ai/training/#features). 
+Try crafting a config file that works with as many optimisations as possible. The config file in the solutions is just a guide and not the best possible config file.
 
+We also need to make some changes in our previous training loop to incorporate the deepspeed config, your training function should look something like this:
+
+```python
+
+# DeepSpeed requires a distributed environment even when only one process is used.
+# This emulates a launcher in the notebook
+import os
+
+os.environ["MASTER_ADDR"] = "localhost"
+os.environ["MASTER_PORT"] = "9994"  # modify if RuntimeError: Address already in use
+os.environ["RANK"] = "0"
+os.environ["LOCAL_RANK"] = "0"
+os.environ["WORLD_SIZE"] = "1"
+
+# Now proceed as normal, plus pass the deepspeed config file
+training_args = TrainingArguments(..., deepspeed="ds_config_zero3.json")
+trainer = Trainer(...)
+trainer.train()
 ```
+Copy in the arguments from your prior loop into this loop for all other empty spaces.
 
 <details>
 <summary>Solution</summary>
 
-config file:
-
-```
-{
-    "train_batch_size": 64,
-    "gradient_accumulation_steps": 1,
-    "optimizer": {
-        "type": "SGD",
-        "params": {
-            "lr": 0.001
-        }
-    },
-    "zero_optimization": False
-  }
-```
-</details>
-
-### Exercise - Create a deepspeed training loop with training optimisations
-
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
-
-You should spend up to 10-15 minutes on this exercise.
-```?
-
-The config is the best place to add in these training optimisations, refer to the list of available speedups [here](https://www.deepspeed.ai/training/).
-
-An example config for this could look like:
-
+Config file:
 ```python
 {
-  "train_batch_size": 8,
-  "gradient_accumulation_steps": 1,
-  "optimizer": {
-    "type": "Adam",
-    "params": {
-      "lr": 0.00015
-    }
-  },
-  "fp16": {
-    "enabled": true
-  },
-  "zero_optimization": true
-}
-```
+    "fp16": {
+        "enabled": "auto",
+        "loss_scale": 0,
+        "loss_scale_window": 1000,
+        "initial_scale_power": 16,
+        "hysteresis": 2,
+        "min_loss_scale": 1
+    },
 
-Try out different optimisations to see the decrease in training times! It should be as simple as adding arguments in the config file. There might be optimisations that are incompatible, try to think carefully about which optimisations complement each other and which don't.
+    "optimizer": {
+        "type": "AdamW",
+        "params": {
+            "lr": "auto",
+            "betas": "auto",
+            "eps": "auto",
+            "weight_decay": "auto"
+        }
+    },
+
+    "scheduler": {
+        "type": "WarmupLR",
+        "params": {
+            "warmup_min_lr": "auto",
+            "warmup_max_lr": "auto",
+            "warmup_num_steps": "auto"
+        }
+    },
+
+    "zero_optimization": {
+        "stage": 3,
+        "offload_optimizer": {
+            "device": "cpu",
+            "pin_memory": true
+        },
+        "offload_param": {
+            "device": "cpu",
+            "pin_memory": true
+        },
+        "overlap_comm": true,
+        "contiguous_gradients": true,
+        "sub_group_size": 1e9,
+        "reduce_bucket_size": "auto",
+        "stage3_prefetch_bucket_size": "auto",
+        "stage3_param_persistence_threshold": "auto",
+        "stage3_max_live_parameters": 1e9,
+        "stage3_max_reuse_distance": 1e9,
+        "stage3_gather_16bit_weights_on_model_save": true
+    },
+
+    "gradient_accumulation_steps": "auto",
+    "gradient_clipping": "auto",
+    "steps_per_print": 2000,
+    "train_batch_size": "auto",
+    "train_micro_batch_size_per_gpu": "auto",
+    "wall_clock_breakdown": false
+}
+
+```
+</details>
 
 ## TRLX
 
@@ -497,7 +582,24 @@ Importance: 🟠🟠🟠🟠⚪
 You should spend up to 40-50 minutes on this exercise.
 ```
 
-Copy in your training loops from the RLHF sections of the RL chapter and add the magic code in to turn your code into distributed training code which should work simply out of the box.
+Copy in your training loops from the RLHF sections of the RL chapter and add the magic code in to turn your code into distributed training code which should work simply out of the box. There need to be extra setup steps before you use TRLX because it expects you to have different versions of the transformers library than what we've been using today.
+
+Setup:
+
+```python
+In terminal:
+
+git clone https://github.com/atagade/trlx
+cd trlx
+pip install torch==2.0.0 --extra-index-url https://download.pytorch.org/whl/cu116 # for cuda
+pip install -e .
+
+In notebook:
+
+from trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, SchedulerConfig, TokenizerConfig, ModelConfig
+from trlx.models.modeling_ppo import PPOConfig
+from trlx import train
+```
 
 ```python
 # SOLUTION
