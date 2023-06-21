@@ -167,6 +167,7 @@ BABA_LONG_TEMPLATES = [
     "Friends separated at birth [B] and [A] found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
 ]
 
+
 BABA_EXPANDED_TEMPLATES = [
 "Then in the morning, [B] along with [A] went directly to the [PLACE]. [B] gave a beautiful [OBJECT] to [A]",
 "Then in the morning, [B] along with [A] enjoyed a day full of fun at the [PLACE]. In the end, [B] gave a lovely [OBJECT] to [A]",
@@ -185,36 +186,50 @@ BABA_EXPANDED_TEMPLATES = [
 "Long-lost friends, [B] and [A] discovered a hidden [OBJECT] at the [PLACE]. In a moment of kindness, [B] gave it to [A]",
 ]
 
-
-BABA_LATE_IOS = [
-    "Then, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
-    "Then, [B] and [A] had a lot of fun at the [PLACE]. [B] gave a [OBJECT] to [A]",
-    "Then, [B] and [A] were working at the [PLACE]. [B] decided to give a [OBJECT] to [A]",
-    "Then, [B] and [A] were thinking about going to the [PLACE]. [B] wanted to give a [OBJECT] to [A]",
-    "Then, [B] and [A] had a long argument and after that [B] said to [A]",
-    "After the lunch, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
-    "Afterwards, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
-    "Then, [B] and [A] had a long argument. Afterwards [B] said to [A]",
+BABA_COMPLEMENT_TEMPLATES = [
+"Then, [B] and [A] together went to the [PLACE]. There, [B] gave a [OBJECT] to [A]",
+"Then, [B] and [A] spent an enjoyable time at the [PLACE]. There, [B] gave a [OBJECT] to [A]",
+"Then, [B] and [A] were seen working at the [PLACE]. It was there that [B] decided to give a [OBJECT] to [A]",
+"Then, [B] and [A] contemplated going to the [PLACE]. It was then [B] wanted to give a [OBJECT] to [A]",
+"Then, [B] and [A] had a long argument, after which [B] said to [A]",
+"After [B] and [A] visited the [PLACE], it was there that [B] gave a [OBJECT] to [A]",
+"When [B] and [A] got a [OBJECT] at the [PLACE], that was when [B] decided to give it to [A]",
+"When [B] and [A] got a [OBJECT] at the [PLACE], it was then that [B] decided to give the [OBJECT] to [A]",
+"While [B] and [A] were busy working at the [PLACE], it happened that [B] gave a [OBJECT] to [A]",
+"While [B] and [A] were commuting to the [PLACE], it was during this time that [B] gave a [OBJECT] to [A]",
+"After the lunch, [B] and [A] made their way to the [PLACE]. At that moment, [B] gave a [OBJECT] to [A]",
+"Afterwards, [B] and [A] visited the [PLACE]. It was there that [B] gave a [OBJECT] to [A]",
+"Then, [B] and [A] had a long argument. Once they had finished, [B] said to [A]",
+"The [PLACE] [B] and [A] decided to visit had a [OBJECT]. [B] decided to give it to [A]",
+"Friends [B] and [A] discovered a [OBJECT] at the [PLACE]. That's when [B] gave it to [A]",
 ]
 
-BABA_EARLY_IOS = [
-    "Then [B] and [A] went to the [PLACE], and [B] gave a [OBJECT] to [A]",
-    "Then [B] and [A] had a lot of fun at the [PLACE], and [B] gave a [OBJECT] to [A]",
-    "Then [B] and [A] were working at the [PLACE], and [B] decided to give a [OBJECT] to [A]",
-    "Then [B] and [A] were thinking about going to the [PLACE], and [B] wanted to give a [OBJECT] to [A]",
-    "Then [B] and [A] had a long argument, and after that [B] said to [A]",
-    "After the lunch [B] and [A] went to the [PLACE], and [B] gave a [OBJECT] to [A]",
-    "Afterwards [B] and [A] went to the [PLACE], and [B] gave a [OBJECT] to [A]",
-    "Then [B] and [A] had a long argument, and afterwards [B] said to [A]",
+BABA_EXTRA_AND_TEMPLATES = [
+"Then [B] along with [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Then [B] in the company of [A] had a lot of fun at the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Then [B] joined by [A] were working at the [PLACE]. [B] decided to give a [OBJECT] to [A]",
+"Then [B] together with [A] were thinking about going to the [PLACE]. [B] wanted to give a [OBJECT] to [A]",
+"Then [B] in a heated discussion with [A] had a long argument. Afterwards, [B] said to [A]",
+"After [B] accompanied by [A] went to the [PLACE], [B] gave a [OBJECT] to [A]",
+"When [B] along with [A] got a [OBJECT] at the [PLACE], [B] decided to give it to [A]",
+"When [B] joined by [A] got a [OBJECT] at the [PLACE], [B] decided to give the [OBJECT] to [A]",
+"While [B] accompanied by [A] were working at the [PLACE], [B] gave a [OBJECT] to [A]",
+"While [B] in the company of [A] were commuting to the [PLACE], [B] gave a [OBJECT] to [A]",
+"After the lunch [B] along with [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Afterwards [B] accompanied by [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Then [B] after arguing with [A] had a long argument. Afterwards, [B] said to [A]",
+"The [PLACE] that [B] in the company of [A] went to had a [OBJECT]. [B] gave it to [A]",
+"Friends [B] and [A] on an adventurous journey found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
 ]
+
 
 ABBA_TEMPLATES = BABA_TEMPLATES[:]
 ABBA_LONG_TEMPLATES = BABA_LONG_TEMPLATES[:]
 ABBA_EXPANDED_TEMPLATES = BABA_EXPANDED_TEMPLATES[:]
-ABBA_LATE_IOS = BABA_LATE_IOS[:]
-ABBA_EARLY_IOS = BABA_EARLY_IOS[:]
+ABBA_COMPLEMENT_TEMPLATES = BABA_COMPLEMENT_TEMPLATES[:]
+ABBA_EXTRA_AND_TEMPLATES = BABA_EXTRA_AND_TEMPLATES[:]
 
-for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_LATE_IOS, ABBA_EARLY_IOS, ABBA_EXPANDED_TEMPLATES]:
+for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_EXPANDED_TEMPLATES, ABBA_COMPLEMENT_TEMPLATES, ABBA_EXTRA_AND_TEMPLATES]:
     for i in range(len(TEMPLATES)):
         first_clause = True
         for j in range(1, len(TEMPLATES[i]) - 1):
@@ -550,8 +565,12 @@ def get_idx_dict(ioi_prompts, tokenizer, prepend_bos=False, toks=None):
     }
 
 PROMPT_DETAIL = {
-    "ABBA": {'NORMAL': ABBA_TEMPLATES, 'LONG': ABBA_LONG_TEMPLATES, 'EXPANDED': ABBA_EXPANDED_TEMPLATES},
-    "BABA": {'NORMAL': BABA_TEMPLATES, 'LONG': BABA_LONG_TEMPLATES, 'EXPANDED': BABA_EXPANDED_TEMPLATES},
+    "ABBA": {'NORMAL': ABBA_TEMPLATES, 'LONG': ABBA_LONG_TEMPLATES, 
+             'EXPANDED': ABBA_EXPANDED_TEMPLATES, 'COMPLEMENT': ABBA_COMPLEMENT_TEMPLATES,
+             'EXTRA_AND': ABBA_EXTRA_AND_TEMPLATES},
+    "BABA": {'NORMAL': BABA_TEMPLATES, 'LONG': BABA_LONG_TEMPLATES,
+             'EXPANDED': BABA_EXPANDED_TEMPLATES, 'COMPLEMENT': BABA_COMPLEMENT_TEMPLATES,
+             'EXTRA_AND': BABA_EXTRA_AND_TEMPLATES},
 }
 
 class IOIDataset:
@@ -674,6 +693,7 @@ class IOIDataset:
             for prompt in self.ioi_prompts
         ]
 
+        self.toks_len = toks_len
         toks = t.Tensor(self.tokenizer(texts, padding=True).input_ids).long()
         if toks_len is None:
             self.toks = toks
@@ -736,6 +756,7 @@ class IOIDataset:
             prepend_bos=self.prepend_bos,
             manual_word_idx=self.word_idx,
             has_been_flipped=True,
+            toks_len=self.toks_len,
             seed=seed
         )
         return flipped_ioi_dataset
