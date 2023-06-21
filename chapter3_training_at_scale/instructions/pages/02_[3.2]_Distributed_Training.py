@@ -663,7 +663,7 @@ As N increases, the minibatch size B/N becomes too small to fully utilize the GP
 
 
 
-Here's a template that implements a naive broadcast algorithm - you'll be using the same setup/teardown code everywhere, so it's worth spending some time here trying to understand what is happening - create a new file called broadcast.py, and run it with `run.sh broadcast.py`
+Here's a template that implements a naive broadcast algorithm - you'll be using the same setup/teardown code everywhere, so it's worth spending some time here trying to understand what is happening - create a new file called broadcast.py, and run it with `run-on-server.sh broadcast.py`
 
 
 ```python
