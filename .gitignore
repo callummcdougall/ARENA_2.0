@@ -15,3 +15,9 @@ serimats_app
 *othello_world*
 *Grokking
 *04_PPO.py
+chapter3_training_at_scale/exercises/part2_dist_training/val
+chapter3_training_at_scale/exercises/part2_dist_training/home
+chapter3_training_at_scale/exercises/part2_dist_training/file_mappings_imagenet.json
+chapter3_training_at_scale/exercises/part2_dist_training/imagenet_38k.zip
+chapter3_training_at_scale/exercises/part2_dist_training/log.txt
+chapter3_training_at_scale/exercises/part2_dist_training/imagenet_labels.json
