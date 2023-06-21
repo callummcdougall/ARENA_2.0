@@ -91,10 +91,6 @@ from pathlib import Path
 import time
 from transformers import Trainer, TrainingArguments, AutoModelForImageClassification
 
-from trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, SchedulerConfig, TokenizerConfig, ModelConfig
-from trlx.models.modeling_ppo import PPOConfig
-from trlx import train
-
 orig_dir = os.getcwd()
 
 chapter = r"chapter3_training_at_scale"
@@ -515,7 +511,24 @@ Importance: 🟠🟠🟠🟠⚪
 You should spend up to 40-50 minutes on this exercise.
 ```
 
-Copy in your training loops from the RLHF sections of the RL chapter and add the magic code in to turn your code into distributed training code which should work simply out of the box.
+Copy in your training loops from the RLHF sections of the RL chapter and add the magic code in to turn your code into distributed training code which should work simply out of the box. There need to be extra setup steps before you use TRLX because it expects you to have different versions of the transformers library than what we've been using today.
+
+Setup:
+
+```python
+In terminal:
+
+git clone https://github.com/atagade/trlx
+cd trlx
+pip install torch==2.0.0 --extra-index-url https://download.pytorch.org/whl/cu116 # for cuda
+pip install -e .
+
+In notebook:
+
+from trlx.data.default_configs import TRLConfig, TrainConfig, OptimizerConfig, SchedulerConfig, TokenizerConfig, ModelConfig
+from trlx.models.modeling_ppo import PPOConfig
+from trlx import train
+```
 
 ```python
 # SOLUTION
