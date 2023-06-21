@@ -834,7 +834,7 @@ def main(args):
     logging.warning(f'distributed.is_gloo_available {torch.distributed.is_gloo_available()}')
     logging.warning(f'distributed.is_torchelastic_launched {torch.distributed.is_torchelastic_launched()}')
 
-    resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
+    resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1).eval()
     file_mappings = json.load(open('/home/ubuntu/file_mappings_imagenet.json'))
     logging.warning("Loading Data:")
 
