@@ -38,13 +38,13 @@ def main(args):
 
     # your code starts here - everything before this is setup code
     # load model
-    resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1).cuda()
+    resnet34 = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1).to(device='cuda:' + str(0 if UNIGPU else rank))
     file_mappings = json.load(open('./dataset/file_mappings_imagenet.json'))
     logging.warning("Loading Data:")
 
     imagenet_valset = list((lambda k=k: read_image(f'./dataset/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())
     # truncate imagenet_valset to 0.01x its length
-    imagenet_valset = imagenet_valset[:int(len(imagenet_valset) * 0.01)]
+    imagenet_valset = imagenet_valset  #[:int(len(imagenet_valset) * 0.01)]
     imagenet_valset = Subset(imagenet_valset, indices=range(rank, len(imagenet_valset), TOTAL_RANKS))
     imagenet_valset = [(x(), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
     imagenet_valset = [(torch.cat([x,x,x],0) if x.shape[0] == 1 else x, y) for x, y in imagenet_valset]
@@ -55,17 +55,36 @@ def main(args):
     # Make dataloader
     data_loader = DataLoader(imagenet_valset, batch_size=32, shuffle=True)
     logging.warning(f"Created dataloader {data_loader}")
+
+    # Optimizer
+    optimizer = torch.optim.AdamW(resnet34.parameters(), lr=1e-5)
+
+    losses = []
+    accuracies = []
+    # Training loop
     for batch, labels in data_loader:
-        batch = batch.cuda()
-        labels = labels.cuda()
+
+        batch = batch.to(device='cuda:' + str(0 if UNIGPU else rank))
+        labels = labels.to(device='cuda:' + str(0 if UNIGPU else rank))
         logits = resnet34(batch)
         loss = torch.nn.functional.cross_entropy(logits, labels)
+        logging.warning(loss.item())
         accuracy = (logits.argmax(dim=1) == labels).float().mean()
-        if rank == 0:
-            avg_loss = loss.item() / world_size
-            avg_accuracy = accuracy.item() / world_size
-            logging.warning(f"{avg_loss=}, {avg_accuracy=}")
+        loss.backward()
+        dist.reduce(loss, dst=0)
+        dist.reduce(accuracy, dst=0)
+        for p in resnet34.parameters():
+            dist.all_reduce(p.grad)
+            p.grad /= world_size
+        optimizer.step()
 
+        losses.append(loss.item() / world_size)
+        accuracies.append(accuracy.item() / world_size)
+
+    if rank == 0:
+        avg_loss = sum(losses) / len(losses)
+        avg_accuracy = sum(accuracies) / len(accuracies)
+        logging.warning(f"{avg_loss=}, {avg_accuracy=}")
 
 
     # your code ends here - this is followed by teardown code
