@@ -1,5 +1,4 @@
 import collections
-
 import tqdm
 import argparse
 import os
@@ -7,7 +6,6 @@ import logging
 import time
 import random
 import string
-
 import torch.distributed as dist
 import torch.nn as nn
 import torch as t
@@ -17,28 +15,13 @@ from torch.utils.data import DataLoader, Subset
 import numpy as np
 import json
 from torchvision.io import read_image
-
-
 assert torch.cuda.device_count() > 0  # make sure we have GPUs
-
-# parser = argparse.ArgumentParser(description='ARENA distributed training example')
-# parser.add_argument('--cluster-id', type=int, default=0, help='cluster id')
-# parser.add_argument('--cluster-size', type=int, default=2, help='cluster id')
-# parser.add_argument('--rank', type=int, default=-1, help='rank')
-# parser.add_argument('--world-size', type=int, default=1, help='world size')
-# parser.add_argument('--epochs', type=int, default=10, help='number of epochs')
-
-# args = parser.parse_args()
-
-# For backpass, just take every single parameter and backward it.
 
 class args:
     rank = -1
     cluster_size =  1
     world_size = 2
     cluster_id = 0
-
-
 
 CLUSTER_SIZE = args.cluster_size  # the number of seperate compute nodes we have
 WORLD_SIZE = args.world_size  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
