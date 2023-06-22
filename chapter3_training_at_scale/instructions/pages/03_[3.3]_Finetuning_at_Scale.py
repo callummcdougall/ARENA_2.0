@@ -302,7 +302,7 @@ We will also briefly talk about the Huggingface Trainer object:
 
 The (Trainer)[https://huggingface.co/docs/transformers/main_classes/trainer#trainer] class has three arguments that are essential to starting any training run which are:
 
-1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted [here](https://huggingface.co/microsoft/resnet-18)
+1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted [here](https://huggingface.co/bert-base-uncased)
 2. args - The args is an object of the [TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments) class that will contain all the hyperparameters the Trainer will use for training and/or evaluation.
 3. train_dataset - The train_dataset is a Huggingface dataset object
 
