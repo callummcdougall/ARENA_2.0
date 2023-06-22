@@ -32,6 +32,8 @@ def train(model, train_dataset, num_epochs=10):
     # Set device (GPU or CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    model = model.to(device)
+
     # Define loss function
     criterion = nn.CrossEntropyLoss()
 
