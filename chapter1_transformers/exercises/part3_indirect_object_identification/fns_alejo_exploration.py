@@ -171,12 +171,24 @@ def topk_predictions_from_prompt(prompt: str, model: HookedTransformer, top_k: i
 
 # %%
 
+# def patch_hook_v_by_pos_embed(v: Float[Tensor, 'batch seq head d_head'], hook: HookPoint,
+#                               head_list: List[Tuple[int, int]], model: HookedTransformer, *args, **kwargs) -> Float[Tensor, 'batch seq head d_head']:
+#     heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+#     if heads_to_patch:
+#         pos_values = einops.einsum(model.W_pos[:v.shape[1]], model.W_V[hook.layer(), heads_to_patch],
+#                                    'seq d_model, head d_model d_head -> seq head d_head')
+#         v[:, :, heads_to_patch] = pos_values
+#         # v[:, :, heads_to_patch] = 0
+#     return v
+
+
 def get_custom_patch_logits(
     model: HookedTransformer,
     orig_dataset: IOIDataset, 
     new_dataset: IOIDataset,
     patch_list: List[Tuple[Union[Callable, str], Callable]], # The patching function can receive the patching cache as cache and both datasets
     patching_metric: Optional[Callable] = None,
+    patch_from_orig: bool = False,
 ) -> float:
     
     def patch_cache_filter(name: str) -> bool:
@@ -196,8 +208,13 @@ def get_custom_patch_logits(
         return_type=None
     )
 
-    hooks_ready = [(names_filter, partial(hook_fn, cache=cache_for_patching, orig_dataset=orig_dataset, new_dataset=new_dataset))
-             for names_filter, hook_fn in patch_list]
+    if patch_from_orig:
+        _, orig_cache = model.run_with_cache(orig_dataset.toks)
+    else:
+        orig_cache = None
+
+    hook_kwargs = dict(cache=cache_for_patching,orig_dataset=orig_dataset,new_dataset=new_dataset, orig_cache=orig_cache)
+    hooks_ready = [(names_filter, partial(hook_fn, **hook_kwargs)) for names_filter, hook_fn in patch_list]
 
     patched_logits = model.run_with_hooks(
         orig_dataset.toks,
@@ -206,29 +223,32 @@ def get_custom_patch_logits(
 
     if patching_metric is None:
         patching_metric = partial(logits_to_ave_logit_diff_2, dataset=orig_dataset)
-    return patching_metric(patched_logits)
+    return patching_metric(logits=patched_logits)
 
 
-def patch_hook_z(z: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
+def patch_hook_x(x: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
                      orig_dataset: IOIDataset, new_dataset: IOIDataset, head_list: List[Tuple[int, int]],
-                     pos: str = 'end', *args, **kwargs) -> Float[Tensor, "batch seq head d_head"]:
-    
-    end_pos_orig, end_pos_cache = orig_dataset.word_idx[pos], new_dataset.word_idx[pos]
-    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
-    batch_idx = t.arange(z.shape[0]).to(z.device)
-    
-    z[batch_idx[:, None], end_pos_orig[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], end_pos_cache[:, None], heads_to_patch]
-    return z
+                     pos: Union[str, List[str]], *args, **kwargs) -> Float[Tensor, "batch seq head d_head"]:
 
-def patch_hook_z_all_pos(z: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
+    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+    pos = [pos] if isinstance(pos, str) else pos
+
+    for p in pos:
+        end_pos_orig, end_pos_cache = orig_dataset.word_idx[p], new_dataset.word_idx[p]
+        batch_idx = t.arange(x.shape[0]).to(x.device)    
+        x[batch_idx[:, None], end_pos_orig[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], end_pos_cache[:, None], heads_to_patch]
+
+    return x
+
+def patch_hook_x_all_pos(x: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
                         orig_dataset: IOIDataset, new_dataset: IOIDataset, head_list: List[Tuple[int, int]],
                         *args, **kwargs) -> Float[Tensor, "batch seq head d_head"]:
     
     heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
-    batch_idx = t.arange(z.shape[0]).to(z.device)
+    batch_idx = t.arange(x.shape[0]).to(x.device)
     
-    z[:, :, heads_to_patch] = cache[hook.name][:, :, heads_to_patch]
-    return z
+    x[:, :, heads_to_patch] = cache[hook.name][:, :, heads_to_patch]
+    return x
 
 
 def visualize_selected_heads(model: HookedTransformer, 
@@ -256,3 +276,40 @@ def visualize_selected_heads(model: HookedTransformer,
         tokens = str_tokens,
         attention_head_names = [f"{layer}.{head}" for layer, head in heads],
     ))
+
+def freeze_attn_pattern(pattn: Float[Tensor, "batch head seq_q seq_k"], hook: HookPoint, orig_cache: ActivationCache,
+                        head_list: List[Tuple[int, int]], start_layer: int=0, *args, **kwargs
+                        ) -> Float[Tensor, "batch head seq_q seq_k"]:
+    layer = hook.layer()
+    if layer >= start_layer:
+        heads_to_patch = [head for head in range(orig_cache.model.cfg.n_heads) if (layer, head) not in head_list]
+        pattn[:, heads_to_patch] = orig_cache[hook.name][:, heads_to_patch]
+        return pattn
+    
+def collect_activations(activations: Float[Tensor, 'batch ...'], hook: HookPoint,
+                        ctx: Dict, head_list: Optional[List[Tuple[int, int]]] = None, *args, **kwargs):
+    if head_list:
+        layers, heads = zip(*head_list)
+        if hook.layer() in layers:
+            ctx[hook.name] = activations   
+    else:
+        ctx[hook.name] = activations
+
+def attn_to_io(ctx: Dict[str, Float[Tensor, 'batch head seq_q seq_k']],
+               orig_dataset: IOIDataset, head_list: List[Tuple[int, int]],
+               src_pos: str = 'end', dst_pos: str = 'IO', *args, **kwargs) -> float:
+    '''
+    Returns the average attention weight of the end token to the io token.
+    '''
+    src_pos_idx, dst_pos_idx = orig_dataset.word_idx["end"], orig_dataset.word_idx["IO"]
+    batch_idx = t.arange(orig_dataset.toks.shape[0], device=orig_dataset.toks.device)
+    sum_attn_weights, n_weights = 0.0, 0
+    for hook_name, pattn in ctx.items():
+        relevant_heads = [head for layer, head in head_list if hook_name == f'blocks.{layer}.attn.hook_pattern']
+        if relevant_heads:
+            relevant_heads_idx = t.tensor(relevant_heads, device=pattn.device)[:, None]
+            attn_weights = pattn[batch_idx, relevant_heads_idx, src_pos_idx, dst_pos_idx]
+            sum_attn_weights += attn_weights.sum().item()
+            n_weights += attn_weights.numel()
+
+    return sum_attn_weights / n_weights
