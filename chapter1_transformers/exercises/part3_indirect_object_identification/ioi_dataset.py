@@ -167,7 +167,6 @@ BABA_LONG_TEMPLATES = [
     "Friends separated at birth [B] and [A] found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
 ]
 
-
 BABA_EXPANDED_TEMPLATES = [
 "Then in the morning, [B] along with [A] went directly to the [PLACE]. [B] gave a beautiful [OBJECT] to [A]",
 "Then in the morning, [B] along with [A] enjoyed a day full of fun at the [PLACE]. In the end, [B] gave a lovely [OBJECT] to [A]",

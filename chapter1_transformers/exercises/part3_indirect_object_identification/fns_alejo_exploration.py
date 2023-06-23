@@ -234,9 +234,9 @@ def patch_hook_x(x: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cac
     pos = [pos] if isinstance(pos, str) else pos
 
     for p in pos:
-        end_pos_orig, end_pos_cache = orig_dataset.word_idx[p], new_dataset.word_idx[p]
+        pos_orig, pos_cache = orig_dataset.word_idx[p], new_dataset.word_idx[p]
         batch_idx = t.arange(x.shape[0]).to(x.device)    
-        x[batch_idx[:, None], end_pos_orig[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], end_pos_cache[:, None], heads_to_patch]
+        x[batch_idx[:, None], pos_orig[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], pos_cache[:, None], heads_to_patch]
 
     return x
 
@@ -248,6 +248,22 @@ def patch_hook_x_all_pos(x: Float[Tensor, "batch seq head d_head"], hook: HookPo
     batch_idx = t.arange(x.shape[0]).to(x.device)
     
     x[:, :, heads_to_patch] = cache[hook.name][:, :, heads_to_patch]
+    return x
+
+def patch_hook_x_cross_pos(x: Float[Tensor, "batch seq head d_head"], hook: HookPoint, cache: ActivationCache,
+                           orig_dataset: IOIDataset, new_dataset: IOIDataset, head_list: List[Tuple[int, int]],
+                           orig_pos: Union[str, List[str]], new_pos: Union[str, List[str]], *args, **kwargs
+                           ) -> Float[Tensor, "batch seq head d_head"]:
+
+    heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
+    orig_pos = [orig_pos] if isinstance(orig_pos, str) else orig_pos
+    new_pos = [new_pos] if isinstance(new_pos, str) else new_pos
+
+    for orig_p, new_p in zip(orig_pos, new_pos):
+        orig_p_idx, new_p_idx = orig_dataset.word_idx[orig_p], new_dataset.word_idx[new_p]
+        batch_idx = t.arange(x.shape[0]).to(x.device)    
+        x[batch_idx[:, None], orig_p_idx[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], new_p_idx[:, None], heads_to_patch]
+
     return x
 
 
@@ -301,7 +317,7 @@ def attn_to_io(ctx: Dict[str, Float[Tensor, 'batch head seq_q seq_k']],
     '''
     Returns the average attention weight of the end token to the io token.
     '''
-    src_pos_idx, dst_pos_idx = orig_dataset.word_idx["end"], orig_dataset.word_idx["IO"]
+    src_pos_idx, dst_pos_idx = orig_dataset.word_idx[src_pos], orig_dataset.word_idx[dst_pos]
     batch_idx = t.arange(orig_dataset.toks.shape[0], device=orig_dataset.toks.device)
     sum_attn_weights, n_weights = 0.0, 0
     for hook_name, pattn in ctx.items():
