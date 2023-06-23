@@ -44,7 +44,7 @@ def main(args):
     file_mappings = json.load(open('/root/ARENA_2.0/chapter3_training_at_scale/exercises/part2_dist_training/file_mappings_imagenet.json'))
     logging.warning("Loading Data:")
 
-    imagenet_valset = list((lambda k=k: read_image(f'/root/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())
+    imagenet_valset = list((lambda k=k: read_image(f'/root/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())[:10]
     imagenet_valset = Subset(imagenet_valset, indices=range(rank, len(imagenet_valset), TOTAL_RANKS))
     imagenet_valset = [(x(), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
     imagenet_valset = [(torch.cat([x,x,x],0) if x.shape[0] == 1 else x, y) for x, y in imagenet_valset]
