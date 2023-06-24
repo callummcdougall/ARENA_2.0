@@ -181,6 +181,25 @@ def topk_predictions_from_prompt(prompt: str, model: HookedTransformer, top_k: i
 #         # v[:, :, heads_to_patch] = 0
 #     return v
 
+# datasets2: List[Tuple[Tuple, str, IOIDataset]] = [
+#     ((0, 0), "original", orig_dataset),
+#     ((1, 0), "extend S1 vs S2", complement_dataset),
+#     ((2, 0), "extend S1 vs IO", extra_and_dataset),
+#     ((3, 0), 'extend introduction', long_dataset),
+#     ((0, 1), "random token", orig_dataset.gen_flipped_prompts("ABB->CDD, BAB->DCD")),
+#     ((1, 1), "extend S1 vs S2, random token", complement_dataset.gen_flipped_prompts("ABB->CDD, BAB->DCD")),
+#     ((2, 1), "extend S1 vs IO, random token", extra_and_dataset.gen_flipped_prompts("ABB->CDD, BAB->DCD")),
+#     ((3, 1), 'extend introduction, random token', long_dataset.gen_flipped_prompts("ABB->CDD, BAB->DCD")),
+#     ((0, 2), "inverted position", orig_dataset.gen_flipped_prompts("ABB->BAB, BAB->ABB")),
+#     ((1, 2), "extend S1 vs S2, inverted position", complement_dataset.gen_flipped_prompts("ABB->BAB, BAB->ABB")),
+#     ((2, 2), "extend S1 vs IO, inverted position", extra_and_dataset.gen_flipped_prompts("ABB->BAB, BAB->ABB")),
+#     ((3, 2), 'extend introduction, inverted position', long_dataset.gen_flipped_prompts("ABB->BAB, BAB->ABB")),
+#     ((0, 3), "Inverted Tok", orig_dataset.gen_flipped_prompts("ABB->BAA, BAB->ABA")),
+#     ((1, 3), "extend S1 vs S2, Inverted Tok", complement_dataset.gen_flipped_prompts("ABB->BAA, BAB->ABA")),
+#     ((2, 3), "extend S1 vs IO, Inverted Tok", extra_and_dataset.gen_flipped_prompts("ABB->BAA, BAB->ABA")),
+#     ((3, 3), 'extend introduction, Inverted Tok', long_dataset.gen_flipped_prompts("ABB->BAA, BAB->ABA")),
+# ]
+
 
 def get_custom_patch_logits(
     model: HookedTransformer,

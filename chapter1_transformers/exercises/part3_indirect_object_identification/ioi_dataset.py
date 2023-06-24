@@ -221,14 +221,55 @@ BABA_EXTRA_AND_TEMPLATES = [
 "Friends [B] and [A] on an adventurous journey found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
 ]
 
+BABA_NAME_B_PREFIX_TEMPLATES = [
+"Early, [B] had a good night's sleep. Then, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Today, [B] had breakfast. Then, [B] and [A] had a lot of fun at the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Briefly, [B] read the news. Then, [B] and [A] were working at the [PLACE]. [B] decided to give a [OBJECT] to [A]",
+"Quickly, [B] got dressed. Then, [B] and [A] were thinking about going to the [PLACE]. [B] wanted to give a [OBJECT] to [A]",
+"Quietly, [B] checked the mail. Then, [B] and [A] had a long argument, and afterwards [B] said to [A]",
+"Soon, [B] finished a book. After [B] and [A] went to the [PLACE], [B] gave a [OBJECT] to [A]",
+"Suddenly, [B] made a call. When [B] and [A] got a [OBJECT] at the [PLACE], [B] decided to give it to [A]",
+"Earlier, [B] did some exercises. When [B] and [A] got a [OBJECT] at the [PLACE], [B] decided to give the [OBJECT] to [A]",
+"Slowly, [B] took a shower. While [B] and [A] were working at the [PLACE], [B] gave a [OBJECT] to [A]",
+"Later, [B] prepared a meal. While [B] and [A] were commuting to the [PLACE], [B] gave a [OBJECT] to [A]",
+"Excitedly, [B] wrote a letter. After the lunch, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Nervously, [B] watered the plants. Afterwards, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Tiredly, [B] swept the floor. Then, [B] and [A] had a long argument. Afterwards [B] said to [A]",
+"Eagerly, [B] fed the cat. The [PLACE] [B] and [A] went to had a [OBJECT]. [B] gave it to [A]",
+"Happily, [B] set an alarm. Friends [B] and [A] found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
+]
+
+
+BABA_NAME_A_PREFIX_TEMPLATES = [
+"Early, [A] had a good night's sleep. Then, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Today, [A] had breakfast. Then, [B] and [A] had a lot of fun at the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Briefly, [A] read the news. Then, [B] and [A] were working at the [PLACE]. [B] decided to give a [OBJECT] to [A]",
+"Quickly, [A] got dressed. Then, [B] and [A] were thinking about going to the [PLACE]. [B] wanted to give a [OBJECT] to [A]",
+"Quietly, [A] checked the mail. Then, [B] and [A] had a long argument, and afterwards [B] said to [A]",
+"Soon, [A] finished a book. After [B] and [A] went to the [PLACE], [B] gave a [OBJECT] to [A]",
+"Suddenly, [A] made a call. When [B] and [A] got a [OBJECT] at the [PLACE], [B] decided to give it to [A]",
+"Earlier, [A] did some exercises. When [B] and [A] got a [OBJECT] at the [PLACE], [B] decided to give the [OBJECT] to [A]",
+"Slowly, [A] took a shower. While [B] and [A] were working at the [PLACE], [B] gave a [OBJECT] to [A]",
+"Later, [A] prepared a meal. While [B] and [A] were commuting to the [PLACE], [B] gave a [OBJECT] to [A]",
+"Excitedly, [A] wrote a letter. After the lunch, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Nervously, [A] watered the plants. Afterwards, [B] and [A] went to the [PLACE]. [B] gave a [OBJECT] to [A]",
+"Tiredly, [A] swept the floor. Then, [B] and [A] had a long argument. Afterwards [B] said to [A]",
+"Eagerly, [A] fed the cat. The [PLACE] [B] and [A] went to had a [OBJECT]. [B] gave it to [A]",
+"Happily, [A] set an alarm. Friends [B] and [A] found a [OBJECT] at the [PLACE]. [B] gave it to [A]",
+]
+
+
 
 ABBA_TEMPLATES = BABA_TEMPLATES[:]
 ABBA_LONG_TEMPLATES = BABA_LONG_TEMPLATES[:]
 ABBA_EXPANDED_TEMPLATES = BABA_EXPANDED_TEMPLATES[:]
 ABBA_COMPLEMENT_TEMPLATES = BABA_COMPLEMENT_TEMPLATES[:]
 ABBA_EXTRA_AND_TEMPLATES = BABA_EXTRA_AND_TEMPLATES[:]
+ABBA_NAME_B_PREFIX_TEMPLATES = BABA_NAME_B_PREFIX_TEMPLATES[:]
+ABBA_NAME_A_PREFIX_TEMPLATES = BABA_NAME_A_PREFIX_TEMPLATES[:]
 
-for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_EXPANDED_TEMPLATES, ABBA_COMPLEMENT_TEMPLATES, ABBA_EXTRA_AND_TEMPLATES]:
+for TEMPLATES in [ABBA_TEMPLATES, ABBA_LONG_TEMPLATES, ABBA_EXPANDED_TEMPLATES, ABBA_COMPLEMENT_TEMPLATES, 
+                  ABBA_EXTRA_AND_TEMPLATES, ABBA_NAME_B_PREFIX_TEMPLATES, ABBA_NAME_A_PREFIX_TEMPLATES]:
     for i in range(len(TEMPLATES)):
         first_clause = True
         for j in range(1, len(TEMPLATES[i]) - 1):
@@ -566,10 +607,12 @@ def get_idx_dict(ioi_prompts, tokenizer, prepend_bos=False, toks=None):
 PROMPT_DETAIL = {
     "ABBA": {'NORMAL': ABBA_TEMPLATES, 'LONG': ABBA_LONG_TEMPLATES, 
              'EXPANDED': ABBA_EXPANDED_TEMPLATES, 'COMPLEMENT': ABBA_COMPLEMENT_TEMPLATES,
-             'EXTRA_AND': ABBA_EXTRA_AND_TEMPLATES},
+             'EXTRA_AND': ABBA_EXTRA_AND_TEMPLATES, 'NAME_A': ABBA_NAME_A_PREFIX_TEMPLATES,
+             'NAME_B': ABBA_NAME_B_PREFIX_TEMPLATES},
     "BABA": {'NORMAL': BABA_TEMPLATES, 'LONG': BABA_LONG_TEMPLATES,
              'EXPANDED': BABA_EXPANDED_TEMPLATES, 'COMPLEMENT': BABA_COMPLEMENT_TEMPLATES,
-             'EXTRA_AND': BABA_EXTRA_AND_TEMPLATES},
+             'EXTRA_AND': BABA_EXTRA_AND_TEMPLATES, 'NAME_A': BABA_NAME_A_PREFIX_TEMPLATES,
+             'NAME_B': BABA_NAME_B_PREFIX_TEMPLATES},
 }
 
 class IOIDataset:
