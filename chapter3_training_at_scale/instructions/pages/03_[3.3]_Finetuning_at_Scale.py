@@ -298,27 +298,52 @@ Task: Finetune BERT with the Yelp dataset to output Yelp reviews
 
 Get the dataset from Huggingface hosted [here](https://huggingface.co/datasets/yelp_review_full), we will be using the BERT model hosted [here](https://huggingface.co/bert-base-cased).
 
+We will also briefly talk about the Huggingface Trainer object:
+
+The (Trainer)[https://huggingface.co/docs/transformers/main_classes/trainer#trainer] class has three arguments that are essential to starting any training run which are:
+
+1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted [here](https://huggingface.co/bert-base-uncased)
+2. args - The args is an object of the [TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments) class that will contain all the hyperparameters the Trainer will use for training and/or evaluation.
+3. train_dataset - The train_dataset is a Huggingface dataset object
+
+Additionally you might want to add arguments if you want to work with other models especially language transformers:
+
+1. eval_dataset - The dataset to use for evaluation
+2. tokenizer - The tokenizer used to preprocess the data
+
+Things to note:
+
+1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays nicely with the models in the Transformers library.
+2. We need to use a compute_metrics function that will do the training evaluations for us during the training run
+
 <details>
 <summary>Solution</summary>
 
 ```python
-model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
-metric = evaluate.load("accuracy")
+raw_dataset = load_dataset("glue", "mrpc")
 
-def compute_metrics(eval_pred):
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
+tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
-training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
+def tokenize_function(examples):
+  return tokenizer(examples['sentence1'], examples['sentence2'], truncation=True)
+
+tokenized_dataset = raw_dataset.map(tokenize_function, batched=True)
+
+data_collator = DataCollatorWithPadding(tokenizer)
+
+model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2)
+
+training_args = TrainingArguments('test')
 
 trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=small_train_dataset,
-    eval_dataset=small_eval_dataset,
-    compute_metrics=compute_metrics,
+                  model,
+                  training_args,
+                  train_dataset = tokenized_datasets['train'],
+                  eval_dataset = tokenized_dataset['validation'],
+                  data_collator = data_collator,
+                  tokenizer = tokenizer
 )
+
 trainer.train()
 ```
 
@@ -352,21 +377,7 @@ Importance: 🟠🟠🟠🟠⚪
 
 You should spend up to 20-30 minutes on this exercise.
 ```
-The (Trainer)[https://huggingface.co/docs/transformers/main_classes/trainer#trainer] class has three arguments that are essential to starting any training run which are:
 
-1. model - The model that you want to train which could either be a PyTorch model or a pretrained Transformers model. For this exercise we will be using a Transformers model hosted [here](https://huggingface.co/microsoft/resnet-18)
-2. args - The args is an object of the [TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments) class that will contain all the hyperparameters the Trainer will use for training and/or evaluation.
-3. train_dataset - The train_dataset is a Huggingface dataset object
-
-Additionally you might want to add arguments if you want to work with other models especially language transformers:
-
-1. eval_dataset - The dataset to use for evaluation
-2. tokenizer - The tokenizer used to preprocess the data
-
-Things to note:
-
-1. We want to move to a model from Huggingface Transformers and ditch our old torchvision model, this is due to the fact that the Huggingface Trainer plays nicely with the models in the Transformers library.
-2. We haven't defined a loss function, why is this not neccessary? 
 ```python
 
 def huggingface_train_with_Trainer():
@@ -386,38 +397,34 @@ def huggingface_train_with_Trainer():
 
 ```python
 
-def huggingface_train_with_Trainer():	
-	#SOLUTION
- 	model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
-  	train_dataset = torchvision.datasets.CIFAR100(root='/data/', download=True, train=True, transform=transform_train)
-
-	training_args = TrainingArguments(
-    			output_dir="./results",
-    			num_train_epochs=100,
-    			per_device_train_batch_size=128,
-    			per_device_eval_batch_size=128,
-    			learning_rate=0.1,
-    			weight_decay=1e-4,
-    			logging_dir="./logs",
-    			logging_steps=100,
-    			evaluation_strategy="epoch",
-    			save_strategy="epoch",
-    			save_total_limit=3,
-    			gradient_accumulation_steps=1,
-		)
-       
- 	# Define the Trainer
-	trainer = Trainer(
-    		model=model,
-    		args=training_args,
-    		train_dataset=train_dataset,
-    		eval_dataset=test_dataset,
-    		data_collator=None,
-    		compute_metrics=None,
-    		optimizers=(torch.optim.SGD(model.parameters(), lr=training_args.learning_rate, momentum=0.9), None),
-		)
-  
-	trainer.train()
+# DeepSpeed requires a distributed environment even when only one process is used.
+# This emulates a launcher in the notebook
+import os
+os.environ["MASTER_ADDR"] = "localhost"
+os.environ["MASTER_PORT"] = "9994"  # modify if RuntimeError: Address already in use
+os.environ["RANK"] = "0"
+os.environ["LOCAL_RANK"] = "0"
+os.environ["WORLD_SIZE"] = "1"
+model = AutoModelForSequenceClassification.from_pretrained(
+        "bert-base-uncased", num_labels=5
+    )
+training_args = TrainingArguments(
+    output_dir="yelp_ds",
+    do_train=True,
+    num_train_epochs=1,
+    evaluation_strategy="epoch"
+    # fill in hyperparameters similar to previous training runs
+)
+training_args.set_training(learning_rate=1e-5, batch_size=8, weight_decay=0.01)
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=small_train_dataset,
+    eval_dataset=small_eval_dataset,
+    compute_metrics=compute_metrics,
+)
+# Now proceed as normal, plus pass the deepspeed config file
+trainer.train()
 ```
 </details>
 
