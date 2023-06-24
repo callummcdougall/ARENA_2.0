@@ -213,7 +213,7 @@ def get_custom_patch_logits(
     else:
         orig_cache = None
 
-    hook_kwargs = dict(cache=cache_for_patching,orig_dataset=orig_dataset,new_dataset=new_dataset, orig_cache=orig_cache)
+    hook_kwargs = dict(cache=cache_for_patching,orig_dataset=orig_dataset, new_dataset=new_dataset, orig_cache=orig_cache)
     hooks_ready = [(names_filter, partial(hook_fn, **hook_kwargs)) for names_filter, hook_fn in patch_list]
 
     patched_logits = model.run_with_hooks(
@@ -256,13 +256,15 @@ def patch_hook_x_cross_pos(x: Float[Tensor, "batch seq head d_head"], hook: Hook
                            ) -> Float[Tensor, "batch seq head d_head"]:
 
     heads_to_patch = [head for layer, head in head_list if layer == hook.layer()]
-    orig_pos = [orig_pos] if isinstance(orig_pos, str) else orig_pos
-    new_pos = [new_pos] if isinstance(new_pos, str) else new_pos
 
-    for orig_p, new_p in zip(orig_pos, new_pos):
-        orig_p_idx, new_p_idx = orig_dataset.word_idx[orig_p], new_dataset.word_idx[new_p]
+    if heads_to_patch:
+        orig_pos = [orig_pos] if isinstance(orig_pos, str) else orig_pos
+        new_pos = [new_pos] if isinstance(new_pos, str) else new_pos
         batch_idx = t.arange(x.shape[0]).to(x.device)    
-        x[batch_idx[:, None], orig_p_idx[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], new_p_idx[:, None], heads_to_patch]
+
+        for orig_p, new_p in zip(orig_pos, new_pos):
+            orig_p_idx, new_p_idx = orig_dataset.word_idx[orig_p], new_dataset.word_idx[new_p]
+            x[batch_idx[:, None], orig_p_idx[:, None], heads_to_patch] = cache[hook.name][batch_idx[:, None], new_p_idx[:, None], heads_to_patch]
 
     return x
 
