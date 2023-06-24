@@ -24,10 +24,16 @@ import os, sys
 CHAPTER = r"chapter0_fundamentals"
 chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
 sys.path.append(chapter_dir + CHAPTER)
+instructions_dir = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/instructions").resolve()
 
-# from exercises.plotly_utils import hist
+if (instructions_dir / ".streamlit/secrets.toml").exists():
+    openai.api_key = st.secrets["openai_api_key"]
+else:
+    st.error("""Error - no API key found.
 
-openai.api_key = st.secrets["openai_api_key"]
+Either you're on the public page, or you're running it locally but you haven't added the API key yet.
+
+Please follow the instructions on the homepage to run locally & add an API key (you can find this in the left sidebar).""")
 
 SEPARATOR = "\n" + "=" * 30 + "\n"
 
