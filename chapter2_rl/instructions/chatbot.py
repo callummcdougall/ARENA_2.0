@@ -17,6 +17,8 @@ from typing import List, Dict, Union, Callable
 import pickle
 from dataclasses import dataclass
 import time
+import platform
+is_local = (platform.processor() != "")
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
 # Get to chapter2_rl directory (or whatever the chapter dir is)
@@ -28,10 +30,10 @@ instructions_dir = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/instructions
 
 if (instructions_dir / ".streamlit/secrets.toml").exists():
     openai.api_key = st.secrets["openai_api_key"]
-else:
+elif is_local:
     st.error("""Error - no API key found.
 
-Either you're on the public page, or you're running it locally but you haven't added the API key yet.
+We detect you are running the page locally, but haven't added the API key yet.
 
 Please follow the instructions on the homepage to run locally & add an API key (you can find this in the left sidebar).""")
 
