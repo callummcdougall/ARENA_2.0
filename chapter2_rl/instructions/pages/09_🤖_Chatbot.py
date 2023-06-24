@@ -6,6 +6,7 @@ import pickle
 import sys
 import platform
 from pathlib import Path
+import openai
 import st_dependencies
 st.set_page_config(layout="wide", page_icon="🔬")
 
@@ -38,6 +39,9 @@ if "my_embeddings" not in st.session_state:
         st.session_state["my_embeddings"] = pickle.load(f)
 if "history" not in st.session_state:
     st.session_state["history"] = []
+
+if not is_local:
+    st.info("Note - to have access to the GPT-4 chatbot, you need to run this page locally and enter your own API key. See the instructions in 'Home' for more details.")
 
 # %%
 
@@ -84,7 +88,7 @@ with st.sidebar:
 
     model = st.radio(
         "Model",
-        options = ["gpt-4", "gpt-3.5-turbo", "text-davinci-003"],
+        options = ["gpt-4", "gpt-3.5-turbo", "text-davinci-003"] if is_local else ["gpt-3.5-turbo", "text-davinci-003"],
         index = 1
     )
 
@@ -141,17 +145,24 @@ if question and (not st.session_state["suppress_output"]):
         if len(my_embeddings) == 0:
             st.error("Warning - your filters are excluding all content from the chatbot's context window.")
             # st.stop()
-        response = answer_question(
-            my_embeddings=my_embeddings, 
-            question=question, 
-            prompt_template="SIMPLE", # "SOURCES", "COMPLEX"
-            model=model,
-            debug=False,
-            temperature=temp,
-            container=response_container,
-            max_len=1500, # max content length
-            max_tokens=1500,
-        )
+        try:
+            response = answer_question(
+                my_embeddings=my_embeddings, 
+                question=question, 
+                prompt_template="SIMPLE", # "SOURCES", "COMPLEX"
+                model=model,
+                debug=False,
+                temperature=temp,
+                container=response_container,
+                max_len=1500, # max content length
+                max_tokens=1500,
+            )
+        except openai.error.AuthenticationError:
+            st.error("""Error - no API key found.
+
+Either you're on the public page, or you're running it locally but you haven't added the API key yet.
+
+Please follow the instructions on the homepage to run locally & add an API key (you can find this in the left sidebar).""")
 else:
     st.session_state["suppress_output"] = False
 
