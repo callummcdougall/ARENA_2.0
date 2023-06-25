@@ -809,6 +809,11 @@ class IOIDataset:
         # Get flipped prompts
         flipped_prompts = gen_flipped_prompts(self.ioi_prompts, self.templates_by_prompt, flip, NAMES, seed)
 
+        flip_elements = set(flip)
+        exempted_elements = {'A', 'B', ' ', ',', '-', '>'}
+        flip_elements.difference_update(exempted_elements)
+        word_idx = self.word_idx if flip_elements else None
+
         flipped_ioi_dataset = IOIDataset(
             prompt_type=self.prompt_type,
             N=self.N,
@@ -816,7 +821,7 @@ class IOIDataset:
             prompts=flipped_prompts,
             prefixes=self.prefixes,
             prepend_bos=self.prepend_bos,
-            # manual_word_idx=self.word_idx,
+            manual_word_idx=word_idx,
             has_been_flipped=True,
             toks_len=self.toks_len,
             seed=seed
