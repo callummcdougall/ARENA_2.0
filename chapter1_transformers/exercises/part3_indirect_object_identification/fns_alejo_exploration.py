@@ -292,7 +292,7 @@ def visualize_selected_heads(model: HookedTransformer,
                              prompts: Union[List[str], Int[Tensor, "batch seq"]],
                              heads: List[Tuple[int, int]],
                              idx = 0,
-                             max_seq_len: int = 30
+                             max_seq_len: int = 50
     ):
 
     if isinstance(prompts, list):
@@ -313,6 +313,32 @@ def visualize_selected_heads(model: HookedTransformer,
         tokens = str_tokens,
         attention_head_names = [f"{layer}.{head}" for layer, head in heads],
     ))
+
+
+
+def visualize_selected_head(model: HookedTransformer, 
+                             prompts: Union[List[str], Int[Tensor, "batch seq"]],
+                             head: Tuple[int, int],
+                             idx = 0,
+                             max_seq_len: int = 50
+    ):
+
+    if isinstance(prompts, list):
+        tokens = model.to_tokens(prompts[idx])[:, :max_seq_len]
+    else:
+        tokens = prompts[idx, :max_seq_len]
+    
+    str_tokens = model.to_str_tokens(tokens)
+
+    _, text_cache = model.run_with_cache(tokens, names_filter=lambda n: 'pattern' in n)
+
+    selected_attn_pattern = text_cache['pattern', head[0]][:, head[1]][0]
+
+    display(cv.attention.attention_pattern(
+        attention = selected_attn_pattern,
+        tokens = str_tokens,
+    ))
+
 
 def freeze_attn_pattern(pattn: Float[Tensor, "batch head seq_q seq_k"], hook: HookPoint, orig_cache: ActivationCache,
                         head_list: List[Tuple[int, int]], start_layer: int=0, *args, **kwargs
