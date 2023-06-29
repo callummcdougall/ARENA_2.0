@@ -114,6 +114,7 @@ def test_calc_clipped_surrogate_objective(calc_clipped_surrogate_objective):
     mb_action = t.randint(0, num_actions, (minibatch,))
     mb_advantages = t.randn((minibatch,))
     mb_logprobs = t.randn((minibatch,))
+    mb_logprobs[mb_logprobs > 0] = mb_logprobs[mb_logprobs > 0] * -1 # all logprobs should be negative
     clip_coef = 0.01
     expected = solutions.calc_clipped_surrogate_objective(probs, mb_action, mb_advantages, mb_logprobs, clip_coef)
     actual = calc_clipped_surrogate_objective(probs, mb_action, mb_advantages, mb_logprobs, clip_coef)
