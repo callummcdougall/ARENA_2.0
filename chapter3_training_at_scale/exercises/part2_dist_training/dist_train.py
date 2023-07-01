@@ -58,7 +58,7 @@ def main(args):
     file_mappings = json.load(open('/root/ARENA_2.0/chapter3_training_at_scale/exercises/part2_dist_training/file_mappings_imagenet.json'))
     logging.warning("Loading Data:")
 
-    imagenet_valset = list((lambda k=k: read_image(f'/root/ARENA_2.0/chapter3_training_at_scale/exercises/part2_dist_training/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())
+    imagenet_valset = list((lambda k=k: read_image(f'/root/ARENA_2.0/chapter3_training_at_scale/exercises/part2_dist_training/val/{k}.JPEG'), int(v)) for k, v in list(file_mappings.items())[:100])
     imagenet_valset = Subset(imagenet_valset, indices=range(rank, len(imagenet_valset), TOTAL_RANKS))
     imagenet_valset = [(x(), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
     imagenet_valset = [(torch.cat([x,x,x],0) if x.shape[0] == 1 else x, y) for x, y in imagenet_valset]
@@ -68,21 +68,21 @@ def main(args):
 
     time.sleep(1)
 
-    # # your code starts here - everything before this is setup code
-    # dataloader = DataLoader(imagenet_valset, batch_size=32, shuffle=True)
-    # optimizer = torch.optim.Adam(resnet34.parameters(), lr=1e-3)
-    # for x, y in tqdm.tqdm(dataloader, desc=f'[rank {rank}]'):
-    #     x = x.cuda()
-    #     y = y.cuda()
-    #     with torch.no_grad():
-    #         logits = resnet34(x)
-    #         loss = torch.nn.functional.cross_entropy(logits, y)
-    #         loss.backward()
-    #         for param in resnet34.parameters():
-    #             dist.all_reduce(param.grad, op=dist.ReduceOp.SUM)
-    #             param.grad /= WORLD_SIZE
-    #         optimizer.step()
-    #         optimizer.zero_grad()
+    # your code starts here - everything before this is setup code
+    dataloader = DataLoader(imagenet_valset, batch_size=32, shuffle=True)
+    optimizer = torch.optim.Adam(resnet34.parameters(), lr=1e-3)
+    for x, y in tqdm.tqdm(dataloader, desc=f'[rank {rank}]'):
+        x = x.cuda()
+        y = y.cuda()
+        with torch.no_grad():
+            logits = resnet34(x)
+            loss = torch.nn.functional.cross_entropy(logits, y)
+            loss.backward()
+            for param in resnet34.parameters():
+                dist.all_reduce(param.grad, op=dist.ReduceOp.SUM)
+                param.grad /= WORLD_SIZE
+            optimizer.step()
+            optimizer.zero_grad()
             
     
 

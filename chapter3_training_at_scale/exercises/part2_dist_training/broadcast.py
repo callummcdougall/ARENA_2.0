@@ -1,4 +1,3 @@
-#%%
 import argparse
 import os
 import logging
@@ -72,4 +71,3 @@ if __name__ == '__main__':
     # wait for all children to finish
     if args.rank == -1:
         os.waitid(os.P_ALL, 0, os.WEXITED)
-# %%
