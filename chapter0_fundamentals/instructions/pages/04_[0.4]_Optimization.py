@@ -1584,6 +1584,15 @@ Which method you choose is down to personal preference.
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
 
 def train():
+    # Your code here: defing `args`, override their values with `wandb.config`, then run your pl.Trainer
+    pass
+```
+
+<details>
+<summary>Solution</summary>
+
+```python
+def train():
     # Define hyperparameters, override some with values from wandb.config
     args = ResNetTrainingArgsWandb()
     logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
@@ -1601,13 +1610,7 @@ def train():
         log_every_n_steps=args.log_every_n_steps
     )
     trainer.fit(model=model)
-
 ```
-
-<details>
-<summary>Solution</summary>
-
-
 </details>
 
 
