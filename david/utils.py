@@ -155,20 +155,22 @@ class Timer:
         print(f"Elapsed time: {self.elapsed_time:.4f} sec")
 
 # %%
-
+force_download = True
 
 # Check if the saved files exist
-if os.path.exists("train_data.pt") and os.path.exists("train_labels.pt") and os.path.exists("test_data.pt") and os.path.exists("test_labels.pt"):
+all_files = all(os.path.exists(file) for file in ["train_data.pt", "train_labels.pt", "test_data.pt", "test_labels.pt"]) 
+
+if all_files and not force_download:
     # Load the data from disk
     train_data = torch.load("train_data.pt").to(device)
     train_labels = torch.load("train_labels.pt").to(device)
     test_data = torch.load("test_data.pt").to(device)
     test_labels = torch.load("test_labels.pt").to(device)
 else:
-    train_dataset = FashionMNIST('./data', train=True, download=True, transform=transforms.Compose([
+    train_dataset = MNIST('./data', train=True, download=True, transform=transforms.Compose([
     transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))
     ]))
-    test_dataset = FashionMNIST('./data', train=False, transform=transforms.Compose([
+    test_dataset = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))
     ]))
 
@@ -190,16 +192,6 @@ gpu_test_dataset = TensorDataset(test_data, test_labels)
 
 train_loader = DataLoader(gpu_train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(gpu_test_dataset, batch_size=10000, shuffle=False)
-
-def forward_pass(model):
-    # run all the test data through the model
-    # returna  tensor of all logits
-    logits = []
-    for images, labels in test_loader:
-        images, labels = images.to(device), labels.to(device)
-        logits.append(model(images))
-    logits = torch.cat(logits)
-    return logits
 
 
 def compute_acc(model):
