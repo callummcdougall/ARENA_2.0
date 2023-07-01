@@ -376,3 +376,59 @@ def attn_to_io(ctx: Dict[str, Float[Tensor, 'batch head seq_q seq_k']],
             n_weights += attn_weights.numel()
 
     return sum_attn_weights / n_weights
+
+import plotly.graph_objects as go
+
+def plot_logit_attr(cache: ActivationCache,
+                    pos_slice: int,
+                    top_k: int = 10,
+                    component_slice: slice = slice(None, None, 4),
+                    add_b_U: bool = False,
+                    show_plot: bool = True) -> None:
+    resid_components, resid_labels = cache.accumulated_resid(return_labels=True,
+                                                                    # incl_mid=True,
+                                                                    apply_ln=True,
+                                                                    pos_slice=pos_slice,)
+    
+    redux_resid_components, redux_resid_labels = resid_components[component_slice], resid_labels[component_slice]
+    resid_attrs = redux_resid_components @ cache.model.W_U 
+    if add_b_U:
+        resid_attrs = resid_attrs + cache.model.b_U
+    top_logits, top_tokens = resid_attrs.mean(1).topk(top_k, dim=-1) # mean gets rid of batch dim
+    top_tokens_list = [cache.model.to_str_tokens(t) for t in top_tokens]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=top_logits.cpu().numpy(),
+        y=redux_resid_labels,
+        text=top_tokens_list,
+        texttemplate='%{text}',
+    ))
+    fig.show()
+
+    return top_logits, top_tokens
+
+def plot_logit_attr_heads(cache: ActivationCache,
+                    heads: List[Tuple[int, int]],
+                    pos_slice: int,
+                    top_k: int = 10,
+                    add_b_U: bool = False,
+                    show_plot: bool = True,
+                    largest=True) -> None:
+    head_components = t.stack([cache['result', layer][:, pos_slice, head] for layer, head in heads])
+    head_labels = [f'{layer}.{head}' for layer, head in heads]
+    
+    resid_attrs = head_components @ cache.model.W_U 
+    if add_b_U:
+        resid_attrs = resid_attrs + cache.model.b_U
+    top_logits, top_tokens = resid_attrs.mean(1).topk(top_k, dim=-1, largest=largest) # mean gets rid of batch dim
+    top_tokens_list = [cache.model.to_str_tokens(t) for t in top_tokens]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=top_logits.cpu().numpy(),
+        y=head_labels,
+        text=top_tokens_list,
+        texttemplate='%{text}',
+    ))
+    fig.show()
+
+    return top_logits, top_tokens
