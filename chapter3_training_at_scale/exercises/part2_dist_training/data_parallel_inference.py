@@ -19,7 +19,10 @@ from torchvision.io import read_image
 
 assert torch.cuda.device_count() > 0  # make sure we have GPUs
 
-CLUSTER_SIZE = 1  # the number of separate compute nodes we have
+import sys
+
+CLUSTER_SIZE = 2  # the number of separate compute nodes we have
+# WORLD_SIZE = int(sys.argv[1])  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
 WORLD_SIZE = 1  # the number of processes we want to launch - this is usually equal to the number of GPUs we have on this machine
 TOTAL_RANKS = CLUSTER_SIZE * WORLD_SIZE
 UNIGPU = torch.cuda.device_count() == 1  # remember to use the patched NCCL binary if you are using colab/practicing on a single GPU. You might need to compile https://github.com/pranavgade20/nccl-unigpu if you aren't using colab
@@ -32,9 +35,11 @@ def main(args):
     logging.basicConfig(format=f'[rank {args.rank}] %(message)s')
     logging.getLogger().setLevel(logging.DEBUG)
     logging.warning(f'hello')
+    logging.warning(f"======={WORLD_SIZE=}")
     # you can use a variety of backends - nccl is the fastest but requires you to have a GPU; gloo is slower but also sometimes works on CPUs (see https://pytorch.org/docs/stable/distributed.html#backends)
     # dist.init_process_group(backend='nccl', init_method=f'file:///tmp/{"".join(random.choice(string.ascii_letters) for _ in range(10))}', world_size=WORLD_SIZE, rank=args.rank)
-    dist.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:12346', world_size=WORLD_SIZE, rank=args.rank)  # this should be a globally accessible IP
+    # TODO: change init_method to the ip of cluster 0
+    dist.init_process_group(backend='nccl', init_method=f'tcp://138.2.231.24:12345', world_size=WORLD_SIZE, rank=args.rank)  # this should be a globally accessible IP
     logging.warning(f'distributed.is_initialized {torch.distributed.is_initialized()}')
     logging.warning(f'distributed.is_mpi_available {torch.distributed.is_mpi_available()}')
     logging.warning(f'distributed.is_nccl_available {torch.distributed.is_nccl_available()}')
@@ -50,7 +55,7 @@ def main(args):
 
     imagenet_valset = list((lambda k=k: read_image(f'{data_root}/val/{k}.JPEG'), int(v)) for k, v in file_mappings.items())
     # imagenet_valset = Subset(imagenet_valset, indices=range(rank, len(imagenet_valset), TOTAL_RANKS))
-    imagenet_valset = Subset(imagenet_valset, indices=range(rank, 8, TOTAL_RANKS))
+    imagenet_valset = Subset(imagenet_valset, indices=range(rank, 1000, TOTAL_RANKS))
     imagenet_valset = [(x(), y) for x, y in tqdm.tqdm(imagenet_valset, desc=f'[rank {rank}]')]
     imagenet_valset = [(torch.cat([x,x,x],0) if x.shape[0] == 1 else x, y) for x, y in imagenet_valset]
     transform = torch.jit.script(torch.nn.Sequential(transforms.ConvertImageDtype(torch.float32),transforms.Resize((224, 224)), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])))
@@ -60,7 +65,7 @@ def main(args):
     time.sleep(1)
 
     # your code starts here - everything before this is setup code
-    imagenet_dataloader = DataLoader(imagenet_valset, batch_size=4, shuffle=False)
+    imagenet_dataloader = DataLoader(imagenet_valset, batch_size=32, shuffle=False)
     loss = []
     accuracy = []
     print(f"{torch.cuda.device_count()=}")

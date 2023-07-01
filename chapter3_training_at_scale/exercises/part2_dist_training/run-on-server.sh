@@ -20,9 +20,6 @@ export PYTHONUNBUFFERED=1
 export ACCELERATE_DISABLE_RICH=1
 export LD_PRELOAD=/tmp/libnccl.so.2.18.1
 
-
-ps aux | grep $1 | awk '{print $2}' | xargs kill -9  # clean up previous processes
-sudo ufw allow 12345
 echo 'Running python '"$1"' '"${*:2}" > log.txt 2>&1 &
 nohup python $1 "${@:2}" > log.txt 2>&1 &
 #nohup python -m trace --ignore-dir /usr:/home/ubuntu/.local/lib -t $1 "${*:2}" > log.txt 2>&1 &
