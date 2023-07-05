@@ -1646,7 +1646,7 @@ $$
 
 Diagram illustrating this (without biases):
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/mlp-neurons.png" width="850">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/mlp-neurons-2.png" width="850">
 
 
 ### Exercise - get output by neuron
@@ -1807,7 +1807,6 @@ First, project each of the output directions onto the pre-2.0 unbalanced directi
 
 <details>
 <summary>Solution</summary>
-
 
 ```python
 def get_out_by_neuron_in_20_dir_less_memory(model: HookedTransformer, data: BracketsDataset, layer: int) -> Float[Tensor, "batch neurons"]:
