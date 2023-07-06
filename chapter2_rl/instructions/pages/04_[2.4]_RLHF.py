@@ -44,7 +44,13 @@ def section_0():
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
-
+""")
+    
+    st.error(r"""
+Note - this section will be updated significantly with new content, some time in the coming weeks. I currently expect the new content to be released by Friday 14th July (current date as of writing this message is 6th July).
+""")
+    
+    st.markdown(r"""
 
 # [2.3] - Reinforcement Learning from Human Feedback
 

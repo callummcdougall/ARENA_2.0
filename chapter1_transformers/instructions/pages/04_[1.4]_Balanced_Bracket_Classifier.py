@@ -29,9 +29,7 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-
 <img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/gears2.png" width="350">
-
 
 Colab: [**exercises**](https://colab.research.google.com/drive/1BYarO508z7stRFXZ3T92rI6OtMqP3w7E) | [**solutions**](https://colab.research.google.com/drive/1yILyi5dD3wc4o3vHc1MfbpAlWljyXU-U)
 

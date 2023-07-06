@@ -293,19 +293,31 @@ You can see all files in [this Google Drive folder](https://drive.google.com/dri
 <div style='text-align: center'>
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-building.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Transformer from scratch<br>[**exercises**](https://drive.google.com/file/d/1Zl3zSdli_epSfaoQ_HeBCuE6dkGWTowd/view?usp=sharing) | [**solutions**](https://drive.google.com/file/d/1neFAal6woQ7p-u0LpU7ZqvHeEaJ6j2DG/view?usp=share_link)
+Transformer from scratch<br>[**exercises**](https://colab.research.google.com/drive/1Zl3zSdli_epSfaoQ_HeBCuE6dkGWTowd) | [**solutions**](https://colab.research.google.com/drive/1neFAal6woQ7p-u0LpU7ZqvHeEaJ6j2DG)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/circuit.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Intro to Mechanistic Interpretability<br>[**exercises**](https://drive.google.com/file/d/1w9zCWpE7xd1sDuMT_rsjARfFozeWiKF4/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/10tzGmOCQb3LoDB69vPFw71DV2d395hJl/view?usp=share_link)
+Intro to Mechanistic Interpretability<br>[**exercises**](https://colab.research.google.com/drive/1w9zCWpE7xd1sDuMT_rsjARfFozeWiKF4) | [**solutions**](https://colab.research.google.com/drive/10tzGmOCQb3LoDB69vPFw71DV2d395hJl)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/leaves.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Indirct Object Identification<br>[**exercises**](https://drive.google.com/file/d/1M4F9SU_vHUUCQkhmtWnmY2eomOJu5B5s/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1AA0wj2sHoZwtmy82WXORcZzk9urL1lVA/view?usp=share_link)
+Indirct Object Identification<br>[**exercises**](https://colab.research.google.com/drive/1M4F9SU_vHUUCQkhmtWnmY2eomOJu5B5s) | [**solutions**](https://colab.research.google.com/drive/1AA0wj2sHoZwtmy82WXORcZzk9urL1lVA)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/gears2.png" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Interpretability on an Algorithmic Model<br>[**exercises**](https://drive.google.com/file/d/1BYarO508z7stRFXZ3T92rI6OtMqP3w7E/view?usp=share_link) | [**solutions**](https://drive.google.com/file/d/1yILyi5dD3wc4o3vHc1MfbpAlWljyXU-U/view?usp=share_link)
+Balanced Bracket Classifier<br>[**exercises**](https://colab.research.google.com/drive/1BYarO508z7stRFXZ3T92rI6OtMqP3w7E) | [**solutions**](https://colab.research.google.com/drive/1yILyi5dD3wc4o3vHc1MfbpAlWljyXU-U)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/wheel3-2.png" width="160" style="margin-bottom:3px;margin-top:15px">
+
+Grokking and Modular Arithmetic<br>[**exercises**](https://colab.research.google.com/drive/1OCM_AlnsbC6VkaFXXp9KEYzlu_Mz8rJa) | [**solutions**](https://colab.research.google.com/drive/1vUvQVDB3oBzL2vStjY4yOoG3L2akV8vu)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/othello.png" width="160" style="margin-bottom:3px;margin-top:15px">
+
+OthelloGPT<br>[**exercises**](https://colab.research.google.com/drive/12YnrSDx0gbyhMKkcXoMvYZqu8oSgDEkM) | [**solutions**](https://colab.research.google.com/drive/1-b_RmzaGpnvKS_V6FFjylMYn4_JHVzXh)
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/galaxies.jpeg" width="160" style="margin-bottom:3px;margin-top:15px">
+
+Toy Models of Superposition<br>[**exercises**](https://drive.google.com/file/d/1oJcqxd4CS5zl-RO9fufQJI5lpxTzCYGw/view?usp=sharing) | [**solutions**](https://drive.google.com/file/d/1ygVrrrJH0DynAj9tkLgwsZ_xOk85p9oV/view?usp=sharing)
 </div>
 
 </details>

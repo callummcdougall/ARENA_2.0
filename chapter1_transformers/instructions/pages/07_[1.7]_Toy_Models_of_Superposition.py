@@ -59,6 +59,7 @@ def section_0():
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/galaxies.jpeg" width="350">
 
+Colab: [**exercises**](https://drive.google.com/file/d/1oJcqxd4CS5zl-RO9fufQJI5lpxTzCYGw/view?usp=sharing) | [**solutions**](https://drive.google.com/file/d/1ygVrrrJH0DynAj9tkLgwsZ_xOk85p9oV/view?usp=sharing)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 

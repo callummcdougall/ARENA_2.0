@@ -32,9 +32,7 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/othello.png" width="350">
-
 
 Colab: [**exercises**](https://colab.research.google.com/drive/12YnrSDx0gbyhMKkcXoMvYZqu8oSgDEkM) | [**solutions**](https://colab.research.google.com/drive/1-b_RmzaGpnvKS_V6FFjylMYn4_JHVzXh)
 
