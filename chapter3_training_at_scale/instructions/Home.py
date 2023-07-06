@@ -56,7 +56,7 @@ Some highlights from this chapter include:
 * Quantizing your model to INT8 for blazing fast inference
 * Implementing distributed training loops using `torch.dist`
 * Getting hands on with Huggingface Accelerate and Microsoft DeepsSpeed
-""")
+""", unsafe_allow_html=True)
     
     st.error(r"""
 Note - this section will be updated significantly with new content, some time in the coming month. I currently expect the new content to be released by Friday 28th July (current date as of writing this message is 6th July).
