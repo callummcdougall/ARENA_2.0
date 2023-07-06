@@ -317,7 +317,7 @@ OthelloGPT<br>[**exercises**](https://colab.research.google.com/drive/12YnrSDx0g
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/galaxies.jpeg" width="160" style="margin-bottom:3px;margin-top:15px">
 
-Toy Models of Superposition<br>[**exercises**](https://drive.google.com/file/d/1oJcqxd4CS5zl-RO9fufQJI5lpxTzCYGw/view?usp=sharing) | [**solutions**](https://drive.google.com/file/d/1ygVrrrJH0DynAj9tkLgwsZ_xOk85p9oV/view?usp=sharing)
+Toy Models of Superposition<br>[**exercises**](https://colab.research.google.com/drive/1oJcqxd4CS5zl-RO9fufQJI5lpxTzCYGw) | [**solutions**](https://colab.research.google.com/drive/1ygVrrrJH0DynAj9tkLgwsZ_xOk85p9oV)
 </div>
 
 </details>
