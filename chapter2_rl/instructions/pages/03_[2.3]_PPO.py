@@ -1544,6 +1544,8 @@ def train(args: PPOArgs) -> PPOAgent:
             progress_bar.set_description(f"Epoch {epoch:02}, Episode length: {last_episode_len}")
 
         trainer.learning_phase()
+                
+    wandb.finish()
     
     return trainer.agent
 ```
@@ -1617,6 +1619,8 @@ def train(args: PPOArgs) -> PPOAgent:
             progress_bar.set_description(f"Epoch {epoch:02}, Episode length: {last_episode_len}")
 
         trainer.learning_phase()
+                
+    wandb.finish()
     
     return trainer.agent
 ```
@@ -1680,6 +1684,8 @@ As we make update steps in the learning phase, the policy values $\pi(a_t \mid s
 Note - you might see performance very high initially and then drop off rapidly (before recovering again).
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cf2.png" width="600">
+                
+(This plot shows episodic return, which in this case is identical to episodic length.)
 
 This is a well-known RL phenomena called **catastrophic forgetting**. It happens when the buffer only contains good experiences, and the agent forgets how to recover from bad experiences. One way to fix this is to change your buffer to keep 10 of experiences from previous epochs, and 90% of experiences from the current epoch. Can you implement this?
 
@@ -1746,11 +1752,9 @@ from gym.envs.classic_control.cartpole import CartPoleEnv
 
 class EasyCart(CartPoleEnv):
     def step(self, action):
-        (obs, reward, done, info) = super().step(action)
-        
-        # YOUR CODE HERE - calculate new reward
-
-        return (obs, new_reward, done, info)
+        (obs, rew, done, info) = super().step(action)
+        x, v, theta, omega = obs
+        # YOUR CODE HERE - return (obs, rew_new, done, info)
 
         
 gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
@@ -1759,30 +1763,49 @@ args = PPOArgs(env_id="EasyCart-v0", use_wandb=True)
 ```
 
 <details>
-<summary>Solution</summary>
+<summary>Solution (one possible implementation)</summary>
 
+I tried out a few different simple reward functions here. The best one I found used a mix of absolute value penalties for both the angle and the horizontal position (this outperformed using absolute value penalty for just one of these two). My guess as to why this is the case - penalising by horizontal position helps the agent improve its long-term strategy, and penalising by angle helps the agent improve its short-term strategy, so both combined work better than either on their own.
 
 ```python
 class EasyCart(CartPoleEnv):
     def step(self, action):
-        (obs, reward, done, info) = super().step(action)
+        (obs, rew, done, info) = super().step(action)
         x, v, theta, omega = obs
+        # SOLUTION
 
         # First reward: angle should be close to zero
-        reward_1 = 1 - abs(theta / 0.2095)
+        rew_1 = 1 - abs(theta / 0.2095)
         # Second reward: position should be close to the center
-        reward_2 = 1 - abs(x / 2.4)
+        rew_2 = 1 - abs(x / 2.4)
 
-        return (obs, reward_2, done, info)
+        # Calculate new reward (keep it between 0 and 1 for convenience)
+        rew_new = (rew_1 + rew_2) / 2
 
-
-gym.envs.registration.register(id="EasyCart-v0", entry_point=EasyCart, max_episode_steps=500)
-args = PPOArgs(env_id="EasyCart-v0", use_wandb=True)
-agent = train(args)
+        return (obs, rew_new, done, info)
 ```
+
+The resulting loss curve:
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/best-episode-length.png" width="600">
+
 </details>
 
 Now, change the environment such that the reward incentivises the agent to spin very fast. You may change the termination conditions of the environment (i.e. return a different value for `done`) if you think this will help.
+                
+```python
+class SpinCart(CartPoleEnv):
+
+    def step(self, action):
+        obs, rew, done, info = super().step(action)
+        x, v, theta, omega = obs
+        # YOUR CODE HERE - return (obs, rew_new, done_new, info)
+                
+
+gym.envs.registration.register(id="SpinCart-v0", entry_point=SpinCart, max_episode_steps=500)
+args = PPOArgs(env_id="SpinCart-v0", use_wandb=True)
+# YOUR CODE HERE - train agent
+```
 
 <details>
 <summary>Solution (one possible implementation)</summary>
@@ -1792,7 +1815,6 @@ class SpinCart(CartPoleEnv):
 
     def step(self, action):
         obs, rew, done, info = super().step(action)
-        # YOUR CODE HERE
         x, v, theta, omega = obs
         # Allow for 360-degree rotation (but keep the cart on-screen)
         done = (abs(x) > self.x_threshold)

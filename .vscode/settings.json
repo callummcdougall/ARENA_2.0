@@ -1,9 +1,15 @@
 {
-    "python.testing.pytestArgs": [
-        "chapter0_fundamentals"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
+    // "folders": [
+    //     {
+    //         "path": "C:/Users/calsm/Documents/AI Alignment/ARENA_2", 
+    //         "name": "ARENA"
+    //     }
+    // ]
+    // "python.testing.pytestArgs": [
+    //     "chapter0_fundamentals"
+    // ],
+    // "python.testing.unittestEnabled": false,
+    // "python.testing.pytestEnabled": true,
     "python.analysis.extraPaths": [
         // "${workspaceFolder}/chapter0_fundamentals",
         // "${workspaceFolder}/chapter0_fundamentals/exercises",
