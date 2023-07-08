@@ -47,6 +47,8 @@ This section details all planned changes, i.e. things we're confident will be im
 <details>
 <summary>🗺️ <b>Smoothing the path from PPO to RLHF</b><br>Planned release: <b>July 2023</b></summary>
 
+---
+
 We'd like to make the jump between PPO and RLHF less discontinuous, and we're working on material which will bridge that gap. The diagram on the left shows the current state of the RL curriculum, and the diagram on the right shows the planned final state.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/diagram-of-curriculum-2.png" width="560">
