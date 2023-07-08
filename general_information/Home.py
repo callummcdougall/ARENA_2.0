@@ -42,7 +42,7 @@ r"""
 
 ## Timeline
 
-This section details all planned changes.
+This section details all planned changes, i.e. things we're confident will be implemented and which we do have a good idea of the timeline for. They're roughly ordered by priority / release date (i.e. the first ones in this list will be coming first).
 
 <details>
 <summary>🗺️ <b>Smoothing the path from PPO to RLHF</b><br>Planned release: <b>July 2023</b></summary>
@@ -102,6 +102,17 @@ We have several more exercise sets planned for the mechanistic interpretability 
 </details>
 
 <details>
+<summary>⚡ <b>Removal of PyTorch Lightning</b><br>Planned release: <b>July 2023</b></summary>
+
+---
+
+The way we'd been using PyTorch Lightning in the curriculum material (especially the first week) just added confusion, and we no longer think it's worth learning at such an early point in the curriculum. We'll keep the structure of training loops relatively similar to the PyTorch Lightning style (so the exercises won't be totally redesigned), but we'll remove explicit reference to the Lightning library itself.
+            
+We'll be keeping all the Lightning content on the page, in optional dropdowns, should people still wish to read it. We may also work with Lightning during the redesigned Training at Scale chapter (when it's a more appropriate time to introduce it, and when it can offer more than a standardised way to modularize training loops).
+
+</details>
+
+<details>
 <summary>💽 <b>Restructuring the Training at Scale chapter</b><br>Planned release: <b>August 2023</b></summary>
 
 ---
@@ -119,16 +130,7 @@ Over the next couple of months, video walkthroughs to most of the exercise sets 
 
 </details>
             
-<details>
-<summary>⚡ <b>Removal of PyTorch Lightning</b><br>Planned release: <b>July 2023</b></summary>
 
----
-
-The way we'd been using PyTorch Lightning in the curriculum material (especially the first week) just added confusion, and we no longer think it's worth learning at such an early point in the curriculum. We'll keep the structure of training loops relatively similar to the PyTorch Lightning style (so the exercises won't be totally redesigned), but we'll remove explicit reference to the Lightning library itself.
-            
-We'll be keeping all the Lightning content on the page, in optional dropdowns, should people still wish to read it. We may also work with Lightning during the redesigned Training at Scale chapter (when it's a more appropriate time to introduce it, and when it can offer more than a standardised way to modularize training loops).
-
-</details>
 
 ## Speculative
 
