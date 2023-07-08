@@ -53,7 +53,7 @@ We'd like to make the jump between PPO and RLHF less discontinuous, and we're wo
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/diagram-of-curriculum-2.png" width="560">
 
-Some more information about each section:
+Some more information about each new section:
 
 #### **PPO (Atari / MuJoCo)** - 9th July 2023
 
@@ -63,7 +63,7 @@ The most important conceptual ideas Atari introduces relate to the design of the
 
 MuJoCo is more challenging than Atari, because it introduces a **continuous action space**. This will require a redesign of several components of the PPO algorithm.
 
-#### **RLHF (Atari / MuJoCo)** - 10th July 2023
+#### **RLHF (Atari / MuJoCo)** - 11th July 2023
 
 Practice RLHF in a simple environment, before we get to language models. You'll be able to try RLHF on Atari games, or attempt to replicate results like OpenAI's famous "backflipping noodle" experiment.
 
@@ -75,7 +75,7 @@ Now, we move on to transformer architecture. Before we introduce the human feedb
 
 This section combines the conceptual ideas from the last 2 sections, by having you implement RLHF on transformers. You'll be doing all the coding from the ground up, i.e. with no assistance from libraries like `trlx`.
 
-#### **RLHF (trlx), re-release** - 17th July 2023
+#### **RLHF (trlx), re-release** - 18th July 2023
 
 Lastly, we plan to restructure the RLHF & `trlx` chapter, to make it easier to follow & flow better with the rest of the chapter. Learning how to use `trlx` is still valuable, because once you have a conceptual understanding of the RLHF process, there's no need to go through all the low-level implementational details.
 
