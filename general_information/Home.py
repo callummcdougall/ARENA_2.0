@@ -129,4 +129,12 @@ The way we'd been using PyTorch Lightning in the curriculum material (especially
 We'll be keeping all the Lightning content on the page, in optional dropdowns, should people still wish to read it. We may also work with Lightning during the redesigned Training at Scale chapter (when it's a more appropriate time to introduce it, and when it can offer more than a standardised way to modularize training loops).
 
 </details>
+
+## Speculative
+
+This section lists a few changes we're thinking about making, but which we aren't certain about yet.
+
+* A chapter on diffusion models: GANs, VAEs, diffusion models, stable diffusion.
+* Evals (possibly as a subsection of a chapter, or as its own micro section).
+
 """, unsafe_allow_html=True)
