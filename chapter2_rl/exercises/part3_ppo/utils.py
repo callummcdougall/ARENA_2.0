@@ -16,8 +16,23 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from einops import rearrange
 
+from part3_ppo.atari_wrappers import (
+    NoopResetEnv,
+    MaxAndSkipEnv,
+    EpisodicLifeEnv,
+    FireResetEnv, # only if "FIRE" is in env.unwrapped.get_action_meanings()
+    ClipRewardEnv,
+)
+from gym.wrappers import (
+    FrameStack,
+    ResizeObservation,
+    GrayScaleObservation,
+)
+
 # %%
-def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: str):
+
+
+def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: str, atari: bool = False):
     """Return a function that returns an environment after setting up boilerplate."""
     
     def thunk():
@@ -30,6 +45,10 @@ def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: st
                     f"videos/{run_name}", 
                     step_trigger=lambda x : x % 5000 == 0 # Video every 5000 steps for env #1
                 )
+
+        if atari:
+            env = prepare_atari_env(env)
+        
         obs = env.reset(seed=seed)
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
@@ -37,10 +56,25 @@ def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: st
     
     return thunk
 
+
+def prepare_atari_env(env: gym.Env):
+    env = NoopResetEnv(env, noop_max=30)
+    env = MaxAndSkipEnv(env, skip=4)
+    env = EpisodicLifeEnv(env)
+    if "FIRE" in env.unwrapped.get_action_meanings():
+        env = FireResetEnv(env)
+    env = ClipRewardEnv(env)
+    env = ResizeObservation(env, shape=(84, 84))
+    env = GrayScaleObservation(env)
+    env = FrameStack(env, num_stack=4)
+    return env
+
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     t.manual_seed(seed)
+
 
 def window_avg(arr: Arr, window: int):
     """
@@ -119,6 +153,7 @@ class PPOArgs:
     max_grad_norm: float = 0.5
     batch_size: int = 512
     minibatch_size: int = 128
+    atari: bool = False
 
 arg_help_strings = dict(
     exp_name = "the name of this experiment",
@@ -143,6 +178,7 @@ arg_help_strings = dict(
     max_grad_norm = "value used in gradient clipping",
     batch_size = "number of random samples we take from the rollout data",
     minibatch_size = "size of each minibatch we perform a gradient step on",
+    atari = "whether we're using an atari environment"
 )
 
 def arg_help(args: Optional[PPOArgs], print_df=False):

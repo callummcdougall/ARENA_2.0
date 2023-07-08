@@ -11,7 +11,7 @@ from part2_dqn.utils import set_global_seeds
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 Arr = np.ndarray
 
-from part1_intro_to_rl.utils import make_env
+from part3_ppo.utils import make_env
 # import part3_ppo.solutions as solutions
 
 def test_get_actor_and_critic(get_actor_and_critic):
@@ -161,3 +161,17 @@ def test_ppo_scheduler(my_PPOScheduler):
     assert (scheduler.n_step_calls == 1)
     assert abs(optimizer.param_groups[0]["lr"] - 0.2) < 1e-5
     print("All tests in `test_ppo_scheduler` passed!")
+
+def test_get_actor_and_critic_atari(get_actor_and_critic):
+    num_envs = 6
+    envs = gym.vector.SyncVectorEnv([make_env("ALE/Breakout-v5", i, i, False, "", atari=True) for i in range(num_envs)])
+    num_actions = envs.single_action_space.n
+    actor, critic = get_actor_and_critic(envs, atari=True)
+    obs = t.tensor(envs.reset(), device=device, dtype=t.float32)
+    with t.inference_mode():
+        action = actor(obs)
+        value = critic(obs)
+    assert action.shape == (num_envs, num_actions), f"action.shape = {action.shape}"
+    assert value.shape == (num_envs, 1), f"value.shape = {value.shape}"
+
+    print("All tests in `test_get_actor_and_critic_atari` passed!")

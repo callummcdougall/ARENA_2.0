@@ -37,3 +37,6 @@ transformer_lens
 git+https://github.com/callummcdougall/CircuitsVis.git#subdirectory=python
 gym==0.23.1
 pygame
+autorom[accept-rom-license]
+ale-py
+protobuf==3.20.3

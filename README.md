@@ -15,7 +15,7 @@ Some highlights from this chapter include:
 * Implementing your own backpropagation mechanism
 
 
-# [Chapter 1: Transformers](https://arena-ch1-transformers.streamlit.app/)
+# [Chapter 1: Transformers & Mech Interp](https://arena-ch1-transformers.streamlit.app/)
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/magnifying-glass-2.png" width="400">
 

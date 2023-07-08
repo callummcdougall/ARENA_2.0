@@ -18,5 +18,6 @@
         // "${workspaceFolder}/chapter1_transformers/exercises/part6_othellogpt/othello_world/mechanistic_interpretability",
         "${workspaceFolder}/chapter2_rl",
         "${workspaceFolder}/chapter2_rl/exercises",
+        "C:/Users/calsm/anaconda3/envs/tl_intro_test/Lib/site-packages",
     ]
 }

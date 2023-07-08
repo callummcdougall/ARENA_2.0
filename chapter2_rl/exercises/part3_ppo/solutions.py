@@ -39,9 +39,9 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "part3_ppo"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-from part1_intro_to_rl.utils import make_env
 from part2_dqn.utils import set_global_seeds
 from part2_dqn.solutions import Probe1, Probe2, Probe3, Probe4, Probe5
+from part3_ppo.utils import make_env
 import part3_ppo.utils as utils
 import part3_ppo.tests as tests
 from plotly_utils import plot_cartpole_obs_and_dones
@@ -83,6 +83,7 @@ class PPOArgs:
 	max_grad_norm: float = 0.5
 	batch_size: int = 512
 	minibatch_size: int = 128
+	atari: bool = False
 
 	def __post_init__(self):
 		assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
@@ -103,31 +104,59 @@ def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
 	return layer
 
 
-def get_actor_and_critic(envs: gym.vector.SyncVectorEnv) -> Tuple[nn.Module, nn.Module]:
-	'''
-	Returns (actor, critic), the networks used for PPO.
-	'''
-	obs_shape = envs.single_observation_space.shape
-	num_obs = np.array(obs_shape).prod()
-	num_actions = envs.single_action_space.n
+def get_actor_and_critic(envs: gym.vector.SyncVectorEnv, atari: bool = False) -> Tuple[nn.Module, nn.Module]:
+    '''
+    Returns (actor, critic), the networks used for PPO.
+    '''
+    obs_shape = envs.single_observation_space.shape
+    num_obs = np.array(obs_shape).prod()
+    num_actions = envs.single_action_space.n
 
-	critic = nn.Sequential(
-		layer_init(nn.Linear(num_obs, 64)),
-		nn.Tanh(),
-		layer_init(nn.Linear(64, 64)),
-		nn.Tanh(),
-		layer_init(nn.Linear(64, 1), std=1.0)
-	).to(device)
+    if atari:
+        assert obs_shape[-1] % 8 == 4
+        # YOUR CODE HERE
 
-	actor = nn.Sequential(
-		layer_init(nn.Linear(num_obs, 64)),
-		nn.Tanh(),
-		layer_init(nn.Linear(64, 64)),
-		nn.Tanh(),
-		layer_init(nn.Linear(64, num_actions), std=0.01)
-	).to(device)
+        L_after_convolutions = (obs_shape[-1] // 8) - 3
+        in_features = 64 * L_after_convolutions * L_after_convolutions
 
-	return actor, critic
+        hidden = nn.Sequential(
+            layer_init(nn.Conv2d(4, 32, 8, stride=4, padding=0)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(32, 64, 4, stride=2, padding=0)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(64, 64, 3, stride=1, padding=0)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init(nn.Linear(in_features, 512)),
+            nn.ReLU(),
+        ).to(device)
+        actor = nn.Sequential(
+            hidden,
+            layer_init(nn.Linear(512, num_actions), std=0.01)
+        ).to(device)
+        critic = nn.Sequential(
+            hidden,
+            layer_init(nn.Linear(512, 1), std=1)
+        ).to(device)
+    
+    else:
+        critic = nn.Sequential(
+            layer_init(nn.Linear(num_obs, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 1), std=1.0)
+        ).to(device)
+
+        actor = nn.Sequential(
+            layer_init(nn.Linear(num_obs, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, num_actions), std=0.01)
+        ).to(device)
+
+    return actor, critic
 
 
 
@@ -395,64 +424,66 @@ if MAIN:
 # %%
 
 class PPOAgent(nn.Module):
-	critic: nn.Sequential
-	actor: nn.Sequential
+    critic: nn.Sequential
+    actor: nn.Sequential
 
-	def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
-		super().__init__()
-		self.args = args
-		self.envs = envs
-		self.num_envs = envs.num_envs
-		self.obs_shape = envs.single_observation_space.shape
-		self.num_obs = np.array(self.obs_shape).prod()
-		self.num_actions = envs.single_action_space.n
+    def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
+        super().__init__()
+        self.args = args
+        self.envs = envs
+        self.num_envs = envs.num_envs
+        self.obs_shape = envs.single_observation_space.shape
+        self.num_obs = np.array(self.obs_shape).prod()
+        self.num_actions = envs.single_action_space.n
 
-		# Keep track of global number of steps taken by agent
-		self.steps = 0
-		# Define actor and critic (using our previous methods)
-		self.actor, self.critic = get_actor_and_critic(envs)
+        # Keep track of global number of steps taken by agent
+        self.steps = 0
 
-		# Define our first (obs, done, value), so we can start adding experiences to our replay buffer
-		self.next_obs = t.tensor(self.envs.reset()).to(device)
-		self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+        # Get actor and critic networks
+        self.actor, self.critic = get_actor_and_critic(envs, atari=args.atari)
 
-		# Create our replay buffer
-		self.rb = ReplayBuffer(args, envs)
+        # Define our first (obs, done, value), so we can start adding experiences to our replay buffer
+        self.next_obs = t.tensor(self.envs.reset()).to(device, dtype=t.float)
+        self.next_done = t.zeros(self.envs.num_envs).to(device, dtype=t.float)
+
+        # Create our replay buffer
+        self.rb = ReplayBuffer(args, envs)
 
 
-	def play_step(self) -> List[dict]:
-		'''
-		Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
-		'''
-		obs = self.next_obs
-		dones = self.next_done
-		with t.inference_mode():
-			values = self.critic(obs).flatten()
-			logits = self.actor(obs)
-		
-		probs = Categorical(logits=logits)
-		actions = probs.sample()
-		logprobs = probs.log_prob(actions)
-		next_obs, rewards, next_dones, infos = self.envs.step(actions.cpu().numpy())
-		rewards = t.from_numpy(rewards).to(device)
+    def play_step(self) -> List[dict]:
+        '''
+        Carries out a single interaction step between the agent and the environment, and adds results to the replay buffer.
+        '''
+        # SOLUTION
+        obs = self.next_obs
+        dones = self.next_done
+        with t.inference_mode():
+            values = self.critic(obs).flatten()
+            logits = self.actor(obs)
+        
+        probs = Categorical(logits=logits)
+        actions = probs.sample()
+        logprobs = probs.log_prob(actions)
+        next_obs, rewards, next_dones, infos = self.envs.step(actions.cpu().numpy())
+        rewards = t.from_numpy(rewards).to(device)
 
-		# (s_t, a_t, r_t+1, d_t, logpi(a_t|s_t), v(s_t))
-		self.rb.add(obs, actions, rewards, dones, logprobs, values)
+        # (s_t, a_t, r_t+1, d_t, logpi(a_t|s_t), v(s_t))
+        self.rb.add(obs, actions, rewards, dones, logprobs, values)
 
-		self.next_obs = t.from_numpy(next_obs).to(device)
-		self.next_done = t.from_numpy(next_dones).to(device, dtype=t.float)
-		self.steps += self.num_envs
+        self.next_obs = t.from_numpy(next_obs).to(device, dtype=t.float)
+        self.next_done = t.from_numpy(next_dones).to(device, dtype=t.float)
+        self.steps += self.num_envs
 
-		return infos
-	
+        return infos
+    
 
-	def get_minibatches(self) -> None:
-		'''
-		Gets minibatches from the replay buffer.
-		'''
-		with t.inference_mode():
-			next_value = self.critic(self.next_obs).flatten()
-		return self.rb.get_minibatches(next_value, self.next_done)
+    def get_minibatches(self) -> None:
+        '''
+        Gets minibatches from the replay buffer.
+        '''
+        with t.inference_mode():
+            next_value = self.critic(self.next_obs).flatten()
+        return self.rb.get_minibatches(next_value, self.next_done)
 
 
 
@@ -759,3 +790,5 @@ if MAIN:
 
 	args = PPOArgs(env_id="SpinCart-v0", use_wandb=True)
 	agent = train(args)
+
+# %%
