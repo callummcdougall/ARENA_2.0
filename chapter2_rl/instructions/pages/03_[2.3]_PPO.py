@@ -1924,7 +1924,7 @@ def section_4():
 </ul></li>""", unsafe_allow_html=True)
     st.markdown(
 r"""
-# Atari
+# 4️⃣ Atari
 
 > ##### Learning objectives
 > 
@@ -2215,7 +2215,7 @@ def section_5():
     
     st.markdown(
 r"""
-# Mujoco
+# 5️⃣ Mujoco
 
 > ##### Learning objectives
 > 
@@ -2547,7 +2547,7 @@ def section_6():
     <li class='margtop'><a class='contents-el' href='#multi-agent-ppo'>Multi-Agent PPO</a></li>
 </ul></li>""", unsafe_allow_html=True)
     st.markdown(r"""
-# Bonus
+# 6️⃣ Bonus
 
 Here are a few bonus exercises. They're ordered (approximately) from easiest to hardest.
 
