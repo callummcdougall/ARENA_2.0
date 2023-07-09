@@ -2,11 +2,9 @@
 import gym
 import numpy as np
 from typing import List
-import argparse
-import os
 import random
 import torch as t
-from typing import Optional
+from typing import Optional, Literal
 from dataclasses import dataclass
 import pandas as pd
 from IPython.display import display
@@ -32,8 +30,10 @@ from gym.wrappers import (
 # %%
 
 
-def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: str, atari: bool = False):
+def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: str, mode: str = "classic-control"):
     """Return a function that returns an environment after setting up boilerplate."""
+
+    step_trigger = 20_000 if (mode == "mujoco") else 10_000
     
     def thunk():
         env = gym.make(env_id)
@@ -43,11 +43,13 @@ def make_env(env_id: str, seed: int, idx: int, capture_video: bool, run_name: st
                 env = gym.wrappers.RecordVideo(
                     env, 
                     f"videos/{run_name}", 
-                    step_trigger=lambda x : x % 5000 == 0 # Video every 5000 steps for env #1
+                    step_trigger=lambda x : x % step_trigger == 0
                 )
 
-        if atari:
+        if mode == "atari":
             env = prepare_atari_env(env)
+        elif mode == "mujoco":
+            env = prepare_mujoco_env(env)
         
         obs = env.reset(seed=seed)
         env.action_space.seed(seed)
@@ -67,6 +69,15 @@ def prepare_atari_env(env: gym.Env):
     env = ResizeObservation(env, shape=(84, 84))
     env = GrayScaleObservation(env)
     env = FrameStack(env, num_stack=4)
+    return env
+
+
+def prepare_mujoco_env(env: gym.Env):
+    env = gym.wrappers.ClipAction(env)
+    env = gym.wrappers.NormalizeObservation(env)
+    env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+    env = gym.wrappers.NormalizeReward(env)
+    env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
     return env
 
 
@@ -153,7 +164,7 @@ class PPOArgs:
     max_grad_norm: float = 0.5
     batch_size: int = 512
     minibatch_size: int = 128
-    atari: bool = False
+    mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
 
 arg_help_strings = dict(
     exp_name = "the name of this experiment",
@@ -178,7 +189,7 @@ arg_help_strings = dict(
     max_grad_norm = "value used in gradient clipping",
     batch_size = "number of random samples we take from the rollout data",
     minibatch_size = "size of each minibatch we perform a gradient step on",
-    atari = "whether we're using an atari environment"
+    mode = "can be 'classic-control', 'atari' or 'mujoco'"
 )
 
 def arg_help(args: Optional[PPOArgs], print_df=False):

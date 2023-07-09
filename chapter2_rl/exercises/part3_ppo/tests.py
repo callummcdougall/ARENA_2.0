@@ -14,19 +14,33 @@ Arr = np.ndarray
 from part3_ppo.utils import make_env
 # import part3_ppo.solutions as solutions
 
-def test_get_actor_and_critic(get_actor_and_critic):
-    import part3_ppo.solutions as solutions
-    envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test-run") for i in range(4)])
-    actor, critic = get_actor_and_critic(envs)
-    actor_soln, critic_soln = solutions.get_actor_and_critic(envs)
-    assert sum(p.numel() for p in actor.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
-    assert sum(p.numel() for p in critic.parameters()) == sum(p.numel() for p in critic_soln.parameters()) # 4545
-    for name, param in actor.named_parameters():
-        if "bias" in name:
-            t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
-    for name, param in critic.named_parameters():
-        if "bias" in name:
-            t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
+def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
+    if mode == "atari":
+        num_envs = 6
+        envs = gym.vector.SyncVectorEnv([make_env("ALE/Breakout-v5", i, i, False, "", mode="atari") for i in range(num_envs)])
+        num_actions = envs.single_action_space.n
+        actor, critic = get_actor_and_critic(envs, mode="atari")
+        obs = t.tensor(envs.reset(), device=device, dtype=t.float32)
+        with t.inference_mode():
+            action = actor(obs)
+            value = critic(obs)
+        assert action.shape == (num_envs, num_actions), f"action.shape = {action.shape}"
+        assert value.shape == (num_envs, 1), f"value.shape = {value.shape}"
+
+    elif mode == "classic-control":
+        import part3_ppo.solutions as solutions
+        envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test-run") for i in range(4)])
+        actor, critic = get_actor_and_critic(envs)
+        actor_soln, critic_soln = solutions.get_actor_and_critic(envs)
+        assert sum(p.numel() for p in actor.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
+        assert sum(p.numel() for p in critic.parameters()) == sum(p.numel() for p in critic_soln.parameters()) # 4545
+        for name, param in actor.named_parameters():
+            if "bias" in name:
+                t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
+        for name, param in critic.named_parameters():
+            if "bias" in name:
+                t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
+
     print("All tests in `test_agent` passed!")
 
 def test_minibatch_indexes(minibatch_indexes):
@@ -161,17 +175,3 @@ def test_ppo_scheduler(my_PPOScheduler):
     assert (scheduler.n_step_calls == 1)
     assert abs(optimizer.param_groups[0]["lr"] - 0.2) < 1e-5
     print("All tests in `test_ppo_scheduler` passed!")
-
-def test_get_actor_and_critic_atari(get_actor_and_critic):
-    num_envs = 6
-    envs = gym.vector.SyncVectorEnv([make_env("ALE/Breakout-v5", i, i, False, "", atari=True) for i in range(num_envs)])
-    num_actions = envs.single_action_space.n
-    actor, critic = get_actor_and_critic(envs, atari=True)
-    obs = t.tensor(envs.reset(), device=device, dtype=t.float32)
-    with t.inference_mode():
-        action = actor(obs)
-        value = critic(obs)
-    assert action.shape == (num_envs, num_actions), f"action.shape = {action.shape}"
-    assert value.shape == (num_envs, 1), f"value.shape = {value.shape}"
-
-    print("All tests in `test_get_actor_and_critic_atari` passed!")

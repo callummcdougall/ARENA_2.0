@@ -1454,13 +1454,16 @@ rb = ReplayBuffer(buffer_size=256, num_environments=1, seed=0)
 envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", 0, 0, False, "test")])
 obs = envs.reset()
 for i in range(256):
-    actions = np.array([0])
+    actions = envs.action_space.sample()
     (next_obs, rewards, dones, infos) = envs.step(actions)
-    rb.add(obs, actions, rewards, dones, next_obs)
+    real_next_obs = next_obs.copy()
+    for (i, done) in enumerate(dones):  
+        if done:
+            real_next_obs[i] = infos[i]["terminal_observation"]
+    rb.add(obs, actions, rewards, dones, real_next_obs)
     obs = next_obs
 
-
-plot_cartpole_obs_and_dones(rb.observations.flip(0), rb.dones.flip(0))
+plot_cartpole_obs_and_dones(rb.next_observations.flip(0), rb.dones.flip(0))
 
 sample = rb.sample(256, t.device("cpu"))
 plot_cartpole_obs_and_dones(sample.observations.flip(0), sample.dones.flip(0))
@@ -1469,7 +1472,7 @@ plot_cartpole_obs_and_dones(sample.observations.flip(0), sample.dones.flip(0))
 <details>
 <summary>You should be getting graphs which look like this:</summary>
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/shuffled_and_un.png" width="800">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/shuffledandun.png" width="800">
 
 Explanations - each of the dotted lines (the values $t^*$ where $d_{t^*}=1$) corresponds to a state $s_{t^*}$ where the pole's angle goes over the [bounds](https://www.gymlibrary.dev/environments/classic_control/cart_pole/) of `+=0.2095` (note that it doesn't stay upright nearly long enough to hit the positional bounds). If you zoom in on one of these points, then you'll see that we never actually record observations when the pole is out of bounds. At $s_{t^*-1}$ we are still within bounds, and once we go over bounds the next observation is taken from the reset environment.
 
@@ -2134,7 +2137,11 @@ class DQNAgent:
         obs = self.next_obs
         actions = self.get_actions(obs)
         next_obs, rewards, dones, infos = self.envs.step(actions)
-        self.rb.add(obs, actions, rewards, dones, next_obs)
+        real_next_obs = next_obs.copy()
+        for (i, done) in enumerate(dones):  
+            if done:
+                real_next_obs[i] = infos[i]["terminal_observation"]
+        self.rb.add(obs, actions, rewards, dones, real_next_obs)
 
         self.next_obs = next_obs
         self.steps += 1
@@ -2245,6 +2252,11 @@ class DQNTrainer:
     def training_step(self) -> Float[Tensor, ""]:
         '''Samples once from the replay buffer, and takes a single training step.'''
         pass
+
+
+def train(args: DQNArgs) -> QNetwork:
+    '''Create a DQNTrainer instance from args, train it, return trained Q-network.'''
+    pass
 ```
 
 <details>
@@ -2320,14 +2332,26 @@ class DQNTrainer:
             )
 
 
-def train(args: DQNArgs) -> nn.Module:
+def train(args: DQNArgs) -> QNetwork:
+
     trainer = DQNTrainer(args)
     progress_bar = tqdm(range(args.total_training_steps))
+    # Hacky way to make sure the progress bar doesn't update too frequently
+    last_logged_time = time.time()
+
     for step in progress_bar:
+
         last_episode_len = trainer.add_to_replay_buffer(args.train_frequency)
-        if last_episode_len is not None:
+
+        if (last_episode_len is not None) and (time.time() - last_logged_time > 1):
             progress_bar.set_description(f"Step = {trainer.agent.steps}, Episodic return = {last_episode_len}")
+            last_logged_time = time.time()
+
         trainer.training_step()
+    
+    if args.use_wandb:
+        wandb.finish()
+
     return trainer.q_network
 ```
 </details>

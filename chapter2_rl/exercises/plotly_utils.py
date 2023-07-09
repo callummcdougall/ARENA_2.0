@@ -105,8 +105,8 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
         fig.show(renderer)
     else:
         y = list(map(to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else to_numpy(y)
-        fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
         names = kwargs_pre.pop("names", None)
+        fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
         if names is not None:
             fig.for_each_trace(lambda trace: trace.update(name=names.pop(0)))
         fig.show(renderer)
