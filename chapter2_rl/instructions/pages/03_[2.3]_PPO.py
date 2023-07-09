@@ -2635,6 +2635,7 @@ func_page_list = [
     (section_3, "3️⃣ Training Loop"),
     (section_4, "4️⃣ Atari"),
     (section_5, "5️⃣ MuJoCo"),
+    (section_6, "6️⃣ Bonus"),
 ]
 
 func_list = [func for func, page in func_page_list]
