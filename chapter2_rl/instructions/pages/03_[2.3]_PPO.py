@@ -266,35 +266,35 @@ Don't worry if these don't all make sense right now, they will by the end.
 ```python
 @dataclass
 class PPOArgs:
-	exp_name: str = "PPO_Implementation"
-	seed: int = 1
-	cuda: bool = t.cuda.is_available()
-	log_dir: str = "logs"
-	use_wandb: bool = False
-	wandb_project_name: str = "PPOCart"
-	wandb_entity: str = None
-	capture_video: bool = True
-	env_id: str = "CartPole-v1"
-	total_timesteps: int = 500000
-	learning_rate: float = 0.00025
-	num_envs: int = 4
-	num_steps: int = 128
-	gamma: float = 0.99
-	gae_lambda: float = 0.95
-	num_minibatches: int = 4
-	batches_per_epoch: int = 4
-	clip_coef: float = 0.2
-	ent_coef: float = 0.01
-	vf_coef: float = 0.5
-	max_grad_norm: float = 0.5
-	minibatch_size: int = 128
-	mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
+    exp_name: str = "PPO_Implementation"
+    seed: int = 1
+    cuda: bool = t.cuda.is_available()
+    log_dir: str = "logs"
+    use_wandb: bool = False
+    wandb_project_name: str = "PPOCart"
+    wandb_entity: str = None
+    capture_video: bool = True
+    env_id: str = "CartPole-v1"
+    total_timesteps: int = 500000
+    learning_rate: float = 0.00025
+    num_envs: int = 4
+    num_steps: int = 128
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    num_minibatches: int = 4
+    batches_per_epoch: int = 4
+    clip_coef: float = 0.2
+    ent_coef: float = 0.01
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.5
+    minibatch_size: int = 128
+    mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
 
-	def __post_init__(self):
-		self.batch_size = self.num_steps * self.num_envs
-		assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
-		self.total_epochs = self.total_timesteps // self.batch_size
-		self.total_training_steps = self.total_epochs * self.batches_per_epoch * (self.batch_size // self.minibatch_size)
+    def __post_init__(self):
+        self.batch_size = self.num_steps * self.num_envs
+        assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
+        self.total_epochs = self.total_timesteps // self.batch_size
+        self.total_training_steps = self.total_epochs * self.batches_per_epoch * (self.batch_size // self.minibatch_size)
 
 
 args = PPOArgs(minibatch_size=256)
@@ -761,8 +761,8 @@ class ReplayBuffer:
         values: shape (n_envs,)
             Values, estimated by the critic (according to old policy)
         '''
-		assert obs.shape == (self.num_envs, *self.obs_shape)
-		assert actions.shape == (self.num_envs, *self.action_shape)
+        assert obs.shape == (self.num_envs, *self.obs_shape)
+        assert actions.shape == (self.num_envs, *self.action_shape)
         assert rewards.shape == (self.num_envs,)
         assert dones.shape == (self.num_envs,)
         assert logprobs.shape == (self.num_envs,)
@@ -1474,7 +1474,7 @@ class PPOTrainer:
         set_global_seeds(args.seed)
         self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
         self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
-		self.agent = PPOAgent(self.args, self.envs).to(device)
+        self.agent = PPOAgent(self.args, self.envs).to(device)
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name)
@@ -1503,7 +1503,7 @@ class PPOTrainer:
         set_global_seeds(args.seed)
         self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
         self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
-		self.agent = PPOAgent(self.args, self.envs).to(device)
+        self.agent = PPOAgent(self.args, self.envs).to(device)
         self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
         if args.use_wandb:
             wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
@@ -1897,7 +1897,7 @@ agent = train(args)
 </details>
 
 Another thing you can try is "dancing". It's up to you to define what qualifies as "dancing" - work out a sensible definition, and the reward function to incentive it. 
-""")
+""", unsafe_allow_html=True)
 
 def section_4():
     st.sidebar.markdown(r"""
@@ -1936,10 +1936,10 @@ r"""
 
 First, if you cloned the ARENA GitHub repo earlier than 7th July 2023, you'll need to install the following libraries:
 
-```
-pip install gym[atari]==0.23.1
-pip install autorom[accept-rom-license]
-pip install ale-py
+```python
+%pip install gym[atari]==0.23.1
+%pip install autorom[accept-rom-license]
+%pip install ale-py
 ```
 
 ## Introduction
@@ -2206,7 +2206,7 @@ def section_5():
     <li><a class='contents-el' href='#implementational-details-of-mujoco'>Implementational details of MuJoCo</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#clipping-scaling-normalisation-details-5-9'>Clipping, Scaling & Normalisation (details #5-9)</a></li>
-        <li><a class='contents-el' href='#actor-and-critic-networks'>Actor and Critic networks</a></li>
+        <li><a class='contents-el' href='#actor-and-critic-networks'>Actor and Critic networks (details #1-4)</a></li>
         <li><a class='contents-el' href='#exercise-implement-actor-and-critic'><b>Exercise</b> - implement <code>Actor</code> and <code>Critic</code></a></li>
         <li><a class='contents-el' href='#exercise-additional-rewrites'><b>Exercise</b> - additional rewrites</a></li>
     </ul></li>
@@ -2308,7 +2308,7 @@ Just like for Atari, there are a few messy implementational details which will b
 
 See the function `prepare_mujoco_env` within `part3_ppo/utils` (and read details 5-9 on the PPO page) for more information.
 
-### Actor and Critic networks
+### Actor and Critic networks (details #1-4)
 
 Our actor and critic networks are quite similar to the ones we used for cartpole. They won't have shared architecture. 
 
@@ -2348,55 +2348,55 @@ We've given you the function `get_actor_and_critic`, all you need to do is fill 
 
 ```python
 class Critic(nn.Module):
-	def __init__(self, num_obs):
-		super().__init__()
+    def __init__(self, num_obs):
+        super().__init__()
 
-		# YOUR CODE HERE - define critic
-		pass
+        # YOUR CODE HERE - define critic
+        pass
 
-	def forward(self, obs) -> Tensor:
+    def forward(self, obs) -> Tensor:
     
-		# YOUR CODE HERE - fwd pass, return value
-		pass
+        # YOUR CODE HERE - fwd pass, return value
+        pass
 
 
 
 class Actor(nn.Module):
-	actor_mu: nn.Sequential
-	actor_log_sigma: nn.Parameter
+    actor_mu: nn.Sequential
+    actor_log_sigma: nn.Parameter
 
-	def __init__(self, num_obs, num_actions):
-		super().__init__()
+    def __init__(self, num_obs, num_actions):
+        super().__init__()
 
-		self.actor_log_sigma = nn.Parameter(t.zeros(1, num_actions))
+        self.actor_log_sigma = nn.Parameter(t.zeros(1, num_actions))
 
-		# YOUR CODE HERE - define actor_mu
-		pass
+        # YOUR CODE HERE - define actor_mu
+        pass
 
-	def forward(self, obs) -> Tuple[Tensor, Tensor, t.distributions.Normal]:
+    def forward(self, obs) -> Tuple[Tensor, Tensor, t.distributions.Normal]:
     
-		# YOUR CODE HERE - fwd pass, return (mu, sigma, dist)
-		pass
-	
+        # YOUR CODE HERE - fwd pass, return (mu, sigma, dist)
+        pass
+    
 
 
 def get_actor_and_critic(
-	envs: gym.vector.SyncVectorEnv,
-	mode: Literal["classic-control", "atari", "mujoco"],
+    envs: gym.vector.SyncVectorEnv,
+    mode: Literal["classic-control", "atari", "mujoco"],
 ) -> Tuple[Actor, Critic]:
-	'''
-	Returns (actor, critic), the networks used for PPO.
-	'''
-	assert mode == "mujoco"
+    '''
+    Returns (actor, critic), the networks used for PPO.
+    '''
+    assert mode == "mujoco"
 
-	obs_shape = envs.single_observation_space.shape
-	num_obs = np.array(obs_shape).prod()
-	num_actions = envs.single_action_space.shape[0] # rather than '.n', because cts action space
+    obs_shape = envs.single_observation_space.shape
+    num_obs = np.array(obs_shape).prod()
+    num_actions = envs.single_action_space.shape[0] # rather than '.n', because cts action space
 
-	actor = Actor(num_obs, num_actions).to(device)
-	critic = Critic(num_obs).to(device)
+    actor = Actor(num_obs, num_actions).to(device)
+    critic = Critic(num_obs).to(device)
 
-	return actor, critic
+    return actor, critic
 ```
 
 <details>
@@ -2404,69 +2404,69 @@ def get_actor_and_critic(
 
 ```python
 class Critic(nn.Module):
-	def __init__(self, num_obs):
-		super().__init__()
+    def __init__(self, num_obs):
+        super().__init__()
 
         # YOUR CODE HERE - define critic
-		self.critic = nn.Sequential(
-			layer_init(nn.Linear(num_obs, 64)),
-			nn.Tanh(),
-			layer_init(nn.Linear(64, 64)),
-			nn.Tanh(),
-			layer_init(nn.Linear(64, 1), std=1.0)
-		)
+        self.critic = nn.Sequential(
+            layer_init(nn.Linear(num_obs, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 1), std=1.0)
+        )
 
-	def forward(self, obs) -> Tensor:
+    def forward(self, obs) -> Tensor:
         # YOUR CODE HERE - fwd pass, return value
-		value = self.critic(obs)
-		return value
+        value = self.critic(obs)
+        return value
 
 
 
 class Actor(nn.Module):
-	actor_mu: nn.Sequential
-	actor_log_sigma: nn.Parameter
+    actor_mu: nn.Sequential
+    actor_log_sigma: nn.Parameter
 
-	def __init__(self, num_obs, num_actions):
-		super().__init__()
+    def __init__(self, num_obs, num_actions):
+        super().__init__()
 
-		self.actor_log_sigma = nn.Parameter(t.zeros(1, num_actions))
+        self.actor_log_sigma = nn.Parameter(t.zeros(1, num_actions))
 
-		# YOUR CODE HERE - define actor_mu
-		self.actor_mu = nn.Sequential(
-			layer_init(nn.Linear(num_obs, 64)),
-			nn.Tanh(),
-			layer_init(nn.Linear(64, 64)),
-			nn.Tanh(),
-			layer_init(nn.Linear(64, num_actions), std=0.01),
-		)
+        # YOUR CODE HERE - define actor_mu
+        self.actor_mu = nn.Sequential(
+            layer_init(nn.Linear(num_obs, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, num_actions), std=0.01),
+        )
 
-	def forward(self, obs) -> Tuple[Tensor, Tensor, t.distributions.Normal]:
-		# YOUR CODE HERE - fwd pass, return (mu, sigma, dist)
-		mu = self.actor_mu(obs)
-		sigma = t.exp(self.actor_log_sigma).broadcast_to(mu.shape)
-		dist = t.distributions.Normal(mu, sigma)
-		return mu, sigma, dist
-	
+    def forward(self, obs) -> Tuple[Tensor, Tensor, t.distributions.Normal]:
+        # YOUR CODE HERE - fwd pass, return (mu, sigma, dist)
+        mu = self.actor_mu(obs)
+        sigma = t.exp(self.actor_log_sigma).broadcast_to(mu.shape)
+        dist = t.distributions.Normal(mu, sigma)
+        return mu, sigma, dist
+    
 
 
 def get_actor_and_critic(
-	envs: gym.vector.SyncVectorEnv,
-	mode: Literal["classic-control", "atari", "mujoco"],
+    envs: gym.vector.SyncVectorEnv,
+    mode: Literal["classic-control", "atari", "mujoco"],
 ) -> Tuple[Actor, Critic]:
-	'''
-	Returns (actor, critic), the networks used for PPO.
-	'''
-	assert mode == "mujoco"
+    '''
+    Returns (actor, critic), the networks used for PPO.
+    '''
+    assert mode == "mujoco"
 
-	obs_shape = envs.single_observation_space.shape
-	num_obs = np.array(obs_shape).prod()
-	num_actions = envs.single_action_space.shape[0] # rather than '.n', because cts action space
+    obs_shape = envs.single_observation_space.shape
+    num_obs = np.array(obs_shape).prod()
+    num_actions = envs.single_action_space.shape[0] # rather than '.n', because cts action space
 
-	actor = Actor(num_obs, num_actions).to(device)
-	critic = Critic(num_obs).to(device)
+    actor = Actor(num_obs, num_actions).to(device)
+    critic = Critic(num_obs).to(device)
 
-	return actor, critic
+    return actor, critic
 ```
 
 </details>
