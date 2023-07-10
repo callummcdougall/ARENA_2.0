@@ -127,7 +127,7 @@ def get_actor_and_critic(
 			layer_init(nn.Linear(64, 64)),
 			nn.Tanh(),
 			layer_init(nn.Linear(64, 1), std=1.0)
-		).to(device)
+		)
 
 		actor = nn.Sequential(
 			layer_init(nn.Linear(num_obs, 64)),
@@ -135,7 +135,7 @@ def get_actor_and_critic(
 			layer_init(nn.Linear(64, 64)),
 			nn.Tanh(),
 			layer_init(nn.Linear(64, num_actions), std=0.01)
-		).to(device)
+		)
 		
 	elif mode == "atari":
 		assert obs_shape[-1] % 8 == 4
@@ -153,15 +153,15 @@ def get_actor_and_critic(
 			nn.Flatten(),
 			layer_init(nn.Linear(in_features, 512)),
 			nn.ReLU(),
-		).to(device)
+		)
 		actor = nn.Sequential(
 			hidden,
 			layer_init(nn.Linear(512, num_actions), std=0.01)
-		).to(device)
+		)
 		critic = nn.Sequential(
 			hidden,
 			layer_init(nn.Linear(512, 1), std=1)
-		).to(device)
+		)
 	
 	elif mode == "mujoco":
 		raise NotImplementedError("See `solutions_cts.py`.")
@@ -169,7 +169,7 @@ def get_actor_and_critic(
 	else:
 		raise ValueError(f"Unknown mode {mode}")
 
-	return actor, critic
+	return actor.to(device), critic.to(device)
 
 
 
@@ -372,7 +372,7 @@ class ReplayBuffer:
 		assert values.shape == (self.num_envs,)
 
 		new_experiences_as_tensors = [
-			t.from_numpy(d).to(device) if isinstance(d, np.ndarray) else d
+			t.from_numpy(d) if isinstance(d, np.ndarray) else d
 			for d in (obs, dones, actions, logprobs, values, rewards)
 		]
 		self.experiences.append(new_experiences_as_tensors)
@@ -398,7 +398,7 @@ class ReplayBuffer:
 			# Get our new list of minibatches, and add them to the list
 			for index in indices:
 				minibatch = ReplayBufferSamples(*[
-					arg.flatten(0, 1)[index].to(device) for arg in replaybuffer_args
+					arg.flatten(0, 1)[index] for arg in replaybuffer_args
 				])
 				minibatches.append(minibatch)
 
@@ -427,7 +427,7 @@ if MAIN:
 		rb.add(obs, actions, rewards, dones, logprobs, values)
 		obs = next_obs
 	
-	obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
+	obs, dones, actions, logprobs, values, rewards = [t.stack(arr) for arr in zip(*rb.experiences)]
 	
 	plot_cartpole_obs_and_dones(obs, dones, show_env_jumps=True)
 
@@ -482,7 +482,6 @@ class PPOAgent(nn.Module):
 		actions = probs.sample()
 		logprobs = probs.log_prob(actions)
 		next_obs, rewards, next_dones, infos = self.envs.step(actions.cpu().numpy())
-		rewards = t.from_numpy(rewards).to(device)
 
 		# (s_t, a_t, r_t+1, d_t, logpi(a_t|s_t), v(s_t))
 		self.rb.add(obs, actions, rewards, dones, logprobs, values)

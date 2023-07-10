@@ -411,7 +411,7 @@ def get_actor_and_critic(
     else:
         raise ValueError(f"Unknown mode {mode}")
 
-    return actor, critic
+    return actor.to(device), critic.to(device)
 
 
 tests.test_get_actor_and_critic(get_actor_and_critic)
@@ -462,7 +462,7 @@ def get_actor_and_critic(
     else:
         raise ValueError(f"Unknown mode {mode}")
 
-    return actor, critic
+    return actor.to(device), critic.to(device)
 ```
 </details>
 
@@ -774,7 +774,7 @@ class ReplayBuffer:
 		assert values.shape == (self.num_envs,)
 
 		new_experiences_as_tensors = [
-			t.from_numpy(d).to(device) if isinstance(d, np.ndarray) else d
+			t.from_numpy(d) if isinstance(d, np.ndarray) else d
 			for d in (obs, dones, actions, logprobs, values, rewards)
 		]
 		self.experiences.append(new_experiences_as_tensors)
@@ -800,7 +800,7 @@ class ReplayBuffer:
             # Get our new list of minibatches, and add them to the list
             for index in indices:
                 minibatch = ReplayBufferSamples(*[
-                    arg.flatten(0, 1)[index].to(device) for arg in replaybuffer_args
+                    arg.flatten(0, 1)[index] for arg in replaybuffer_args
                 ])
                 minibatches.append(minibatch)
 
@@ -834,7 +834,7 @@ for i in range(args.num_steps):
     rb.add(obs, dones, actions, logprobs, values, rewards)
     obs = next_obs
 
-obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
+obs, dones, actions, logprobs, values, rewards = [t.stack(arr) for arr in zip(*rb.experiences)]
 
 plot_cartpole_obs_and_dones(obs, dones, show_env_jumps=True)
 ```
@@ -2081,7 +2081,7 @@ def get_actor_and_critic(
     else:
         raise ValueError(f"Unknown mode {mode}")
 
-    return actor, critic
+    return actor.to(device), critic.to(device)
 
 
 tests.test_get_actor_and_critic(get_actor_and_critic, mode="atari")
@@ -2159,7 +2159,7 @@ def get_actor_and_critic(
     else:
         raise ValueError(f"Unknown mode {mode}")
 
-    return actor, critic
+    return actor.to(device), critic.to(device)
 ```
 </details>
 
@@ -2194,7 +2194,7 @@ agent = train(args)
 
 Note that this will probably take a lot longer to train than your previous experiments, because the architecture is much larger, and finding an initial strategy is much harder than it was for CartPole.
 
-[Here](https://wandb.ai//callum-mcdougall/PPOAtari/reports/videos-23-07-09-22-00-05---Vmlldzo0ODM3NjU0?accessToken=d7mha9o16ng5jtgwtz4pf00cbjoqe3kt82m5nyvuetng3f1n222n3oh5ckzcr3lg) is a link to video performance of the Breakout agent I got from the parameters above (all the code is in `solutions.py`). During training I would occasionally get runs where performance stayed flat for a while at the start before suddenly starting to improve, so this is something to be aware of.
+[Here](https://wandb.ai//callum-mcdougall/PPOAtari/reports/videos-23-07-09-22-00-05---Vmlldzo0ODM3NjU0?accessToken=d7mha9o16ng5jtgwtz4pf00cbjoqe3kt82m5nyvuetng3f1n222n3oh5ckzcr3lg) is a link to video performance of the Breakout agent I got from the parameters above (all the code is in `solutions.py`). With this (and MuJoCo later), you might want to perform a few different runs (with different `args.seed` values).
 
 ### A note on debugging crashed kernels 
 
@@ -2428,7 +2428,7 @@ def get_actor_and_critic(
 	else:
 		raise ValueError(f"Unknown mode {mode}")
   
-	return actor, critic
+	return actor.to(device), critic.to(device)
 
 
 tests.test_get_actor_and_critic(get_actor_and_critic, mode="mujoco")

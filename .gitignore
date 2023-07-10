@@ -8,6 +8,7 @@
 *models
 *data
 *wandb
+*videos
 *logs
 secrets.toml
 *attn_only_2L_half.pth

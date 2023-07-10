@@ -141,7 +141,7 @@ def get_actor_and_critic(
 	else:
 		raise ValueError(f"Unknown mode {mode}")
   
-	return actor, critic
+	return actor.to(device), critic.to(device)
 
 if MAIN:
 	tests.test_get_actor_and_critic(get_actor_and_critic, mode="mujoco")
@@ -183,7 +183,6 @@ class PPOAgent(nn.Module):
 		# CHANGED (sum over action space to get logprobs)
 		logprobs = dist.log_prob(actions).sum(-1)
 		next_obs, rewards, next_dones, infos = self.envs.step(actions.cpu().numpy())
-		rewards = t.from_numpy(rewards).to(device)
 
 		self.rb.add(obs, actions, rewards, dones, logprobs, values)
 
@@ -295,7 +294,7 @@ class PPOTrainer:
 		for minibatch in minibatches:
 			objective_fn = self._compute_ppo_objective(minibatch)
 			objective_fn.backward()
-			nn.utils.clip_grad_norm_(self.agent.parameters(), args.max_grad_norm)
+			nn.utils.clip_grad_norm_(self.agent.parameters(), self.args.max_grad_norm)
 			self.optimizer.step()
 			self.optimizer.zero_grad()
 			self.scheduler.step()
@@ -369,6 +368,7 @@ if MAIN and ("Hopper" in RUN_TRAINING):
 		num_minibatches = 32,
 		num_steps = 2048,
 		num_envs = 1,
+		seed = 0,
 	)
 	agent = train(args)
 
