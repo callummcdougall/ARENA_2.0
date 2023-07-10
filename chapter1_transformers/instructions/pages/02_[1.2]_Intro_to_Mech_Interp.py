@@ -504,7 +504,7 @@ print("Tests passed!")
 
 You'll need to use three different cache indexes in all:
 
-* `gpt2_cache["pattern", 0]` to get the attention patterns, which have shape `[seqQ, seqK]`
+* `gpt2_cache["pattern", 0]` to get the attention patterns, which have shape `[nhead, seqQ, seqK]`
 * `gpt2_cache["q", 0]` to get the query vectors, which have shape `[seqQ, nhead, headsize]`
 * `gpt2_cache["k", 0]` to get the key vectors, which have shape `[seqK, nhead, headsize]`
 
@@ -611,9 +611,9 @@ cv.activations.text_neuron_activations(
 
 The next function shows which words each of the neurons activates most / least on (note that it requires some weird indexing to work correctly).
 
+```python
 neuron_activations_for_all_layers_rearranged = utils.to_numpy(einops.rearrange(neuron_activations_for_all_layers, "seq layers neurons -> 1 layers seq neurons"))
 
-```python
 cv.topk_tokens.topk_tokens(
     # Some weird indexing required here ¯\_(ツ)_/¯
     tokens=[gpt2_str_tokens], 
@@ -2296,7 +2296,7 @@ $$
 \end{aligned}
 $$
 
-where $U = U_A U'$, $V = V_B V'$, and $S = S' S_B$.
+where $U = U_A U'$, $V = V_B V'$, and $S = S'$.
 
 All our SVD calculations and matrix multiplications had complexity at most $O(mn^2)$, which is much better than $O(m^3)$ (remember that we don't need to compute all the values of $U = U_A U'$, only the ones which correspond to non-zero singular values).
 </details>
@@ -2434,7 +2434,7 @@ If this still seems confusing, let's break it down bit by bit. We have:
 
 ---
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described-OV-last.png" width="400">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram_described-OV-end.png" width="400">
 
 </details>
 
@@ -2449,7 +2449,10 @@ You should compute it as a `FactoredMatrix` object.
 Remember, you can access the model's weights directly e.g. using `model.W_E` or `model.W_Q` (the latter gives you all the `W_Q` matrices, indexed by layer and head).
 
 ```python
-# YOUR CODE HERE - compute OV circuit
+layer = 1
+head_index = 4
+
+# YOUR CODE HERE - compte the `full_OV_circuit` object
 
 tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
 ```
@@ -2894,7 +2897,7 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
 
     return einops.einsum(
         decomposed_qk_input, W_Q,
-        "n seq d_head, d_head d_model -> n seq d_model"
+        "n seq d_model, d_model d_head -> n seq d_head"
     )
 
 def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
@@ -2908,7 +2911,7 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
 
     return einops.einsum(
         decomposed_qk_input, W_K,
-        "n seq d_head, d_head d_model -> n seq d_model"
+        "n seq d_model, d_model d_head -> n seq d_head"
     )
 ```
 </details>
@@ -3288,7 +3291,7 @@ W_OV = model.W_V @ model.W_O
 # Define tensors to hold the composition scores
 composition_scores = {
     "Q": t.zeros(model.cfg.n_heads, model.cfg.n_heads).to(device),
-    "Κ": t.zeros(model.cfg.n_heads, model.cfg.n_heads).to(device),
+    "K": t.zeros(model.cfg.n_heads, model.cfg.n_heads).to(device),
     "V": t.zeros(model.cfg.n_heads, model.cfg.n_heads).to(device),
 }
 

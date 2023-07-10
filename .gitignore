@@ -9,11 +9,10 @@
 *models
 *data
 *wandb
+*videos
 *logs
 secrets.toml
 *attn_only_2L_half.pth
-serimats_app
 *othello_world*
 *Grokking
-chapter2_rl/*
-
+*gitignore

@@ -14,7 +14,7 @@ import einops
 import plotly.express as px
 from pathlib import Path
 from jaxtyping import Float
-from typing import Optional
+from typing import Optional, Union, Callable
 from tqdm.auto import tqdm
 from dataclasses import dataclass
 
@@ -26,7 +26,7 @@ if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line
 
-from part7_toy_models_of_superposition.utils import plot_W, plot_Ws_from_model, render_features
+from part7_toy_models_of_superposition.utils import plot_W, plot_Ws_from_model, render_features, plot_feature_geometry
 import part7_toy_models_of_superposition.tests as tests
 # import part7_toy_models_of_superposition.solutions as solutions
 
@@ -63,7 +63,7 @@ class Config:
     n_correlated_pairs: int = 0
     n_anticorrelated_pairs: int = 0
 
- 
+
 class Model(nn.Module):
 
     W: Float[Tensor, "n_instances n_hidden n_features"]
@@ -113,7 +113,8 @@ class Model(nn.Module):
     def generate_batch(self, n_batch) -> Float[Tensor, "n_batch instances features"]:
         '''
         Generates a batch of data. We'll return to this function later when we apply correlations.
-        '''    
+        '''
+        # SOLUTION
         feat = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
         feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
         feat_is_present = feat_seeds <= self.feature_probability
@@ -141,40 +142,49 @@ def cosine_decay_lr(step, steps):
 	return np.cos(0.5 * np.pi * step / (steps - 1))
 	
 def optimize(
-	model, 
-	n_batch=1024,
-	steps=10_000,
-	print_freq=100,
-	lr=1e-3,
-	lr_scale=constant_lr,
-	hooks=[]
+    model: Model, 
+    n_batch: int = 1024,
+    steps: int = 10_000,
+    print_freq: int = 100,
+    lr: float = 1e-3,
+    lr_scale: Callable = constant_lr,
 ):
-	cfg = model.config
+    '''Optimizes the model using the given hyperparameters.'''
+    cfg = model.config
 
-	opt = t.optim.AdamW(list(model.parameters()), lr=lr)
+    optimizer = t.optim.AdamW(list(model.parameters()), lr=lr)
 
-	start = time.time()
-	progress_bar = tqdm(range(steps))
-	for step in progress_bar:
-		step_lr = lr * lr_scale(step, steps)
-		for group in opt.param_groups:
-			group['lr'] = step_lr
-			opt.zero_grad(set_to_none=True)
-			batch = model.generate_batch(n_batch)
-			out = model(batch)
-			error = (model.importance*(batch.abs() - out)**2)
-			loss = einops.reduce(error, 'b i f -> i', 'mean').sum()
-			loss.backward()
-			opt.step()
+    progress_bar = tqdm(range(steps))
+    for step in progress_bar:
+        step_lr = lr * lr_scale(step, steps)
+        for group in optimizer.param_groups:
+            group['lr'] = step_lr
+            optimizer.zero_grad()
+            batch = model.generate_batch(n_batch)
+            out = model(batch)
+            loss = calculate_loss(out, batch, model)
+            loss.backward()
+            optimizer.step()
 
-			if hooks:
-				hook_data = dict(model=model, step=step, opt=opt, error=error, loss=loss, lr=step_lr)
-				for h in hooks: h(hook_data)
-			if step % print_freq == 0 or (step + 1 == steps):
-				progress_bar.set_postfix(
-					loss=loss.item() / cfg.n_instances,
-					lr=step_lr,
-				)
+            if step % print_freq == 0 or (step + 1 == steps):
+                progress_bar.set_postfix(loss=loss.item()/cfg.n_instances, lr=step_lr)
+
+def calculate_loss(
+    out: Float[Tensor, "batch instances features"],
+    batch: Float[Tensor, "batch instances features"],
+    model: Model
+) -> Float[Tensor, ""]:
+    '''
+    Calculates the loss for a given batch, using this loss described in the Toy Models paper:
+    
+        https://transformer-circuits.pub/2022/toy_model/index.html#demonstrating-setup-loss
+
+    Note, `model.importance` is guaranteed to broadcast with the shape of `out` and `batch`.
+    '''
+    # SOLUTION
+    error = model.importance * ((batch - out) ** 2)
+    loss = einops.reduce(error, 'batch instances features -> instances', 'mean').sum()
+    return loss
 
 # %%
 
@@ -335,7 +345,8 @@ def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_bat
     return t.concat([batch_correlated, batch_anticorrelated, batch_uncorrelated], dim=-1)
 
 
-Model.generate_batch = generate_correlated_batch
+if MAIN:
+	Model.generate_batch = generate_correlated_batch
 
 # %%
 
@@ -490,73 +501,139 @@ if MAIN:
 
 if MAIN:
 	optimize(model)
+	plot_feature_geometry(model)
 
 # %%
 
+@t.inference_mode()
+def compute_dimensionality(
+    W: Float[Tensor, "n_instances n_hidden n_features"]
+) -> Float[Tensor, "n_instances n_features"]:
 
-if MAIN:
-	fig = px.line(
-		x=1/model.feature_probability[:, 0].cpu(),
-		y=(model.config.n_hidden/(t.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
-		log_x=True,
-		markers=True,
-		template="ggplot2",
-		height=600,
-		width=1000,
-		title=""
-	)
-	fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
-	fig.update_yaxes(title=f"m/||W||_F^2")
+    # Compute numerator terms
+    W_norms = W.norm(dim=1, keepdim=True)
+    numerator = W_norms.squeeze() ** 2
 
-# %%
+    # Compute denominator terms
+    W_normalized = W / W_norms
+    # t.clamp(W_norms, 1e-6, float("inf"))
+    denominator = einops.einsum(W_normalized, W, "i h f1, i h f2 -> i f1 f2").pow(2).sum(-1)
 
-@t.no_grad()
-def compute_dimensionality(W):
-	norms = t.linalg.norm(W, 2, dim=-1) 
-	W_unit = W / t.clamp(norms[:, :, None], 1e-6, float('inf'))
-
-	interferences = (t.einsum('eah,ebh->eab', W_unit, W)**2).sum(-1)
-
-	dim_fracs = (norms**2/interferences)
-	return dim_fracs.cpu()
+    return numerator / denominator
 
 
 
 if MAIN:
-	dim_fracs = compute_dimensionality(model.W.transpose(-1, -2))
-	
-	
-	density = model.feature_probability[:, 0].cpu()
 	W = model.W.detach()
-	
-	for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
-		val = a/b
-		fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
-	
-	for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
-		val = a/b
-		fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
-	
-	for i in range(len(W)):
-		fracs_ = dim_fracs[i]
-		N = fracs_.shape[0]
-		xs = 1/density
-		if i!= len(W)-1:
-			dx = xs[i+1]-xs[i]
-		fig.add_trace(
-			go.Scatter(
-				x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
-				y=fracs_,
-				marker=dict(
-					color='black',
-					size=1,
-					opacity=0.5,
-				),
-				mode='markers',
-			)
-		)
-	fig.update_xaxes(showgrid=False)
-	fig.update_yaxes(showgrid=False)
-	fig.update_layout(showlegend=False)
+	dim_fracs = compute_dimensionality(W)
+
+	plot_feature_geometry(model, dim_fracs=dim_fracs)
+
+# %%
+
+
+
+class NeuronModel(Model):
+    def __init__(
+        self, 
+        config: Config, 
+        feature_probability: Optional[Tensor] = None,
+        importance: Optional[Tensor] = None,               
+        device=device
+    ):
+        super().__init__(config, feature_probability, importance, device)
+
+    def forward(
+        self, 
+        features: Float[Tensor, "... instances features"]
+    ) -> Float[Tensor, "... instances features"]:
+        activations = F.relu(einops.einsum(
+           features, self.W,
+           "... instances features, instances hidden features -> ... instances hidden"
+        ))
+        out = F.relu(einops.einsum(
+            activations, self.W,
+            "... instances hidden, instances hidden features -> ... instances features"
+        ) + self.b_final)
+        return out
+
+    def generate_batch(self, n_batch) -> Tensor:
+        feat = 2 * t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device) - 1
+        feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+        feat_is_present = feat_seeds <= self.feature_probability
+        batch = t.where(
+            feat_is_present,
+            feat,
+            t.zeros((), device=self.W.device),
+        )
+        return batch
+    
+
+def calculate_neuron_loss(
+    out: Float[Tensor, "batch instances features"],
+    batch: Float[Tensor, "batch instances features"],
+    model: Model
+) -> Float[Tensor, ""]:
+    error = model.importance * ((batch.abs() - out) ** 2)
+    loss = einops.reduce(error, 'batch instances features -> instances', 'mean').sum()
+    return loss
+
+
+# def optimize(
+#     model: Union[Model, NeuronModel], 
+#     n_batch: int = 1024,
+#     steps: int = 10_000,
+#     print_freq: int = 100,
+#     lr: float = 1e-3,
+#     lr_scale: Callable = constant_lr,
+# ):
+#     '''
+#     Optimizes the model using the given hyperparameters.
+    
+#     This version can accept either a Model or NeuronModel instance.
+#     '''
+#     cfg = model.config
+
+#     optimizer = t.optim.AdamW(list(model.parameters()), lr=lr)
+
+#     progress_bar = tqdm(range(steps))
+#     for step in progress_bar:
+#         step_lr = lr * lr_scale(step, steps)
+#         for group in optimizer.param_groups:
+#             group['lr'] = step_lr
+#             optimizer.zero_grad()
+#             batch = model.generate_batch(n_batch)
+#             out = model(batch)
+#             if isinstance(model, NeuronModel):
+#                 loss = calculate_neuron_loss(out, batch, model)
+#             else:
+#                 loss = calculate_loss(out, batch, model)
+#             loss.backward()
+#             optimizer.step()
+
+#             if step % print_freq == 0 or (step + 1 == steps):
+#                 progress_bar.set_postfix(loss=loss.item()/cfg.n_instances, lr=step_lr)
+
+                
+
+# for n_features in [5, 6, 8]:
+
+#     config = Config(
+#         n_instances = 1,
+#         n_features = n_features,
+#         n_hidden = 5,
+#     )
+
+#     model = NeuronModel(
+#         config=config,
+#         device=device,
+#         feature_probability=t.ones(model.config.n_instances, device=device)[:, None],
+#     )
+
+#     optimize(model, steps=1000)
+
+#     W = model.W[0]
+#     W_normed = W / W.norm(dim=0, keepdim=True)
+#     imshow(W_normed.T, width=600, color_continuous_scale="RdBu_r", zmin=-1.4, zmax=1.4)
 
 # %%

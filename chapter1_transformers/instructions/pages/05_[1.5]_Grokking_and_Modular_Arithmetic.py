@@ -30,7 +30,6 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/wheel3-2.png" width="350">
 
 Colab: [**exercises**](https://colab.research.google.com/drive/1OCM_AlnsbC6VkaFXXp9KEYzlu_Mz8rJa) | [**solutions**](https://colab.research.google.com/drive/1vUvQVDB3oBzL2vStjY4yOoG3L2akV8vu)

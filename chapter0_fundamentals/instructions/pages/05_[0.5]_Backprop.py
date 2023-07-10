@@ -255,7 +255,7 @@ def multiply_back(grad_out, out, a, b):
     return grad_out * b
 ```
 
-where `grad_out` is the gradient of the output of the function with respect to the loss (i.e. $\frac{dL}{dd}$), `out` is the output of the function (i.e. $d$), and `a` and `b` are our inputs.
+where `grad_out` is the gradient of the loss with respect to the output of the function (i.e. $\frac{dL}{dd}$), `out` is the output of the function (i.e. $d$), and `a` and `b` are our inputs.
 
 
 ### Topological Ordering

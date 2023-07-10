@@ -30,14 +30,28 @@ def section_0():
     <li><ul class="contents">
         <li><a class='contents-el' href='#what's-the-motivation-for-this-setup'>What's the motivation for this setup?</a></li>
         <li><a class='contents-el' href='#exercise-define-your-model'><b>Exercise</b> - define your model</a></li>
+        <li><a class='contents-el' href='#exercise-implement-generate-batch'><b>Exercise</b> - implement <code>generate_batch</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#training-our-model'>Training our model</a></li>
     <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-implement-calculate-loss'><b>Exercise</b> - implement <code>calculate_loss</code></a></li>
         <li><a class='contents-el' href='#exercise-interpret-these-diagrams'><b>Exercise</b> - interpret these diagrams</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#visualizing-features-across-varying-sparsity'>Visualizing features across varying sparsity</a></li>
-    <li class='margtop'><a class='contents-el' href='#other-concepts'>Other concepts</a></li>
+    <li class='margtop'><a class='contents-el' href='#correlated-or-anticorrelated-feature-sets'>Correlated or anticorrelated feature sets</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-implement-generate-correlated-batch'><b>Exercise</b> - implement <code>generate_correlated_batch</code></a></li>
+        <li><a class='contents-el' href='#exercise-generate-more-feature-correlation-plots'><b>Exercise</b> - generate more feature correlation plots</a></li>
+    </ul></li>
+    <li class='margtop'><a class='contents-el' href='#superposition-in-a-privileged-basis'>Superposition in a Privileged Basis</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-plot-w-in-privileged-basis'><b>Exercise</b> - plot W in privileged basis</a></li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#summary-what-have-we-learned'>Summary - what have we learned?</a></li>
+    <li class='margtop'><a class='contents-el' href='#feature-geometry'>Feature Geometry</a></li>
+    <li><ul class="contents">
+        <li><a class='contents-el' href='#exercise-compute-dimensionality'><b>Exercise</b> - compute dimensionality</a></li>
+    </ul></li>
     <li class='margtop'><a class='contents-el' href='#further-reading'>Further Reading</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
@@ -45,6 +59,7 @@ def section_0():
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/galaxies.jpeg" width="350">
 
+Colab: [**exercises**](https://colab.research.google.com/drive/1oJcqxd4CS5zl-RO9fufQJI5lpxTzCYGw) | [**solutions**](https://colab.research.google.com/drive/1ygVrrrJH0DynAj9tkLgwsZ_xOk85p9oV)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
@@ -77,6 +92,7 @@ A key point to make here is that, perhaps more so than any other section in this
 > 
 > - Understand the concept of superposition, and why models need to do it
 > - Understand the difference between superposition and polysemanticity
+> - Understand the difference between neuron and bottleneck superposition (or computational and representational superposition)
 > - Build & train the toy model from Anthropic's paper, replicate the main results
 > - Understand the geometric intuitions behind superposition, and how they relate to the more general ideas of superposition in larger models
 > - See how superposition varies when you change the following characteristics of the features:
@@ -104,7 +120,7 @@ import einops
 import plotly.express as px
 from pathlib import Path
 from jaxtyping import Float
-from typing import Optional
+from typing import Optional, Callable, Union
 from tqdm.auto import tqdm
 from dataclasses import dataclass
 
@@ -116,14 +132,13 @@ if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line
 
-from part7_toy_models_of_superposition.utils import plot_W, plot_Ws_from_model, render_features
+from part7_toy_models_of_superposition.utils import plot_W, plot_Ws_from_model, render_features, plot_feature_geometry
 import part7_toy_models_of_superposition.tests as tests
-# import part7_toy_models_of_superposition.solutions as solutions
+import part7_toy_models_of_superposition.solutions as solutions
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == "__main__"
-
 ```
 
 ## Reading Material
@@ -134,6 +149,9 @@ Here are a few recommended resources to help you get started. Each one is labell
     * Read the post, up to and including "Tips" (although some parts of it might make more sense after you've read the other things here).
 * Neel Nanda's [Dynalist notes on superposition](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=3br1psLRIjQCOv2T4RN3V6F2)
     * These aren't long, you should skim through them, and also use them as a reference during these exercises.
+* Appendix of [Finding Neurons in a Haystack: Case Studies with Sparse Probing](https://arxiv.org/abs/2305.01610)
+    * Despite this paper not *just* being about superposition, it has some of the best-written explanations of superposition concepts.
+    * Sections A.6 - A.9 are particularly good.
 * [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html) (Anthropic paper)
     * You should read up to & including the "Summary: A Hierarchy of Feature Properties" section.
     * The first few sections ("Key Results", "Definitions and Motivation", and "Empirical Phenomena" are particularly important).
@@ -226,7 +244,7 @@ Each feature can have **importance** and **sparsity**. Recall our earlier defini
 This is realised in our toy model as follows:
 
 * **Importance** = the coefficient on the weighted mean squared error between the input and output, which we use for training the model
-    * In other words, our loss function is $L = \sum_x \sum_i I_i (x_i - x_i')^2$, where $I_i$ is the importance of feature $i$.
+    * In other words, our loss function is $L = \sum_x \sum_i I_i (x_i - x_i^\prime)^2$, where $I_i$ is the importance of feature $i$.
 * **Sparsity** = the probability of the corresponding element in $x$ being zero
     * In other words, this affects the way our training data is generated (see the method `generate_batch` in the `Module` class below)
 
@@ -240,7 +258,7 @@ W_normed = W / W.norm(dim=0, keepdim=True)
 imshow(W_normed.T @ W_normed, title="Cosine similarities of each pair of 2D feature embeddings", width=600)
 ```
 
-To put it another way - if the columns of $W$ were orthogonal, then $W^T W$ would be the identity (i.e. $W^{-1} = W^T$). This can't actually be the case because $W$ is a 2x5 matrix, but its columns can be "nearly orthgonal" in the sense of having pairwise cosine similarities close to -1.
+To put it another way - if the columns of $W$ were orthogonal, then $W^T W$ would be the identity (i.e. $W^{-1} = W^T$). This can't actually be the case because $W$ is a 2x5 matrix, but its columns can be "nearly orthgonal" in the sense of having pairwise cosine similarities close to 0.
 
 
 Another nice thing about using two bottleneck dimensions is that we get to visualise our output! We've got a few helper functions for this purpose.
@@ -299,13 +317,14 @@ You should fill in the `__init__` function, which defines `self.W` and `self.b_f
 
 You should also fill in the `forward` function, to calculate the output (again, the type annotations should be helpful here).
 
+You will fill out the `generate_batch` function in the exercise after this one.
 
 ```python
 @dataclass
 class Config:
-    # We optimize n_instances models in a single training loop to let us sweep over
-    # sparsity or importance curves  efficiently. You should treat `n_instances` as 
-    # kinda like a batch dimension, but one which is built into our training setup.
+    # We optimize n_instances models in a single training loop to let us sweep over sparsity or 
+    # importance curves  efficiently. You should treat `n_instances` as kinda like a batch dim,
+    # but one which is built into our training setup.
     n_instances: int
     n_features: int = 5
     n_hidden: int = 2
@@ -336,6 +355,7 @@ class Model(nn.Module):
         self.importance = importance.to(device)
         
         pass
+        
 
     def forward(
         self, 
@@ -356,7 +376,6 @@ class Model(nn.Module):
             t.zeros((), device=self.W.device),
         )
         return batch
-
 
 
 tests.test_model(Model)
@@ -393,7 +412,6 @@ class Model(nn.Module):
         nn.init.xavier_normal_(self.W)
         self.b_final = nn.Parameter(t.zeros((config.n_instances, config.n_features), device=device))
 
-
     
     def forward(
         self, 
@@ -411,81 +429,162 @@ class Model(nn.Module):
         out = out + self.b_final
         out = F.relu(out)
         return out
-
-
-    def generate_batch(self, n_batch) -> Float[Tensor, "n_batch instances features"]:
-        '''
-        Generates a batch of data. We'll return to this function later when we apply correlations.
-        '''    
-        feat = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
-        feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
-        feat_is_present = feat_seeds <= self.feature_probability
-        batch = t.where(
-            feat_is_present,
-            feat,
-            t.zeros((), device=self.W.device),
-        )
-        return batch
 ```
 </details>
 
+### Exercise - implement `generate_batch`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
+Next, you should implement the function `generate_batch` above. This should return a tensor of shape `(n_batch, instances, features)`, where:
+
+* The `instances` and `features` values are taken from the model config,
+* Each feature is present with probability `self.feature_probability` (note that `self.feature_probability` is guaranteed to broadcast with the `(n_batch, instances, features)` shape),
+* Each present feature is sampled from a uniform distribution between 0 and 1.
+
+Note - after you've implemented this, we recommend you read the solutions, because later exercises will have you make more complicated versions of this function (when we add correlation).
+
+```python
+tests.test_generate_batch(Model)
+```
+
+<details>
+<summary>Solution</summary>
+
+```python
+def generate_batch(self, n_batch) -> Float[Tensor, "n_batch instances features"]:
+    '''
+    Generates a batch of data. We'll return to this function later when we apply correlations.
+    '''    
+    feat = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+    feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+    feat_is_present = feat_seeds <= self.feature_probability
+    batch = t.where(
+        feat_is_present,
+        feat,
+        t.zeros((), device=self.W.device),
+    )
+    return batch
+```
+
+</details>
 
 ## Training our model
 
 
-The details of training aren't very conceptually important, so we've given you code to train the model below. A few notes:
+The details of training aren't very conceptually important, so we've given you most of the code to train the model below. We use **learning rate schedulers** to control the learning rate as the model trains - you'll use this later on during the RL chapter.
 
-* We use **learning rate schedulers** to control the learning rate as the model trains - you'll use this later on during the RL chapter.
-* The code uses vanilla PyTorch rather than Lightning like you might be used to at this point.
+### Exercise - implement `calculate_loss`
+
+```c
+Difficulty: 🟠🟠⚪⚪⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 5-10 minutes on this exercise.
+```
+
+You should fill in the `calculate_loss` function below. The loss function **for a single instance** is given by:
+
+$$
+L=\frac{1}{BF}\sum_x \sum_i I_i\left(x_i-x_i^{\prime}\right)^2
+$$
+
+where:
+
+* $B$ is the batch size,
+* $F$ is the number of features,
+* $x_i$ are the inputs and $x_i'$ are the model's outputs,
+* $I_i$ is the importance of feature $i$,
+* $\sum_i$ is a sum over features,
+* $\sum_x$ is a sum over the elements in the batch.
+
+For the general version (i.e. with multiple instances), we sum the loss over instances as well (since we're effectively training `n_instances` different copies of our weights at once, one for each instance).
 
 
 ```python
 def linear_lr(step, steps):
     return (1 - (step / steps))
-    
+
 def constant_lr(*_):
     return 1.0
-    
+
 def cosine_decay_lr(step, steps):
     return np.cos(0.5 * np.pi * step / (steps - 1))
-    
+
 def optimize(
     model: Model, 
-    n_batch=1024,
-    steps=10_000,
-    print_freq=100,
-    lr=1e-3,
-    lr_scale=constant_lr,
-    hooks=[]
+    n_batch: int = 1024,
+    steps: int = 10_000,
+    print_freq: int = 100,
+    lr: float = 1e-3,
+    lr_scale: Callable = constant_lr,
 ):
+    '''Optimizes the model using the given hyperparameters.'''
     cfg = model.config
 
-    opt = t.optim.AdamW(list(model.parameters()), lr=lr)
+    optimizer = t.optim.AdamW(list(model.parameters()), lr=lr)
 
-    start = time.time()
     progress_bar = tqdm(range(steps))
     for step in progress_bar:
         step_lr = lr * lr_scale(step, steps)
-        for group in opt.param_groups:
+        for group in optimizer.param_groups:
             group['lr'] = step_lr
-            opt.zero_grad(set_to_none=True)
+            optimizer.zero_grad()
             batch = model.generate_batch(n_batch)
             out = model(batch)
-            error = (model.importance*(batch.abs() - out)**2)
-            loss = einops.reduce(error, 'b i f -> i', 'mean').sum()
+            loss = calculate_loss(out, batch, model)
             loss.backward()
-            opt.step()
+            optimizer.step()
 
-            if hooks:
-                hook_data = dict(model=model, step=step, opt=opt, error=error, loss=loss, lr=step_lr)
-                for h in hooks: h(hook_data)
             if step % print_freq == 0 or (step + 1 == steps):
-                progress_bar.set_postfix(
-                    loss=loss.item() / cfg.n_instances,
-                    lr=step_lr,
-                )
+                progress_bar.set_postfix(loss=loss.item()/cfg.n_instances, lr=step_lr)
 
+def calculate_loss(
+    out: Float[Tensor, "batch instances features"],
+    batch: Float[Tensor, "batch instances features"],
+    model: Model
+) -> Float[Tensor, ""]:
+    '''
+    Calculates the loss for a given batch, using this loss described in the Toy Models paper:
+    
+        https://transformer-circuits.pub/2022/toy_model/index.html#demonstrating-setup-loss
+
+    Note, `model.importance` is guaranteed to broadcast with the shape of `out` and `batch`.
+    '''
+    pass
+
+
+tests.test_calculate_loss(calculate_loss)
 ```
+
+<details>
+<summary>Solution</summary>
+
+```python
+def calculate_loss(
+    out: Float[Tensor, "batch instances features"],
+    batch: Float[Tensor, "batch instances features"],
+    model: Model
+) -> Float[Tensor, ""]:
+    '''
+    Calculates the loss for a given batch, using this loss described in the Toy Models paper:
+    
+        https://transformer-circuits.pub/2022/toy_model/index.html#demonstrating-setup-loss
+
+    Note, `model.importance` is guaranteed to broadcast with the shape of `out` and `batch`.
+    '''
+    # SOLUTION
+    error = model.importance * ((batch - out) ** 2)
+    loss = einops.reduce(error, 'batch instances features -> instances', 'mean').sum()
+    return loss
+```
+
+</details>
 
 Now, we'll reproduce a version of the figure from the introduction, although with a slightly different version of the code.
 
@@ -602,8 +701,8 @@ model = Model(
 
 optimize(model)
 
-fig = render_features(model, np.s_[::2])
-fig.update_layout(width=1200, height=2000)
+fig = render_features(model, np.s_[::2]) # Plot every second instance
+fig.update_layout(width=1200, height=1600)
 ```
 
 ## Correlated or anticorrelated feature sets
@@ -618,9 +717,9 @@ In this section, you'll define a new data-generating function for correlated fea
 Difficulty: 🟠🟠🟠🟠⚪
 Importance: 🟠🟠⚪⚪⚪
 
-You should spend up to 20-30 minutes on this exercise.
+You should spend up to 20-40 minutes on this exercise.
 
-It's not conceptually important, and it's quite fiddly / delicate, so you should look at the solutions if you get stuck.
+It's not conceptually important, and it's very fiddly / delicate, so you should definitely look at the solutions if you get stuck. Understanding the results and why they occur is more important than the implementation!
 ```
 
 You should implement the function `generate_correlated_batch`, which will replace the `generate_batch` function you were given at the start of these exercises. You can start by copying the code from `generate_batch`.
@@ -633,6 +732,8 @@ Before implementing the function, you should read the [experimental details in A
 * Anticorrelated feature pairs, where features never co-occur
     * i.e. if one feature occurs, the other must not occur
     * We can simulate this by having a random seed for "is a feature pair all zero", and a random seed for "which feature in the pair is active" (used if the feature pair isn't all zero)
+
+**Important note** - we're using a different convention to the Anthropic paper. They have both features in an anticorrelated pair set to zero with probability $1-p$, and with probability $p$ we choose one of the features in the pair to set to zero. The problem with this is that the "true feature probability" is $p/2$, not $p$. You should make sure that each feature actually occurs with probability $p$, which means setting the pair to zero with probability $1-2p$. You can assume $p$ will always be less than $1/2$.
 
 ```python
 def generate_correlated_batch(self: Model, n_batch: int) -> Float[Tensor, "n_batch instances fetures"]:
@@ -844,13 +945,13 @@ optimize(model)
 plot_Ws_from_model(model, config)
 ```
 
-### Exercise - generate the other feature correlation plots
+### Exercise - generate more feature correlation plots
 
 ```c
 Difficulty: 🟠🟠⚪⚪⚪
 Importance: 🟠🟠🟠⚪⚪
 
-You should spend up to ~10 minutes on this exercise.
+You should spend up to 10-15 minutes on this exercise.
 
 It should just involve changing the parameters in your code above.
 ```
@@ -918,6 +1019,220 @@ plot_Ws_from_model(model, config)
 
 </details>
 
+## Superposition in a Privileged Basis
+
+So far, we've explored superposition in a model without a privileged basis. We can rotate the hidden activations arbitrarily and, as long as we rotate all the weights, have the exact same model behavior. That is, for any ReLU output model with weights 
+$W$, we could take an arbitrary orthogonal matrix $O$ and consider the model $W' = OW$. Since $(OW)^T(OW) = W^T W$, the result would be an identical model!
+
+Models without a privileged basis are elegant, and can be an interesting analogue for certain neural network representations which don't have a privileged basis – word embeddings, or the transformer residual stream. But we'd also (and perhaps primarily) like to understand neural network representations where there are neurons which do impose a privileged basis, such as transformer MLP layers or conv net neurons.
+
+Our goal in this section is to explore the simplest toy model which gives us a privileged basis. There are at least two ways we could do this: we could add an activation function or apply L1 regularization to the hidden layer. We'll focus on adding an activation function, since the representation we are most interested in understanding is hidden layers with neurons, such as the transformer MLP layer.
+
+This gives us the following "ReLU hidden layer" model:
+
+$$
+\begin{aligned}
+h & =\operatorname{ReLU}(W x) \\
+x^{\prime} & =\operatorname{ReLU}\left(W^T h+b\right)
+\end{aligned}
+$$
+
+We'll train this model on the same data as before.
+
+Adding a ReLU to the hidden layer radically changes the model from an interpretability perspective. The key thing is that while $W$ in our previous model was challenging to interpret - recall that we visualized $W^T W$ rather than $W$:
+
+```python
+W = t.randn(2, 5)
+W_normed = W / W.norm(dim=0, keepdim=True)
+
+# Using arguments to match the color scheme of the paper
+imshow(W_normed.T @ W_normed, title="Cosine similarities of each pair of 2D feature embeddings", width=600, color_continuous_scale="RdBu_r", zmin=-1.4, zmax=1.4)
+```
+
+while on the other hand, $W$ in the ReLU hidden layer model can be directly interpreted, since it connects features to basis-aligned neurons.
+
+### Exercise - plot $W$ in privileged basis
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 20-40 minutes on this exercise.
+```
+
+Replicate the [first set of results](https://transformer-circuits.pub/2022/toy_model/index.html#demonstrating-setup-loss:~:text=model%20and%20a-,ReLU%20hidden%20layer%20model,-%3A) in the Anthropic paper on studying superposition in a privileged basis. That is, you should:
+
+* Define a new model with a ReLU hidden layer, as described above & in the paper
+    * We recommend you define a new class which inherits from `Model`, because the `__init__` and attributes will be the same as before.
+    * You'll have to rewrite the `forward` function.
+    * You'll also have to rewrite the `generate_batch` function, since the experimental setup has changed - see the [Experiment Setup](https://transformer-circuits.pub/2022/toy_model/index.html#computation-setup) section.
+* Train the model in the same way as before
+    * You'll be able to re-use the same `optimize` function code, but you'll need a different `calculate_loss` function (again, see the [Experiment Setup](https://transformer-circuits.pub/2022/toy_model/index.html#computation-setup) section).
+    * You should use just one instance, with zero sparsity and uniform importance (i.e. no need to supply these arguments into your `init`)
+* Plot the matrix $W$
+    * You can use the code from above (but you should plot a normed version of $W$ rather than $W^T W$).
+
+Note - if you implement this correctly, you might find that your results are a permutation of the paper's results (since they stack them in an intuitive order to make their plots).
+
+You might also find some other small deviations from the paper's results. But the most important thing to pay attention to is how **there's a shift from monosemantic to polysemantic neurons as sparsity increases**. Monosemantic neurons do exist in some regimes! Polysemantic neurons exist in others. And they can both exist in the same model! Moreover, while it's not quite clear how to formalize this, it looks a great deal like there's a neuron-level phase change, mirroring the feature phase changes we saw earlier.
+
+In the plots you make below, you should see:
+
+* Total monosemanticity at 5 features & 5 neurons
+* With more features than neurons, some of the neurons become polysemantic (but some remain monosemantic)
+
+```python
+# YOUR CODE HERE - replicate the paper's results
+```
+
+<details>
+<summary>Solution</summary>
+
+```python
+class NeuronModel(Model):
+    def __init__(
+        self, 
+        config: Config, 
+        feature_probability: Optional[Tensor] = None,
+        importance: Optional[Tensor] = None,               
+        device=device
+    ):
+        super().__init__(config, feature_probability, importance, device)
+
+    def forward(
+        self, 
+        features: Float[Tensor, "... instances features"]
+    ) -> Float[Tensor, "... instances features"]:
+        activations = F.relu(einops.einsum(
+           features, self.W,
+           "... instances features, instances hidden features -> ... instances hidden"
+        ))
+        out = F.relu(einops.einsum(
+            activations, self.W,
+            "... instances hidden, instances hidden features -> ... instances features"
+        ) + self.b_final)
+        return out
+
+    def generate_batch(self, n_batch) -> Tensor:
+        feat = 2 * t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device) - 1
+        feat_seeds = t.rand((n_batch, self.config.n_instances, self.config.n_features), device=self.W.device)
+        feat_is_present = feat_seeds <= self.feature_probability
+        batch = t.where(
+            feat_is_present,
+            feat,
+            t.zeros((), device=self.W.device),
+        )
+        return batch
+    
+
+def calculate_neuron_loss(
+    out: Float[Tensor, "batch instances features"],
+    batch: Float[Tensor, "batch instances features"],
+    model: Model
+) -> Float[Tensor, ""]:
+    error = model.importance * ((batch.abs() - out) ** 2)
+    loss = einops.reduce(error, 'batch instances features -> instances', 'mean').sum()
+    return loss
+
+
+def optimize(
+    model: Union[Model, NeuronModel], 
+    n_batch: int = 1024,
+    steps: int = 10_000,
+    print_freq: int = 100,
+    lr: float = 1e-3,
+    lr_scale: Callable = constant_lr,
+):
+    '''
+    Optimizes the model using the given hyperparameters.
+    
+    This version can accept either a Model or NeuronModel instance.
+    '''
+    cfg = model.config
+
+    optimizer = t.optim.AdamW(list(model.parameters()), lr=lr)
+
+    progress_bar = tqdm(range(steps))
+    for step in progress_bar:
+        step_lr = lr * lr_scale(step, steps)
+        for group in optimizer.param_groups:
+            group['lr'] = step_lr
+            optimizer.zero_grad()
+            batch = model.generate_batch(n_batch)
+            out = model(batch)
+            if isinstance(model, NeuronModel):
+                loss = calculate_neuron_loss(out, batch, model)
+            else:
+                loss = calculate_loss(out, batch, model)
+            loss.backward()
+            optimizer.step()
+
+            if step % print_freq == 0 or (step + 1 == steps):
+                progress_bar.set_postfix(loss=loss.item()/cfg.n_instances, lr=step_lr)
+
+                
+
+for n_features in [5, 6, 8]:
+
+    config = Config(
+        n_instances = 1,
+        n_features = n_features,
+        n_hidden = 5,
+    )
+
+    model = NeuronModel(
+        config=config,
+        device=device,
+        feature_probability=t.ones(model.config.n_instances, device=device)[:, None],
+    )
+
+    optimize(model, steps=1000)
+
+    W = model.W[0]
+    W_normed = W / W.norm(dim=0, keepdim=True)
+    imshow(W_normed.T, width=600, color_continuous_scale="RdBu_r", zmin=-1.4, zmax=1.4)
+```
+
+</details>
+
+Try playing around with different settings (sparsity, importance). What kind of results do you get?
+
+You can also try and go further, replicating results later in the paper (e.g. the neuron weight bar plots further on in the paper).
+
+<details>
+<summary>Code for neuron weight plots</summary>
+
+Note - this currently fails to replicate the [paper's plots](https://transformer-circuits.pub/2022/toy_model/index.html#demonstrating-setup-loss:~:text=The%20solutions%20are%20visualized%20below), because the `render_features` function plots by feature rather than by neuron. If I have time, I'll come back and write a new function to reproduce these plots. If you're reading this and are interested in doing this, please send me a message at `cal.s.mcdougall@gmail.com`.
+
+```python
+for n_features in [5, 6, 8]:
+
+    config = Config(
+        n_instances = 10,
+        n_features = 8,
+        n_hidden = 5,
+    )
+
+    model = NeuronModel(
+        config=config,
+        device=device,
+        feature_probability = (20 ** -t.linspace(0, 1, config.n_instances))[:, None],
+    )
+
+    optimize(model)
+
+    W = model.W[0]
+    W_normed = W / W.norm(dim=0, keepdim=True)
+    imshow(W_normed.T, width=400, height=400, color_continuous_scale="RdBu_r", zmin=-1.4, zmax=1.4)
+
+    fig = render_features(model)
+    fig.update_layout(width=400, height=800)
+    fig.show()
+```
+</details>
+
+</details>
+
 ## Summary - what have we learned?
 
 With toy models like this, it's important to make sure we take away generalizable lessons, rather than just details of the training setup. 
@@ -929,14 +1244,14 @@ The core things to take away form this paper are:
 * How it responds to correlated and uncorrelated features
 
 
-# Feature Geometry
+## Feature Geometry
 
 > Note - this section is optional, since it goes into quite extreme detail about the specific problem setup we're using here. If you want, you can jump to the next section.
 
 
 We've seen that superposition can allow a model to represent extra features, and that the number of extra features increases as we increase sparsity. In this section, we'll investigate this relationship in more detail, discovering an unexpected geometric story: features seem to organize themselves into geometric structures such as pentagons and tetrahedrons!
 
-The code below runs a third experiment, with all importances the same. We're first interested in the number of features the model has learned to represent. This is well represented with the squard **Frobenius norm** of the weight matrix $W$, i.e. $||W||_F^2 = \sum_{ij}W_{ij}^2$.
+The code below runs a third experiment, with all importances the same. We're first interested in the number of features the model has learned to represent. This is well represented with the squared **Frobenius norm** of the weight matrix $W$, i.e. $||W||_F^2 = \sum_{ij}W_{ij}^2$.
 
 <details>
 <summary>Question - can you see why this is a good metric for the number of features represented?</summary>
@@ -971,19 +1286,7 @@ model = Model(
 
 optimize(model)
 
-fig = px.line(
-    x=1/model.feature_probability[:, 0].cpu(),
-    y=(model.config.n_hidden/(t.linalg.matrix_norm(model.W.detach(), 'fro')**2)).cpu(),
-    log_x=True,
-    markers=True,
-    template="ggplot2",
-    height=600,
-    width=1000,
-    title=""
-)
-fig.update_xaxes(title="1/(1-S), <-- dense | sparse -->")
-fig.update_yaxes(title=f"m/||W||_F^2")
-fig.show()
+plot_feature_geometry(model)
 ```
 
 Surprisingly, we find that this graph is "sticky" at $1$ and $1/2$. On inspection, the $1/2$ "sticky point" seems to correspond to a precise geometric arrangement where features come in "antipodal pairs", each being exactly the negative of the other, allowing two features to be packed into each hidden dimension. It appears that antipodal pairs are so effective that the model preferentially uses them over a wide range of the sparsity regime.
@@ -993,7 +1296,7 @@ It turns out that antipodal pairs are just the tip of the iceberg. Hiding undern
 How can we discover these geometric configurations? Consider the following metric, which the authors named the **dimensionality** of a feature:
 
 $$
-D_i = \frac{\big\|W_i\big\|^2}{\sum_{j\neq i} \big( \hat{W_i} \cdot W_j \big)^2}
+D_i = \frac{\big\|W_i\big\|^2}{\sum_{j} \big( \hat{W_i} \cdot W_j \big)^2}
 $$
 
 Intuitively, this is a measure of what "fraction of a dimension" a specific feature gets. Let's try and get a few intuitions for this metric:
@@ -1006,55 +1309,60 @@ Intuitively, this is a measure of what "fraction of a dimension" a specific feat
 * If there are $k$ features which are all parallel to each other, and orthogonal to all others, then they "share" the dimensionality equally, i.e. $D_i = 1/k$ for each of them.
 * The sum of all $D_i$ can't be greater than the total number of features $m$, with equality if and only if all the vectors are orthogonal.
 
-The code below pltos th
+### Exercise - compute dimensionality
+
+```c
+Difficulty: 🟠🟠🟠🟠⚪
+Importance: 🟠🟠🟠⚪⚪
+
+You should spend up to 10-15 minutes on this exercise.
+```
+
+Remember, $W$ has shape `(n_instances, n_hidden, n_features)`. The vectors $W_i$ refer to the feature vectors (i.e. they have length `n_hidden`), and you should broadcast your calculations over the `n_instances` dimension.
+
+
 
 
 ```python
-@t.no_grad()
-def compute_dimensionality(W):
-    norms = t.linalg.norm(W, 2, dim=-1) 
-    W_unit = W / t.clamp(norms[:, :, None], 1e-6, float('inf'))
+@t.inference_mode()
+def compute_dimensionality(
+    W: Float[Tensor, "n_instances n_hidden n_features"]
+) -> Float[Tensor, "n_instances n_features"]:
+    pass
+        
 
-    interferences = (t.einsum('eah,ebh->eab', W_unit, W)**2).sum(-1)
+tests.test_compute_dimensionality(compute_dimensionality)
+```
 
-    dim_fracs = (norms**2/interferences)
-    return dim_fracs.cpu()
+<details>
+<summary>Solution</summary>
 
+```python
+@t.inference_mode()
+def compute_dimensionality(
+    W: Float[Tensor, "n_instances n_hidden n_features"]
+) -> Float[Tensor, "n_instances n_features"]:
+    # SOLUTION
+    # Compute numerator terms
+    W_norms = W.norm(dim=1, keepdim=True)
+    numerator = W_norms.squeeze() ** 2
 
-dim_fracs = compute_dimensionality(model.W.transpose(-1, -2))
+    # Compute denominator terms
+    W_normalized = W / W_norms
+    # t.clamp(W_norms, 1e-6, float("inf"))
+    denominator = einops.einsum(W_normalized, W, "i h f1, i h f2 -> i f1 f2").pow(2).sum(-1)
 
+    return numerator / denominator
+```
+</details>
 
-density = model.feature_probability[:, 0].cpu()
+The code below plots the fractions of dimensions, as a function of sparsity.
+
+```python
 W = model.W.detach()
+dim_fracs = compute_dimensionality(W)
 
-for a,b in [(1,2), (2,3), (2,5), (2,6), (2,7)]:
-    val = a/b
-    fig.add_hline(val, line_color="purple", opacity=0.2, annotation=dict(text=f"{a}/{b}"))
-
-for a,b in [(5,6), (4,5), (3,4), (3,8), (3,12), (3,20)]:
-    val = a/b
-    fig.add_hline(val, line_color="blue", opacity=0.2, annotation=dict(text=f"{a}/{b}", x=0.05))
-
-for i in range(len(W)):
-    fracs_ = dim_fracs[i]
-    N = fracs_.shape[0]
-    xs = 1/density
-    if i!= len(W)-1:
-        dx = xs[i+1]-xs[i]
-    fig.add_trace(
-        go.Scatter(
-            x=1/density[i]*np.ones(N)+dx*np.random.uniform(-0.1,0.1,N),
-            y=fracs_,
-            marker=dict(
-                color='black',
-                size=1,
-                opacity=0.5,
-            ),
-            mode='markers',
-        )
-    )
-fig.update_xaxes(showgrid=False).update_yaxes(showgrid=False).update_layout(showlegend=False)
-fig.show()
+plot_feature_geometry(model, dim_fracs=dim_fracs)
 ```
 
 What's going on here? It turns out that the model likes to create specific weight geometries and kind of jumps between the different configurations.
@@ -1063,7 +1371,7 @@ The moral? Superposition is very hard to pin down! There are many points between
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/grid_all.png" width="900">
 
-Note that we should take care not to read too much significance into these results. A lot of it depends delicately on the details of our experimental setup (e.g. we used $W^T W$, a positive semidefinite matrix, and there's a correspondence between low-dimensional symmetric pos-semidef matrices like these and the kinds of polytopes that we've seen in the plots above). There are also many real-world dynamics which our analysis hasn't even considered (e.g. the fact that superposition is much more likely when features are not just sparse but **anticorrelated**). But hopefully this has given you a sense of the relevant considerations when it comes to packing features into fewer dimensions.
+Note that we should take care not to read too much significance into these results. A lot of it depends delicately on the details of our experimental setup (e.g. we used $W^T W$, a positive semidefinite matrix, and there's a correspondence between low-dimensional symmetric pos-semidef matrices like these and the kinds of polytopes that we've seen in the plots above). But hopefully this has given you a sense of the relevant considerations when it comes to packing features into fewer dimensions.
 
 
 ## Further Reading

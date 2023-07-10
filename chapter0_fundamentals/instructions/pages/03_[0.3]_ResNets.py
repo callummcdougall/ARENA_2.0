@@ -99,7 +99,7 @@ from dataclasses import dataclass
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Type
 from PIL import Image
 from IPython.display import display
 from pathlib import Path
@@ -615,6 +615,9 @@ There are also a number of other methods which you can define to override the de
 
 We've added docstrings for the methods below, but if you remove the docstrings and hover over the methods (in VSCode) then you can see the original library docstrings which contain more information.
 
+> Note - if you're not a fan of Lightning or find it confusing, we recommend you build a training loop using the same structure as the Lightning module, but actually implement it using the vanilla PyTorch code in the dropdown above rather than the `Trainer` abstraction (see below). Lightning offers many useful features when it comes to training at scale & parallelism, but for now the main reason we're using it is to improve the modularity of our training code, and you can still get this modularity without literally using Lightning.
+> 
+> It's important to at least understand what the vanilla PyTorch code does, because we'll be using vanilla PyTorch during the RL section of the course (when our unconventional training loops will be more difficult to implement using Lightning).
 
 ```python
 import pytorch_lightning as pl
@@ -742,7 +745,7 @@ class ConvNetTrainingArgs():
     '''
     batch_size: int = 64
     max_epochs: int = 3
-    optimizer: t.optim.Optimizer = t.optim.Adam
+    optimizer = t.optim.Adam
     learning_rate: float = 1e-3
     log_dir: str = os.getcwd() + "/logs"
     log_name: str = "day3-convenet"
@@ -2221,7 +2224,7 @@ class ResNetTrainingArgs():
     batch_size: int = 64
     max_epochs: int = 3
     max_steps: int = 500
-    optimizer: t.optim.Optimizer = t.optim.Adam
+    optimizer: Type[t.optim.Optimizer] = t.optim.Adam
     learning_rate: float = 1e-3
     log_dir: str = os.getcwd() + "/logs"
     log_name: str = "day3-resnet"

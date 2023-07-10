@@ -741,7 +741,7 @@ def decompose_q(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
 
 	return einops.einsum(
 		decomposed_qk_input, W_Q,
-		"n seq d_head, d_head d_model -> n seq d_model"
+		"n seq d_model, d_model d_head -> n seq d_head"
 	)
 
 
@@ -755,7 +755,7 @@ def decompose_k(decomposed_qk_input: t.Tensor, ind_head_index: int) -> t.Tensor:
 
 	return einops.einsum(
 		decomposed_qk_input, W_K,
-		"n seq d_head, d_head d_model -> n seq d_model"
+		"n seq d_model, d_model d_head -> n seq d_head"
 	)
 
 
