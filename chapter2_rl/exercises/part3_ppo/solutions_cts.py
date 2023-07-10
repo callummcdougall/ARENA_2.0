@@ -48,6 +48,10 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == "__main__"
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module='gym.*')
+warnings.filterwarnings("ignore", category=UserWarning, module='gym.*')
+
 # %%
 
 if MAIN:
@@ -111,24 +115,33 @@ class Actor(nn.Module):
 
 def get_actor_and_critic(
 	envs: gym.vector.SyncVectorEnv,
-	mode: Literal["classic-control", "atari", "mujoco"],
+	mode: Literal["classic-control", "atari", "mujoco"] = "classic-control",
 ) -> Tuple[nn.Module, nn.Module]:
 	'''
 	Returns (actor, critic), the networks used for PPO.
-
-	Note - if you're reading this before the atari section, then ignore the code in the `if atari` block, just look at the `else` block.
 	'''
-	assert mode == "mujoco"
-
 	obs_shape = envs.single_observation_space.shape
 	num_obs = np.array(obs_shape).prod()
-	num_actions = envs.single_action_space.shape[0]
+	num_actions = (
+		envs.single_action_space.n 
+		if isinstance(envs.single_action_space, gym.spaces.Discrete) 
+		else envs.single_action_space.shape[0]
+	)
 
-	actor = Actor(num_obs, num_actions).to(device)
-	critic = Critic(num_obs).to(device)
+	if mode == "classic-control":
+		raise Exception("This function was only designed for MuJoCo. See `solutions.py` for others.")
 
+	elif mode == "atari":
+		raise Exception("This function was only designed for MuJoCo. See `solutions.py` for others.")
+	
+	elif mode == "mujoco":
+		actor = Actor(num_obs, num_actions)
+		critic = Critic(num_obs)
+	
+	else:
+		raise ValueError(f"Unknown mode {mode}")
+  
 	return actor, critic
-
 
 if MAIN:
 	tests.test_get_actor_and_critic(get_actor_and_critic, mode="mujoco")
@@ -244,18 +257,20 @@ def calc_entropy_bonus(dist: t.distributions.Normal, ent_coef: float):
 # %% 3️⃣ TRAINING LOOP
 
 class PPOTrainer:
-	agent: PPOAgent
 
 	def __init__(self, args: PPOArgs):
-		self.args = args
 		set_global_seeds(args.seed)
+		self.args = args
 		self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 		self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
 		self.agent = PPOAgent(self.args, self.envs).to(device)
 		self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
-		if args.use_wandb:
-			wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name)
-			if args.capture_video: wandb.gym.monitor()
+		if args.use_wandb: wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            name=self.run_name,
+            monitor_gym=args.capture_video
+        )
 
 
 	def rollout_phase(self):
@@ -267,7 +282,7 @@ class PPOTrainer:
 				if "episode" in info.keys():
 					last_episode_len = info["episode"]["l"]
 					last_episode_return = info["episode"]["r"]
-					if args.use_wandb: wandb.log({
+					if self.args.use_wandb: wandb.log({
 						"episode_length": last_episode_len,
 						"episode_return": last_episode_return,
 					}, step=self.agent.steps)
@@ -304,7 +319,7 @@ class PPOTrainer:
 			ratio = logratio.exp()
 			approx_kl = (ratio - 1 - logratio).mean().item()
 			clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
-		if args.use_wandb: wandb.log(dict(
+		if self.args.use_wandb: wandb.log(dict(
 			total_steps = self.agent.steps,
 			values = values.mean().item(),
 			learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],

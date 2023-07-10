@@ -149,7 +149,7 @@ There are 3 main classes you'll be using today:
 
 The image below shows the high-level details of this, and how they relate to the conceptual overview above.
 
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo-alg-objects-6.png" width="1300">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo-alg-objects-diagram2.png" width="1300">
 
 Don't worry if this seems like a lot at first! We'll go through it step-by-step. You might find this diagram useful to return to, throughout the exercises (you're recommended to open it in a separate tab).
 
@@ -394,7 +394,11 @@ def get_actor_and_critic(
     '''
     obs_shape = envs.single_observation_space.shape
     num_obs = np.array(obs_shape).prod()
-    num_actions = envs.single_action_space.n
+	num_actions = (
+		envs.single_action_space.n 
+		if isinstance(envs.single_action_space, gym.spaces.Discrete) 
+		else envs.single_action_space.shape[0]
+	)
 
     if mode == "classic-control":
         # YOUR CODE HERE - define actor and critic
@@ -427,7 +431,11 @@ def get_actor_and_critic(
     '''
     obs_shape = envs.single_observation_space.shape
     num_obs = np.array(obs_shape).prod()
-    num_actions = envs.single_action_space.n
+	num_actions = (
+		envs.single_action_space.n 
+		if isinstance(envs.single_action_space, gym.spaces.Discrete) 
+		else envs.single_action_space.shape[0]
+	)
 
     if mode == "classic-control":
     
@@ -704,7 +712,6 @@ A few notes on the code below:
 * We will take the output of the `get_minibatches` method as our dataset (i.e. one epoch will be us iterating through the minibatches returned by this method). The diagram below illustrates how we take our sampled experiences and turn them into minibatches for training.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo-buffer-sampling-3.png" width="1200">
-
 
 ```python
 @dataclass
@@ -1468,15 +1475,18 @@ If you get stuck at any point during this implementation, you can look at the so
 class PPOTrainer:
 
 	def __init__(self, args: PPOArgs):
-		self.args = args
 		set_global_seeds(args.seed)
+		self.args = args
 		self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 		self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
 		self.agent = PPOAgent(self.args, self.envs).to(device)
 		self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
-		if args.use_wandb:
-			wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name)
-			if args.capture_video: wandb.gym.monitor()
+		if args.use_wandb: wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            name=self.run_name,
+            monitor_gym=args.capture_video
+        )
 
 
     def rollout_phase(self):
@@ -1495,17 +1505,19 @@ class PPOTrainer:
 ```python
 class PPOTrainer:
 
-    def __init__(self, args: PPOArgs):
-        super().__init__()
-        self.args = args
-        set_global_seeds(args.seed)
-        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
-        self.agent = PPOAgent(self.args, self.envs).to(device)
-        self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
-        if args.use_wandb:
-            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=args.exp_name, config=args)
-            if args.capture_video: wandb.gym.monitor()
+	def __init__(self, args: PPOArgs):
+		set_global_seeds(args.seed)
+		self.args = args
+		self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+		self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
+		self.agent = PPOAgent(self.args, self.envs).to(device)
+		self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+		if self.args.use_wandb: wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            name=self.run_name,
+            monitor_gym=args.capture_video
+        )
 
 
     def rollout_phase(self):
@@ -1518,7 +1530,7 @@ class PPOTrainer:
                 if "episode" in info.keys():
                     last_episode_len = info["episode"]["l"]
                     last_episode_return = info["episode"]["r"]
-                    if args.use_wandb: wandb.log({
+                    if self.args.use_wandb: wandb.log({
                         "episode_length": last_episode_len,
                         "episode_return": last_episode_return,
                     }, step=self.agent.steps)
@@ -1533,7 +1545,7 @@ class PPOTrainer:
         for minibatch in minibatches:
             objective_fn = self._compute_ppo_objective(minibatch)
             objective_fn.backward()
-            nn.utils.clip_grad_norm_(self.agent.parameters(), args.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.agent.parameters(), self.args.max_grad_norm)
             self.optimizer.step()
             self.optimizer.zero_grad()
             self.scheduler.step()
@@ -1558,7 +1570,7 @@ class PPOTrainer:
             ratio = logratio.exp()
             approx_kl = (ratio - 1 - logratio).mean().item()
             clipfracs = [((ratio - 1.0).abs() > self.args.clip_coef).float().mean().item()]
-        if args.use_wandb: wandb.log(dict(
+        if self.args.use_wandb: wandb.log(dict(
             total_steps = self.agent.steps,
             values = values.mean().item(),
             learning_rate = self.scheduler.optimizer.param_groups[0]["lr"],
@@ -1600,17 +1612,19 @@ def train(args: PPOArgs) -> PPOAgent:
 ```python
 class PPOTrainer:
 
-    def __init__(self, args: PPOArgs):
-        super().__init__()
-        self.args = args
-        set_global_seeds(args.seed)
-        self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-        self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
-        self.agent = PPOAgent(self.args, self.envs).to(device)
-        self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
-        if args.use_wandb:
-            wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, name=self.run_name, config=args)
-            if args.capture_video: wandb.gym.monitor()
+	def __init__(self, args: PPOArgs):
+		set_global_seeds(args.seed)
+		self.args = args
+		self.run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+		self.envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i, i, args.capture_video, self.run_name, args.mode) for i in range(args.num_envs)])
+		self.agent = PPOAgent(self.args, self.envs).to(device)
+		self.optimizer, self.scheduler = make_optimizer(self.agent, self.args.total_training_steps, self.args.learning_rate, 0.0)
+		if args.use_wandb: wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            name=self.run_name,
+            monitor_gym=args.capture_video
+        )
 
 
     def rollout_phase(self):
@@ -1627,7 +1641,7 @@ class PPOTrainer:
         for minibatch in minibatches:
             objective_fn = self._compute_ppo_objective(minibatch)
             objective_fn.backward()
-            nn.utils.clip_grad_norm_(self.agent.parameters(), args.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.agent.parameters(), self.args.max_grad_norm)
             self.optimizer.step()
             self.optimizer.zero_grad()
             self.scheduler.step()
@@ -1712,6 +1726,17 @@ for probe_idx in range(1, 6):
 ```
 
 Once you've passed the tests for all 5 probe environments, you should test your model on Cartpole.
+                
+Uncomment the `warnings` code below to suppress all warnings for `gym` (they can mess with your progress bars in an annoying way!). It only has to be run once.
+                
+```python
+# import warnings
+# warnings.filterwarnings("ignore", category=DeprecationWarning, module='gym.*');
+# warnings.filterwarnings("ignore", category=UserWarning, module='gym.*');
+
+args = PPOArgs(use_wandb=True)
+agent = train(args)
+```
 
 <details>
 <summary>Question - if you've done this correctly (and logged everything), clipped surrogate objective will be close to zero. Does this mean that it's not important in the overall algorithm (compared to the components of the objective function which are larger)?</summary>
@@ -1723,7 +1748,7 @@ Clipped surrogate objective is a moving target. At each rollout phase, we genera
 As we make update steps in the learning phase, the policy values $\pi(a_t \mid s_t)$ will increase for actions which have positive advantages, and decrease for actions which have negative advantages, so the clipped surrogate objective will no longer be zero in expectation. But (thanks to the fact that we're clipping changes larger than $\epsilon$) it will still be very small.
 
 </details>
-
+                
 ### Catastrophic forgetting
 
 Note - you might see performance very high initially and then drop off rapidly (before recovering again).
@@ -2036,9 +2061,14 @@ def get_actor_and_critic(
     '''
     obs_shape = envs.single_observation_space.shape
     num_obs = np.array(obs_shape).prod()
-    num_actions = envs.single_action_space.n
+	num_actions = (
+		envs.single_action_space.n 
+		if isinstance(envs.single_action_space, gym.spaces.Discrete) 
+		else envs.single_action_space.shape[0]
+	)
 
     if mode == "classic-control":
+        pass
         # Your earlier code should go here
       
     elif mode == "atari":
@@ -2070,7 +2100,11 @@ def get_actor_and_critic(
     '''
     obs_shape = envs.single_observation_space.shape
     num_obs = np.array(obs_shape).prod()
-    num_actions = envs.single_action_space.n
+	num_actions = (
+		envs.single_action_space.n 
+		if isinstance(envs.single_action_space, gym.spaces.Discrete) 
+		else envs.single_action_space.shape[0]
+	)
 
     if mode == "classic-control":
         # Your earlier code should go here
@@ -2155,11 +2189,12 @@ args = PPOArgs(
     clip_coef = 0.1,
     num_envs = 8,
 )
+agent = train(args)
 ```
 
 Note that this will probably take a lot longer to train than your previous experiments, because the architecture is much larger, and finding an initial strategy is much harder than it was for CartPole.
 
-[Here](https://wandb.ai//callum-mcdougall/PPOAtari/reports/videos-23-07-09-22-00-05---Vmlldzo0ODM3NjU0?accessToken=d7mha9o16ng5jtgwtz4pf00cbjoqe3kt82m5nyvuetng3f1n222n3oh5ckzcr3lg) is a link to video performance of the Breakout agent I got from the parameters above (the code is in `solutions.py`). During training I would occasionally get runs where performance stayed flat for a while at the start before suddenly starting to improve, so this is something to be aware of.
+[Here](https://wandb.ai//callum-mcdougall/PPOAtari/reports/videos-23-07-09-22-00-05---Vmlldzo0ODM3NjU0?accessToken=d7mha9o16ng5jtgwtz4pf00cbjoqe3kt82m5nyvuetng3f1n222n3oh5ckzcr3lg) is a link to video performance of the Breakout agent I got from the parameters above (all the code is in `solutions.py`). During training I would occasionally get runs where performance stayed flat for a while at the start before suddenly starting to improve, so this is something to be aware of.
 
 ### A note on debugging crashed kernels 
 
@@ -2228,7 +2263,7 @@ To test that this works, run the following:
 envs = gym.make("Hopper-v3")
 ```
 
-The first time you run this, it might take a while, and throw up several warnings and messages. But the cell should still run without raising an exception, and all subsequent times you run it, it should be a lot faster.
+The first time you run this, it might take about 1-2 minutes, and throw up several warnings and messages. But the cell should still run without raising an exception, and all subsequent times you run it, it should be a lot faster (with no error messages).
 
 You can see what the environment looks like with:
 
@@ -2364,22 +2399,39 @@ class Actor(nn.Module):
 
 
 def get_actor_and_critic(
-    envs: gym.vector.SyncVectorEnv,
-    mode: Literal["classic-control", "atari", "mujoco"] = "mujoco",
-) -> Tuple[Actor, Critic]:
-    '''
-    Returns (actor, critic), the networks used for PPO.
-    '''
-    assert mode == "mujoco"
+	envs: gym.vector.SyncVectorEnv,
+	mode: Literal["classic-control", "atari", "mujoco"] = "classic-control",
+) -> Tuple[nn.Module, nn.Module]:
+	'''
+	Returns (actor, critic), the networks used for PPO.
+	'''
+	obs_shape = envs.single_observation_space.shape
+	num_obs = np.array(obs_shape).prod()
+	num_actions = (
+		envs.single_action_space.n 
+		if isinstance(envs.single_action_space, gym.spaces.Discrete) 
+		else envs.single_action_space.shape[0]
+	)
 
-    obs_shape = envs.single_observation_space.shape
-    num_obs = np.array(obs_shape).prod()
-    num_actions = envs.single_action_space.shape[0] # rather than '.n', because cts action space
+	if mode == "classic-control":
+		pass
+        # Your code from earlier should go here
 
-    actor = Actor(num_obs, num_actions).to(device)
-    critic = Critic(num_obs).to(device)
+	elif mode == "atari":
+		pass
+        # Your code from earlier should go here
+	
+	elif mode == "mujoco":
+		actor = Actor(num_obs, num_actions)
+		critic = Critic(num_obs)
+	
+	else:
+		raise ValueError(f"Unknown mode {mode}")
+  
+	return actor, critic
 
-    return actor, critic
+
+tests.test_get_actor_and_critic(get_actor_and_critic, mode="mujoco")
 ```
 
 <details>
@@ -2429,28 +2481,6 @@ class Actor(nn.Module):
         sigma = t.exp(self.actor_log_sigma).broadcast_to(mu.shape)
         dist = t.distributions.Normal(mu, sigma)
         return mu, sigma, dist
-
-
-def get_actor_and_critic(
-    envs: gym.vector.SyncVectorEnv,
-    mode: Literal["classic-control", "atari", "mujoco"] = "mujoco",
-) -> Tuple[Actor, Critic]:
-    '''
-    Returns (actor, critic), the networks used for PPO.
-    '''
-    assert mode == "mujoco"
-
-    obs_shape = envs.single_observation_space.shape
-    num_obs = np.array(obs_shape).prod()
-    num_actions = envs.single_action_space.shape[0] # rather than '.n', because cts action space
-
-    actor = Actor(num_obs, num_actions).to(device)
-    critic = Critic(num_obs).to(device)
-
-    return actor, critic
-
-
-tests.test_get_actor_and_critic(get_actor_and_critic, mode="mujoco")
 ```
 
 </details>
@@ -2507,6 +2537,7 @@ args = PPOArgs(
     num_steps = 2048,
     num_envs = 1,
 )
+agent = train(args)
 ```
 
 Although we've used `Hopper-v3` in these examples, you might also want to try `InvertedPendulum-v2`. It's a much easier environment to solve, and it's a good way to check that your implementation is working (after all if it worked for CartPole then it should work here - in fact your inverted pendulum agent should converge to a perfect solution almost instantly, no reward shaping required). You can check out the other MuJoCo environments [here](https://www.gymlibrary.dev/environments/mujoco/).
@@ -2533,7 +2564,7 @@ def section_6():
     st.markdown(r"""
 # 6️⃣ Bonus
 
-Here are a few bonus exercises. They're ordered (approximately) from easiest to hardest.
+Here are a few bonus exercises. They're ordered (approximately) from easiest to hardest. You can take a crack at some of these, or move on to the next section (RLHF).
 
 ## Trust Region Methods
 

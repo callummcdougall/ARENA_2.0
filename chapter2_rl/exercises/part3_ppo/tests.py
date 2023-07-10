@@ -20,6 +20,8 @@ def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
         envs = gym.vector.SyncVectorEnv([make_env("ALE/Breakout-v5", i, i, False, "", mode="atari") for i in range(num_envs)])
         num_actions = envs.single_action_space.n
         actor, critic = get_actor_and_critic(envs, mode="atari")
+        actor = actor.to(device)
+        critic = critic.to(device)
         obs = t.tensor(envs.reset(), device=device, dtype=t.float32)
         with t.inference_mode():
             action = actor(obs)
@@ -31,7 +33,11 @@ def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
         import part3_ppo.solutions as solutions
         envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test-run") for i in range(4)])
         actor, critic = get_actor_and_critic(envs, mode="classic-control")
+        actor = actor.to(device)
+        critic = critic.to(device)
         actor_soln, critic_soln = solutions.get_actor_and_critic(envs)
+        actor_soln = actor_soln.to(device)
+        critic_soln = critic_soln.to(device)
         assert sum(p.numel() for p in actor.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
         assert sum(p.numel() for p in critic.parameters()) == sum(p.numel() for p in critic_soln.parameters()) # 4545
         for name, param in actor.named_parameters():
@@ -43,11 +49,15 @@ def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
 
     elif mode == "mujoco":
         import part3_ppo.solutions as solutions
-        envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test-run") for i in range(4)])
+        envs = gym.vector.SyncVectorEnv([make_env("Hopper-v3", i, i, False, "test-run") for i in range(4)])
         actor, critic = get_actor_and_critic(envs, mode="mujoco")
+        actor = actor.to(device)
+        critic = critic.to(device)
         actor_soln, critic_soln = solutions.get_actor_and_critic(envs)
-        assert sum(p.numel() for p in actor.actor_mu.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
+        actor_soln = actor_soln.to(device)
+        critic_soln = critic_soln.to(device)
         assert sum(p.numel() for p in critic.parameters()) == sum(p.numel() for p in critic_soln.parameters()) # 4545
+        assert sum(p.numel() for p in actor.actor_mu.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
         for name, param in actor.named_parameters():
             if "bias" in name:
                 t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
@@ -55,7 +65,7 @@ def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
             if "bias" in name:
                 t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
 
-    print("All tests in `test_agent` passed!")
+    print("All tests in `test_get_actor_and_critic` passed!")
 
 
 def test_minibatch_indexes(minibatch_indexes):
