@@ -1151,7 +1151,8 @@ Weight initialisation methods like Xavier (which we encountered yesterday) are b
 <summary>Give three reasons why batch norm improves the performance of neural networks.</summary>
 
 The reasons given in the first linked document above are:
-    * Normalising inputs speeds up computation
+
+* Normalising inputs speeds up computation
 * Internal covariate shift is reduced, i.e. the mean and standard deviation is kept constant across the layers.
 * Regularisation effect: noise internal to each minibatch is reduced
 </details>
