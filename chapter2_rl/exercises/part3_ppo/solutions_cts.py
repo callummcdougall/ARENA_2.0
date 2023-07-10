@@ -26,6 +26,7 @@ section_dir = exercises_dir / "part3_ppo"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from part3_ppo.utils import set_global_seeds, make_env
+import part3_ppo.tests as tests
 
 from part3_ppo.solutions import (
 	PPOArgs,
@@ -128,6 +129,9 @@ def get_actor_and_critic(
 
 	return actor, critic
 
+
+if MAIN:
+	tests.test_get_actor_and_critic(get_actor_and_critic, mode="mujoco")
 
 # %%
 # Most code below this line is the same as in `solutions.py`, just with some small modifications (denoted by the comment `# CHANGED`).
@@ -267,7 +271,6 @@ class PPOTrainer:
 						"episode_length": last_episode_len,
 						"episode_return": last_episode_return,
 					}, step=self.agent.steps)
-		# Return this for use in the progress bar
 		return last_episode_len
 
 

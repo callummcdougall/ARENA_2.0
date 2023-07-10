@@ -30,7 +30,7 @@ def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
     elif mode == "classic-control":
         import part3_ppo.solutions as solutions
         envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test-run") for i in range(4)])
-        actor, critic = get_actor_and_critic(envs)
+        actor, critic = get_actor_and_critic(envs, mode="classic-control")
         actor_soln, critic_soln = solutions.get_actor_and_critic(envs)
         assert sum(p.numel() for p in actor.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
         assert sum(p.numel() for p in critic.parameters()) == sum(p.numel() for p in critic_soln.parameters()) # 4545
@@ -41,7 +41,22 @@ def test_get_actor_and_critic(get_actor_and_critic, mode="classic-control"):
             if "bias" in name:
                 t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
 
+    elif mode == "mujoco":
+        import part3_ppo.solutions as solutions
+        envs = gym.vector.SyncVectorEnv([make_env("CartPole-v1", i, i, False, "test-run") for i in range(4)])
+        actor, critic = get_actor_and_critic(envs, mode="mujoco")
+        actor_soln, critic_soln = solutions.get_actor_and_critic(envs)
+        assert sum(p.numel() for p in actor.actor_mu.parameters()) == sum(p.numel() for p in actor_soln.parameters()) # 4610
+        assert sum(p.numel() for p in critic.parameters()) == sum(p.numel() for p in critic_soln.parameters()) # 4545
+        for name, param in actor.named_parameters():
+            if "bias" in name:
+                t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
+        for name, param in critic.named_parameters():
+            if "bias" in name:
+                t.testing.assert_close(param.pow(2).sum().cpu(), t.tensor(0.0))
+
     print("All tests in `test_agent` passed!")
+
 
 def test_minibatch_indexes(minibatch_indexes):
     rng = np.random.default_rng(0)

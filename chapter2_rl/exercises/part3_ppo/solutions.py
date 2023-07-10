@@ -302,6 +302,8 @@ if MAIN:
 
 # %%
 
+
+
 @dataclass
 class ReplayBufferSamples:
 	'''
@@ -337,8 +339,10 @@ class ReplayBuffer:
 		self.experiences = []
 
 
-	def add(self, obs: t.Tensor, actions: t.Tensor, rewards: t.Tensor, dones: t.Tensor, logprobs: t.Tensor, values: t.Tensor) -> None:
+	def add(self, obs, actions, rewards, dones, logprobs, values) -> None:
 		'''
+		Each argument can be a PyTorch tensor or NumPy array.
+
 		obs: shape (n_envs, *observation_shape) 
 			Observation before the action
 		actions: shape (n_envs,) 
@@ -359,7 +363,11 @@ class ReplayBuffer:
 		assert logprobs.shape == (self.num_envs,)
 		assert values.shape == (self.num_envs,)
 
-		self.experiences.append((obs, dones, actions, logprobs, values, rewards))
+		new_experiences_as_tensors = [
+			t.from_numpy(d).to(device) if isinstance(d, np.ndarray) else d
+			for d in (obs, dones, actions, logprobs, values, rewards)
+		]
+		self.experiences.append(new_experiences_as_tensors)
 
 
 	def get_minibatches(self, next_value: t.Tensor, next_done: t.Tensor) -> List[ReplayBufferSamples]:
@@ -408,10 +416,7 @@ if MAIN:
 		# just dummy values for now, we won't be using them
 		logprobs = values = t.zeros(envs.num_envs)
 		# turn everything into a tensor
-		rb.add(*[
-			t.from_numpy(d).to(device) if isinstance(d, np.ndarray) else d
-			for d in (obs, actions, rewards, dones, logprobs, values)
-		])
+		rb.add(obs, actions, rewards, dones, logprobs, values)
 		obs = next_obs
 	
 	obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*rb.experiences)]
