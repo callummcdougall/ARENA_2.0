@@ -43,7 +43,7 @@ st.sidebar.markdown(r"""
 </ul></li>""", unsafe_allow_html=True)
 
 st.markdown(r"""
-# [1.∞] Reference Page
+# [1.A] Reference Page
 
 This page contains links to a bunch of things (blog posts, diagrams, tables) as well as guides and code references, all of which are useful to have at hand when doing this chapter.
 
