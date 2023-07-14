@@ -973,7 +973,6 @@ def topk_of_Nd_tensor(tensor: Float[Tensor, "rows cols"], k: int):
     return np.array(np.unravel_index(utils.to_numpy(i), tensor.shape)).T.tolist()
 
 
-
 k = 3
 
 for head_type in ["Positive", "Negative"]:

@@ -35,6 +35,8 @@ See our main website to understand more about our broader vision: [arena.educati
 st.info(
 r"""
 If you have any other suggestions for material or features that you think ARENA could benefit from, please reach out via email `cal.s.mcdougall@gmail.com` or on the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ).
+
+***Note** - some of the dates below have been moved backwards recently, because I've become quite busy with other fieldbuilding projects.*
 """)
 
 st.markdown(
@@ -63,19 +65,19 @@ The most important conceptual ideas Atari introduces relate to the design of the
 
 MuJoCo is more challenging than Atari, because it introduces a **continuous action space**. This will require a redesign of several components of the PPO algorithm.
 
-#### **RLHF (Atari / MuJoCo)** - 12th July 2023
+#### **RLHF (Atari / MuJoCo)** - 20th July 2023
 
 Practice RLHF in a simple environment, before we get to language models. You'll be able to try RLHF on Atari games, or attempt to replicate results like OpenAI's famous "backflipping noodle" experiment.
 
-#### **PPO (transformers)** - 16th July 2023
+#### **PPO (transformers)** - 24th July 2023
 
 Now, we move on to transformer architecture. Before we introduce the human feedback element, we'll use the PPO algorithm to train the transformer to do a simple task (generating more periods, i.e. shorter sentences). This will involve some concepts that came up in the PPO Atari material (e.g. the policy and value networks as having shared architecture), as well as some new ideas (e.g. keeping the transformer on-distribution using a KL divergence penalty term).
 
-#### **RLHF (transformers)** - 18th July 2023
+#### **RLHF (transformers)** - 28th July 2023
 
 This section combines the conceptual ideas from the last 2 sections, by having you implement RLHF on transformers. You'll be doing all the coding from the ground up, i.e. with no assistance from libraries like `trlx`.
 
-#### **RLHF (trlx), re-release** - 20th July 2023
+#### **RLHF (trlx), re-release** - 1st August 2023
 
 Lastly, we plan to restructure the RLHF & `trlx` chapter, to make it easier to follow & flow better with the rest of the chapter. Learning how to use `trlx` is still valuable, because once you have a conceptual understanding of the RLHF process, there's no need to go through all the low-level implementational details.
 
@@ -88,7 +90,7 @@ Lastly, we plan to restructure the RLHF & `trlx` chapter, to make it easier to f
 
 We'll start to release a monthly sequence on mechanistic interpretability, in the same vein as Steven Caspar's sequence (they will also be published on LessWrong). Each challenge will involve interpreting a transformer trained on a particular LeetCode problem. The balanced brackets transformer exercises are a good example (although I expect the average task in this sequence to be slightly easier).
 
-**The first one is planned for release on Wednesday 12th July.**
+**The first one is planned for release on Saturday 15th July.**
 
 </details>
 
