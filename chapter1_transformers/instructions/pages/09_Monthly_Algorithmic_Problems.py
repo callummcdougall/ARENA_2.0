@@ -36,7 +36,7 @@ r"""
 
 This marks the first of the (hopefully sequence of) monthly mechanistic interpretability challenges. I designed them in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
-If you prefer, you can access the Colab [here](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz)
+If you prefer, you can access the Colab [here](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz).
 
 ## Prerequisites
 
@@ -77,6 +77,7 @@ You can send your attempt to me (Callum McDougall) via any of the following meth
 
 **I'll feature the names of everyone who sends me a solution on this website, and also give a shout out to the best solutions.** It's possible that future challenges will also feature a monetary prize, but this is not guaranteed.
 
+Please don't discuss specific things you've found about this model until the challenge is over (although you can discuss general strategies and techniques, and you're also welcome to work in a group if you'd like). The deadline for this problem will be the end of this month, i.e. 31st July. If the challenge is well-received (which I'm arbitrarily defining as there being at least 5 submissions which I judge to be high-quality), then I'll make it a monthly sequence.
 
 ## What counts as a solution?
 
