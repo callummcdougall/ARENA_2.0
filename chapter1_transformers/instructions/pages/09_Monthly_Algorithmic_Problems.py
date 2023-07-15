@@ -23,14 +23,16 @@ st.sidebar.markdown(r"""
     <li><a class='contents-el' href='#motivation'>Motivation</a></li>
     <li><a class='contents-el' href='#logistics'>Logistics</a></li>
     <li><a class='contents-el' href='#what-counts-as-a-solution'>What counts as a solution?</a></li>
+    <li><a class='contents-el' href='#setup'>Setup</a></li>
     <li><a class='contents-el' href='#task-dataset'>Task & Dataset</a></li>
     <li><a class='contents-el' href='#model'>Model</a></li>
-    <li><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
 st.markdown(
 r"""
-# `[1.B]` Monthly Algorithmic Challenge: Palindromes
+# Monthly Algorithmic Challenge: Palindromes
+
+[Colab link](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz)
 
 This marks the first of the (hopefully sequence of) monthly mechanistic interpretability challenges. I designed them in the spirit of [Stefan & Marius' challenges](https://www.lesswrong.com/posts/k43v47eQjaj6fY7LE/solving-the-mechanistic-interpretability-challenges-eis-vii-1), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
@@ -82,9 +84,30 @@ Going through the exercises **[1.4] Balanced Bracket Classifier** should give yo
 * Provide evidence for your mechanism, e.g. with tools like attention probabilities, targeted ablation / patching, or direct logit attribution.
 * (Optional) Include additional detail, e.g. identifying the linear subspaces that the model uses for certain forms of information transmission.
 
+## Setup
+
+```python
+import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import sys
+import torch as t
+from pathlib import Path
+
+# Make sure exercises are in the path
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "monthly_algorithmic_problems" / "july23_palindromes"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+
+from monthly_algorithmic_problems.july23_palindromes.dataset import PalindromeDataset, display_seq
+from monthly_algorithmic_problems.july23_palindromes.model import create_model
+from plotly_utils import hist, bar, imshow
+
+device = t.device("cuda" if t.cuda.is_available() else "cpu")
+```
+
 ## Task & Dataset
 
-The directory containing all the relevant files is `chapter1_transformers/exercises/monthly_algorithmic_problems/july23_palindromes`. At the bottom of this page is a block of setup code for you to run, in a similar style to the other exercises in this chapter.
+The directory containing all the relevant files is `chapter1_transformers/exercises/monthly_algorithmic_problems/july23_palindromes`. This contains files `model.py` (for defining the model), `training.py` (for training the model), and `dataset.py` (for the dataset of palindromes and non-palindromes).
 
 Each sequence in the dataset looks like:
 
@@ -96,20 +119,7 @@ where `start_token = 31`, `end_token = 32`, and each value `a_i` is a value in t
 
 Each sequence has a corresponding label, which is `1` if the sequence is a palindrome (i.e. `(a_1, a_2, ..., a_N) == (a_N, ..., a_2, a_1)`), and `0` otherwise. The model has been trained to classify each sequence according to this label.
 
-We've given you the class `PalindromeDataset` to store your data. You can slice this object to get batches of tokens and labels. You can also use the function `display_seq` to display a sequence in a more readable format (with any tokens that stop it from being a palindrome highlighted). You can also print out the model's probability, as an optional second argument.
-            
-```python
-dataset = PalindromeDataset(size=100, max_value=30, half_length=10).to("cuda")
-
-toks, is_palindrome = dataset[:5]
-
-logits = model(toks)[:, -1]
-probs = logits.softmax(-1)
-probs_palindrome = probs[:, 1]
-
-for tok, prob in zip(toks, probs_palindrome):
-    display_seq(tok, prob)
-```
+We've given you the class `PalindromeDataset` to store your data. You can slice this object to get batches of tokens and labels. You can also use the function `display_seq` to display a sequence in a more readable format (with any tokens that stop it from being a palindrome highlighted). There's an example later on this page. 
 
 Some other useful methods and attributes of this dataset (you can inspect `dataset.py` to see for yourself) are:
 
@@ -189,17 +199,19 @@ t.testing.assert_close(b_V, t.zeros_like(b_V))
 
 The model was trained to output the correct classification at the `END` token, in other words the value of the residual stream at `END` (post-layernorm) is mapped through `model.W_U` which has shape `(d_model, 2)`, and this gives us our classification logits for `(not palindrome, palindrome)`.
 
-A demonstration of the model working:
+A demonstration of the model working (and of the `display_seq` function):
 
 ```python
-for i in range(5):
-    toks, is_palindrome = dataset[i]
-    
-    logits = model(toks.unsqueeze(0))[0, -1]
-    probs = logits.softmax(-1)
-    prob_palindrome = probs[1].item()
+dataset = PalindromeDataset(size=100, max_value=30, half_length=10)
 
-    display_seq(toks, prob_palindrome)
+toks, is_palindrome = dataset[:5]
+
+logits = model(toks)[:, -1]
+probs = logits.softmax(-1)
+probs_palindrome = probs[:, 1]
+
+for tok, prob in zip(toks, probs_palindrome):
+    display_seq(tok, prob)
 ```
 
 <details>
@@ -226,27 +238,8 @@ Find (1) a palindromic example, and (2) a non-palindromic example which is close
 
 </details>
 
+Note - although this model was trained for long enough to get loss close to zero (you can test this for yourself), it's not perfect. There are some weaknesses that the model has which make it vulnerable to adversarial examples, which I've decided to leave in as a fun extra challenge! Note that the model is still very good at its intended task, and the main focus of this challenge is on figuring out how it solves the task, not dissecting the situations where it fails. However, you might find that the adversarial examples help you understand the model better.
+
 Best of luck! 🎈
-
-## Setup
-
-```python
-import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
-import sys
-import torch as t
-from pathlib import Path
-
-# Make sure exercises are in the path
-chapter = r"chapter1_transformers"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "monthly_algorithmic_problems" / "july23_palindromes"
-if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
-
-from monthly_algorithmic_problems.july23_palindromes.dataset import PalindromeDataset, display_seq
-from monthly_algorithmic_problems.july23_palindromes.model import create_model
-from plotly_utils import hist, bar, imshow
-
-device = t.device("cuda" if t.cuda.is_available() else "cpu")
-```
 
 """, unsafe_allow_html=True)
