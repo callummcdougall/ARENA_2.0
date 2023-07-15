@@ -133,24 +133,67 @@ def scatter(x, y, renderer=None, **kwargs):
 def bar(tensor, renderer=None, **kwargs):
     '''
     '''
+    if isinstance(tensor, list):
+        if isinstance(tensor[0], t.Tensor): arr = [to_numpy(tn) for tn in tensor]
+        elif isinstance(tensor[0], list): arr = [np.array(tn) for tn in tensor]
+        else: arr = np.array(tensor)
+    else:
+        arr = to_numpy(tensor)
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    names = kwargs_pre.pop("names", None)
     if "hovermode" not in kwargs_post:
         kwargs_post["hovermode"] = "x unified"
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    px.bar(y=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+    fig = px.bar(y=arr, **kwargs_pre).update_layout(**kwargs_post)
+    if names is not None:
+        for i in range(len(fig.data)):
+            fig.data[i]["name"] = names[i // 2 if "marginal" in kwargs_pre else i]
+    fig.show(renderer)
 
 def hist(tensor, renderer=None, **kwargs):
-    '''
-    '''
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    draw = kwargs_pre.pop("draw", True)
+    static = kwargs_pre.pop("static", False)
+    return_fig = kwargs_pre.pop("return_fig", False)
+    if isinstance(tensor, list):
+        if isinstance(tensor[0], t.Tensor): arr = [to_numpy(tn) for tn in tensor]
+        elif isinstance(tensor[0], list): arr = [np.array(tn) for tn in tensor]
+        else: arr = np.array(tensor)
+    else:
+        arr = to_numpy(tensor)
+    if "modebar_add" not in kwargs_post:
+        kwargs_post["modebar_add"] = ['drawline', 'drawopenpath', 'drawclosedpath', 'drawcircle', 'drawrect', 'eraseshape']
+    add_mean_line = kwargs_pre.pop("add_mean_line", False)
+    names = kwargs_pre.pop("names", None)
+    if "barmode" not in kwargs_post:
+        kwargs_post["barmode"] = "overlay"
     if "bargap" not in kwargs_post:
-        kwargs_post["bargap"] = 0.1
+        kwargs_post["bargap"] = 0.0
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
-    px.histogram(x=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
+    if "hovermode" not in kwargs_post:
+        kwargs_post["hovermode"] = "x unified"
+    if "autosize" not in kwargs_post:
+        kwargs_post["autosize"] = False
+    fig = px.histogram(x=arr, **kwargs_pre).update_layout(**kwargs_post)
+    if add_mean_line:
+        if arr.ndim == 1:
+            fig.add_vline(x=arr.mean(), line_width=3, line_dash="dash", line_color="black", annotation_text=f"Mean = {arr.mean():.3f}", annotation_position="top")
+        elif arr.ndim == 2:
+            for i in range(arr.shape[0]):
+                fig.add_vline(x=arr[i].mean(), line_width=3, line_dash="dash", line_color="black", annotation_text=f"Mean = {arr.mean():.3f}", annotation_position="top")
+    if names is not None:
+        for i in range(len(fig.data)):
+            fig.data[i]["name"] = names[i // 2 if "marginal" in kwargs_pre else i]
+    else:
+        fig.update_layout(modebar_add=[])
+    if return_fig:
+        return fig
+    else:
+        fig.show(renderer=renderer)
 
 
 
