@@ -507,7 +507,9 @@ class ResNetTrainer:
 	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
 		logits, labels = self._shared_train_val_step(imgs, labels)
 		loss = F.cross_entropy(logits, labels)
-		self.update_step(loss)
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
 		return loss
 
 	@t.inference_mode()
@@ -517,11 +519,6 @@ class ResNetTrainer:
 		n_correct = t.sum(classifications == labels)
 		return n_correct
 
-	def update_step(self, loss: Float[Tensor, '']):
-		loss.backward()
-		self.optimizer.step()
-		self.optimizer.zero_grad()
-	
 	def train_dataloader(self):
 		self.model.train()
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
@@ -595,7 +592,7 @@ import wandb
 
 @dataclass
 class ResNetTrainingArgsWandb(ResNetTrainingArgs):
-	wandb_project: Optional[str] = 'part4-resnet'
+	wandb_project: Optional[str] = 'day4-resnet'
 	wandb_name: Optional[str] = None
 
 
@@ -618,7 +615,10 @@ class ResNetTrainerWandb:
 	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
 		logits, labels = self._shared_train_val_step(imgs, labels)
 		loss = F.cross_entropy(logits, labels)
-		self.update_step(loss)
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
+		self.step += 1
 		return loss
 
 	@t.inference_mode()
@@ -628,12 +628,6 @@ class ResNetTrainerWandb:
 		n_correct = t.sum(classifications == labels)
 		return n_correct
 
-	def update_step(self, loss: Float[Tensor, '']):
-		loss.backward()
-		self.optimizer.step()
-		self.optimizer.zero_grad()
-		self.step += 1
-	
 	def train_dataloader(self):
 		self.model.train()
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)

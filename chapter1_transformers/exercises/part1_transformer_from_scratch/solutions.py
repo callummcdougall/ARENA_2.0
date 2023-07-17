@@ -533,16 +533,13 @@ if MAIN:
 
 @dataclass
 class TransformerTrainingArgs():
-	batch_size = 8
-	max_epochs = 1
-	max_steps = 1000
-	log_every = 10
+	batch_size = 32
+	epochs = 5
+	max_steps_per_epoch = 500
 	lr = 1e-3
 	weight_decay = 1e-2
-	log_dir: str = os.getcwd() + "/logs"
-	log_name: str = "day1-transformer"
-	run_name: Optional[str] = None
-	log_every_n_steps: int = 1
+	wandb_project: Optional[str] = "day1-demotransformer"
+	wandb_name: Optional[str] = None
 
 
 if MAIN:
@@ -556,71 +553,108 @@ if MAIN:
 	print(dataset)
 	print(dataset[0]['text'][:100])
 
-# %%
 
+# %%
 
 if MAIN:
 	tokenized_dataset = tokenize_and_concatenate(dataset, reference_gpt2.tokenizer, streaming=False, max_length=model.cfg.n_ctx, column_name="text", add_bos_token=True, num_proc=4)
-	data_loader = DataLoader(tokenized_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+	
+	dataset_dict = tokenized_dataset.train_test_split(test_size=1000)
+	train_loader = DataLoader(dataset_dict["train"], batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+	test_loader = DataLoader(dataset_dict["test"], batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
 # %%
 
 
 if MAIN:
-	first_batch = data_loader.dataset[:args.batch_size]
+	first_batch = train_loader.dataset[:args.batch_size]
 	
 	print(first_batch.keys())
 	print(first_batch['tokens'].shape)
 
 # %%
 
-class LitTransformer(pl.LightningModule):
-	def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
+class TransformerTrainer:
+	def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer):
 		super().__init__()
 		self.model = model
-		self.cfg = model.cfg
 		self.args = args
-		self.data_loader = data_loader
+		self.optimizer = t.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+		self.step = 0
 
-	def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
-		logits = self.model(tokens)
-		return logits
 
-	def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
+	def training_step(self, batch: Dict[str, Int[Tensor, "batch seq"]]) -> Float[Tensor, ""]:
 		'''
-		Here you compute and return the training loss and some additional metrics for e.g. 
-		the progress bar or logger.
+		Calculates the loss on the tokens in the batch, performs a gradient update step, and logs the loss.
+
+		Remember that `batch` is a dictionary with the single key 'tokens'.
 		'''
 		tokens = batch["tokens"].to(device)
 		logits = self.model(tokens)
 		loss = -get_log_probs(logits, tokens).mean()
-		self.log("train_loss", loss)
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
+		self.step += 1
+		wandb.log({"train_loss": loss}, step=self.step)
 		return loss
 
-	def configure_optimizers(self):
+
+	def validation_step(self, batch: Dict[str, Int[Tensor, "batch seq"]]):
 		'''
-		Choose what optimizers and learning-rate schedulers to use in your optimization.
+		Calculates & returns the accuracy on the tokens in the batch (i.e. how often the model's prediction
+		is correct). Logging should happen in the `train` function (after we've computed the accuracy for 
+		the whole validation set).
 		'''
-		optimizer = t.optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
-		return optimizer
+		tokens = batch["tokens"].to(device)
+		logits: Tensor = self.model(tokens)[:, :-1]
+		predicted_tokens = logits.argmax(dim=-1)
+		correct_predictions = (predicted_tokens == tokens[:, 1:]).flatten()
+		return correct_predictions
 	
-	def train_dataloader(self):
-		return self.data_loader
+	def train(self):
+		'''
+		Trains the model, for `self.args.epochs` epochs. Also handles wandb initialisation, and early stopping
+		for each epoch at `self.args.max_steps_per_epoch` steps.
+		'''
+		wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+		accuracy = np.nan
+
+		progress_bar = tqdm(total = self.args.max_steps_per_epoch * self.args.epochs)
+
+		for epoch in range(self.args.epochs):
+			for i, batch in enumerate(self.train_loader()):
+				loss = self.training_step(batch)
+				progress_bar.update()
+				progress_bar.set_description(f"Epoch {epoch+1}, loss: {loss:.3f}, accuracy: {accuracy:.2f}")
+				if i >= self.args.max_steps_per_epoch:
+					break
+
+			correct_predictions = t.concat([self.validation_step(batch) for batch in self.test_loader()])
+			accuracy = correct_predictions.float().mean().item()
+			wandb.log({"accuracy": accuracy}, step=self.step)
+			
+		wandb.finish()
+
+
+	def train_loader(self) -> DataLoader:
+		'''Returns train loader (as in code above).'''
+		return DataLoader(dataset_dict["train"], batch_size=self.args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+
+
+	def test_loader(self) -> DataLoader:
+		'''Returns test loader (as in code above).'''
+		return DataLoader(dataset_dict["test"], batch_size=self.args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+
+
 
 # %%
 
-
 if MAIN:
-	litmodel = LitTransformer(args, model, data_loader)
-	logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		logger=logger,
-		log_every_n_steps=args.log_every_n_steps
-	)
-	trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
-	wandb.finish()
+	model = DemoTransformer(model_cfg).to(device)
+	args = TransformerTrainingArgs()
+	trainer = TransformerTrainer(args, model)
+	trainer.train()
 
 # %%
 

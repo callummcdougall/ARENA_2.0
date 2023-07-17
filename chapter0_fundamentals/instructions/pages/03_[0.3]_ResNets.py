@@ -152,7 +152,7 @@ def section_1():
     <li class='margtop'><a class='contents-el' href='#training-loop'>Training loop</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#cross-entropy-loss'>Cross entropy loss</a></li>
-        <li class='margtop'><a class='contents-el' href='#modularisation'>Modularisation</a></li>
+        <li><a class='contents-el' href='#modularisation'>Modularisation</a></li>
         <li><a class='contents-el' href='#aside-dataclasses'>Aside - <code>dataclasses</code></a></li>
         <li><a class='contents-el' href='#exercise-add-a-validation-loop'><b>Exercise</b> - add a validation loop</a></li>
         <li><a class='contents-el' href='#more-thoughts-on-modular-code'>More thoughts on modular code</a></li>
@@ -552,34 +552,28 @@ One such library which implements this approach is [PyTorch Lightning](https://l
 
 ```python
 class ConvNetTrainer:
-	def __init__(self, batch_size: int, epochs: int, subset: int = 10):
-		self.model = ConvNet().to(device)
-		self.optimizer = t.optim.Adam(self.model.parameters())
-		self.batch_size = batch_size
-		self.epochs = epochs
-		self.trainset, self.testset = get_mnist(subset = 10)
-		self.logged_variables = {"loss": []}
+    def __init__(self, batch_size: int, epochs: int, subset: int = 10):
+        self.model = ConvNet().to(device)
+        self.optimizer = t.optim.Adam(self.model.parameters())
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.trainset, self.testset = get_mnist(subset = 10)
+        self.logged_variables = {"loss": []}
 
-	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
-		imgs = imgs.to(device)
-		labels = labels.to(device)
-		logits = self.model(imgs)
-		loss = F.cross_entropy(logits, labels)
-		self.logged_variables["loss"].append(loss.item())
-		self.update_step(loss)
+    def training_step(self, imgs: Tensor, labels: Tensor):
+        imgs = imgs.to(device)
+        labels = labels.to(device)
+        logits = self.model(imgs)
+        loss = F.cross_entropy(logits, labels)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        self.logged_variables["loss"].append(loss.item())
 
-	def update_step(self, loss: Float[Tensor, '']):
-		loss.backward()
-		self.optimizer.step()
-		self.optimizer.zero_grad()
-	
-	def train_dataloader(self):
-		return DataLoader(self.trainset, batch_size=self.batch_size, shuffle=True)
-
-	def train(self):
-		for epoch in tqdm(range(self.epochs)):
-			for imgs, labels in self.train_dataloader():
-				self.training_step(imgs, labels)
+    def train(self):
+        for epoch in tqdm(range(self.epochs)):
+            for imgs, labels in self.train_dataloader():
+                self.training_step(imgs, labels)
 ```
 
 Once you've created this class, you can train your model as follows:
@@ -617,56 +611,56 @@ If you're interested in what PyTorch Lightning code looks like, here is the Ligh
 ```python
 @dataclass
 class ConvNetTrainingArgs():
-	'''
-	Defining this class implicitly creates an __init__ method, which sets arguments as 
-	given below, e.g. self.batch_size = 64. Any of these arguments can also be overridden
-	when you create an instance, e.g. args = ConvNetTrainingArgs(batch_size=128).
-	'''
-	batch_size: int = 64
-	max_epochs: int = 3
-	optimizer: t.optim.Optimizer = t.optim.Adam
-	learning_rate: float = 1e-3
-	log_dir: str = os.getcwd() + "/logs"
-	log_name: str = "day3-convenet"
-	log_every_n_steps: int = 1
-	sample: int = 10
+    '''
+    Defining this class implicitly creates an __init__ method, which sets arguments as 
+    given below, e.g. self.batch_size = 64. Any of these arguments can also be overridden
+    when you create an instance, e.g. args = ConvNetTrainingArgs(batch_size=128).
+    '''
+    batch_size: int = 64
+    max_epochs: int = 3
+    optimizer: t.optim.Optimizer = t.optim.Adam
+    learning_rate: float = 1e-3
+    log_dir: str = os.getcwd() + "/logs"
+    log_name: str = "day3-convenet"
+    log_every_n_steps: int = 1
+    sample: int = 10
 
 
 class LitConvNetTest(pl.LightningModule):
-	def __init__(self, args: ConvNetTrainingArgs):
-		super().__init__()
-		self.convnet = ConvNet()
-		self.args = args
-		self.trainset, self.testset = get_mnist(subset=args.sample)
+    def __init__(self, args: ConvNetTrainingArgs):
+        super().__init__()
+        self.convnet = ConvNet()
+        self.args = args
+        self.trainset, self.testset = get_mnist(subset=args.sample)
 
-	def forward(self, x: t.Tensor) -> t.Tensor:
-		return self.convnet(x)
+    def forward(self, x: t.Tensor) -> t.Tensor:
+        return self.convnet(x)
 
-	def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
-		imgs, labels = batch
-		logits = self(imgs)
-		return logits, labels
+    def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
+        imgs, labels = batch
+        logits = self(imgs)
+        return logits, labels
 
-	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
-		logits, labels = self._shared_train_val_step(batch)
-		loss = F.cross_entropy(logits, labels)
-		self.log("train_loss", loss)
-		return loss
-	
-	def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
-		logits, labels = self._shared_train_val_step(batch)
-		classifications = logits.argmax(dim=1)
-		accuracy = t.sum(classifications == labels) / len(classifications)
-		self.log("accuracy", accuracy)
+    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+        logits, labels = self._shared_train_val_step(batch)
+        loss = F.cross_entropy(logits, labels)
+        self.log("train_loss", loss)
+        return loss
+    
+    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+        logits, labels = self._shared_train_val_step(batch)
+        classifications = logits.argmax(dim=1)
+        accuracy = t.sum(classifications == labels) / len(classifications)
+        self.log("accuracy", accuracy)
 
-	def configure_optimizers(self):
-		return self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
-	
-	def train_dataloader(self):
-		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
-	
-	def val_dataloader(self):
-		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
+    def configure_optimizers(self):
+        return self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
+    
+    def train_dataloader(self):
+        return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 
 
 args = ConvNetTrainingArgs()
@@ -693,55 +687,53 @@ plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNI
 Sometimes, when we have a lot of different input parameters to our model, it can be helpful to use dataclasses to keep track of them all. Dataclasses are a special kind of class which come with built-in methods for initialising and printing (i.e. no need to define an `__init__` or `__repr__`). Another advantage of using them is autocompletion: when you type in `args.` in VSCode, you'll get a dropdown of all your different dataclass attributes, which can be useful when you've forgotten what you called a variable!
 
 Here's an example of how we might rewrite our training code above using dataclasses. We've also added some code to the `train` method, to show how you might improve your progress bar (and have it print useful output during training).
+                
+> *Note - it's really easy to accidentally make scope-related mistakes, by referencing `args` not `self.args` in your training methods (I did this accidentally a ton while writing these exercises). Watch out for this!*
 
 ```python
 @dataclass
 class ConvNetTrainingArgs():
-	'''
-	Defining this class implicitly creates an __init__ method, which sets arguments as 
-	given below, e.g. self.batch_size = 64. Any of these arguments can also be overridden
-	when you create an instance, e.g. args = ConvNetTrainingArgs(batch_size=128).
-	'''
-	batch_size: int = 64
-	epochs: int = 3
-	optimizer: Type[t.optim.Optimizer] = t.optim.Adam
-	learning_rate: float = 1e-3
-	subset: int = 10
+    '''
+    Defining this class implicitly creates an __init__ method, which sets arguments as 
+    given below, e.g. self.batch_size = 64. Any of these arguments can also be overridden
+    when you create an instance, e.g. args = ConvNetTrainingArgs(batch_size=128).
+    '''
+    batch_size: int = 64
+    epochs: int = 3
+    optimizer: Type[t.optim.Optimizer] = t.optim.Adam
+    learning_rate: float = 1e-3
+    subset: int = 10
 
 
 class ConvNetTrainer:
-	def __init__(self, args: ConvNetTrainingArgs):
-		self.args = args
-		self.model = ConvNet().to(device)
-		self.optimizer = args.optimizer(self.model.parameters(), lr=args.learning_rate)
-		self.trainset, self.testset = get_mnist(subset=args.subset)
-		self.logged_variables = {"loss": []}
+    def __init__(self, args: ConvNetTrainingArgs):
+        self.args = args
+        self.model = ConvNet().to(device)
+        self.optimizer = args.optimizer(self.model.parameters(), lr=args.learning_rate)
+        self.trainset, self.testset = get_mnist(subset=args.subset)
+        self.logged_variables = {"loss": []}
 
-	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
-		imgs = imgs.to(device)
-		labels = labels.to(device)
-		logits = self.model(imgs)
-		loss = F.cross_entropy(logits, labels)
-		self.logged_variables["loss"].append(loss.item())
-		self.update_step(loss)
-		return loss
+    def training_step(self, imgs: Tensor, labels: Tensor):
+        imgs = imgs.to(device)
+        labels = labels.to(device)
+        logits = self.model(imgs)
+        loss = F.cross_entropy(logits, labels)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        self.logged_variables["loss"].append(loss.item())
+    
+    def train_dataloader(self):
+        return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
 
-	def update_step(self, loss: Float[Tensor, '']):
-		loss.backward()
-		self.optimizer.step()
-		self.optimizer.zero_grad()
-	
-	def train_dataloader(self):
-		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
-
-	def train(self):
-		progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
-		for epoch in range(self.args.epochs):
-			for imgs, labels in self.train_dataloader():
-				loss = self.training_step(imgs, labels)
-				desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}"
-				progress_bar.set_description(desc)
-				progress_bar.update()
+    def train(self):
+        progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
+        for epoch in range(self.args.epochs):
+            for imgs, labels in self.train_dataloader():
+                loss = self.training_step(imgs, labels)
+                desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}"
+                progress_bar.set_description(desc)
+                progress_bar.update()
     
 
 args = ConvNetTrainingArgs(batch_size=128)
@@ -788,7 +780,7 @@ Note that you don't need to calculate probabilities via softmax before getting c
 Lastly, you should use `torch.inference_mode` to make sure that your model is in inference mode during validation (i.e. gradients don't propagate). There are 2 standard ways to do this - using a context manager:
 
 ```python
-def validation_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+def validation_step(self, imgs: Tensor, labels: Tensor):
     with t.inference_mode():
         ...
 ```
@@ -797,7 +789,7 @@ or a decorator to your method:
 
 ```python
 @t.inference_mode()
-def validation_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+def validation_step(self, imgs: Tensor, labels: Tensor):
     ...
 ```
 
@@ -824,64 +816,60 @@ This is commonly because one of your operations is between tensors with the wron
 <details>
 <summary>Solution (one possible implementation)</summary>
 
-
 ```python
 class ConvNetTrainer:
-	def __init__(self, args: ConvNetTrainingArgs):
-		self.args = args
-		self.model = ConvNet().to(device)
-		self.optimizer = args.optimizer(self.model.parameters(), lr=args.learning_rate)
-		self.trainset, self.testset = get_mnist(subset=args.subset)
-		self.logged_variables = {"loss": [], "accuracy": []}
+    def __init__(self, args: ConvNetTrainingArgs):
+        self.args = args
+        self.model = ConvNet().to(device)
+        self.optimizer = args.optimizer(self.model.parameters(), lr=args.learning_rate)
+        self.trainset, self.testset = get_mnist(subset=args.subset)
+        self.logged_variables = {"loss": [], "accuracy": []}
 
-	def _shared_train_val_step(self, imgs: Tensor, labels: Tensor) -> Tuple[Tensor, Tensor]:
-		imgs = imgs.to(device)
-		labels = labels.to(device)
-		logits = self.model(imgs)
-		return logits, labels
+    def _shared_train_val_step(self, imgs: Tensor, labels: Tensor) -> Tuple[Tensor, Tensor]:
+        imgs = imgs.to(device)
+        labels = labels.to(device)
+        logits = self.model(imgs)
+        return logits, labels
 
-	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
-		logits, labels = self._shared_train_val_step(imgs, labels)
-		loss = F.cross_entropy(logits, labels)
-		self.update_step(loss)
-		return loss
+    def training_step(self, imgs: Tensor, labels: Tensor) -> Tensor:
+        logits, labels = self._shared_train_val_step(imgs, labels)
+        loss = F.cross_entropy(logits, labels)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        self.logged_variables["loss"].append(loss.item())
+        return loss
 
-	@t.inference_mode()
-	def validation_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
-		logits, labels = self._shared_train_val_step(imgs, labels)
-		classifications = logits.argmax(dim=1)
-		n_correct = t.sum(classifications == labels)
-		return n_correct
+    @t.inference_mode()
+    def validation_step(self, imgs: Tensor, labels: Tensor) -> Tensor:
+        logits, labels = self._shared_train_val_step(imgs, labels)
+        classifications = logits.argmax(dim=1)
+        n_correct = t.sum(classifications == labels)
+        return n_correct
 
-	def update_step(self, loss: Float[Tensor, '']):
-		loss.backward()
-		self.optimizer.step()
-		self.optimizer.zero_grad()
-	
-	def train_dataloader(self):
-		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
-	
-	def val_dataloader(self):
-		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
+    def train_dataloader(self):
+        return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 
-	def train(self):
-		progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
-		accuracy = t.nan
+    def train(self):
+        progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
+        accuracy = t.nan
 
-		for epoch in range(self.args.epochs):
+        for epoch in range(self.args.epochs):
 
-			# Training loop (includes updating progress bar)
-			for imgs, labels in self.train_dataloader():
-				loss = self.training_step(imgs, labels)
-				self.logged_variables["loss"].append(loss.item())
-				desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}, Accuracy = {accuracy:.2f}"
-				progress_bar.set_description(desc)
-				progress_bar.update()
+            # Training loop (includes updating progress bar)
+            for imgs, labels in self.train_dataloader():
+                loss = self.training_step(imgs, labels)
+                desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}, Accuracy = {accuracy:.2f}"
+                progress_bar.set_description(desc)
+                progress_bar.update()
 
-			# Compute accuracy by summing n_correct over all batches, and dividing by number of items
-			accuracy = sum(self.validation_step(imgs, labels) for imgs, labels in self.val_dataloader()) / len(self.testset)
+            # Compute accuracy by summing n_correct over all batches, and dividing by number of items
+            accuracy = sum(self.validation_step(imgs, labels) for imgs, labels in self.val_dataloader()) / len(self.testset)
 
-			self.logged_variables["accuracy"].append(accuracy.item())
+            self.logged_variables["accuracy"].append(accuracy.item())
 
 
 args = ConvNetTrainingArgs(batch_size=128)
@@ -1928,8 +1916,8 @@ def section_3():
 ## Table of Contents
 
 <ul class="contents">
-        <li><a class='contents-el' href='#exercise-prepare-resnet-for-feature-extraction'><b>Exercise</b> - prepare ResNet for feature extraction</a></li>
-        <li><a class='contents-el' href='#exercise-write-training-loop-for-feature-extraction'><b>Exercise</b> - write training loop for feature extraction</a></li>
+    <li><a class='contents-el' href='#exercise-prepare-resnet-for-feature-extraction'><b>Exercise</b> - prepare ResNet for feature extraction</a></li>
+    <li><a class='contents-el' href='#exercise-write-training-loop-for-feature-extraction'><b>Exercise</b> - write training loop for feature extraction</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -2131,20 +2119,20 @@ We use `super()` to access the method from `ConvNetTrainer`.
 
 ```python
 class ResNetTrainer(ConvNetTrainer):
-	def __init__(self, args: ResNetTrainingArgs):
-		self.args = args
-		self.model = get_resnet_for_feature_extraction(args.n_classes).to(device)
-		self.optimizer = args.optimizer(self.model.out_layers[-1].parameters(), lr=args.learning_rate)
-		self.trainset, self.testset = get_cifar(subset=args.subset)
-		self.logged_variables = {"loss": [], "accuracy": []}
+    def __init__(self, args: ResNetTrainingArgs):
+        self.args = args
+        self.model = get_resnet_for_feature_extraction(args.n_classes).to(device)
+        self.optimizer = args.optimizer(self.model.out_layers[-1].parameters(), lr=args.learning_rate)
+        self.trainset, self.testset = get_cifar(subset=args.subset)
+        self.logged_variables = {"loss": [], "accuracy": []}
 
-	def train_dataloader(self):
-		self.model.train()
-		return super().train_dataloader()
-	
-	def val_dataloader(self):
-		self.model.eval()
-		return super().val_dataloader()
+    def train_dataloader(self):
+        self.model.train()
+        return super().train_dataloader()
+    
+    def val_dataloader(self):
+        self.model.eval()
+        return super().val_dataloader()
 ```
 
 </details>

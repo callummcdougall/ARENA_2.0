@@ -88,7 +88,7 @@ Next, you'll learn how to train your transformer from scratch. This will be quit
 > ##### Learning objectives
 >
 > * Understand how to train a transformer from scratch
-> * Write a basic transformer training loop with PyTorch Lightning
+> * Write a basic transformer training loop
 > * Interpret the transformer's falling cross entropy loss with reference to features of the training data (e.g. bigram frequencies)
 
 #### 4️⃣ Sampling from a Transformer
@@ -1643,7 +1643,8 @@ def section_3():
         <li><a class='contents-el' href='#a-note-on-this-loss-curve-optional'>A note on this loss curve (optional)</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # 3️⃣ Training a Transformer
 
@@ -1651,7 +1652,7 @@ def section_3():
 > ##### Learning objectives
 >
 > * Understand how to train a transformer from scratch
-> * Write a basic transformer training loop with PyTorch Lightning
+> * Write a basic transformer training loop
 > * Interpret the transformer's falling cross entropy loss with reference to features of the training data (e.g. bigram frequencies)
 
 
@@ -1659,12 +1660,10 @@ Now that we've built our transformer, and verified that it performs as expected 
 
 This is a lightweight demonstration of how you can actually train your own GPT-2 with this code! Here we train a tiny model on a tiny dataset, but it's fundamentally the same code for training a larger/more real model (though you'll need beefier GPUs and data parallelism to do it remotely efficiently, and fancier parallelism for much bigger ones).
 
-For our purposes, we'll train 2L 4 heads per layer model, with context length 256, for 1000 steps of batch size 8, just to show what it looks like (and so the notebook doesn't melt your colab lol).
+For our purposes, we'll train 2L 4 heads per layer model, with context length 256, for 10*200 steps of batch size 16, just to show what it looks like (and so the notebook doesn't melt your colab / machine!).
 
 
 ## Create Model
-
-
 
 ```python
 model_cfg = Config(
@@ -1689,16 +1688,13 @@ Note, for this optimization we'll be using **weight decay**.
 ```python
 @dataclass
 class TransformerTrainingArgs():
-    batch_size = 8
-    max_epochs = 1
-    max_steps = 1000
-    log_every = 10
-    lr = 1e-3
-    weight_decay = 1e-2
-    log_dir: str = os.getcwd() + "/logs"
-    log_name: str = "day1-transformer"
-    run_name: Optional[str] = None
-    log_every_n_steps: int = 1
+    batch_size = 16
+    epochs = 10
+    max_steps_per_epoch = 200
+	lr = 1e-3
+	weight_decay = 1e-2
+	wandb_project: Optional[str] = "day1-demotransformer"
+	wandb_name: Optional[str] = None
 
 
 args = TransformerTrainingArgs()
@@ -1707,7 +1703,7 @@ args = TransformerTrainingArgs()
 
 ## Create Data
 
-We load in a tiny dataset I made, with the first 10K entries in the Pile (inspired by Stas' version for OpenWebText!)
+We load in a tiny dataset made by Neel Nanda, with the first 10K entries in the Pile (inspired by Stas' version for OpenWebText!)
 
 
 
@@ -1717,19 +1713,22 @@ print(dataset)
 print(dataset[0]['text'][:100])
 ```
 
-`tokenize_and_concatenate` is a useful function which takes our dataset of strings, and returns a dataset of token IDs ready to feed into the model. We then create a dataloader from this tokenized dataset.
+`tokenize_and_concatenate` is a useful function which takes our dataset of strings, and returns a dataset of token IDs ready to feed into the model. We then create a dataloader from this tokenized dataset. The useful method `train_test_split` can give us a training and testing set.
 
 
 ```python
 tokenized_dataset = tokenize_and_concatenate(dataset, reference_gpt2.tokenizer, streaming=False, max_length=model.cfg.n_ctx, column_name="text", add_bos_token=True, num_proc=4)
-data_loader = DataLoader(tokenized_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+	
+dataset_dict = tokenized_dataset.train_test_split(test_size=1000)
+train_loader = DataLoader(dataset_dict["train"], batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+test_loader = DataLoader(dataset_dict["test"], batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 ```
 
-When we iterate through `data_loader`, we will find dictionaries with the single key `"tokens"`, which maps to a tensor of token IDs with shape `(batch, seq_len)`.
+When we iterate through these dataloaders, we will find dictionaries with the single key `'tokens'`, which maps to a tensor of token IDs with shape `(batch, seq_len)`.
 
 
 ```python
-first_batch = data_loader.dataset[:args.batch_size]
+first_batch = train_loader.dataset[:args.batch_size]
 
 print(first_batch.keys())
 print(first_batch['tokens'].shape)
@@ -1737,144 +1736,192 @@ print(first_batch['tokens'].shape)
 
 ## Training Loop
 
-If you did the material on [PyTorch Lightning](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#pytorch-lightning) during the first week, this should all be familiar to you. If not, a little refresher:
-
-<details>
-<summary>Click here for a basic refresher on PyTorch Lightning & Weights and Biases</summary>
-
-PyTorch Lightining (which we'll import as `pl`) is a useful tool for cleaning up and modularizing your PyTorch training code.
-
-We can define a class which inherits from `pl.LightningModule`, which will contain both our model and instructions for what the training steps look like. This class should have at minimum the following 2 methods:
-
-* `training_step` - compute and return the training loss on a single batch (plus optionally log metrics)
-* `configure_optimizers` - return the optimizers you want to use for training
-
-You can also include the `validation_step` method which has the same syntax as training step and gets called once per epoch, but we won't worry about that here.
-
-Once you have your class, you need to take the following steps to run your training loop:
-
-* Create an instance of that class, e.g. `model = LitTransformer(...)`
-* Define a trainer, e.g. `trainer = pl.Trainer(max_epochs=...)`
-* Define a dataloader (i.e. of type `torch.utils.data.DataLoader`)
-* Call the method `trainer.fit(model=model, train_dataloaders=dataloader)`
-
-Weights and Biases is a useful service which visualises training runs and performs hyperparameter sweeps. If you want to log to Weights and Biases, you need to amend the following:
-
-* Define `logger = pl.loggers.WandbLogger(save_dir=..., project=...)`, and pass this to your `Trainer` instance (along with the `log_every_n_steps` argument).
-* Remember to call `wandb.finish()` at the end of your training instance.
-</details>
-
+If you did the material on [training loops](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#training-loop) during the first week, this should all be familiar to you. If not, you can skim that section for an overview of the key concepts. The start of the **Training loop** section is most important, and the subsections on [Modularisation](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#modularisation) and [dataclasses](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#aside-dataclasses) are also very useful. Lastly, we'll also be using Weights and Biases to train our model - you can read about how to use it [here](https://arena-ch0-fundamentals.streamlit.app/[0.4]_Optimization#what-is-weights-and-biases). Here are (roughly) all the things you should know for the following exercises:
+                
+* The key parts of a gradient update step are:
+    * Calculating the (cross-entropy) loss between a model's output and the true labels,
+    * `loss.backward()` - calculate gradients of the loss with respect to the model parameters,
+    * `optimizer.step()` - update the model parameters using the gradients,
+    * `optimizer.zero_grad()` - zero the gradients so they don't accumulate.
+* We can nicely package up training loops into a class, which includes methods for training and validation steps among other things. This helps with writing code that can be reused in different contexts.
+* We can use dataclasses to store all the arguments relevant to training in one place, and then pass them to our trainer class. Autocompletion is one nice bonus of this!
+    * Be careful of scope here, you want to make sure you're referring to `self.args` within the trainer class, rather than the global `args`.
+* You can use Weights and Biases to track experiments and log relevant variables. The three essential functions are:
+    * `wandb.init()` - initialize a new run, takes arguments `project`, `name` and `config` (among others).
+    * `wandb.log()` - log a dictionary of variables, e.g. `{"loss": loss}`. Also takes a `step` argument.
+    * `wandb.finish()` - called at the end of training (no arguments).
 
 ### Exercise - write training loop
 
 ```c
-Difficulty: 🟠🟠⚪⚪⚪
+Difficulty: 🟠🟠🟠⚪⚪
 Importance: 🟠🟠🟠🟠⚪
 
-You should spend up to 10-15 minutes on this exercise.
+You should spend up to 10-20 minutes on this exercise.
 ```
 
 You should fill in the methods below. Some guidance:
 
 * Remember we were able to calculate cross entropy loss using the `get_log_probs` function in the previous section.
 * You should use the optimizer `t.optim.AdamW` (Adam with weight decay), and with hyperparameters `lr` and `weight_decay` taken from your `TransformerTrainingArgs` dataclass instance.
-
-If you've not encountered `train_dataloader` before, this function returns a dataloader (or else something which you iterate through to get the batches used in the `training_step` function). Also, the `forward` function of the model overrides the default behaviour when you call `self(input)` within another method. Neither of these are strictly necessary, but they're useful Lightning features for keeping your code clean.
+* The easiest way to compute accuracy is to have the `validation_step` method return a 1D boolean tensor indicating the positions where the model's prediction was correct. Then you can concatenate all these tensors together and take the mean to get the overall accuracy for the epoch.
+* We've given you the argument `max_steps_per_epoch`, a hacky way of making sure the training phase in each epoch doesn't go on for too long. You can terminate each training phase after this many steps.
+* Remember to move tokens to your device, via `tokens.to(device)` (this should be a global variable, defined at the top of your notebook).
+* You can refer back to the training loops from the [previous chapter of the course](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#training-loop) if you'd like.
 
 
 ```python
-class LitTransformer(pl.LightningModule):
-    def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
-        super().__init__()
-        self.model = model
-        self.cfg = model.cfg
-        self.args = args
-        self.data_loader = data_loader
+class TransformerTrainer:
+	def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer):
+		super().__init__()
+		self.model = model
+		self.args = args
+		self.optimizer = t.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+		self.step = 0
 
-    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
-        logits = self.model(tokens)
-        return logits
 
-    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
-        '''
-        Here you compute and return the training loss and some additional metrics for e.g. 
-        the progress bar or logger.
-        '''
-        pass
+	def training_step(self, batch: Dict[str, Int[Tensor, "batch seq"]]) -> Float[Tensor, ""]:
+		'''
+		Calculates the loss on the tokens in the batch, performs a gradient update step, and logs the loss.
 
-    def configure_optimizers(self):
-        '''
-        Choose what optimizers and learning-rate schedulers to use in your optimization.
-        '''
-        pass
+		Remember that `batch` is a dictionary with the single key 'tokens'.
+		'''
+        # YOUR CODE HERE
+		pass
 
-    def train_dataloader(self):
-        return self.data_loader
 
+	def validation_step(self, batch: Dict[str, Int[Tensor, "batch seq"]]):
+		'''
+		Calculates & returns the accuracy on the tokens in the batch (i.e. how often the model's prediction
+		is correct). Logging should happen in the `train` function (after we've computed the accuracy for 
+		the whole validation set).
+		'''
+        # YOUR CODE HERE
+		pass
+	
+        
+	def train(self):
+		'''
+		Trains the model, for `self.args.epochs` epochs. Also handles wandb initialisation, and early stopping
+		for each epoch at `self.args.max_steps_per_epoch` steps.
+		'''
+        # YOUR CODE HERE
+		pass
+
+
+	def train_loader(self) -> DataLoader:
+		'''Returns train loader (as in code above).'''
+		return DataLoader(dataset_dict["train"], batch_size=self.args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+
+
+	def test_loader(self) -> DataLoader:
+		'''Returns test loader (as in code above).'''
+		return DataLoader(dataset_dict["test"], batch_size=self.args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 ```
 
 <details>
-<summary>Solution</summary>
+<summary>Solution (one implementation)</summary>
 
 
 ```python
-class LitTransformer(pl.LightningModule):
-    def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
-        super().__init__()
-        self.model = model
-        self.cfg = model.cfg
-        self.args = args
-        self.data_loader = data_loader
+class TransformerTrainer:
+	def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer):
+		super().__init__()
+		self.model = model
+		self.args = args
+		self.optimizer = t.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+		self.step = 0
 
-    def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
-        logits = self.model(tokens)
-        return logits
 
-    def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
-        '''
-        Here you compute and return the training loss and some additional metrics for e.g. 
-        the progress bar or logger.
-        '''
+	def training_step(self, batch: Dict[str, Int[Tensor, "batch seq"]]) -> Float[Tensor, ""]:
+		'''
+		Calculates the loss on the tokens in the batch, performs a gradient update step, and logs the loss.
+
+		Remember that `batch` is a dictionary with the single key 'tokens'.
+		'''
         # SOLUTION
-        tokens = batch["tokens"].to(device)
-        logits = self.model(tokens)
-        loss = -get_log_probs(logits, tokens).mean()
-        self.log("train_loss", loss)
-        return loss
+		tokens = batch["tokens"].to(device)
+		logits = self.model(tokens)
+		loss = -get_log_probs(logits, tokens).mean()
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
+		self.step += 1
+		wandb.log({"train_loss": loss}, step=self.step)
+		return loss
 
-    def configure_optimizers(self):
-        '''
-        Choose what optimizers and learning-rate schedulers to use in your optimization.
-        '''
+
+	def validation_step(self, batch: Dict[str, Int[Tensor, "batch seq"]]):
+		'''
+		Calculates & returns the accuracy on the tokens in the batch (i.e. how often the model's prediction
+		is correct). Logging should happen in the `train` function (after we've computed the accuracy for 
+		the whole validation set).
+		'''
         # SOLUTION
-        optimizer = t.optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
-        return optimizer
-    
-    def train_dataloader(self):
-        return self.data_loader
+		tokens = batch["tokens"].to(device)
+		logits: Tensor = self.model(tokens)[:, :-1]
+		predicted_tokens = logits.argmax(dim=-1)
+		correct_predictions = (predicted_tokens == tokens[:, 1:]).flatten()
+		return correct_predictions
+	
+        
+	def train(self):
+		'''
+		Trains the model, for `self.args.epochs` epochs. Also handles wandb initialisation, and early stopping
+		for each epoch at `self.args.max_steps_per_epoch` steps.
+		'''
+        # SOLUTION
+		wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+		accuracy = np.nan
+
+		progress_bar = tqdm(total = self.args.max_steps_per_epoch * self.args.epochs)
+
+		for epoch in range(self.args.epochs):
+			for i, batch in enumerate(self.train_loader()):
+				loss = self.training_step(batch)
+				progress_bar.update()
+				progress_bar.set_description(f"Epoch {epoch+1}, loss: {loss:.3f}, accuracy: {accuracy:.2f}")
+				if i >= self.args.max_steps_per_epoch:
+					break
+
+			correct_predictions = t.concat([self.validation_step(batch) for batch in self.test_loader()])
+			accuracy = correct_predictions.float().mean().item()
+			wandb.log({"accuracy": accuracy}, step=self.step)
+			
+		wandb.finish()
+
+
+	def train_loader(self) -> DataLoader:
+		'''Returns train loader (as in code above).'''
+		return DataLoader(dataset_dict["train"], batch_size=self.args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+
+
+	def test_loader(self) -> DataLoader:
+		'''Returns test loader (as in code above).'''
+		return DataLoader(dataset_dict["test"], batch_size=self.args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 ```
 </details>
 
 
 ```python
-litmodel = LitTransformer(args, model, data_loader)
-logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
-
-trainer = pl.Trainer(
-    max_epochs=args.max_epochs,
-    logger=logger,
-    log_every_n_steps=args.log_every_n_steps
-)
-trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
-wandb.finish()
+model = DemoTransformer(model_cfg).to(device)
+args = TransformerTrainingArgs()
+trainer = TransformerTrainer(args, model)
+trainer.train()
 ```
 
-> Note - to see these patterns more clearly in Weights and Biases, you can click on the **edit panel** of your plot (the small pencil symbol at the top-right), then move the **smoothing** slider to the right.
+When you run the code for the first time, you'll have to login to Weights and Biases, and paste an API key into VSCode. After this is done, your Weights and Biases training run will start. It'll give you a lot of output text, one line of which will look like:
+
+```
+View run at https://wandb.ai/<USERNAME>/<PROJECT-NAME>/runs/<RUN-NAME>
+```
+
+which you can click on to visit the run page.
+
+> Note - to see the plots more clearly in Weights and Biases, you can click on the **edit panel** of your plot (the small pencil symbol at the top-right), then move the **smoothing** slider to the right.
 
 
 ### A note on this loss curve (optional)
-
-
 
 
 What's up with the shape of our loss curve? It seems like we start at around 10-11, drops down very fast, but then levels out. It turns out, this is all to do with the kinds of algorithms the model learns during training.
