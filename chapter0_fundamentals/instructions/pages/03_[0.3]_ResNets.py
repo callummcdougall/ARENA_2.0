@@ -2059,8 +2059,7 @@ def get_cifar(subset: int):
 @dataclass
 class ResNetTrainingArgs():
     batch_size: int = 64
-    max_epochs: int = 3
-    max_steps: int = 500
+    epochs: int = 3
     optimizer: Type[t.optim.Optimizer] = t.optim.Adam
     learning_rate: float = 1e-3
     n_classes: int = 10
