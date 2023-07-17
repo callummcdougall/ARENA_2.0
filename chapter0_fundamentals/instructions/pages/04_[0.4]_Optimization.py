@@ -1480,6 +1480,15 @@ A few notes:
 * It's often useful to have a global `step` variable in your training code, which keeps track of the number of update steps which have taken place. You can pass this step argument to `wandb.log`. Alternatively, you can just omit the `step` argument.
 * If you use `wandb.watch`, you'll need to decrease the `log_freq` value (since your training by default has less than 1000 batches). You'll also want to log just the parameters that are changing (remember that most of them are frozen). See yesterday's code for how to do this (specifically, the `get_resnet_for_feature_extraction` function).
 
+```python
+# YOUR CODE HERE - write `ResNetTrainerWandb` class
+
+
+args = ResNetTrainingArgsWandb()
+trainer = ResNetTrainerWandb(args)
+trainer.train()
+```
+
 When you run the code for the first time, you'll have to login to Weights and Biases, and paste an API key into VSCode. After this is done, your Weights and Biases training run will start. It'll give you a lot of output text, one line of which will look like:
 
 ```
@@ -1489,16 +1498,6 @@ View run at https://wandb.ai/<USERNAME>/<PROJECT-NAME>/runs/<RUN-NAME>
 which you can click on to visit the run page.
 
 A nice thing about using Weights and Biases is that you don't need to worry about generating your own plots, that will all be done for you when you visit the page.
-
-
-```python
-# YOUR CODE HERE - write `ResNetTrainerWandb` class
-
-
-args = ResNetTrainingArgsWandb()
-trainer = ResNetTrainerWandb(args)
-trainer.train()
-```
 
 <details>
 <summary>Solution (one implementation)</summary>
