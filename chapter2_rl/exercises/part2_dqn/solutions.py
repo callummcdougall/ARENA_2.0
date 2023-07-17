@@ -213,7 +213,13 @@ if MAIN:
 		returns_list.append(utils.cummean(returns))
 		names_list.append(agent.name)
 	
-	line(returns_list, names=names_list, title=f"Avg. reward on {env_toy.spec.name}")
+	line(
+		returns_list,
+		names=names_list,
+		title=f"Avg. reward on {env_toy.spec.name}",
+		labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
+		template="simple_white",
+	)
 
 # %%
 
@@ -577,7 +583,11 @@ if MAIN:
 		linear_schedule(step, start_e=1.0, end_e=0.05, exploration_fraction=0.5, total_timesteps=500)
 		for step in range(500)
 	]
-	line(epsilons, labels={"x": "steps", "y": "epsilon"}, title="Probability of random action")
+	line(
+		epsilons,
+		labels={"x": "steps", "y": "epsilon"},
+		title="Probability of random action"
+	)
 	
 	tests.test_linear_schedule(linear_schedule)
 

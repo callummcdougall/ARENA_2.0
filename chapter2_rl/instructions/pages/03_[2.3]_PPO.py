@@ -736,16 +736,11 @@ class ReplayBuffer:
 	'''
 	def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
 		'''Defining all the attributes the buffer's methods will need to access.'''
+		self.args = args
 		self.rng = np.random.default_rng(args.seed)
 		self.num_envs = envs.num_envs
 		self.obs_shape = envs.single_observation_space.shape
 		self.action_shape = envs.single_action_space.shape
-		self.gamma = args.gamma
-		self.gae_lambda = args.gae_lambda
-		self.batch_size = args.batch_size
-		self.minibatch_size = args.minibatch_size
-		self.num_steps = args.num_steps
-		self.batches_per_epoch = args.batches_per_epoch
 		self.experiences = []
 
 
@@ -780,35 +775,32 @@ class ReplayBuffer:
 		self.experiences.append(new_experiences_as_tensors)
 
 
-    def get_minibatches(self, next_value: t.Tensor, next_done: t.Tensor) -> List[ReplayBufferSamples]:
-        minibatches = []
+	def get_minibatches(self, next_value: t.Tensor, next_done: t.Tensor) -> List[ReplayBufferSamples]:
+		minibatches = []	
 
-        # Turn all experiences to tensors on our device (we only want to do this once, not every time we add a new experience)
-        obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*self.experiences)]
+		# Stack all experiences, and move them to our device
+		obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*self.experiences)]
 
-        # Compute advantages and returns (then get a list of everything we'll need for our replay buffer samples)
-        advantages = compute_advantages(next_value, next_done, rewards, values, dones.float(), self.gamma, self.gae_lambda)
-        returns = advantages + values
-        replaybuffer_args = [obs, dones, actions, logprobs, values, advantages, returns]
-        
-        # We cycle through the entire buffer `self.batches_per_epoch` times
-        for _ in range(self.batches_per_epoch):
+		# Compute advantages and returns (then get list to add to our ReplayBufferSamples)
+		advantages = compute_advantages(next_value, next_done, rewards, values, dones.float(), self.args.gamma, self.args.gae_lambda)
+		returns = advantages + values
+		replaybuffer_args = [obs, dones, actions, logprobs, values, advantages, returns]
+		
+		# For each batch in the epoch, we generate random indices, and use them to get minibatches
+		for _ in range(self.args.batches_per_epoch):
 
-            # Get random indices we'll use to generate our minibatches
-            indices = minibatch_indexes(self.rng, self.batch_size, self.minibatch_size)
+			indices = minibatch_indexes(self.rng, self.args.batch_size, self.args.minibatch_size)
 
-            # Get our new list of minibatches, and add them to the list
-            for index in indices:
-                minibatch = ReplayBufferSamples(*[
-                    arg.flatten(0, 1)[index] for arg in replaybuffer_args
-                ])
-                minibatches.append(minibatch)
+			for index in indices:
+				minibatch = ReplayBufferSamples(*[
+					arg.flatten(0, 1)[index] for arg in replaybuffer_args
+				])
+				minibatches.append(minibatch)
 
-        # Reset the buffer
-        self.experiences = []
+		# Reset the buffer
+		self.experiences = []
 
-        return minibatches
-
+		return minibatches
 ```
 
 Now, like before, here's some code to generate and plot observations. The dotted lines indicate a terminated episode.
@@ -1023,10 +1015,11 @@ def section_2():
     <li class='margtop'><a class='contents-el' href='#objective-function'>Objective function</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#clipped-surrogate-objective'>Clipped Surrogate Objective</a></li>
+        <li><a class='contents-el' href='#exercise-write-clipped-surrogate-objective'><b>Exercise</b> - write <code>calc_clipped_surrogate_objective</code></a></li>
         <li class='margtop'><a class='contents-el' href='#value-function-loss-detail-25'>Value Function Loss (detail #9)</a></li>
-        <li><a class='contents-el' href='#exercise-implement-calc-value-function-loss'><b>Exercise</b> - implement <code>calc_value_function_loss</code></a></li>
+        <li><a class='contents-el' href='#exercise-write-calc-value-function-loss'><b>Exercise</b> - write <code>calc_value_function_loss</code></a></li>
         <li class='margtop'><a class='contents-el' href='#entropy-bonus-detail-10'>Entropy Bonus (detail #10)</a></li>
-        <li><a class='contents-el' href='#exercise-implement-calc-entropy-bonus'><b>Exercise</b> - implement <code>calc_entropy_bonus</code></a></li>
+        <li><a class='contents-el' href='#exercise-write-calc-entropy-bonus'><b>Exercise</b> - write <code>calc_entropy_bonus</code></a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#adam-optimizer-and-scheduler-details'>Adam Optimizer and Scheduler (details #3 and #4)</a></li>
     <li><ul class="contents">
@@ -1068,6 +1061,14 @@ You can use the `probs.log_prob` method to get the log probabilities that corres
 
 Note - if you're wondering why we're using a `Categorical` type rather than just using `log_prob` directly, it's because we'll be using them to sample actions later on in our `train_ppo` function. Also, categoricals have a useful method for returning the entropy of a distribution (which will be useful for the entropy term in the loss function).
 
+### Exercise - write `calc_clipped_surrogate_objective`
+
+```c
+Difficulty: 🟠🟠🟠⚪⚪
+Importance: 🟠🟠🟠🟠⚪
+
+You should spend up to 10-25 minutes on this exercise.
+```
 
 ```python
 def calc_clipped_surrogate_objective(
@@ -1157,7 +1158,7 @@ The value function loss lets us improve the parameters of our critic. Today we'r
 The PPO paper did a more complicated thing with clipping, but we're going to deviate from the paper and NOT clip, since [detail #9](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=Value%20Function%20Loss%20Clipping) gives evidence that it isn't beneficial.
 
 
-### Exercise - implement `calc_value_function_loss`
+### Exercise - write `calc_value_function_loss`
 
 ```c
 Difficulty: 🟠🟠⚪⚪⚪
@@ -1240,7 +1241,7 @@ The maximum entropy is $\ln(2) \approx 0.693$ under the uniform random policy ov
 Separately from its role in the loss function, the entropy of our action distribution is a useful diagnostic to have: if the entropy of agent's actions is near the maximum, it's playing nearly randomly which means it isn't learning anything (assuming the optimal policy isn't random). If it is near the minimum especially early in training, then the agent might not be exploring enough.
 
 
-### Exercise - implement `calc_entropy_bonus`
+### Exercise - write `calc_entropy_bonus`
 
 ```c
 Difficulty: 🟠🟠⚪⚪⚪
@@ -1433,7 +1434,7 @@ Under this implementation, you have two main methods to implement - `rollout_pha
 A few notes to help you:
 
 * The `agent.get_minibatches()` function empties the list of experiences stored in the replay buffer, so you don't need to worry about doing this manually.
-* You can log variables using `wandb.log({"variable_name": variable_value}, steps=steps)`.
+* You can log variables using `wandb.log({"variable_name": variable_value}, step=step)`.
 * The `agent.play_step()` method returns a list of dictionaries containing data about the current run. If the agent terminated at that step, then the dictionary will contain `{"episode": {"l": episode_length, "r": episode_reward}}`.
 * You might want to create a separate method like `_compute_ppo_objective(minibatch)` which returns the objective function (to keep your code clean for the `learning_phase` method).
 * For clipping gradients, you can use `nn.utils.clip_grad_norm(parameters, max_norm)` (see [here](https://pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html) for more details).

@@ -44,7 +44,7 @@ for idx, probe in enumerate([Probe1, Probe2, Probe3, Probe4, Probe5]):
 	gym.envs.registration.register(id=f"Probe{idx+1}-v0", entry_point=probe)
 
 # If we don't want to run all the training code, this is useful
-RUN_TRAINING = ["Breakout"]
+RUN_TRAINING = ["CartPole", "EasyCart", "SpinCart", "Breakout"]
 
 Arr = np.ndarray
 
@@ -334,16 +334,11 @@ class ReplayBuffer:
 	'''
 	def __init__(self, args: PPOArgs, envs: gym.vector.SyncVectorEnv):
 		'''Defining all the attributes the buffer's methods will need to access.'''
+		self.args = args
 		self.rng = np.random.default_rng(args.seed)
 		self.num_envs = envs.num_envs
 		self.obs_shape = envs.single_observation_space.shape
 		self.action_shape = envs.single_action_space.shape
-		self.gamma = args.gamma
-		self.gae_lambda = args.gae_lambda
-		self.batch_size = args.batch_size
-		self.minibatch_size = args.minibatch_size
-		self.num_steps = args.num_steps
-		self.batches_per_epoch = args.batches_per_epoch
 		self.experiences = []
 
 
@@ -381,21 +376,19 @@ class ReplayBuffer:
 	def get_minibatches(self, next_value: t.Tensor, next_done: t.Tensor) -> List[ReplayBufferSamples]:
 		minibatches = []	
 
-		# Turn all experiences to tensors on our device (we only want to do this once, not every time we add a new experience)
+		# Stack all experiences, and move them to our device
 		obs, dones, actions, logprobs, values, rewards = [t.stack(arr).to(device) for arr in zip(*self.experiences)]
 
-		# Compute advantages and returns (then get a list of everything we'll need for our replay buffer samples)
-		advantages = compute_advantages(next_value, next_done, rewards, values, dones.float(), self.gamma, self.gae_lambda)
+		# Compute advantages and returns (then get list to add to our ReplayBufferSamples)
+		advantages = compute_advantages(next_value, next_done, rewards, values, dones.float(), self.args.gamma, self.args.gae_lambda)
 		returns = advantages + values
 		replaybuffer_args = [obs, dones, actions, logprobs, values, advantages, returns]
 		
-		# We cycle through the entire buffer `self.batches_per_epoch` times
-		for _ in range(self.batches_per_epoch):
+		# For each batch in the epoch, we generate random indices, and use them to get minibatches
+		for _ in range(self.args.batches_per_epoch):
 
-			# Get random indices we'll use to generate our minibatches
-			indices = minibatch_indexes(self.rng, self.batch_size, self.minibatch_size)
+			indices = minibatch_indexes(self.rng, self.args.batch_size, self.args.minibatch_size)
 
-			# Get our new list of minibatches, and add them to the list
 			for index in indices:
 				minibatch = ReplayBufferSamples(*[
 					arg.flatten(0, 1)[index] for arg in replaybuffer_args
@@ -459,7 +452,7 @@ class PPOAgent(nn.Module):
 		# Get actor and critic networks
 		self.actor, self.critic = get_actor_and_critic(envs, mode=args.mode)
 
-		# Define our first (obs, done, value), so we can start adding experiences to our replay buffer
+		# Define our first (obs, done), so we can start adding experiences to our replay buffer
 		self.next_obs = t.tensor(envs.reset()).to(device, dtype=t.float)
 		self.next_done = t.zeros(envs.num_envs).to(device, dtype=t.float)
 

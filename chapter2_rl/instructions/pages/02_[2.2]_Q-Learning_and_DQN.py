@@ -495,7 +495,13 @@ for agent in agents_toy:
     returns_list.append(utils.cummean(returns))
     names_list.append(agent.name)
 
-line(returns_list, names=names_list, title=f"Avg. reward on {env_toy.spec.name}")
+line(
+    returns_list,
+    names=names_list,
+    title=f"Avg. reward on {env_toy.spec.name}",
+    labels={"x": "Episode", "y": "Avg. reward", "variable": "Agent"},
+    template="simple_white",
+)
 ```
 
 <details>
