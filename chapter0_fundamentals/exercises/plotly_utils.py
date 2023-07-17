@@ -8,7 +8,7 @@ import re
 from transformer_lens.utils import to_numpy
 import pandas as pd
 
-update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap"}
+update_layout_set = {"xaxis_range", "yaxis_range", "yaxis2_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap"}
 
 def imshow(tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
@@ -133,6 +133,8 @@ def hist(tensor, renderer=None, **kwargs):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     px.histogram(x=to_numpy(tensor), **kwargs_pre).update_layout(**kwargs_post).show(renderer)
 
+
+# Old function - not using now that PyTorch Lightning has been removed
 def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title: str) -> None:
     # Separate train and test metrics from the dataframe containing all metrics
     assert "accuracy" in metrics.columns, "Did you log the accuracy metric?"
@@ -149,3 +151,28 @@ def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title:
         template="simple_white", # yet another nice aesthetic for your plots (-:
         yaxis_range=[0, 0.1+train_metrics["train_loss"].max()]
     )
+
+
+def plot_train_loss_and_test_accuracy_from_trainer(trainer: ConvNetTrainer, title: str) -> None:
+	# Check trainer has logged appropriate metrics
+	assert "loss" in trainer.logged_variables, "Did you log the loss metric?"
+	assert "accuracy" in trainer.logged_variables, "Did you log the accuracy metric?"
+	import math
+	epochs = trainer.args.epochs
+	train_batches_per_epoch = math.ceil(len(trainer.trainset) / trainer.args.batch_size)
+	y = [trainer.logged_variables["loss"], trainer.logged_variables["accuracy"]]
+	x = [list(range(epochs * train_batches_per_epoch)), list(range(train_batches_per_epoch, epochs * train_batches_per_epoch + 1, train_batches_per_epoch))]
+	assert len(y[1]) == epochs, "Did you log the accuracy metric once per epoch?"
+	assert len(y[0]) == epochs * train_batches_per_epoch, "Did you log the loss metric once per batch, for each epoch?"
+
+	# Plot results
+	line(
+		y=y,
+		x=x,
+		names=["Training", "Testing"],
+		labels={"x": "Num batches seen", "y1": "Cross entropy loss", "y2": "Test accuracy"},
+		use_secondary_yaxis=True, title=title, width=800, height=500,
+		template="simple_white", # yet another nice aesthetic for your plots (-:
+		yaxis_range=[0, 0.1+max(y[0])],
+		# yaxis2_range=[0, 1],
+	)

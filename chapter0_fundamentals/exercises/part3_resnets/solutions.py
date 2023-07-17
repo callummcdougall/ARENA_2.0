@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, Subset
 from tqdm.notebook import tqdm
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Type
 from PIL import Image
 from IPython.display import display
 from pathlib import Path
@@ -22,6 +22,7 @@ import pandas as pd
 from jaxtyping import Float, Int
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
+import time
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -33,7 +34,7 @@ os.chdir(section_dir)
 from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
 from part3_resnets.utils import print_param_count
 import part3_resnets.tests as tests
-from plotly_utils import line, plot_train_loss_and_test_accuracy_from_metrics
+from plotly_utils import line, plot_train_loss_and_test_accuracy_from_trainer
 
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
@@ -64,21 +65,17 @@ class ConvNet(nn.Module):
 		x = self.fc2(self.relu3(self.fc1(self.flatten(x))))
 		return x
 
-
-
 if MAIN:
 	model = ConvNet()
 	print(model)
 
 # %%
 
-
 if MAIN:
 	summary = torchinfo.summary(model, input_size=(1, 1, 28, 28))
 	print(summary)
 
 # %%
-
 
 if MAIN:
 	MNIST_TRANSFORM = transforms.Compose([
@@ -98,7 +95,6 @@ def get_mnist(subset: int = 1):
 	return mnist_trainset, mnist_testset
 
 
-
 if MAIN:
 	mnist_trainset, mnist_testset = get_mnist()
 	mnist_trainloader = DataLoader(mnist_trainset, batch_size=64, shuffle=True)
@@ -106,20 +102,9 @@ if MAIN:
 
 # %%
 
-from tqdm.notebook import tqdm
-import time
-
-
-if MAIN:
-	for i in tqdm(range(100)):
-		time.sleep(0.01)
-
-# %%
-
 
 if MAIN:
 	device = t.device('cuda' if t.cuda.is_available() else 'cpu')
-	
 	# Assuming that we are on a CUDA machine, this should print a CUDA device:
 	print(device)
 
@@ -147,7 +132,8 @@ if MAIN:
 			loss.backward()
 			optimizer.step()
 			optimizer.zero_grad()
-			loss_list.append(loss.item())   # .item() converts single-elem tensor to scalar
+			loss_list.append(loss.item())
+			# .item() converts single-elem tensor to scalar
 
 # %%
 
@@ -163,88 +149,46 @@ if MAIN:
 
 # %%
 
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import CSVLogger
-
-
-class LitConvNet(pl.LightningModule):
-	def __init__(self, batch_size: int, max_epochs: int, subset: int = 10):
-		super().__init__()
-		self.convnet = ConvNet()
+class ConvNetTrainer:
+	def __init__(self, batch_size: int, epochs: int, subset: int = 10):
+		self.model = ConvNet().to(device)
+		self.optimizer = t.optim.Adam(self.model.parameters())
 		self.batch_size = batch_size
-		self.max_epochs = max_epochs
+		self.epochs = epochs
 		self.trainset, self.testset = get_mnist(subset = 10)
+		self.logged_variables = {"loss": []}
 
-	def forward(self, x: t.Tensor) -> t.Tensor:
-		'''
-		Here you should define the forward pass of your model.
-		'''
-		return self.convnet(x)
-
-	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
-		'''
-		Here you compute and return the training loss and some additional metrics for e.g. the progress bar or logger.
-		'''
-		imgs, labels = batch
-		logits = self(imgs)
+	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		imgs = imgs.to(device)
+		labels = labels.to(device)
+		logits = self.model(imgs)
 		loss = F.cross_entropy(logits, labels)
-		self.log("train_loss", loss)
-		return loss
+		self.logged_variables["loss"].append(loss.item())
+		self.update_step(loss)
 
-	def configure_optimizers(self):
-		'''
-		Choose what optimizers and learning-rate schedulers to use in your optimization.
-		'''
-		optimizer = t.optim.Adam(self.parameters())
-		return optimizer
+	def update_step(self, loss: Float[Tensor, '']):
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
 	
 	def train_dataloader(self):
-		'''
-		Return the training dataloader.
-		'''
 		return DataLoader(self.trainset, batch_size=self.batch_size, shuffle=True)
 
-# %%
-
-# Create the model & training system
-
-if MAIN:
-	batch_size = 64
-	max_epochs = 3
-	model = LitConvNet(batch_size=batch_size, max_epochs=max_epochs)
-	
-	# Get a logger, to record metrics during training
-	logger = CSVLogger(save_dir=os.getcwd() + "/logs", name="day4-convenet")
-	
-	# Train the model (hint: here are some helpful Trainer arguments for rapid idea iteration)
-	trainer = pl.Trainer(
-		max_epochs=max_epochs,
-		logger=logger,
-		log_every_n_steps=1,
-	)
-	trainer.fit(model=model)
-
-# %%
+	def train(self):
+		for epoch in tqdm(range(self.epochs)):
+			for imgs, labels in self.train_dataloader():
+				self.training_step(imgs, labels)
 
 
 if MAIN:
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	
-	metrics.head()
-
-# %%
-
-
-if MAIN:
+	trainer = ConvNetTrainer(batch_size=64, epochs=3)
+	trainer.train()
 	line(
-		metrics["train_loss"].values,
-		x=metrics["step"].values,
-		yaxis_range=[0, metrics["train_loss"].max() + 0.1],
-		labels={"x": "Batches seen", "y": "Cross entropy loss"},
+		trainer.logged_variables["loss"], 
+		yaxis_range=[0, max(trainer.logged_variables["loss"]) + 0.1],
+		labels={"x": "Num batches seen", "y": "Cross entropy loss"}, 
 		title="ConvNet training on MNIST",
-		width=800,
-		hovermode="x unified",
-		template="ggplot2", # alternative aesthetic for your plots (-:
+		width=700
 	)
 
 # %%
@@ -257,140 +201,138 @@ class ConvNetTrainingArgs():
 	when you create an instance, e.g. args = ConvNetTrainingArgs(batch_size=128).
 	'''
 	batch_size: int = 64
-	max_epochs: int = 3
-	optimizer: t.optim.Optimizer = t.optim.Adam
+	epochs: int = 3
+	optimizer: Type[t.optim.Optimizer] = t.optim.Adam
 	learning_rate: float = 1e-3
-	log_dir: str = os.getcwd() + "/logs"
-	log_name: str = "day3-convenet"
-	log_every_n_steps: int = 1
-	sample: int = 10
+	subset: int = 10
 
 
-class LitConvNet(pl.LightningModule):
+class ConvNetTrainer:
 	def __init__(self, args: ConvNetTrainingArgs):
-		super().__init__()
-		self.convnet = ConvNet()
 		self.args = args
-		self.trainset, self.testset = get_mnist(subset=args.sample)
+		self.model = ConvNet().to(device)
+		self.optimizer = args.optimizer(self.model.parameters(), lr=args.learning_rate)
+		self.trainset, self.testset = get_mnist(subset=args.subset)
+		self.logged_variables = {"loss": []}
 
-	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
-		imgs, labels = batch
-		logits = self.convnet(imgs)
+	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		imgs = imgs.to(device)
+		labels = labels.to(device)
+		logits = self.model(imgs)
 		loss = F.cross_entropy(logits, labels)
-		self.log("train_loss", loss)
+		self.logged_variables["loss"].append(loss.item())
+		self.update_step(loss)
 		return loss
 
-	def configure_optimizers(self):
-		return self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
+	def update_step(self, loss: Float[Tensor, '']):
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
 	
 	def train_dataloader(self):
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+
+	def train(self):
+		progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
+		for epoch in range(self.args.epochs):
+			for imgs, labels in self.train_dataloader():
+				loss = self.training_step(imgs, labels)
+				desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}"
+				progress_bar.set_description(desc)
+				progress_bar.update()
 	
-
-
-if MAIN:
-	args = ConvNetTrainingArgs()
-	model = LitConvNet(args)
-	logger = CSVLogger(save_dir=args.log_dir, name=args.log_name)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		logger=logger,
-		log_every_n_steps=1
-	)
-	trainer.fit(model=model)
-
 # %%
 
-
 if MAIN:
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	
-	metrics.head()
-	
+	args = ConvNetTrainingArgs(batch_size=128)
+	trainer = ConvNetTrainer(args)
+	trainer.train()
 	line(
-		metrics["train_loss"].values,
-		x=metrics["step"].values,
-		yaxis_range=[0, metrics["train_loss"].max() + 0.1],
-		labels={"x": "Batches seen", "y": "Cross entropy loss"},
+		trainer.logged_variables["loss"], 
+		yaxis_range=[0, max(trainer.logged_variables["loss"]) + 0.1],
+		labels={"x": "Num batches seen", "y": "Cross entropy loss"}, 
 		title="ConvNet training on MNIST",
-		width=800,
-		hovermode="x unified",
-		template="ggplot2", # alternative aesthetic for your plots (-:
+		width=700
 	)
 
 # %%
 
-class LitConvNetTest(pl.LightningModule):
+class ConvNetTrainer:
 	def __init__(self, args: ConvNetTrainingArgs):
-		super().__init__()
-		self.convnet = ConvNet()
 		self.args = args
-		self.trainset, self.testset = get_mnist(subset=args.sample)
+		self.model = ConvNet().to(device)
+		self.optimizer = args.optimizer(self.model.parameters(), lr=args.learning_rate)
+		self.trainset, self.testset = get_mnist(subset=args.subset)
+		self.logged_variables = {"loss": [], "accuracy": []}
 
-	def forward(self, x: t.Tensor) -> t.Tensor:
-		return self.convnet(x)
-
-	def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
-		imgs, labels = batch
-		logits = self(imgs)
+	def _shared_train_val_step(self, imgs: Tensor, labels: Tensor) -> Tuple[Tensor, Tensor]:
+		imgs = imgs.to(device)
+		labels = labels.to(device)
+		logits = self.model(imgs)
 		return logits, labels
 
-	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
-		logits, labels = self._shared_train_val_step(batch)
+	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		logits, labels = self._shared_train_val_step(imgs, labels)
 		loss = F.cross_entropy(logits, labels)
-		self.log("train_loss", loss)
+		self.update_step(loss)
 		return loss
-	
-	def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
-		logits, labels = self._shared_train_val_step(batch)
-		classifications = logits.argmax(dim=1)
-		accuracy = t.sum(classifications == labels) / len(classifications)
-		self.log("accuracy", accuracy)
 
-	def configure_optimizers(self):
-		return self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
+	@t.inference_mode()
+	def validation_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		logits, labels = self._shared_train_val_step(imgs, labels)
+		classifications = logits.argmax(dim=1)
+		n_correct = t.sum(classifications == labels)
+		return n_correct
+
+	def update_step(self, loss: Float[Tensor, '']):
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
 	
 	def train_dataloader(self):
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
 	
 	def val_dataloader(self):
 		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
-	
+
+	def train(self):
+		progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
+		accuracy = t.nan
+
+		for epoch in range(self.args.epochs):
+
+			# Training loop (includes updating progress bar)
+			for imgs, labels in self.train_dataloader():
+				loss = self.training_step(imgs, labels)
+				self.logged_variables["loss"].append(loss.item())
+				desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}, Accuracy = {accuracy:.2f}"
+				progress_bar.set_description(desc)
+				progress_bar.update()
+
+			# Compute accuracy by summing n_correct over all batches, and dividing by number of items
+			accuracy = sum(self.validation_step(imgs, labels) for imgs, labels in self.val_dataloader()) / len(self.testset)
+
+			self.logged_variables["accuracy"].append(accuracy.item())
+
 
 
 if MAIN:
-	args = ConvNetTrainingArgs()
-	model = LitConvNetTest(args)
-	logger = CSVLogger(save_dir=args.log_dir, name=args.log_name)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		logger=logger,
-		log_every_n_steps=args.log_every_n_steps
-	)
-	trainer.fit(model=model)
+	args = ConvNetTrainingArgs(batch_size=128)
+	trainer = ConvNetTrainer(args)
+	trainer.train()
+	plot_train_loss_and_test_accuracy_from_trainer(trainer, title="Training ConvNet on MNIST data")
 
 # %%
-
-
-if MAIN:
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	
-	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
-
-# %%
-
 
 if MAIN:
 	data_augmentation_transform = transforms.Compose([
-	transforms.RandomRotation(degrees=15),
-	transforms.RandomResizedCrop(size=28, scale=(0.8, 1.2)),
-	transforms.RandomHorizontalFlip(p=0.5),
-	transforms.RandomVerticalFlip(p=0.5),
-	transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-	transforms.ToTensor(),
-	transforms.Normalize((0.1307,), (0.3081,))
+		transforms.RandomRotation(degrees=15),
+		transforms.RandomResizedCrop(size=28, scale=(0.8, 1.2)),
+		transforms.RandomHorizontalFlip(p=0.5),
+		transforms.RandomVerticalFlip(p=0.5),
+		transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+		transforms.ToTensor(),
+		transforms.Normalize((0.1307,), (0.3081,))
 	])
 
 # %%
@@ -681,12 +623,6 @@ if MAIN:
 
 # %%
 
-
-if MAIN:
-	images[0]
-
-# %%
-
 IMAGE_SIZE = 224
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -720,7 +656,6 @@ def predict(model, images):
 	return logits.argmax(dim=1)
 
 # %%
-
 
 if MAIN:
 	with open(section_dir / "imagenet_labels.json") as f:
@@ -837,7 +772,7 @@ def get_resnet_for_feature_extraction(n_classes: int) -> ResNet34:
 	my_resnet = copy_weights(my_resnet, pretrained_resnet)
 
 	# Freeze gradients for all layers (note that when we redefine the last layer, it will be unfrozen)
-	my_resnet.requires_grad_(False)    
+	my_resnet.requires_grad_(False)	
 
 	# Redefine last layer
 	my_resnet.out_layers[-1] = Linear(
@@ -868,71 +803,36 @@ def get_cifar(subset: int):
 @dataclass
 class ResNetTrainingArgs():
 	batch_size: int = 64
-	max_epochs: int = 3
-	max_steps: int = 500
-	optimizer: t.optim.Optimizer = t.optim.Adam
+	epochs: int = 3
+	optimizer: Type[t.optim.Optimizer] = t.optim.Adam
 	learning_rate: float = 1e-3
-	log_dir: str = os.getcwd() + "/logs"
-	log_name: str = "day3-resnet"
-	log_every_n_steps: int = 1
 	n_classes: int = 10
 	subset: int = 10
 
 # %%
 
-class LitResNet(pl.LightningModule):
+class ResNetTrainer(ConvNetTrainer):
 	def __init__(self, args: ResNetTrainingArgs):
-		super().__init__()
 		self.args = args
-		self.resnet = get_resnet_for_feature_extraction(self.args.n_classes)
-		self.trainset, self.testset = get_cifar(subset=self.args.subset)
+		self.model = get_resnet_for_feature_extraction(args.n_classes).to(device)
+		self.optimizer = args.optimizer(self.model.out_layers[-1].parameters(), lr=args.learning_rate)
+		self.trainset, self.testset = get_cifar(subset=args.subset)
+		self.logged_variables = {"loss": [], "accuracy": []}
 
-	def forward(self, x: t.Tensor) -> t.Tensor:
-		return self.resnet(x)
-
-	def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
-		imgs, labels = batch
-		logits = self(imgs)
-		return logits, labels
-
-	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> t.Tensor:
-		logits, labels = self._shared_train_val_step(batch)
-		loss = F.cross_entropy(logits, labels)
-		self.log("train_loss", loss)
-		return loss
-	
-	def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
-		logits, labels = self._shared_train_val_step(batch)
-		classifications = logits.argmax(dim=1)
-		accuracy = t.sum(classifications == labels) / len(classifications)
-		self.log("accuracy", accuracy)
-
-	def configure_optimizers(self):
-		return self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
-	
 	def train_dataloader(self):
-		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+		self.model.train()
+		return super().train_dataloader()
 	
 	def val_dataloader(self):
-		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
-	
-
+		self.model.eval()
+		return super().val_dataloader()
 
 if MAIN:
 	args = ResNetTrainingArgs()
-	model = LitResNet(args)
-	logger = CSVLogger(save_dir=args.log_dir, name=args.log_name)
+	trainer = ResNetTrainer(args)
+	trainer.train()
+	plot_train_loss_and_test_accuracy_from_trainer(trainer, title="Feature extraction with ResNet34")
 	
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		logger=logger,
-		log_every_n_steps=args.log_every_n_steps
-	)
-	trainer.fit(model=model)
-	
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	
-	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
 
 # %%
 
