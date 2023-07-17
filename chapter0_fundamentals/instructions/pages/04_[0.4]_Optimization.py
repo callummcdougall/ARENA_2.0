@@ -294,7 +294,7 @@ You should spend up to 15-20 minutes on this exercise.
 
 Implement the `opt_fn_with_sgd` function using `torch.optim.SGD`. Starting from `(2.5, 2.5)`, run your function and add the resulting trajectory of `(x, y)` pairs to your contour plot. Did it find the minimum? Play with the learning rate and momentum a bit and see how close you can get within 100 iterations.
 
-Note, here you'll be using vanilla PyTorch to write your training code rather than PyTorch Lightning. So you'll need to repeat the following loop:
+You'll need to repeat the following loop:
 
 * Calculate your output (equivalent to altitude in your loss landscape, at coordinates `(x, y)`)
 * Call `.backward()` on your output, to propagate gradients (more on this tomorrow!)
@@ -1615,7 +1615,7 @@ Learning how to use wandb for sweeps is very useful, so make sure you understand
 You should define a dictionary `sweep_config`, which sets out the following rules for hyperparameter sweeps:
 
 * Hyperparameters are chosen **randomly**, according to the distributions given in the dictionary
-* Your goal is to **maximize** the **accuracy** metric (note that this is one of the metrics we logged in the Lightning training class above)
+* Your goal is to **maximize** the **accuracy** metric
 * The hyperparameters you vary are:
     * `learning_rate` - a log-uniform distribution between 1e-4 and 1e-1
     * `batch_size` - randomly chosen from (32, 64, 128, 256)
@@ -1787,7 +1787,7 @@ def section_3():
 # 3️⃣ Bonus
 
 
-Congratulations for getting to the end of the main content! This section gives some suggestions for more features of PyTorch Lightning or Weights and Biases to explore, or some other experiments you can run.
+Congratulations for getting to the end of the main content! This section gives some suggestions for more features of Weights and Biases to explore, or some other experiments you can run.
 
 
 ## Scaling Laws
@@ -1836,7 +1836,6 @@ Here are some tips and suggestions for things you can experiment with:
     - It's better to overfit at the start than underfit, because it means your model is capable of learning and has enough capacity.
     - Learning rate is often the most important single hyperparameter, so it's important to get a good-enough value early.
     - Eventually, you'll want a learning rate schedule. Usually, you'll start low and gradually increase, then gradually decrease but many other schedules are feasible. [Jeremy Jordan](https://www.jeremyjordan.me/nn-learning-rate/) has a good blog post on learning rates.
-        - See [this documentation page](https://lightning.ai/docs/pytorch/latest/common/optimization.html#learning-rate-scheduling) for how PyTorch Lightning can use LR schedulers. Short version - they are returned alongside optimizers from the `configure_optimizers` function, and by default are called at the end of each epoch.
     - Larger batch size increases GPU memory usage and doubling batch size [often allows doubling learning rate](https://arxiv.org/pdf/1706.02677.pdf), up to a point where this relationship breaks down. The heuristic is that larger batches give a more accurate estimate of the direction to update in. Note that on the test set, you can vary the batch size independently and usually the largest value that will fit on your GPU will be the most efficient.
 - Add regularization to reduce the amount of overfitting and train for longer to see if it's enough.
     - Data augmention is the first thing to do - flipping the image horizontally and Cutout are known to be effective.
