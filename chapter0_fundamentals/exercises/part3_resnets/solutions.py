@@ -233,7 +233,7 @@ class ConvNetTrainer:
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
 
 	def train(self):
-		progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
+		progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
 		for epoch in range(self.args.epochs):
 			for imgs, labels in self.train_dataloader():
 				loss = self.training_step(imgs, labels)
@@ -296,7 +296,7 @@ class ConvNetTrainer:
 		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 
 	def train(self):
-		progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
+		progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
 		accuracy = t.nan
 
 		for epoch in range(self.args.epochs):

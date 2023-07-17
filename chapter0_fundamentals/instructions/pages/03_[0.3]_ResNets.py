@@ -120,7 +120,7 @@ os.chdir(section_dir)
 from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
 from part3_resnets.utils import print_param_count
 import part3_resnets.tests as tests
-from plotly_utils import line, plot_train_loss_and_test_accuracy_from_metrics
+from plotly_utils import line, plot_train_loss_and_test_accuracy_from_trainer
 
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
@@ -682,6 +682,7 @@ trainer.fit(model=model)
 
 metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 
+from plotly_utils import plot_train_loss_and_test_accuracy_from_metrics
 plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
 ```
 
@@ -734,7 +735,7 @@ class ConvNetTrainer:
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
 
 	def train(self):
-		progress_bar = tqdm(total=args.epochs * len(self.trainset) // args.batch_size)
+		progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
 		for epoch in range(self.args.epochs):
 			for imgs, labels in self.train_dataloader():
 				loss = self.training_step(imgs, labels)

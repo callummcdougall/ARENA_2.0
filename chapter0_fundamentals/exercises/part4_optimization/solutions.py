@@ -4,14 +4,16 @@ import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
 import sys
 import pandas as pd
 import torch as t
-from torch import optim
+from torch import Tensor, optim
 import torch.nn.functional as F
 from torchvision import datasets
 from torch.utils.data import DataLoader, Subset
-from typing import Callable, Iterable, Tuple, Optional
+from typing import Callable, Iterable, Tuple, Optional, Type
+from jaxtyping import Float
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from dataclasses import dataclass
+from tqdm.notebook import tqdm
 from pathlib import Path
 import numpy as np
 from IPython.display import display, HTML
@@ -23,8 +25,8 @@ section_dir = exercises_dir / "part4_optimization"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 os.chdir(section_dir)
 
-from plotly_utils import bar, imshow
-from part3_resnets.solutions import IMAGENET_TRANSFORM, get_resnet_for_feature_extraction, plot_train_loss_and_test_accuracy_from_metrics
+from plotly_utils import bar, imshow, plot_train_loss_and_test_accuracy_from_trainer
+from part3_resnets.solutions import IMAGENET_TRANSFORM, ResNet34, get_resnet_for_feature_extraction
 from part4_optimization.utils import plot_fn, plot_fn_with_points
 import part4_optimization.tests as tests
 
@@ -480,82 +482,91 @@ if MAIN:
 @dataclass
 class ResNetTrainingArgs():
 	batch_size: int = 64
-	max_epochs: int = 3
-	max_steps: int = 500
-	optimizer: t.optim.Optimizer = t.optim.Adam
+	epochs: int = 3
+	optimizer: Type[t.optim.Optimizer] = t.optim.Adam
 	learning_rate: float = 1e-3
-	log_dir: str = os.getcwd() + "/logs"
-	log_name: str = "day4-resnet"
-	log_every_n_steps: int = 1
 	n_classes: int = 10
 	subset: int = 10
 
 # %%
 
-class LitResNet(pl.LightningModule):
+class ResNetTrainer:
 	def __init__(self, args: ResNetTrainingArgs):
-		super().__init__()
 		self.args = args
-		self.resnet = get_resnet_for_feature_extraction(self.args.n_classes)
-		self.trainset, self.testset = get_cifar(subset=self.args.subset)
+		self.model = get_resnet_for_feature_extraction(args.n_classes).to(device)
+		self.optimizer = args.optimizer(self.model.out_layers[-1].parameters(), lr=args.learning_rate)
+		self.trainset, self.testset = get_cifar(subset=args.subset)
+		self.logged_variables = {"loss": [], "accuracy": []}
 
-	def forward(self, x: t.Tensor) -> t.Tensor:
-		return self.resnet(x)
-
-	def _shared_train_val_step(self, batch: Tuple[t.Tensor, t.Tensor]) -> Tuple[t.Tensor, t.Tensor]:
-		imgs, labels = batch
-		logits = self(imgs)
+	def _shared_train_val_step(self, imgs: Tensor, labels: Tensor) -> Tuple[Tensor, Tensor]:
+		imgs = imgs.to(device)
+		labels = labels.to(device)
+		logits = self.model(imgs)
 		return logits, labels
 
-	def training_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> t.Tensor:
-		logits, labels = self._shared_train_val_step(batch)
+	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		logits, labels = self._shared_train_val_step(imgs, labels)
 		loss = F.cross_entropy(logits, labels)
-		self.log("train_loss", loss)
+		self.update_step(loss)
 		return loss
-	
-	def validation_step(self, batch: Tuple[t.Tensor, t.Tensor], batch_idx: int) -> None:
-		logits, labels = self._shared_train_val_step(batch)
-		classifications = logits.argmax(dim=1)
-		accuracy = t.sum(classifications == labels) / len(classifications)
-		self.log("accuracy", accuracy)
 
-	def configure_optimizers(self):
-		return self.args.optimizer(self.resnet.out_layers.parameters(), lr=self.args.learning_rate)
+	@t.inference_mode()
+	def validation_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		logits, labels = self._shared_train_val_step(imgs, labels)
+		classifications = logits.argmax(dim=1)
+		n_correct = t.sum(classifications == labels)
+		return n_correct
+
+	def update_step(self, loss: Float[Tensor, '']):
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
 	
 	def train_dataloader(self):
+		self.model.train()
 		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
 	
 	def val_dataloader(self):
+		self.model.eval()
 		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
 
-# %%
+	def train(self):
+		progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
+		accuracy = t.nan
 
+		for epoch in range(self.args.epochs):
+
+			# Training loop (includes updating progress bar)
+			for imgs, labels in self.train_dataloader():
+				loss = self.training_step(imgs, labels)
+				self.logged_variables["loss"].append(loss.item())
+				desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}, Accuracy = {accuracy:.2f}"
+				progress_bar.set_description(desc)
+				progress_bar.update()
+
+			# Compute accuracy by summing n_correct over all batches, and dividing by number of items
+			accuracy = sum(self.validation_step(imgs, labels) for imgs, labels in self.val_dataloader()) / len(self.testset)
+
+			self.logged_variables["accuracy"].append(accuracy.item())
+
+# %%
 
 if MAIN:
 	args = ResNetTrainingArgs()
-	model = LitResNet(args)
-	logger = CSVLogger(save_dir=args.log_dir, name=args.log_name)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		logger=logger,
-		log_every_n_steps=args.log_every_n_steps,
-	)
-	trainer.fit(model=model)
-	
-	metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-	
-	plot_train_loss_and_test_accuracy_from_metrics(metrics, "Feature extraction with ResNet34")
+	trainer = ResNetTrainer(args)
+	trainer.train()
+	plot_train_loss_and_test_accuracy_from_trainer(trainer, title="Training ResNet on MNIST data")
 
 # %%
 
-def test_resnet_on_random_input(n_inputs: int = 3):
+def test_resnet_on_random_input(model: ResNet34, n_inputs: int = 3):
 	indices = np.random.choice(len(cifar_trainset), n_inputs).tolist()
 	classes = [cifar_trainset.classes[cifar_trainset.targets[i]] for i in indices]
 	imgs = cifar_trainset.data[indices]
+	device = next(model.parameters()).device
 	with t.inference_mode():
 		x = t.stack(list(map(IMAGENET_TRANSFORM, imgs)))
-		logits: t.Tensor = model.resnet(x)
+		logits: t.Tensor = model(x.to(device))
 	probs = logits.softmax(-1)
 	if probs.ndim == 1: probs = probs.unsqueeze(0)
 	for img, label, prob in zip(imgs, classes, probs):
@@ -575,34 +586,88 @@ def test_resnet_on_random_input(n_inputs: int = 3):
 
 
 if MAIN:
-	test_resnet_on_random_input()
+	test_resnet_on_random_input(trainer.model)
 
 # %%
+
 
 import wandb
 
-# %%
-
 @dataclass
 class ResNetTrainingArgsWandb(ResNetTrainingArgs):
-	run_name: Optional[str] = None
+	wandb_project: Optional[str] = 'part4-resnet'
+	wandb_name: Optional[str] = None
+
+
+class ResNetTrainerWandb:
+	def __init__(self, args: ResNetTrainingArgsWandb):
+		self.args = args
+		self.model = get_resnet_for_feature_extraction(args.n_classes).to(device)
+		self.optimizer = args.optimizer(self.model.out_layers[-1].parameters(), lr=args.learning_rate)
+		self.trainset, self.testset = get_cifar(subset=args.subset)
+		self.step = 0
+		wandb.init(project=args.wandb_project, name=args.wandb_name, config=args)
+		wandb.watch(self.model.out_layers[-1], log="all", log_freq=20)
+
+	def _shared_train_val_step(self, imgs: Tensor, labels: Tensor) -> Tuple[Tensor, Tensor]:
+		imgs = imgs.to(device)
+		labels = labels.to(device)
+		logits = self.model(imgs)
+		return logits, labels
+
+	def training_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		logits, labels = self._shared_train_val_step(imgs, labels)
+		loss = F.cross_entropy(logits, labels)
+		self.update_step(loss)
+		return loss
+
+	@t.inference_mode()
+	def validation_step(self, imgs: Tensor, labels: Tensor) -> t.Tensor:
+		logits, labels = self._shared_train_val_step(imgs, labels)
+		classifications = logits.argmax(dim=1)
+		n_correct = t.sum(classifications == labels)
+		return n_correct
+
+	def update_step(self, loss: Float[Tensor, '']):
+		loss.backward()
+		self.optimizer.step()
+		self.optimizer.zero_grad()
+		self.step += 1
+	
+	def train_dataloader(self):
+		self.model.train()
+		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+	
+	def val_dataloader(self):
+		self.model.eval()
+		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
+
+	def train(self):
+		progress_bar = tqdm(total=self.args.epochs * len(self.trainset) // self.args.batch_size)
+		accuracy = t.nan
+
+		for epoch in range(self.args.epochs):
+
+			# Training loop (includes updating progress bar)
+			for imgs, labels in self.train_dataloader():
+				loss = self.training_step(imgs, labels)
+				wandb.log({"loss": loss.item()}, step=self.step)
+				desc = f"Epoch {epoch+1}/{self.args.epochs}, Loss = {loss:.2f}, Accuracy = {accuracy:.2f}"
+				progress_bar.set_description(desc)
+				progress_bar.update()
+
+			# Compute accuracy by summing n_correct over all batches, and dividing by number of items
+			accuracy = sum(self.validation_step(imgs, labels) for imgs, labels in self.val_dataloader()) / len(self.testset)
+			wandb.log({"accuracy": accuracy.item()}, step=self.step)
+
+		wandb.finish()
 
 # %%
-
 
 if MAIN:
 	args = ResNetTrainingArgsWandb()
-	model = LitResNet(args)
-	logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
-	
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		max_steps=args.max_steps,
-		logger=logger,
-		log_every_n_steps=args.log_every_n_steps,
-	)
-	trainer.fit(model=model)
-	wandb.finish()
+	trainer = ResNetTrainerWandb(args)
+	trainer.train()
 
 # %%
 
@@ -616,7 +681,7 @@ if MAIN:
 		metric = dict(name = 'accuracy', goal = 'maximize'),
 		parameters = dict(
 			batch_size = dict(values = [32, 64, 128, 256]),
-			max_epochs = dict(min = 1, max = 4),
+			epochs = dict(min = 1, max = 4),
 			learning_rate = dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values'),
 		)
 	)
@@ -628,42 +693,36 @@ if MAIN:
 
 # (2) Define a training function which takes no args, and uses `wandb.config` to get hyperparams
 
+class ResNetTrainerWandbSweeps(ResNetTrainerWandb):
+	'''
+	New training class made specifically for hyperparameter sweeps, which overrides the values in `args` with 
+	those in `wandb.config` before defining model/optimizer/datasets.
+	'''
+	def __init__(self, args: ResNetTrainingArgsWandb):
+		wandb.init(project=args.wandb_project, name=args.wandb_name)
+		args.batch_size = wandb.config["batch_size"]
+		args.epochs = wandb.config["epochs"]
+		args.learning_rate = wandb.config["learning_rate"]
+		self.args = args
+		self.model = get_resnet_for_feature_extraction(args.n_classes).to(device)
+		self.optimizer = args.optimizer(self.model.out_layers[-1].parameters(), lr=args.learning_rate)
+		self.trainset, self.testset = get_cifar(subset=args.subset)
+		self.step = 0
+		wandb.watch(self.model.out_layers[-1], log="all", log_freq=20)
+
+
 def train():
-	# Define hyperparameters, override some with values from wandb.config
 	args = ResNetTrainingArgsWandb()
-	logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
-
-	args.batch_size=wandb.config["batch_size"]
-	args.max_epochs=wandb.config["max_epochs"]
-	args.learning_rate=wandb.config["learning_rate"]
-
-	model = LitResNet(args)
-
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		max_steps=args.max_steps,
-		logger=logger,
-		log_every_n_steps=args.log_every_n_steps
-	)
-	trainer.fit(model=model)
+	trainer = ResNetTrainerWandbSweeps(args)
+	trainer.train()
 
 # %%
 
-
 if MAIN:
-	sweep_id = wandb.sweep(sweep=sweep_config, project='day4-resnet-sweep')
+	sweep_id = wandb.sweep(sweep=sweep_config, project='part4-optimization-resnet-sweep')
 	wandb.agent(sweep_id=sweep_id, function=train, count=3)
 	wandb.finish()
 
-# %% 3️⃣ BONUS
-
-# Load from checkpoint
-
-if MAIN:
-	trained_model = LitResNet.load_from_checkpoint(trainer.checkpoint_callback.best_model_path, args=trainer.model.args)
-	
-	# Check models are identical
-	assert all([(p1.to(device) == p2.to(device)).all() for p1, p2 in zip(model.resnet.parameters(), trained_model.resnet.parameters())])
 
 # %%
 

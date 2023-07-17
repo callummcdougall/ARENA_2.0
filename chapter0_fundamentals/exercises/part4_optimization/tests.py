@@ -377,7 +377,7 @@ sweep_config_expected = dict(
     metric = dict(name = 'accuracy', goal = 'maximize'),
     parameters = dict(
         batch_size = [dict(values = [32, 64, 128, 256])],
-        max_epochs = [dict(min = 1, max = 4), dict(values = [1, 2, 3])],
+        epochs = [dict(min = 1, max = 4), dict(values = [1, 2, 3])],
         learning_rate = [dict(max = 0.1, min = 0.0001, distribution = 'log_uniform_values')],
     )
 )
@@ -421,3 +421,5 @@ def test_sweep_config(sweep_config):
 
     for k, v in sweep_config_parameters_expected.items():
         assert k in sweep_config_parameters, f"Missing parameter in sweep config: {k}"
+
+    print("All tests in `test_sweep_config` passed!")
