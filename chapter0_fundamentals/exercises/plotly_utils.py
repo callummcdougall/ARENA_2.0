@@ -153,7 +153,7 @@ def plot_train_loss_and_test_accuracy_from_metrics(metrics: pd.DataFrame, title:
     )
 
 
-def plot_train_loss_and_test_accuracy_from_trainer(trainer: ConvNetTrainer, title: str) -> None:
+def plot_train_loss_and_test_accuracy_from_trainer(trainer, title: str) -> None:
 	# Check trainer has logged appropriate metrics
 	assert "loss" in trainer.logged_variables, "Did you log the loss metric?"
 	assert "accuracy" in trainer.logged_variables, "Did you log the accuracy metric?"
