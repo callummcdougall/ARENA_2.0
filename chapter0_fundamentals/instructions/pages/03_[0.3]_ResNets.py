@@ -603,6 +603,90 @@ You might be wondering why this structure is helpful, when it just seems to make
 
 We'll eventually cover all of these during this course, and it will be much easier to do so if we have a modular structure to our code. For now, we'll just focus on the first two points, and show how we can add validation and logging to our training loop.
 
+<details>
+<summary>Aside - PyTorch Lightning</summary>
+
+PyTorch Lightning was explicitly in an earlier version of this curriculum. We decided to remove it for 3 main reasons:
+
+1. It's better practice to implement your own training loops, i.e. writing parts like the backward pass yourself, rather than this being abstracted away from you at the first opportunity.
+2. It's not flexible enough to be a useful tool when you want to do something slightly different from the standard training loop. In particular, it's not an appropriate tool for reinforcement learning algorithms like DQN and PPO.
+3. Some of its main benefits (e.g. its support for distributed computing) won't be relevant in this course until the end.
+
+If you're interested in what PyTorch Lightning code looks like, here is the Lightning version of the "training and validation" code for the ConvNet.
+
+```python
+@dataclass
+class ConvNetTrainingArgs():
+	'''
+	Defining this class implicitly creates an __init__ method, which sets arguments as 
+	given below, e.g. self.batch_size = 64. Any of these arguments can also be overridden
+	when you create an instance, e.g. args = ConvNetTrainingArgs(batch_size=128).
+	'''
+	batch_size: int = 64
+	max_epochs: int = 3
+	optimizer: t.optim.Optimizer = t.optim.Adam
+	learning_rate: float = 1e-3
+	log_dir: str = os.getcwd() + "/logs"
+	log_name: str = "day3-convenet"
+	log_every_n_steps: int = 1
+	sample: int = 10
+
+
+class LitConvNetTest(pl.LightningModule):
+	def __init__(self, args: ConvNetTrainingArgs):
+		super().__init__()
+		self.convnet = ConvNet()
+		self.args = args
+		self.trainset, self.testset = get_mnist(subset=args.sample)
+
+	def forward(self, x: t.Tensor) -> t.Tensor:
+		return self.convnet(x)
+
+	def _shared_train_val_step(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
+		imgs, labels = batch
+		logits = self(imgs)
+		return logits, labels
+
+	def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+		logits, labels = self._shared_train_val_step(batch)
+		loss = F.cross_entropy(logits, labels)
+		self.log("train_loss", loss)
+		return loss
+	
+	def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> None:
+		logits, labels = self._shared_train_val_step(batch)
+		classifications = logits.argmax(dim=1)
+		accuracy = t.sum(classifications == labels) / len(classifications)
+		self.log("accuracy", accuracy)
+
+	def configure_optimizers(self):
+		return self.args.optimizer(self.parameters(), lr=self.args.learning_rate)
+	
+	def train_dataloader(self):
+		return DataLoader(self.trainset, batch_size=self.args.batch_size, shuffle=True)
+	
+	def val_dataloader(self):
+		return DataLoader(self.testset, batch_size=self.args.batch_size, shuffle=True)
+
+
+args = ConvNetTrainingArgs()
+model = LitConvNetTest(args)
+logger = CSVLogger(save_dir=args.log_dir, name=args.log_name)
+
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs,
+    logger=logger,
+    log_every_n_steps=args.log_every_n_steps
+)
+trainer.fit(model=model)
+
+metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+
+plot_train_loss_and_test_accuracy_from_metrics(metrics, "Training ConvNet on MNIST data")
+```
+
+</details>
+
 ### Aside - `dataclasses`
 
 Sometimes, when we have a lot of different input parameters to our model, it can be helpful to use dataclasses to keep track of them all. Dataclasses are a special kind of class which come with built-in methods for initialising and printing (i.e. no need to define an `__init__` or `__repr__`). Another advantage of using them is autocompletion: when you type in `args.` in VSCode, you'll get a dropdown of all your different dataclass attributes, which can be useful when you've forgotten what you called a variable!
