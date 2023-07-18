@@ -2098,8 +2098,10 @@ If $A$ is the one-hot encoding for token `A`, then:
 * $A^T W_E$ is the embedding vector for `A`.
 * $A^T W_E W_{OV}^h$ is the vector which would get written to the residual stream at the destination position, if the destination token only pays attention to `A`.
 * $A^T W_E W_{OV}^h W_U$ is the unembedding of this vector, i.e. the thing which gets added to the final logits.
+
+So if the $(A, B)$-th element of this matrix is large, the interpretation is that we will predict $B$ comes next for any token which attends to $A$.
                 
-So the `(A, B)`-th element of this matrix gives us the effect on the logits for `B` of any token which attends to `A`. If this element is large, it means that any token `T` which attends to `A` will result in the prediction *"`B` follows `T`"*.
+For example, a common pattern is a copying circuit: the diagonal elements $(A, A)$ are large, meaning that whatever token is attended to will also be predicted.
 
 </details>
 
