@@ -1,6 +1,8 @@
 
 import os, sys
 from pathlib import Path
+import streamlit as st
+st.write(os.getcwd())
 chapter = r"chapter1_transformers"
 instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
