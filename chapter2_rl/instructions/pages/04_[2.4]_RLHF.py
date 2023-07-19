@@ -38,16 +38,20 @@ def section_0():
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/coffee.png" width="350">
 
-
-<!-- Colab: [**exercises**](https://colab.research.google.com/drive/12YnrSDx0gbyhMKkcXoMvYZqu8oSgDEkM) | [**solutions**](https://colab.research.google.com/drive/1-b_RmzaGpnvKS_V6FFjylMYn4_JHVzXh) -->
-
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
 """, unsafe_allow_html=True)
     
-    st.error(r"""
-Note - this section will be updated significantly with new content, some time in the coming weeks. I currently expect the new content to be released by Friday 14th July (current date as of writing this message is 6th July).
+    st.error(
+r"""
+Note - this section will be updated significantly with new content, during late July - early August. The plan is to introduce a 3-step process for building towards RLHF:
+             
+* RLHF on Atari / MuJoCo (as a follow-on from PPO on these two environments, which is included in the previous set of exercises)
+* RLHF on transformers, from first principles - you assemble all the parts of the RLHF algorithm, including things like the transformer's value head
+* RLHF on transformers, using a library (TRLX) which handles all the parts of the RLHF algorithm for you
+
+rather than just having the third of these steps (which is the current state of this page). We also plan to heavily modify this third section.
 """)
     
     st.markdown(r"""

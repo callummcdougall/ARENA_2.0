@@ -32,17 +32,17 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/othello.png" width="350">
+# [1.6] OthelloGPT
 
-Colab: [**exercises**](https://colab.research.google.com/drive/12YnrSDx0gbyhMKkcXoMvYZqu8oSgDEkM) | [**solutions**](https://colab.research.google.com/drive/1-b_RmzaGpnvKS_V6FFjylMYn4_JHVzXh)
+### Colab: [**exercises**](https://colab.research.google.com/drive/12YnrSDx0gbyhMKkcXoMvYZqu8oSgDEkM) | [**solutions**](https://colab.research.google.com/drive/1-b_RmzaGpnvKS_V6FFjylMYn4_JHVzXh)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
 
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/othello.png" width="350">
 
 
-# [1.6] OthelloGPT
 
 
 ## Introduction

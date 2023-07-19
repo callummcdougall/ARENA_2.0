@@ -28,17 +28,17 @@ def section_0():
 
     st.markdown(r"""
 
-<img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/transformer-building.png" width="350">
+# [1.1] - Transformers from scratch
 
-
-Colab: [**exercises**](https://colab.research.google.com/drive/1Zl3zSdli_epSfaoQ_HeBCuE6dkGWTowd) | [**solutions**](https://colab.research.google.com/drive/1neFAal6woQ7p-u0LpU7ZqvHeEaJ6j2DG)
+### Colab: [**exercises**](https://colab.research.google.com/drive/1Zl3zSdli_epSfaoQ_HeBCuE6dkGWTowd) | [**solutions**](https://colab.research.google.com/drive/1neFAal6woQ7p-u0LpU7ZqvHeEaJ6j2DG)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
 
+<img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/transformer-building.png" width="350">
 
-# [1.1] - Transformers from scratch
+
 
 
 ## Introduction

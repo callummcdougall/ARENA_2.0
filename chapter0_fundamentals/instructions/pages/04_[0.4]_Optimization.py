@@ -35,15 +35,17 @@ r"""
     st.markdown(
 r"""
 
-<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/stats.png" width="350">
+# [0.4] Optimization & Hyperparameters
 
 
-Colab: [**exercises**](https://colab.research.google.com/drive/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp) | [**solutions**](https://colab.research.google.com/drive/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP)
+### Colab: [**exercises**](https://colab.research.google.com/drive/12PiedkLJH9GkIu5F_QC7iFf8gJb3k8mp) | [**solutions**](https://colab.research.google.com/drive/1yKhqfOJUTcdu0zhuRONjXLCmoLx7frxP)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
+You can toggle dark mode from the buttons on the top-right of this page.
 
-# [0.4] Optimization & Hyperparameters
+<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/stats.png" width="350">
+
 
 
 ## Introduction

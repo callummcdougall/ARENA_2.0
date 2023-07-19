@@ -27,16 +27,18 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/dqn.png" width="350">
+# [2.2] - Q-Learning and DQN
 
-Colab: [**exercises**](https://colab.research.google.com/drive/1SmYxyb3aIqP8VI684jwvE6C7_6seOasz) | [**solutions**](https://colab.research.google.com/drive/1OCifbztO_XAj53y_gSsP_NO5WoCBPlQl)
+### Colab: [**exercises**](https://colab.research.google.com/drive/1SmYxyb3aIqP8VI684jwvE6C7_6seOasz) | [**solutions**](https://colab.research.google.com/drive/1OCifbztO_XAj53y_gSsP_NO5WoCBPlQl)
+                
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
 
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/dqn.png" width="350">
 
-# [2.2] - Q-Learning and DQN
+
 
 
 ## Introduction

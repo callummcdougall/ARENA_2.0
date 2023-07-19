@@ -35,15 +35,16 @@ def section_0():
 
     st.markdown(r"""
 
-<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/backprop.png" width="350">
+# [0.5] - Build Your Own Backpropagation Framework
 
-
-Colab: [**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
+### Colab: [**exercises**](https://colab.research.google.com/drive/1_aeNgUU8H7psOH8jttByO_8lv9Wp7O0o) | [**solutions**](https://colab.research.google.com/drive/1Fs7nvNbeDirDi2KEtN5rxWAzLba_tvbu)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
+You can toggle dark mode from the buttons on the top-right of this page.
 
-# [0.5] - Build Your Own Backpropagation Framework
+<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/backprop.png" width="350">
+
 
 
 ## Introduction

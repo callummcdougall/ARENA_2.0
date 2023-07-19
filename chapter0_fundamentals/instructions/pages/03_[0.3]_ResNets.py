@@ -33,15 +33,17 @@ def section_0():
 
     st.markdown(r"""
 
-<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/resnet.png" width="350">
+# [0.3] - ResNets & Model Training
 
-
-Colab: [**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
+### Colab: [**exercises**](https://colab.research.google.com/drive/1GRAtbOHmy6MHWSoz9AdAam3CUjczB1mo) | [**solutions**](https://colab.research.google.com/drive/1Th-j4FcYWgVTNEGzWjFlSQdPwm4-GbiD)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
+You can toggle dark mode from the buttons on the top-right of this page.
 
-# [0.3] - ResNets & Model Training
+<img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/resnet.png" width="350">
+
+
 
 
 ## Introduction

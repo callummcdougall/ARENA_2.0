@@ -29,16 +29,17 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-<img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/gears2.png" width="350">
+# [1.4] Balanced Bracket Classifier
 
-Colab: [**exercises**](https://colab.research.google.com/drive/1BYarO508z7stRFXZ3T92rI6OtMqP3w7E) | [**solutions**](https://colab.research.google.com/drive/1yILyi5dD3wc4o3vHc1MfbpAlWljyXU-U)
+
+### Colab: [**exercises**](https://colab.research.google.com/drive/1BYarO508z7stRFXZ3T92rI6OtMqP3w7E) | [**solutions**](https://colab.research.google.com/drive/1yILyi5dD3wc4o3vHc1MfbpAlWljyXU-U)
 
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
 
 
-# [1.4] Balanced Bracket Classifier
+<img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/gears2.png" width="350">
 
 
 ## Introduction
