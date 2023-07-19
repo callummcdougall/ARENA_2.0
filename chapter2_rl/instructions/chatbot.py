@@ -28,9 +28,9 @@ chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0
 sys.path.append(chapter_dir + CHAPTER)
 instructions_dir = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/instructions").resolve()
 
-if (instructions_dir / ".streamlit/secrets.toml").exists():
+if (instructions_dir / ".streamlit/secrets.toml").exists() or not(is_local):
     openai.api_key = st.secrets["openai_api_key"]
-elif is_local:
+else:
     st.error("""Error - no API key found.
 
 We detect you are running the page locally, but haven't added the API key yet.
