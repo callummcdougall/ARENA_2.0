@@ -60,7 +60,12 @@ You can configure the chatbot with the settings on the right hand side:
 
 tabs = st.tabs(["*(instructions)*", "Video demo", "Example #1", "Example #2", "Example #3"])
 with tabs[0]:
-    st.markdown("Click through the tabs above to see examples of the chatbot in action.")
+    st.markdown(
+"""
+Click through the tabs above to see examples of the chatbot in action.
+
+Tip - add requests like "answer in detail" to your prompt, because the way this Chatbot is set up, it defaults to giving shorter answers relative to what you might be used to from the standard ChatGPT interface.
+""")
 with tabs[1]:
     st.markdown(r"""<video width="700" controls><source src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/chatbot_demo_small.mp4" type="video/mp4"></video>""", unsafe_allow_html=True)
 with tabs[2]:
