@@ -26,7 +26,7 @@ sys.path.append(str(root_path.parent))
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
 files = (root_path / "pages").glob("*.py")
-names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem]
+names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem and "]" in f.stem]
 names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # names are ["Ray Tracing", "CNNs", "Backprop", "ResNets", "Optimization"]
 
