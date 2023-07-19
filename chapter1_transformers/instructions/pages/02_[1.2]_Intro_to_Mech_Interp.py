@@ -1,11 +1,13 @@
+import platform
+is_local = (platform.processor() != "")
 
 import os, sys
 from pathlib import Path
-import streamlit as st
-st.write(os.getcwd())
-st.write(list(Path(os.getcwd()).iterdir()))
 chapter = r"chapter1_transformers"
-instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+if is_local:
+    instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
+else:
+    instructions_dir = Path("/app/arena_2.0/chapter1_transformers/instructions").resolve()
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
