@@ -207,7 +207,7 @@ number of distances = {len(embedding_distances)}
 
 prompt_templates_dict = {
     "SIMPLE": """
-Try to answer the question based on the context below. If the question can't be answered based on the context, say \"I don't know how to answer that based on the context from this course, but I'll still try to answer.\", then answer the question like you normally would.\n\nContext: {context}\n\n---\n\nQuestion: {question}\nAnswer:
+Try to answer the question based on the context below. If the question can't be answered based on the context, say \"I don't know how to answer that based on the context from this course, but I'll still try to answer.\", then answer the question like you normally would.\n\nContext: {context}\n\n---\n\nQuestion: {question} Answer in detail.\nAnswer:
 """,
 
     "COMPLEX": """
@@ -228,7 +228,7 @@ Context:
 {context}
 ---------
 
-Question: {question}
+Question: {question} Answer in detail.
 
 Helpful Answer:
 """
