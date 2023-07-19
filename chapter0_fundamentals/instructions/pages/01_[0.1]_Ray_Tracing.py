@@ -76,6 +76,7 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
+# [0.1] - Ray Tracing
 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/raytracing.png" width="350">
 
@@ -85,7 +86,6 @@ def section_0():
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 
-# [0.1] - Ray Tracing
 
 
 ## Introduction
