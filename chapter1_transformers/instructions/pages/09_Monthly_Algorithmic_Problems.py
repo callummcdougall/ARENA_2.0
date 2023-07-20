@@ -34,9 +34,9 @@ r"""
 
 # Monthly Algorithmic Challenge (June 2023): Palindromes
 
-This marks the first of the (hopefully sequence of) monthly mechanistic interpretability challenges. I designed them in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
+### Colab link [here](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz)
 
-If you prefer, you can access the Colab [here](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz).
+This marks the first of the (hopefully sequence of) monthly mechanistic interpretability challenges. I designed them in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
 ## Prerequisites
 
