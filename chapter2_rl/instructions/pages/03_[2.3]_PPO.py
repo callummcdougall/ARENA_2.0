@@ -256,53 +256,6 @@ MAIN = __name__ == "__main__"
 
 ```
 
-## PPO Arguments
-
-Just like for DQN, we've provided you with a dataclass containing arguments for your `train_ppo` function. We've also given you a function from `utils` to display all these arguments (including which ones you've changed).
-
-Don't worry if these don't all make sense right now, they will by the end.
-
-
-```python
-@dataclass
-class PPOArgs:
-    exp_name: str = "PPO_Implementation"
-    seed: int = 1
-    cuda: bool = t.cuda.is_available()
-    log_dir: str = "logs"
-    use_wandb: bool = False
-    wandb_project_name: str = "PPOCart"
-    wandb_entity: str = None
-    capture_video: bool = True
-    env_id: str = "CartPole-v1"
-    total_timesteps: int = 500000
-    learning_rate: float = 0.00025
-    num_envs: int = 4
-    num_steps: int = 128
-    gamma: float = 0.99
-    gae_lambda: float = 0.95
-    num_minibatches: int = 4
-    batches_per_epoch: int = 4
-    clip_coef: float = 0.2
-    ent_coef: float = 0.01
-    vf_coef: float = 0.5
-    max_grad_norm: float = 0.5
-    minibatch_size: int = 128
-    mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
-
-    def __post_init__(self):
-        self.batch_size = self.num_steps * self.num_envs
-        assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
-        self.total_epochs = self.total_timesteps // self.batch_size
-        self.total_training_steps = self.total_epochs * self.batches_per_epoch * (self.batch_size // self.minibatch_size)
-
-
-args = PPOArgs(minibatch_size=256)
-utils.arg_help(args)
-```
-
-
-
 """, unsafe_allow_html=True)
 
 
@@ -313,6 +266,7 @@ def section_1():
 ## Table of Contents
 
 <ul class="contents">
+    <li class='margtop'><a class='contents-el' href='#ppo-arguments'>PPO Arguments</a></li>
     <li class='margtop'><a class='contents-el' href='#actor-critic-agent-implementation-detail-2'>Actor-Critic Agent Implementation (detail #2)</a></li>
     <li><ul class="contents">
         <li><a class='contents-el' href='#exercise-implement-get-actor-and-critic'><b>Exercise</b> - implement <code>get_actor_and_critic</code></a></li>
@@ -331,7 +285,8 @@ def section_1():
         <li><a class='contents-el' href='#exercise-implement-ppoagent'><b>Exercise</b> - implement <code>PPOAgent</code></a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # 1️⃣ Setting up our agent
 
@@ -343,14 +298,58 @@ def section_1():
 > * Build a replay buffer to store & sample experiences
 > * Design an agent class to step through the environment & record experiences
 
-
 In this section, we'll do the following:
 
+* Define a dataclass to hold our PPO arguments
 * Write functions to create our actor and critic networks (which will eventually be stored in our `PPOAgent` instance)
 * Write a function to do **generalized advantage estimation** (this will be necessary when computing our objective function during the learning phase)
 * Fill in our `ReplayBuffer` class (for storing and sampling experiences)
-* Fill in our `PPOAgent` class (a wrapper around our networks and our replay buffer, which will turn them into an agent).
+* Fill in our `PPOAgent` class (a wrapper around our networks and our replay buffer, which will turn them into an agent)
 
+## PPO Arguments
+
+Just like for DQN, we've provided you with a dataclass containing arguments for your `train_ppo` function. We've also given you a function from `utils` to display all these arguments (including which ones you've changed).
+
+Don't worry if these don't all make sense right now, they will by the end.
+
+
+```python
+@dataclass
+class PPOArgs:
+	exp_name: str = "PPO_Implementation"
+	seed: int = 1
+	cuda: bool = t.cuda.is_available()
+	log_dir: str = "logs"
+	use_wandb: bool = False
+	wandb_project_name: str = "PPOCart"
+	wandb_entity: str = None
+	capture_video: bool = True
+	env_id: str = "CartPole-v1"
+	total_timesteps: int = 500000
+	learning_rate: float = 0.00025
+	num_envs: int = 4
+	num_steps: int = 128
+	gamma: float = 0.99
+	gae_lambda: float = 0.95
+	num_minibatches: int = 4
+	batches_per_epoch: int = 4
+	clip_coef: float = 0.2
+	ent_coef: float = 0.01
+	vf_coef: float = 0.5
+	max_grad_norm: float = 0.5
+	mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
+
+	def __post_init__(self):
+		self.batch_size = self.num_steps * self.num_envs
+		assert self.batch_size % self.num_minibatches == 0, "batch_size must be divisible by num_minibatches"
+		self.minibatch_size = self.batch_size // self.num_minibatches
+		self.total_epochs = self.total_timesteps // self.batch_size
+		self.total_training_steps = self.total_epochs * self.batches_per_epoch * self.num_minibatches
+
+
+args = PPOArgs(num_minibatches=2)
+utils.arg_help(args)
+```
 
 ## Actor-Critic Agent Implementation ([detail #2](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#:~:text=Orthogonal%20Initialization%20of%20Weights%20and%20Constant%20Initialization%20of%20biases))
 
@@ -600,9 +599,10 @@ To make this clearer, we've given you the test code inline (so you can see exact
 ```python
 def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
     '''
-    Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
+	Return a list of length num_minibatches = (batch_size // minibatch_size), where each element is an
+	array of indexes into the batch.
 
-    Each index should appear exactly once.
+	Each index should appear exactly once.
     '''
     assert batch_size % minibatch_size == 0
     pass
@@ -624,16 +624,17 @@ print("All tests in `test_minibatch_indexes` passed!")
 
 ```python
 def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
-    '''
-    Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
+	'''
+	Return a list of length num_minibatches = (batch_size // minibatch_size), where each element is an
+	array of indexes into the batch.
 
-    Each index should appear exactly once.
-    '''
-    assert batch_size % minibatch_size == 0
+	Each index should appear exactly once.
+	'''
+	assert batch_size % minibatch_size == 0
     # SOLUTION
-    indices = rng.permutation(batch_size)
-    indices = einops.rearrange(indices, "(mb_num mb_size) -> mb_num mb_size", mb_size=minibatch_size)
-    return list(indices)
+	indices = rng.permutation(batch_size)
+	indices = einops.rearrange(indices, "(mb_num mb_size) -> mb_num mb_size", mb_size=minibatch_size)
+	return list(indices)
 ```
 </details>
 

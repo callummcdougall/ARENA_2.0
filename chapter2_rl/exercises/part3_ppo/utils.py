@@ -141,30 +141,35 @@ def sum_rewards(rewards : List[int], gamma : float = 1):
 
 @dataclass
 class PPOArgs:
-    exp_name: str = "PPO_Implementation"
-    seed: int = 1
-    cuda: bool = t.cuda.is_available()
-    log_dir: str = "logs"
-    use_wandb: bool = False
-    wandb_project_name: str = "PPOCart"
-    wandb_entity: str = None
-    capture_video: bool = True
-    env_id: str = "CartPole-v1"
-    total_timesteps: int = 500000
-    learning_rate: float = 0.00025
-    num_envs: int = 4
-    num_steps: int = 128
-    gamma: float = 0.99
-    gae_lambda: float = 0.95
-    num_minibatches: int = 4
-    batches_per_epoch: int = 4
-    clip_coef: float = 0.2
-    ent_coef: float = 0.01
-    vf_coef: float = 0.5
-    max_grad_norm: float = 0.5
-    batch_size: int = 512
-    minibatch_size: int = 128
-    mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
+	exp_name: str = "PPO_Implementation"
+	seed: int = 1
+	cuda: bool = t.cuda.is_available()
+	log_dir: str = "logs"
+	use_wandb: bool = False
+	wandb_project_name: str = "PPOCart"
+	wandb_entity: str = None
+	capture_video: bool = True
+	env_id: str = "CartPole-v1"
+	total_timesteps: int = 500000
+	learning_rate: float = 0.00025
+	num_envs: int = 4
+	num_steps: int = 128
+	gamma: float = 0.99
+	gae_lambda: float = 0.95
+	num_minibatches: int = 4
+	batches_per_epoch: int = 4
+	clip_coef: float = 0.2
+	ent_coef: float = 0.01
+	vf_coef: float = 0.5
+	max_grad_norm: float = 0.5
+	mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
+
+	def __post_init__(self):
+		self.batch_size = self.num_steps * self.num_envs
+		assert self.batch_size % self.num_minibatches == 0, "batch_size must be divisible by num_minibatches"
+		self.minibatch_size = self.batch_size // self.num_minibatches
+		self.total_epochs = self.total_timesteps // self.batch_size
+		self.total_training_steps = self.total_epochs * self.batches_per_epoch * self.num_minibatches
 
 arg_help_strings = dict(
     exp_name = "the name of this experiment",
@@ -178,18 +183,21 @@ arg_help_strings = dict(
     env_id = "the id of the environment",
     total_timesteps = "total timesteps of the experiments",
     learning_rate = "the learning rate of the optimizer",
-    num_envs = "number of synchronized vector environments in our `envs` object",
-    num_steps = "number of steps taken in the rollout phase",
+    num_envs = "number of synchronized vector environments in our `envs` object (this is N in the '37 Implementational Details' post)",
+    num_steps = "number of steps taken in the rollout phase (this is M in the '37 Implementational Details' post)",
     gamma = "the discount factor gamma",
     gae_lambda = "the discount factor used in our GAE estimation",
-    batches_per_epoch = "how many times you loop through the data generated in rollout",
+    num_minibatches = "the number of minibatches you divide each batch up into",
+    batches_per_epoch = "how many times you loop through the data generated in each rollout phase",
     clip_coef = "the epsilon term used in the clipped surrogate objective function",
     ent_coef = "coefficient of entropy bonus term",
     vf_coef = "cofficient of value loss function",
     max_grad_norm = "value used in gradient clipping",
-    batch_size = "number of random samples we take from the rollout data",
-    minibatch_size = "size of each minibatch we perform a gradient step on",
-    mode = "can be 'classic-control', 'atari' or 'mujoco'"
+    mode = "can be 'classic-control', 'atari' or 'mujoco'",
+    batch_size = "N * M in the '37 Implementational Details' post (calculated from other values in PPOArgs)",
+    minibatch_size = "the size of a single minibatch we perform a gradient step on (calculated from other values in PPOArgs)",
+    total_epochs = "total number of epochs during training (calculated from other values in PPOArgs)",
+    total_training_steps = "total number of minibatches we will perform an update step on during training (calculated from other values in PPOArgs)",
 )
 
 def arg_help(args: Optional[PPOArgs], print_df=False):

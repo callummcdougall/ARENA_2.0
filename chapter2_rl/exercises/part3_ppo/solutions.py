@@ -81,19 +81,19 @@ class PPOArgs:
 	ent_coef: float = 0.01
 	vf_coef: float = 0.5
 	max_grad_norm: float = 0.5
-	minibatch_size: int = 128
 	mode: Literal["classic-control", "atari", "mujoco"] = "classic-control"
 
 	def __post_init__(self):
 		self.batch_size = self.num_steps * self.num_envs
-		assert self.batch_size % self.minibatch_size == 0, "batch_size must be divisible by minibatch_size"
+		assert self.batch_size % self.num_minibatches == 0, "batch_size must be divisible by num_minibatches"
+		self.minibatch_size = self.batch_size // self.num_minibatches
 		self.total_epochs = self.total_timesteps // self.batch_size
-		self.total_training_steps = self.total_epochs * self.batches_per_epoch * (self.batch_size // self.minibatch_size)
+		self.total_training_steps = self.total_epochs * self.batches_per_epoch * self.num_minibatches
 
 
 
 if MAIN:
-	args = PPOArgs(minibatch_size=256)
+	args = PPOArgs(num_minibatches=2)
 	utils.arg_help(args)
 
 # %% 1️⃣ SETTING UP OUR AGENT
@@ -287,7 +287,8 @@ if MAIN:
 
 def minibatch_indexes(rng: Generator, batch_size: int, minibatch_size: int) -> List[np.ndarray]:
 	'''
-	Return a list of length (batch_size // minibatch_size) where each element is an array of indexes into the batch.
+	Return a list of length num_minibatches = (batch_size // minibatch_size), where each element is an
+	array of indexes into the batch.
 
 	Each index should appear exactly once.
 	'''
