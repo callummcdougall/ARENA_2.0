@@ -1902,6 +1902,59 @@ class TransformerTrainer:
 ```
 </details>
 
+Note - this section of the course used to use PyTorch Lightning, but this has now been taken out. You can see the old version of the training code which used PyTorch Lightning in the dropdown below.
+
+<details>
+<summary>PyTorch Lighting training loop</summary>
+
+```python
+class LitTransformer(pl.LightningModule):
+	def __init__(self, args: TransformerTrainingArgs, model: DemoTransformer, data_loader: DataLoader):
+		super().__init__()
+		self.model = model
+		self.cfg = model.cfg
+		self.args = args
+		self.data_loader = data_loader
+
+	def forward(self, tokens: Int[Tensor, "batch position"]) -> Float[Tensor, "batch position d_vocab"]:
+		logits = self.model(tokens)
+		return logits
+
+	def training_step(self, batch: Dict[str, Tensor], batch_idx: int) -> Float[Tensor, ""]:
+		'''
+		Here you compute and return the training loss and some additional metrics for e.g. 
+		the progress bar or logger.
+		'''
+		tokens = batch["tokens"].to(device)
+		logits = self.model(tokens)
+		loss = -get_log_probs(logits, tokens).mean()
+		self.log("train_loss", loss)
+		return loss
+
+	def configure_optimizers(self):
+		'''
+		Choose what optimizers and learning-rate schedulers to use in your optimization.
+		'''
+		optimizer = t.optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
+		return optimizer
+	
+	def train_dataloader(self):
+		return self.data_loader
+
+
+litmodel = LitTransformer(args, model, data_loader)
+logger = WandbLogger(save_dir=args.log_dir, project=args.log_name, name=args.run_name)
+
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs,
+    logger=logger,
+    log_every_n_steps=args.log_every_n_steps
+)
+trainer.fit(model=litmodel, train_dataloaders=litmodel.data_loader)
+wandb.finish()
+```
+
+</details>
 
 ```python
 model = DemoTransformer(model_cfg).to(device)
@@ -1909,6 +1962,7 @@ args = TransformerTrainingArgs()
 trainer = TransformerTrainer(args, model)
 trainer.train()
 ```
+
 
 When you run the code for the first time, you'll have to login to Weights and Biases, and paste an API key into VSCode. After this is done, your Weights and Biases training run will start. It'll give you a lot of output text, one line of which will look like:
 
