@@ -32,7 +32,8 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # [0.2] - `as_strided`, Convolutions and CNNs
 
@@ -152,7 +153,8 @@ def section_1():
         <li><a class='contents-el' href='#einsum-exercises'>Einsum exercises</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # 1️⃣ Einops and Einsum
 
@@ -196,7 +198,8 @@ if MAIN:
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig1.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 A series of images follow below, which have been created using `einops` functions performed on `arr`. You should work through these and try to produce each of the images yourself. This page also includes solutions, but you should only look at them after you've tried for at least five minutes.
@@ -222,7 +225,8 @@ If you think you get the general idea, then you can skip to the next section.
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig2.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -251,7 +255,8 @@ arr1 = einops.rearrange(arr, "b c h w -> c h (b w)")
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig3.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -280,7 +285,8 @@ arr2 = einops.repeat(arr[0], "c h w -> c (2 h) w")
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig4.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -309,7 +315,8 @@ arr3 = einops.repeat(arr[0:2], "b c h w -> c (b h) (2 w)")
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig5.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -338,7 +345,8 @@ arr4 = einops.repeat(arr[0], "c h w -> c (h 2) w")
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig6.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -367,7 +375,8 @@ arr5 = einops.rearrange(arr[0], "c h w -> h (c w)")
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig7.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -396,7 +405,8 @@ arr6 = einops.rearrange(arr, "(b1 b2) c h w -> c (b1 h) (b2 w)", b1=2)
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig8.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -425,7 +435,8 @@ arr7 = einops.reduce(arr.astype(float), "b c h w -> h (b w)", "max").astype(int)
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig10.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -454,7 +465,8 @@ arr8 = einops.reduce(arr.astype(float), "b c h w -> h w", "min").astype(int)
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig12.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -483,7 +495,8 @@ arr9 = einops.rearrange(arr[1], "c h w -> c w h")
 """, unsafe_allow_html=True)
     fig = st_dependencies.read_from_html("media/fig14.html")
     st.plotly_chart(fig)
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 
 ```python
@@ -656,7 +669,8 @@ def section_2():
         <li><a class='contents-el' href='#exercise-matrix-matrix-multiplication'><b>Exercise</b> - matrix-matrix multiplication</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # 2️⃣ Array strides
 
@@ -943,6 +957,8 @@ You should spend up to 15-20 minutes on this exercise.
 
 The hints should be especially useful here if you're stuck. There are two hints available to you.
 ```
+                
+You should implement this using only `as_strided` and `sum` methods, and elementwise multiplication `*` - in other words, no matrix multiplication functions!
 
 
 ```python
@@ -1043,6 +1059,8 @@ You should spend up to 15-20 minutes on this exercise.
 
 The hints should be especially useful here if you're stuck. There are two hints available to you.
 ```
+                
+Like the previous function, this should only involve `as_strided`, `sum`, and pointwise multiplication.
 
 
 ```python
@@ -1165,7 +1183,8 @@ def section_3():
         <li><a class='contents-el' href='#exercise-implement-10d-max-pooling'><b>Exercise</b> - implement 2D max pooling</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # 3️⃣ Convolutions
 
@@ -1957,7 +1976,8 @@ def section_4():
     <li class='margtop'><a class='contents-el' href='#training-loop-taster-for-tomorrow'>Training loop (taster for tomorrow)</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # 4️⃣ Making your own modules
 
