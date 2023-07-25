@@ -40,8 +40,8 @@ if "my_embeddings" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
-if not is_local:
-    st.info("Note - to have access to the GPT-4 chatbot, you need to run this page locally and enter your own API key. See the instructions in 'Home' for more details.")
+# if not is_local:
+#     st.info("Note - to have access to the GPT-4 chatbot, you need to run this page locally and enter your own API key. See the instructions in 'Home' for more details.")
 
 # %%
 
@@ -91,8 +91,8 @@ with st.sidebar:
 
     model = st.radio(
         "Model",
-        options = ["gpt-4", "gpt-3.5-turbo", "text-davinci-003"] if is_local else ["gpt-3.5-turbo", "text-davinci-003"],
-        index = 1
+        options = ["gpt-4", "gpt-3.5-turbo", "text-davinci-003"], # if is_local else ["gpt-3.5-turbo", "text-davinci-003"],
+        index = 1, # if is_local else 0,
     )
 
     temp = st.slider(
