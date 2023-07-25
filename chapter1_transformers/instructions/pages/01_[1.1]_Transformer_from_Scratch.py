@@ -443,7 +443,7 @@ print(repr(next_char))
 
 Note that we're indexing `logits[0, -1]`. This is because logits have shape `[1, sequence_length, vocab_size]`, so this indexing returns the vector of length `vocab_size` representing the model's prediction for what token follows the **last** token in the input sequence.
 
-We can see the model predicts the line break character `\n`, since this is common following the end of a sentence.
+In this case, we can see that the model predicts the token `' I'`.
 
 
 ### **Step 5:** Add this to the end of the input, re-run
