@@ -4,10 +4,13 @@ is_local = (platform.processor() != "")
 import os, sys
 from pathlib import Path
 chapter = r"chapter1_transformers"
-if is_local:
-    instructions_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve()
-else:
-    instructions_dir = Path("/app/arena_2.0/chapter1_transformers/instructions").resolve()
+for instructions_dir in [
+    Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve(),
+    Path("/app/arena_2.0/chapter1_transformers/instructions").resolve(),
+    Path("/mount/src/arena_2.0/chapter1_transformers/instructions").resolve(),
+]:
+    if instructions_dir.exists():
+        break
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
