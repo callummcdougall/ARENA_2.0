@@ -15,17 +15,22 @@ is_local = (platform.processor() != "")
 # Get to the right directory: the streamlit one (not pages)
 # Get to chapter1_transformers directory (or whatever the chapter dir is)
 
-# Navigate to the root directory, i.e. ARENA_2 for me, or the working directory for people locally
-while "chapter" in os.getcwd():
-    os.chdir("..")
-# Now with this reference point, we can add things to sys.path
-root_path = (Path.cwd() / "chapter1_transformers" / "instructions").resolve()
-sys.path.append(str(root_path))
-sys.path.append(str(root_path.parent))
+import os, sys
+from pathlib import Path
+chapter = r"chapter1_transformers"
+for instructions_dir in [
+    Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/instructions").resolve(),
+    Path("/app/arena_2.0/chapter1_transformers/instructions").resolve(),
+    Path("/mount/src/arena_2.0/chapter1_transformers/instructions").resolve(),
+]:
+    if instructions_dir.exists():
+        break
+if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
+os.chdir(instructions_dir)
 
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
-files = (root_path / "pages").glob("*.py")
+files = (instructions_dir / "pages").glob("*.py")
 names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem and "]" in f.stem]
 names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # names are ["Ray Tracing", "CNNs", "Backprop", "ResNets", "Optimization"]
@@ -33,7 +38,7 @@ names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # %%
 
 if "my_embeddings" not in st.session_state:
-    path = root_path / "my_embeddings.pkl"
+    path = instructions_dir / "my_embeddings.pkl"
     with open(str(path), "rb") as f:
         st.session_state["my_embeddings"] = pickle.load(f)
 if "history" not in st.session_state:
