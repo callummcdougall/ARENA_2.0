@@ -439,7 +439,7 @@ batch_size = 64
 epochs = 3
 
 mnist_trainset, _ = get_mnist(subset = 10)
-mnist_trainloader = DataLoader(mnist_trainset, batch_size=64, shuffle=True)
+mnist_trainloader = DataLoader(mnist_trainset, batch_size=batch_size, shuffle=True)
 
 optimizer = t.optim.Adam(model.parameters())
 loss_list = []
