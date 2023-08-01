@@ -94,7 +94,7 @@ For example, the plot below shows the cosine similarity of the key vector we get
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/key_fig_3.png" width="700">
 
-There are obviously more bits of evidence you'd need than just what is provided by these two plots, and I'll discuss them in more detail when I add to this post some time in the next few days.
+There are obviously more bits of evidence you'd need than just what is provided by these two plots (e.g. mean ablating each head at each sequence position can be very informative). I'll discuss these and others in more detail when I add to this post some time in the next few days.
 """, unsafe_allow_html=True)
 
 st.markdown(r"""
