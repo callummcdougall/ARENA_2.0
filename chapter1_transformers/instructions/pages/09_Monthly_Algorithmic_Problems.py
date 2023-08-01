@@ -43,7 +43,7 @@ r"""
 
 This marks the first of the (hopefully sequence of) monthly mechanistic interpretability challenges. I designed them in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
-## Solutions
+## Solutions (highly condensed - more detail coming soon)
 """, unsafe_allow_html=True)
 
 with st.expander("Click this dropdown to view a highly condensed mechanistic analysis of this transformer (code & more detail will be added in the next few days)"):
@@ -94,7 +94,7 @@ For example, the plot below shows the cosine similarity of the key vector we get
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/key_fig_3.png" width="700">
 
-There are obviously more bits of evidence you'd need than just what is provided by these two plots, and I'll discuss them in more detail when I add to this post.
+There are obviously more bits of evidence you'd need than just what is provided by these two plots, and I'll discuss them in more detail when I add to this post some time in the next few days.
 """, unsafe_allow_html=True)
 
 st.markdown(r"""
