@@ -43,6 +43,62 @@ r"""
 
 This marks the first of the (hopefully sequence of) monthly mechanistic interpretability challenges. I designed them in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
+## Solutions
+""", unsafe_allow_html=True)
+
+with st.expander("Click this dropdown to view a highly condensed mechanistic analysis of this transformer (code & more detail will be added in the next few days)"):
+    st.markdown(
+r"""
+### Notation
+
+Excluding the start and end tokens, we'll index the sequence from 1 (i.e. we have index positions from 1 to 20 inclusive). We'll use `x` to refer to  a token in the **second half** of the sequence, which isn't the end token (i.e. index between 11 and 20 inclusive). Sometimes `x` will mean the position, sometimes it'll mean whatever token is at that position - this should be clear from context. We'll use `-x` to refer to the "mirror image" of `x`, i.e. the token which has to equal `x` for the sequence to be palindromic. We'll call the token `x` palindromic if it equals `-x`.
+
+### Summary
+
+The "core algorithm" is as follows:
+
+> In head 0.0, `x` will attend `-x` if it is palindromic, and itself otherwise. After this, each `x` carries the boolean information "this token is palindromic" or "this token is not palindromic" (this information is derived from the positional information of the token which was attended to, i.e. whether it's in the first half or the second half of the sequence).
+> 
+> In head 1.0, the `END` token will attend sharply to any non-palindromic token if it exists, and it reads the boolean information "this token is non-palindromic" and converts it into a prediction that the sequence is not palindromic. If no such token exists, the sequence will be classified as palindromic.
+> 
+> The other two heads compensate for the small number of "blind spots" of heads 0.0 and 1.0, but they are each much less important than 0.0 and 1.0.
+
+### Advexes, and the role of other heads
+
+(Notation: advex = adversarial example)
+
+Head 0.0 has two "blind spots": `x = 17` and `x = 19`. These tokens generally attend to themselves regardless of whether they're palindromic. Also, head 1.0 has an additional "blind spot": it never attends to `x = 20` (even though this token is not a blind spot of head 1.0). Collectively, these explain the advexes in the dataset (which are all sequences that are palindromic everywhere except for a set $X$, where $X$ is either the singleton $\{20\}$ or a subset of $\{17, 19\}$).
+
+The role of head 1.1 is to compensate for these blindspots. It goes some way towards correctly identifying palidromes / non-palindromes at `x = 17, 19, 20` (but it doesn't do a good enough job to stop these from being advexes). Similarly, the role of head 0.1 is to partially compensate for the blindspot at `x = 20`. The worst advexes are of the 17/19 type, rather than the 20 type.
+
+### Key pieces of evidence
+
+I expect eyeballing the attention patterns (in particular, the attention patterns of head 0.0) to be the most useful thing to do at first. With this evidence, some version of the algorithm described in the summary section would be the natural hypothesis. 
+
+The two key pieces of evidence for this (in my opinion) are:
+
+#### 1. The full QK matrices of head 0.0.
+
+The full QK matrix for token embeddings shows you that each token has a very strong default of attending to copies of itself. The full QK matrix for positional embeddings shows you that each token in the second half of the sequence has a strong default of attending either to itself or to its mirror image (with the exception of the "blind spots" 17 and 19). Also, the token embedding result is stronger than the positional embedding, which shows you that the attention algorithm is "attend to mirror image if it is the same, else attend to self".
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/key_fig_1.png" width="800">
+
+#### 2. Evidence of the K and V composition between head 0.0 and 1.0.
+
+Specifically, you'd want evidence that, for any token `x` (other than the blind spots 17, 19 and 20), if you take the difference between the result vector from `x` attending to itself and `x` attending to `-x` respectively (i.e. the thing which should be more present in `x` when the sequdnce is *not* palindromic), then:
+
+* This vector is an important keyside input to head 1.0, causing the `END` token to attend to it.
+* This vector is an important value input to head 1.0, and it results in a prediction of "non-palindromic".
+
+For example, the plot below shows the cosine similarity of the key vector we get from this "difference vector" and the query vector we get from the END token. We can see that, for head 1.0, all tokens in the second half of the sequence (except for the blind spots) will be attended to by the END token if they attended to themselves in head 0.0 (which they only do when they're non-palindromic).
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/key_fig_3.png" width="700">
+
+There are obviously more bits of evidence you'd need than just what is provided by these two plots, and I'll discuss them in more detail when I add to this post.
+""", unsafe_allow_html=True)
+
+st.markdown(r"""
+
 ## Prerequisites
 
 The following ARENA material should be considered essential:
