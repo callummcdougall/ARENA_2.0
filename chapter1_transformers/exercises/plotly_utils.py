@@ -16,13 +16,14 @@ import einops
 
 # GENERIC PLOTTING FUNCTIONS
 
-update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap", "coloraxis_showscale"}
+update_layout_set = {"xaxis_range", "yaxis_range", "hovermode", "xaxis_title", "yaxis_title", "colorbar", "colorscale", "coloraxis", "title_x", "bargap", "bargroupgap", "xaxis_tickformat", "yaxis_tickformat", "title_y", "legend_title_text", "xaxis_showgrid", "xaxis_gridwidth", "xaxis_gridcolor", "yaxis_showgrid", "yaxis_gridwidth", "yaxis_gridcolor", "showlegend", "xaxis_tickmode", "yaxis_tickmode", "margin", "xaxis_visible", "yaxis_visible", "bargap", "bargroupgap", "coloraxis_showscale", "xaxis_tickangle"}
 
 def imshow(tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
     facet_labels = kwargs_pre.pop("facet_labels", None)
     border = kwargs_pre.pop("border", False)
+    return_fig = kwargs_pre.pop("return_fig", False)
     if "color_continuous_scale" not in kwargs_pre:
         kwargs_pre["color_continuous_scale"] = "RdBu"
     if "color_continuous_midpoint" not in kwargs_pre:
@@ -39,7 +40,7 @@ def imshow(tensor, renderer=None, **kwargs):
     if border:
         fig.update_xaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
         fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
-    fig.show(renderer=renderer)
+    return fig if return_fig else fig.show(renderer=renderer)
 
 
 def reorder_list_in_plotly_way(L: list, col_wrap: int):
@@ -59,6 +60,7 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
     '''
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    return_fig = kwargs_pre.pop("return_fig", False)
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     if "xaxis_tickvals" in kwargs_pre:
@@ -87,14 +89,13 @@ def line(y: Union[t.Tensor, List[t.Tensor]], renderer=None, **kwargs):
         name0, name1 = kwargs_pre.pop("names", ["yaxis1", "yaxis2"])
         fig.add_trace(go.Scatter(y=y0, x=x0, name=name0), secondary_y=False)
         fig.add_trace(go.Scatter(y=y1, x=x1, name=name1), secondary_y=True)
-        fig.show(renderer)
     else:
         y = list(map(to_numpy, y)) if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float)) else to_numpy(y)
         fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
         names = kwargs_pre.pop("names", None)
         if names is not None:
             fig.for_each_trace(lambda trace: trace.update(name=names.pop(0)))
-        fig.show(renderer)
+    return fig if return_fig else fig.show(renderer=renderer)
         
 
 def scatter(x, y, renderer=None, **kwargs):
@@ -105,10 +106,8 @@ def scatter(x, y, renderer=None, **kwargs):
         add_line = kwargs.pop("add_line")
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
-    if "facet_labels" in kwargs_pre:
-        facet_labels = kwargs_pre.pop("facet_labels")
-    else:
-        facet_labels = None
+    return_fig = kwargs_pre.pop("return_fig", False)
+    facet_labels = kwargs_pre.pop("facet_labels", None)
     if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
         kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
     fig = px.scatter(y=y, x=x, **kwargs_pre).update_layout(**kwargs_post)
@@ -128,7 +127,8 @@ def scatter(x, y, renderer=None, **kwargs):
     if facet_labels:
         for i, label in enumerate(facet_labels):
             fig.layout.annotations[i]['text'] = label
-    fig.show(renderer)
+    return fig if return_fig else fig.show(renderer=renderer)
+
 
 def bar(tensor, renderer=None, **kwargs):
     '''
@@ -141,6 +141,7 @@ def bar(tensor, renderer=None, **kwargs):
         arr = to_numpy(tensor)
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    return_fig = kwargs_pre.pop("return_fig", False)
     names = kwargs_pre.pop("names", None)
     if "hovermode" not in kwargs_post:
         kwargs_post["hovermode"] = "x unified"
@@ -150,7 +151,8 @@ def bar(tensor, renderer=None, **kwargs):
     if names is not None:
         for i in range(len(fig.data)):
             fig.data[i]["name"] = names[i // 2 if "marginal" in kwargs_pre else i]
-    fig.show(renderer)
+    return fig if return_fig else fig.show(renderer=renderer)
+
 
 def hist(tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
@@ -190,10 +192,7 @@ def hist(tensor, renderer=None, **kwargs):
             fig.data[i]["name"] = names[i // 2 if "marginal" in kwargs_pre else i]
     else:
         fig.update_layout(modebar_add=[])
-    if return_fig:
-        return fig
-    else:
-        fig.show(renderer=renderer)
+    return fig if return_fig else fig.show(renderer=renderer)
 
 
 

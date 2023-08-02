@@ -15,6 +15,6 @@ secrets.toml
 *attn_only_2L_half.pth
 *othello_world*
 *Grokking
-*interp_on_model.ipynb
+*interp_on_model*.ipynb
 *other_solns
 *gitignore
