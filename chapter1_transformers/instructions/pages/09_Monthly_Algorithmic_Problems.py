@@ -1226,8 +1226,9 @@ print(f"Min probability on correct label: {min_correct_prob:.3f}")
 ```
 
 <div style='font-family:monospace;'>
-Seq = ?acbba, Target = ?aaaac<br>
-Seq = ?cbcbc, Target = ?ccb??
+Average cross entropy loss: 0.017<br>
+Average probability on correct label: 0.988<br>
+Min probability on correct label: 0.001
 </div><br>
 
 And a visualisation of its probability output for a single sequence:
@@ -1236,17 +1237,23 @@ And a visualisation of its probability output for a single sequence:
 imshow(
     probs[0].T,
     y=dataset.vocab,
-    x=[f"{dataset.str_toks[0][i]}<br><sub>({i})</sub>" for i in range(model.cfg.n_ctx)],
+    x=[f"{dataset.str_toks[0][i]}<br>({i})" for i in range(model.cfg.n_ctx)],
     labels={"x": "Token", "y": "Vocab"},
     xaxis_tickangle=0,
-    title="Sample model probabilities (for batch idx = 0), with<br>correct token highlighted",
+    title="Sample model probabilities (for batch idx = 0), with correct classification highlighted",
     text=[
         ["〇" if str_tok == correct_str_tok else "" for correct_str_tok in dataset.str_tok_labels[0]]
         for str_tok in dataset.vocab
-    ],
+    ], # text can be a 2D list of lists, with the same shape as the data
 )
 ```
-
+""", unsafe_allow_html=True)
+    
+    first_char_dir = instructions_dir / "media/unique_char"
+    fig_demo = go.Figure(json.loads(open(first_char_dir / "fig_demo.json", 'r').read()))
+    st.plotly_chart(fig_demo, use_container_width=False)
+    
+    st.markdown(r"""
 If you want some guidance on how to get started, I'd recommend reading the solutions for the July problem - I expect there to be a lot of overlap in the best way to tackle these two problems. You can also reuse some of that code!
 
 Note - although this model was trained for long enough to get loss close to zero (you can test this for yourself), it's not perfect. There are some weaknesses that the model has which might make it vulnerable to adversarial examples, and I've decided to leave these in. The model is still very good at its intended task, and the main focus of this challenge is on figuring out how it solves the task, not dissecting the situations where it fails. However, you might find that the adversarial examples help you understand the model better.
