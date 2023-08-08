@@ -1005,7 +1005,7 @@ def section_0_august():
 r"""
 # Monthly Algorithmic Challenge (August 2023): First Unique Character
 
-### Colab: [problem]()
+### Colab: [problem](https://colab.research.google.com/drive/15huO8t1io2oYuLdszyjhMhrPF3WiWhf1)
 
 This post is the second in the sequence of monthly mechanistic interpretability challenges. They are designed in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
