@@ -233,7 +233,6 @@ def test_backprop(Tensor):
     assert np.allclose(a.grad.array, 1 / b.array / a.array)
     print("All tests in `test_backprop` passed!")
 
-
 def test_backprop_branching(Tensor):
     a = Tensor([1, 2, 3], requires_grad=True)
     b = Tensor([1, 2, 3], requires_grad=True)
@@ -243,7 +242,6 @@ def test_backprop_branching(Tensor):
     assert np.allclose(b.grad.array, a.array)
     print("All tests in `test_backprop_branching` passed!")
 
-
 def test_backprop_requires_grad_false(Tensor):
     a = Tensor([1, 2, 3], requires_grad=True)
     b = Tensor([1, 2, 3], requires_grad=False)
@@ -252,7 +250,6 @@ def test_backprop_requires_grad_false(Tensor):
     assert np.allclose(a.grad.array, b.array)
     assert b.grad is None
     print("All tests in `test_backprop_requires_grad_false` passed!")
-
 
 def test_backprop_float_arg(Tensor):
     a = Tensor([1, 2, 3], requires_grad=True)
@@ -266,6 +263,19 @@ def test_backprop_float_arg(Tensor):
     assert a.grad is not None
     assert np.allclose(a.grad.array, np.array([4.0, 4.0, 4.0]))
     print("All tests in `test_backprop_float_arg` passed!")
+
+def test_backprop_shared_parent(Tensor):
+    a = 2
+    b = Tensor([1, 2, 3], requires_grad=True)
+    c = 3
+    d = a * b
+    e = b * c
+    f = d * e
+    f.backward(end_grad=np.array([1.0, 1.0, 1.0]))
+    assert f.grad is None
+    assert b.grad is not None
+    assert np.allclose(b.grad.array, np.array([12.0, 24.0, 36.0])), "Multiple nodes may have the same parent."
+    print("All tests in `test_backprop_shared_parent` passed!")
 
 def test_negative_back(Tensor):
     a = Tensor([-1.0, 0.0, 1.0], requires_grad=True)
