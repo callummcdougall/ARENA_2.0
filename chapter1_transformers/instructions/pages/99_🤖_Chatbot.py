@@ -28,6 +28,12 @@ for instructions_dir in [
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
+ANALYTICS_PATH = instructions_dir / "pages/analytics.json"
+import streamlit_analytics
+streamlit_analytics.start_tracking(
+    load_from_json=ANALYTICS_PATH.resolve(),
+)
+
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
 files = (instructions_dir / "pages").glob("*.py")
@@ -177,3 +183,8 @@ else:
 # block signature
 
 # %%
+
+streamlit_analytics.stop_tracking(
+    unsafe_password=st.secrets["analytics_password"],
+    save_to_json=ANALYTICS_PATH.resolve(),
+)

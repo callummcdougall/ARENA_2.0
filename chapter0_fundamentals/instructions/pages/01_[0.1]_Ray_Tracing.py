@@ -14,6 +14,12 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
+ANALYTICS_PATH = instructions_dir / "pages/analytics.json"
+import streamlit_analytics
+streamlit_analytics.start_tracking(
+    load_from_json=ANALYTICS_PATH.resolve(),
+)
+
 def section_0():
 
     st.sidebar.markdown(r"""
@@ -1959,3 +1965,8 @@ if MAIN:
 """, unsafe_allow_html=True)
 
 section_0()
+
+streamlit_analytics.stop_tracking(
+    unsafe_password=st.secrets["analytics_password"],
+    save_to_json=ANALYTICS_PATH.resolve(),
+)

@@ -19,6 +19,12 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
+ANALYTICS_PATH = instructions_dir / "pages/analytics.json"
+import streamlit_analytics
+streamlit_analytics.start_tracking(
+    load_from_json=ANALYTICS_PATH.resolve(),
+)
+
 st.sidebar.markdown(r"""
 
 ## Table of Contents
@@ -401,3 +407,9 @@ It's important to konw what tools to use in different situations. All have advan
 Your workflow might use all three of these, e.g. working in VSCode using a combination of notebooks for exploratory analysis and Python files for writing functions that you'll import into your notebooks, then finally converting your notebooks to Colabs to publish your results.
 
 """, unsafe_allow_html=True)
+
+
+streamlit_analytics.stop_tracking(
+    unsafe_password=st.secrets["analytics_password"],
+    save_to_json=ANALYTICS_PATH.resolve(),
+)

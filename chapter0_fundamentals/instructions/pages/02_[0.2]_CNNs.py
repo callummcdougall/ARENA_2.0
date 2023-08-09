@@ -51,12 +51,7 @@ You can toggle dark mode from the buttons on the top-right of this page.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/cnn.png" width="350">
 
-
-
-
-
 ## Introduction
-
 
 This section is designed to get you familiar with basic neural networks: how they are structured, the basic operations like linear layers and convolutions which go into making them, and why they work as well as they do. You'll be using libraries like `einops`, and functions like `torch.as_strided` to get a very low-level picture of how these operations work, which will help build up your overall understanding.
 
