@@ -473,7 +473,7 @@ At this point I thought that 1.1 was doing something important at position 20, b
 
 I wanted to see what the full QK matrices of the heads looked like. I generated them for both heads in layer 0, and also for heads in layer 1 (but I guessed these wouldn't tell me as much, because composition would play a larger role in these heads' input, hence I don't show the layer-1 plots below).
 
-In the attention scores plot, I decided to concatenate the embedding and positional embedding matrices, so I could see all interactions between embeddings and positional embeddings. The main reason I did this wasn't for the cross terms (I didn't expect to learn much from seeing how much token $t_i$ attends to position $p_j$), but just so that I could see all the $t_i$-$t_j$ terms next to the $p_i$-$p_j$ terms in a single plot (and compare them to see if positions or tokens had a larger effect on attention scores).
+In the attention scores plot, I decided to concatenate the embedding and positional embedding matrices, so I could see all interactions between embeddings and positional embeddings. The main reason I did this wasn't for the cross terms (I didn't expect to learn much from seeing how much token $t_i$ attends to position $p_j$), but just so that I could see all the $(t_i, t_j)$ terms next to the $(p_i, p_j)$ terms in a single plot (and compare them to see if positions or tokens had a larger effect on attention scores).
 
 ```python
 W_QK: Float[Tensor, "layers heads d_model d_model"] = model.W_Q @ model.W_K.transpose(-1, -2)
@@ -1038,10 +1038,10 @@ The following ARENA material should be considered essential:
 * **[1.1] Transformer from scratch** (sections 1-3)
 * **[1.2] Intro to Mech Interp** (sections 1-3)
 
-The following material isn't essential, but is very strongly recommended:
+The following material isn't essential, but is recommended:
 
 * **[1.2] Intro to Mech Interp** (section 4)
-* **[1.4] Balanced Bracket Classifier** (all sections)
+* **July's Algorithmic Challenge - writeup** (on the sidebar of this page)
 
 ## Difficulty
 
