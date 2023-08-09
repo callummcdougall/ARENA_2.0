@@ -20,8 +20,6 @@ import torchinfo
 import json
 import pandas as pd
 from jaxtyping import Float, Int
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import CSVLogger
 import time
 
 # Make sure exercises are in the path

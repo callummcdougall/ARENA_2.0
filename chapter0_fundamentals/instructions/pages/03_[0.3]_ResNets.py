@@ -109,8 +109,6 @@ import torchinfo
 import json
 import pandas as pd
 from jaxtyping import Float, Int
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import CSVLogger
 
 # Make sure exercises are in the path
 chapter = r"chapter0_fundamentals"
@@ -758,7 +756,7 @@ Importance: 🟠🟠🟠🟠🟠
 
 You should spend up to ~20 minutes on this exercise.
 
-It is very important that you understand PyTorch Lightning training loops and how they work, because we'll be doing a lot of model training with this library.
+It is very important that you understand training loops and how they work, because we'll be doing a lot of model training in this way.
 ```
 
 Edit the `ConvNetTrainer` class above to include a validation loop. Train your model, then plot the accuracy using the function we've given you below.
@@ -1933,7 +1931,7 @@ def section_3():
 > * Perform feature extraction on a pre-trained ResNet
 
 
-Now that you've seen how to build a training loop using PyTorch lightning, and you've seen how ResNet works and is built, we're going to put these two things together to finetune a ResNet model on a new dataset.
+Now that you've seen how to build a modular training loop, and you've seen how ResNet works and is built, we're going to put these two things together to finetune a ResNet model on a new dataset.
 
 **Finetuning** can mean slightly different things in different contexts, but broadly speaking it means using the weights of an already trained network as the starting values for training a new network. Because training networks from scratch is very computationally expensive, this is a common practice in ML.
 

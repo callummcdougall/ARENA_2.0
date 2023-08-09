@@ -198,21 +198,36 @@ def hist(tensor, renderer=None, **kwargs):
         kwargs_post["hovermode"] = "x unified"
     if "autosize" not in kwargs_post:
         kwargs_post["autosize"] = False
-    fig = px.histogram(x=arr, **kwargs_pre).update_layout(**kwargs_post)
+    
+    # If `arr` has a list of arrays, then just doing px.histogram doesn't work annoyingly enough
+    # This is janky, even for my functions!
+    if isinstance(arr, list) and isinstance(arr[0], np.ndarray):
+        assert "marginal" not in kwargs_pre, "Can't use `marginal` with a list of arrays"
+        for thing_to_move_from_pre_to_post in ["title", "template", "height", "width", "labels"]:
+            if thing_to_move_from_pre_to_post in kwargs_pre:
+                kwargs_post[thing_to_move_from_pre_to_post] = kwargs_pre.pop(thing_to_move_from_pre_to_post)
+        if "labels" in kwargs_post:
+            kwargs_post["xaxis_title_text"] = kwargs_post["labels"].get("x", "")
+            kwargs_post["yaxis_title_text"] = kwargs_post["labels"].get("y", "")
+            del kwargs_post["labels"]
+        fig = go.Figure(layout=go.Layout(**kwargs_post))
+        if "nbins" in kwargs_pre:
+            kwargs_pre["nbinsx"] = int(kwargs_pre.pop("nbins"))
+        for x in arr:
+            fig.add_trace(go.Histogram(x=x, name=names.pop(0) if names is not None else None, **kwargs_pre))
+    else:
+        fig = px.histogram(x=arr, **kwargs_pre).update_layout(**kwargs_post)
+        if names is not None:
+            for i in range(len(fig.data)):
+                fig.data[i]["name"] = names[i // 2 if "marginal" in kwargs_pre else i]
+            
     if add_mean_line:
         if arr.ndim == 1:
             fig.add_vline(x=arr.mean(), line_width=3, line_dash="dash", line_color="black", annotation_text=f"Mean = {arr.mean():.3f}", annotation_position="top")
         elif arr.ndim == 2:
             for i in range(arr.shape[0]):
                 fig.add_vline(x=arr[i].mean(), line_width=3, line_dash="dash", line_color="black", annotation_text=f"Mean = {arr.mean():.3f}", annotation_position="top")
-    if names is not None:
-        for i in range(len(fig.data)):
-            fig.data[i]["name"] = names[i // 2 if "marginal" in kwargs_pre else i]
-    else:
-        fig.update_layout(modebar_add=[])
     return fig if return_fig else fig.show(renderer=renderer)
-
-
 
 
 

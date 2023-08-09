@@ -95,8 +95,6 @@ from torchvision import datasets
 from torch.utils.data import DataLoader, Subset
 from typing import Callable, Iterable, Tuple, Optional, Type
 from jaxtyping import Float
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from dataclasses import dataclass
 from tqdm.notebook import tqdm
 from pathlib import Path
@@ -118,11 +116,7 @@ import part4_optimization.tests as tests
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 MAIN = __name__ == "__main__"
-
 ```
-
-
-
 """, unsafe_allow_html=True)
 
 

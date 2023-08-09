@@ -126,7 +126,7 @@ In this section, we'll look at how to actually train our linear probe. This sect
 
 > ##### Learning objectives
 > 
-> - Learn how to set up and train a linear probe, using PyTorch Lightning
+> - Learn how to set up and train a linear probe
  
 #### 5️⃣ Bonus - Future Work I'm Excited About
 
@@ -172,8 +172,6 @@ from transformer_lens.hook_points import HookedRootModule, HookPoint
 from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
 from tqdm.notebook import tqdm
 from dataclasses import dataclass
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
-import pytorch_lightning as pl
 from rich import print as rprint
 import pandas as pd
 
@@ -2489,41 +2487,16 @@ def section_4():
 
 > ##### Learning objectives
 > 
-> - Learn how to set up and train a linear probe, using PyTorch Lightning
+> - Learn how to set up and train a linear probe
 
 
 In this final section, we'll return to the linear probe from earlier, but discuss how you might go about training it from scratch.
 
 We won't be doing a full-scale training run here, instead we'll just look at a small example involving the `board_seqs_int_small.npy` datasets we've already used (the actual probe we've been using in these exercises was trained using a larger `board_seqs_int.pth` dataset).
 
-Note - if you're an ARENA participant who did the material on [PyTorch Lightning](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets#pytorch-lightning) during the first week (or in the "transformer from scratch" material), this should all be familiar to you. If not, a little refresher:
+Note - if you're an ARENA participant who did the material on [model training](https://arena-ch0-fundamentals.streamlit.app/[0.3]_ResNets) during the first week (or in the "transformer from scratch" material), this should all be familiar to you. I'd recommend doing that section before this one, unless you already have experience writing standard ML training loops.
 
-<details>
-<summary>Click here for a basic refresher on PyTorch Lightning & Weights and Biases</summary>
-
-PyTorch Lightining (which we'll import as `pl`) is a useful tool for cleaning up and modularizing your PyTorch training code.
-
-We can define a class which inherits from `pl.LightningModule`, which will contain both our model and instructions for what the training steps look like. This class should have at minimum the following 2 methods:
-
-* `training_step` - compute and return the training loss on a single batch (plus optionally log metrics)
-* `configure_optimizers` - return the optimizers you want to use for training
-
-You can also include the `validation_step` method which has the same syntax as training step and gets called once per epoch, but we won't worry about that here.
-
-Once you have your class, you need to take the following steps to run your training loop:
-
-* Create an instance of that class, e.g. `model = LitTransformer(...)`
-* Define a trainer, e.g. `trainer = pl.Trainer(max_epochs=...)`
-* Define a dataloader (i.e. of type `torch.utils.data.DataLoader`)
-* Call the method `trainer.fit(model=model, train_dataloaders=dataloader)`
-
-Weights and Biases is a useful service which visualises training runs and performs hyperparameter sweeps. If you want to log to Weights and Biases, you need to amend the following:
-
-* Define `logger = pl.loggers.WandbLogger(save_dir=..., project=...)`, and pass this to your `Trainer` instance (along with the `log_every_n_steps` argument).
-* Remember to call `wandb.finish()` at the end of your training instance.
-</details>
-
-One important thing to make clear: we're not training our model in the standard way here. If this was a standard training loop, we'd run our model in training mode and update its gradients in a way which reduces the cross entropy loss between its logit output and the true black/white/blank labels. Instead, we're **running our model in inference mode, caching its residual stream values, applying our probe to these values, and then updating the weights of our probe in a way which reduces the cross entropy loss between our probe's output and the true mine/theirs/blank labels.**
+One important thing to make clear: we're not actually training our transformer model here. If this was a standard training loop, we'd run our model in training mode and update its gradients in a way which reduces the cross entropy loss between its logit output and the true black/white/blank labels. Instead, we're **running our model in inference mode, caching its residual stream values, applying our probe to these values, and then updating the weights of our probe in a way which reduces the cross entropy loss between our probe's output and the true mine/theirs/blank labels.**
 
 
 ```python
@@ -2584,16 +2557,11 @@ class ProbeTrainingArgs():
 
 ```
 
-A reminder for what some of these mean:
+A reminder of what some of these mean:
 * `modes` refers to "black to play/odd moves", "white to play/even moves", and "all moves". In the previous exercises, we only ever used "black to play" (this choice didn't really matter, since the model is detecting "my/their color" rather than "black/white").
 * `options` (for our linear probe) refers to "empty", "black" and "white". After we've trained it, we'll create a version with "empty", "theirs" and "mine".
 
-Now for our main block of code - we'll write a training loop using **PyTorch Lightning**.
-
-If you've not already come across PyTorch Lightning, then here's a quick summary. PyTorch Lightning allows you to modularize your code for training models, by giving you a central class `LightningModule` and a handful of functions which determine behaviour at different parts of the training process. The most important function is `training_step`, which takes `batch` (a tensor containing a batch of data) and returns a zero-dimensional `loss` tensor. The other functions below are:
-
-* `configure_optimizers` - returns an optimizer for your model, and possibly also a learning rate scheduler.
-* `train_dataloader` - returns a dataloader to store your training data (this can be any iterable, so instead of a dataloader you could also use a list of tensors, or a tensor with batch idx as its first dimension).
+Now for our main block of code - we'll write a class for training our linear probe.
 
 
 ### Exercise - fill in the missing code below
@@ -2607,7 +2575,7 @@ You should spend up to 30-40 minutes on this exercise.
 There are several steps to this exercise, so after trying for some time you're recommended to look at the solution.
 ```
 
-We've just left the `training_step` function incomplete, so that's the one you need to fill in.
+We've just left the `training_step` function incomplete, so that's the one you need to fill in. It should return the loss which you backpropagate on (you can see the code which actually performs the backprop algorithm below).
 
 The `batch` object in your training step is a tuple of `(games_int, state_stack_one_hot)`. The `games_int` object has shape `(batch_size=256, full_game_len=60)`, and is the thing you feed into your model. The `state_stack_one_hot` object has shape `(batch_size=256, game_len, rows=8, cols=8, options=3)`, and used when calculating your loss (i.e. it's the correct labels for your game, but in one-hot format). Note that `game_len` is less than `full_game_len=60`, because we're removing the first and last 5 games.
 
@@ -2630,61 +2598,49 @@ The `batch` object in your training step is a tuple of `(games_int, state_stack_
 Once you've finished implementing this function, you can run the code below. You'll know it's working if your training loss decreases at a reasonable rate (it should start at around 300, and will probably drop down to somewhere between 30 and 100 by the end of your training loop).
 
 
-```python
-def seq_to_state_stack(str_moves):
-    board = OthelloBoardState()
-    states = []
-    for move in str_moves:
-        board.umpire(move)
-        states.append(np.copy(board.state))
-    states = np.stack(states, axis=0)
-    return states
-
-```
 
 ```python
-class LitLinearProbe(pl.LightningModule):
-    def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
-        super().__init__()
-        self.model = model
-        self.args = args
-        self.linear_probe = args.setup_linear_probe(model)
-        pl.seed_everything(42, workers=True)
+class LinearProbeTrainer:
+	def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
+		super().__init__()
+		self.model = model
+		self.args = args
+		self.linear_probe = args.setup_linear_probe(model)
 
-    def training_step(self, batch: Int[Tensor, "game_idx"], batch_idx: int) -> t.Tensor:
+	def training_step(self, indices: Int[Tensor, "game_idx"]) -> t.Tensor:
 
-        games_int = board_seqs_int[batch.cpu()]
-        games_str = board_seqs_string[batch.cpu()]
-        state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
-        state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
-        state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
-        batch_size = self.args.batch_size
-        game_len = self.args.length
+		# Get the game sequences and convert them to state stacks
+		games_int = board_seqs_int[indices.cpu()]
+		games_str = board_seqs_string[indices.cpu()]
+		state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
+		state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
+		state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
+		batch_size = self.args.batch_size
+		game_len = self.args.length
 
-        # games_int = tensor of game sequences, each of length 60
-        # This is the input to our model
-        assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
+		# games_int = tensor of game sequences, each of length 60
+		# This is the input to our model
+		assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
 
-        # state_stack_one_hot = tensor of one-hot encoded states for each game
-        # We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
-        assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
+		# state_stack_one_hot = tensor of one-hot encoded states for each game
+		# We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
+		assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
 
         pass
 
-    def train_dataloader(self):
-        '''
-        Returns `games_int` and `state_stack_one_hot` tensors.
-        '''
-        n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
-        full_train_indices = t.randperm(self.args.num_games)[:n_indices]
-        full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
-        return full_train_indices
-        
+	def shuffle_training_indices(self):
+		'''
+		Returns the tensors you'll use to index into the training data.
+		'''
+		n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
+		full_train_indices = t.randperm(self.args.num_games)[:n_indices]
+		full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
+		return full_train_indices
+		
 
-    def configure_optimizers(self):
-        optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
-        return optimizer
-
+	def configure_optimizers(self):
+		optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
+		return optimizer
 ```
 
 <details>
@@ -2692,98 +2648,96 @@ class LitLinearProbe(pl.LightningModule):
 
 
 ```python
-class LitLinearProbe(pl.LightningModule):
-    def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
-        super().__init__()
-        self.model = model
-        self.args = args
-        self.linear_probe = args.setup_linear_probe(model)
-        pl.seed_everything(42, workers=True)
+class LinearProbeTrainer:
+	def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
+		super().__init__()
+		self.model = model
+		self.args = args
+		self.linear_probe = args.setup_linear_probe(model)
 
-    def training_step(self, batch: Int[Tensor, "game_idx"], batch_idx: int) -> t.Tensor:
+	def training_step(self, indices: Int[Tensor, "game_idx"]) -> t.Tensor:
 
-        games_int = board_seqs_int[batch.cpu()]
-        games_str = board_seqs_string[batch.cpu()]
-        state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
-        state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
-        state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
-        batch_size = self.args.batch_size
-        game_len = self.args.length
+		# Get the game sequences and convert them to state stacks
+		games_int = board_seqs_int[indices.cpu()]
+		games_str = board_seqs_string[indices.cpu()]
+		state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
+		state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
+		state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
+		batch_size = self.args.batch_size
+		game_len = self.args.length
 
-        # games_int = tensor of game sequences, each of length 60
-        # This is the input to our model
-        assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
+		# games_int = tensor of game sequences, each of length 60
+		# This is the input to our model
+		assert isinstance(games_int, Int[Tensor, f"batch={batch_size} full_game_len=60"])
 
-        # state_stack_one_hot = tensor of one-hot encoded states for each game
-        # We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
-        assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
+		# state_stack_one_hot = tensor of one-hot encoded states for each game
+		# We'll multiply this by our probe's estimated log probs along the `options` dimension, to get probe's estimated log probs for the correct option
+		assert isinstance(state_stack_one_hot, Int[Tensor, f"batch={batch_size} game_len={game_len} rows=8 cols=8 options=3"])
 
-        # SOLUTION
-        with t.inference_mode():
-            _, cache = model.run_with_cache(
-                games_int[:, :-1].to(device),
-                return_type=None,
-                names_filter=lambda name: name.endswith("resid_post")
-            )
-            resid_post = cache["resid_post", self.args.layer][:, self.args.pos_start: self.args.pos_end]
+		with t.inference_mode():
+			_, cache = model.run_with_cache(
+				games_int[:, :-1].to(device),
+				return_type=None,
+				names_filter=lambda name: name.endswith("resid_post")
+			)
+			resid_post = cache["resid_post", self.args.layer][:, self.args.pos_start: self.args.pos_end]
 
-        probe_out = einops.einsum(
-            resid_post,
-            self.linear_probe,
-            "batch pos d_model, modes d_model rows cols options -> modes batch pos rows cols options",
-        )
+		probe_out = einops.einsum(
+			resid_post,
+			self.linear_probe,
+			"batch pos d_model, modes d_model rows cols options -> modes batch pos rows cols options",
+		)
 
-        probe_log_probs = probe_out.log_softmax(-1)
-        probe_correct_log_probs = einops.reduce(
-            probe_log_probs * state_stack_one_hot,
-            "modes batch pos rows cols options -> modes pos rows cols",
-            "mean"
-        ) * self.args.options # Multiply to correct for the mean over options
-        loss_even = -probe_correct_log_probs[0, 0::2].mean(0).sum() # note that "even" means odd in the game framing, since we offset by 5 moves lol
-        loss_odd = -probe_correct_log_probs[1, 1::2].mean(0).sum()
-        loss_all = -probe_correct_log_probs[2, :].mean(0).sum()
-        
-        loss = loss_even + loss_odd + loss_all
-        print(f"Loss: {loss.item():.3f}", end="\r")
-        return loss
+		probe_log_probs = probe_out.log_softmax(-1)
+		probe_correct_log_probs = einops.reduce(
+			probe_log_probs * state_stack_one_hot,
+			"modes batch pos rows cols options -> modes pos rows cols",
+			"mean"
+		) * self.args.options # Multiply to correct for the mean over options
+		loss_even = -probe_correct_log_probs[0, 0::2].mean(0).sum() # note that "even" means odd in the game framing, since we offset by 5 moves lol
+		loss_odd = -probe_correct_log_probs[1, 1::2].mean(0).sum()
+		loss_all = -probe_correct_log_probs[2, :].mean(0).sum()
+		
+		loss = loss_even + loss_odd + loss_all
+		return loss
 
-    def train_dataloader(self):
-        '''
-        Returns `games_int` and `state_stack_one_hot` tensors.
-        '''
-        n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
-        full_train_indices = t.randperm(self.args.num_games)[:n_indices]
-        full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
-        return full_train_indices
-        
 
-    def configure_optimizers(self):
-        optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
-        return optimizer
+	def shuffle_training_indices(self):
+		'''
+		Returns the tensors you'll use to index into the training data.
+		'''
+		n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
+		full_train_indices = t.randperm(self.args.num_games)[:n_indices]
+		full_train_indices = einops.rearrange(full_train_indices, "(batch_idx game_idx) -> batch_idx game_idx", game_idx=self.args.batch_size)
+		return full_train_indices
+		
+
+	def configure_optimizers(self):
+		optimizer = t.optim.AdamW([self.linear_probe], lr=self.args.lr, betas=self.args.betas, weight_decay=self.args.wd)
+		return optimizer
 ```
 </details>
 
 
 ```python
-# Create the model & training system
+# Create the model & trainer
 args = ProbeTrainingArgs()
-litmodel = LitLinearProbe(model, args)
+trainer = LinearProbeTrainer(model, args)
 
-# You can choose either logger
-logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
-# logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
+optimizer = trainer.configure_optimizers()
 
-# Train the model
-trainer = pl.Trainer(
-    max_epochs=args.max_epochs,
-    logger=logger,
-    log_every_n_steps=1,
-)
-trainer.fit(model=litmodel)
+for epoch in range(args.max_epochs):
+    full_train_indices = trainer.shuffle_training_indices()
+    progress_bar = tqdm(full_train_indices)
+    for indices in progress_bar:
+        loss = trainer.training_step(indices)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        progress_bar.set_description(f"Loss = {loss:.4f}")
 ```
 
-Finally, let's perform the same accuracy plot from before, and see how well it works.
-
+Finally, let's make the same accuracy plot from before, and see how well it works.
 
 ```python
 black_to_play_index = 0
@@ -2794,9 +2748,9 @@ my_index = 2
 
 # Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
 my_linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
-my_linear_probe[..., blank_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 0] + litmodel.linear_probe[white_to_play_index, ..., 0])
-my_linear_probe[..., their_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 1] + litmodel.linear_probe[white_to_play_index, ..., 2])
-my_linear_probe[..., my_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 2] + litmodel.linear_probe[white_to_play_index, ..., 1])
+my_linear_probe[..., blank_index] = 0.5 * (trainer.linear_probe[black_to_play_index, ..., 0] + trainer.linear_probe[white_to_play_index, ..., 0])
+my_linear_probe[..., their_index] = 0.5 * (trainer.linear_probe[black_to_play_index, ..., 1] + trainer.linear_probe[white_to_play_index, ..., 2])
+my_linear_probe[..., my_index] = 0.5 * (trainer.linear_probe[black_to_play_index, ..., 2] + trainer.linear_probe[white_to_play_index, ..., 1])
 
 # Getting the probe's output, and then its predictions
 probe_out = einops.einsum(

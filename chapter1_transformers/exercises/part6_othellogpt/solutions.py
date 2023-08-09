@@ -35,8 +35,6 @@ from transformer_lens.hook_points import HookedRootModule, HookPoint
 from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
 from tqdm.notebook import tqdm
 from dataclasses import dataclass
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
-import pytorch_lightning as pl
 from rich import print as rprint
 import pandas as pd
 
@@ -112,13 +110,13 @@ if MAIN:
 	OTHELLO_MECHINT_ROOT = (OTHELLO_ROOT / "mechanistic_interpretability").resolve()
 	
 	if not OTHELLO_ROOT.exists():
-		!git clone https://github.com/likenneth/othello_world
+		!git clone https://github.com/likenneth/othello_world # type: ignore
 	
 	sys.path.append(str(OTHELLO_MECHINT_ROOT))
 
 # %%
 
-from mech_interp_othello_utils import plot_board, plot_single_board, plot_board_log_probs, to_string, to_int, int_to_label, string_to_label, OthelloBoardState
+from mech_interp_othello_utils import plot_board, plot_single_board, plot_board_log_probs, to_string, to_int, int_to_label, string_to_label, OthelloBoardState # type: ignore
 
 # %%
 
@@ -1162,18 +1160,18 @@ def seq_to_state_stack(str_moves):
 
 # %%
 
-class LitLinearProbe(pl.LightningModule):
+class LinearProbeTrainer:
 	def __init__(self, model: HookedTransformer, args: ProbeTrainingArgs):
 		super().__init__()
 		self.model = model
 		self.args = args
 		self.linear_probe = args.setup_linear_probe(model)
-		pl.seed_everything(42, workers=True)
 
-	def training_step(self, batch: Int[Tensor, "game_idx"], batch_idx: int) -> t.Tensor:
+	def training_step(self, indices: Int[Tensor, "game_idx"]) -> t.Tensor:
 
-		games_int = board_seqs_int[batch.cpu()]
-		games_str = board_seqs_string[batch.cpu()]
+		# Get the game sequences and convert them to state stacks
+		games_int = board_seqs_int[indices.cpu()]
+		games_str = board_seqs_string[indices.cpu()]
 		state_stack = t.stack([t.tensor(seq_to_state_stack(game_str.tolist())) for game_str in games_str])
 		state_stack = state_stack[:, self.args.pos_start: self.args.pos_end, :, :]
 		state_stack_one_hot = state_stack_to_one_hot(state_stack).to(device)
@@ -1216,9 +1214,10 @@ class LitLinearProbe(pl.LightningModule):
 		print(f"Loss: {loss.item():.3f}", end="\r")
 		return loss
 
-	def train_dataloader(self):
+
+	def shuffle_training_indices(self):
 		'''
-		Returns `games_int` and `state_stack_one_hot` tensors.
+		Returns the tensors you'll use to index into the training data.
 		'''
 		n_indices = self.args.num_games - (self.args.num_games % self.args.batch_size)
 		full_train_indices = t.randperm(self.args.num_games)[:n_indices]
@@ -1232,23 +1231,21 @@ class LitLinearProbe(pl.LightningModule):
 
 # %%
 
-# Create the model & training system
+# Create the model & trainer
 
 if MAIN:
 	args = ProbeTrainingArgs()
-	litmodel = LitLinearProbe(model, args)
+	trainer = LinearProbeTrainer(model, args)
 	
-	# You can choose either logger
-	logger = CSVLogger(save_dir=os.getcwd() + "/logs", name=args.probe_name)
-	# logger = WandbLogger(save_dir=os.getcwd() + "/logs", project=args.probe_name)
+	optimizer = trainer.configure_optimizers()
 	
-	# Train the model
-	trainer = pl.Trainer(
-		max_epochs=args.max_epochs,
-		logger=logger,
-		log_every_n_steps=1,
-	)
-	trainer.fit(model=litmodel)
+	for epoch in range(args.max_epochs):
+		full_train_indices = trainer.shuffle_training_indices()
+		for indices in full_train_indices:
+			loss = trainer.training_step(indices)
+			loss.backward()
+			optimizer.step()
+			optimizer.zero_grad()
 
 # %%
 
@@ -1262,9 +1259,9 @@ if MAIN:
 	
 	# Creating values for linear probe (converting the "black/white to play" notation into "me/them to play")
 	my_linear_probe = t.zeros(cfg.d_model, rows, cols, options, device=device)
-	my_linear_probe[..., blank_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 0] + litmodel.linear_probe[white_to_play_index, ..., 0])
-	my_linear_probe[..., their_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 1] + litmodel.linear_probe[white_to_play_index, ..., 2])
-	my_linear_probe[..., my_index] = 0.5 * (litmodel.linear_probe[black_to_play_index, ..., 2] + litmodel.linear_probe[white_to_play_index, ..., 1])
+	my_linear_probe[..., blank_index] = 0.5 * (trainer.linear_probe[black_to_play_index, ..., 0] + trainer.linear_probe[white_to_play_index, ..., 0])
+	my_linear_probe[..., their_index] = 0.5 * (trainer.linear_probe[black_to_play_index, ..., 1] + trainer.linear_probe[white_to_play_index, ..., 2])
+	my_linear_probe[..., my_index] = 0.5 * (trainer.linear_probe[black_to_play_index, ..., 2] + trainer.linear_probe[white_to_play_index, ..., 1])
 	
 	# Getting the probe's output, and then its predictions
 	probe_out = einops.einsum(

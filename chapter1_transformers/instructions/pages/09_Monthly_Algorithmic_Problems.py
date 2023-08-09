@@ -38,7 +38,7 @@ def section_0_july():
     st.markdown(
 r"""
 
-# Monthly Algorithmic Challenge (June 2023): Palindromes
+# Monthly Algorithmic Challenge (July 2023): Palindromes
 
 ### Colab: [problem](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz) | [solutions](https://colab.research.google.com/drive/1zJepKvgfEHMT1iKY3x_CGGtfSR2EKn40)
 
@@ -287,11 +287,13 @@ def section_1_july():
     
     st.markdown(
 r"""
-# Monthly Algorithmic Challenge (June 2023): Solutions
+# Monthly Algorithmic Challenge (July 2023): Solutions
 
 We assume you've run all the setup code from the previous page "Palindromes Challenge". Here's all the new setup code you'll need:
 
 ```python
+dataset = PalindromeDataset(size=2500, max_value=30, half_length=10).to(device)
+
 logits, cache = model.run_with_cache(dataset.toks)
 
 logprobs = logits[:, -1].log_softmax(-1)
@@ -308,7 +310,7 @@ print(f"Average cross entropy loss: {avg_cross_entropy_loss:.3f}")
 print(f"Average logit diff: {avg_logit_diff:.3f}")
 ```
 
-<div style='font-family:monospace;'>
+<div style='font-family:monospace; font-size:15px;'>
 Average cross entropy loss: 0.008<br>
 Average logit diff: 7.489
 </div><br>
@@ -342,6 +344,10 @@ Both the hypotheses above would be associated with very distinctive attention pa
 I've used my own circuitsvis code which sets up a selection menu to view multiple patterns at once, and I've also used a little HTML hacking to highlight the tokens which aren't palindromic (this is totally unnecessary, but made things a bit visually clearer for me!).
 
 ```python
+def red_text(s: str):
+    return f"<span style='color:red'>{s}</span>"
+
+
 def create_str_toks_with_html(toks: Int[Tensor, "batch seq"]):
     '''
     Creates HTML which highlights the tokens that don't match their mirror images. Also puts a gap 
@@ -352,7 +358,11 @@ def create_str_toks_with_html(toks: Int[Tensor, "batch seq"]):
     toks_are_palindromes = toks == toks.flip(-1)
     str_toks = []
     for raw_str_tok, palindromes in zip(raw_str_toks, toks_are_palindromes):
-        str_toks.append(["START - ", *[f"{s} - " if p else f"<span style='color:red'>{s}</span> - " for s, p in zip(raw_str_tok[1:-1], palindromes[1:-1])], "END"])
+        str_toks.append([
+            "START - ", 
+            *[f"{s} - " if p else f"{red_text(s)} - " for s, p in zip(raw_str_tok[1:-1], palindromes[1:-1])], 
+            "END"
+        ])
     
     return str_toks
 
@@ -441,16 +451,13 @@ for ablation_type in ["mean", "zero"]:
             print(f"...{layer}.{head} = {get_loss_from_ablating_head(layer, head, ablation_type):.3f}")
 ```
 
-<div style='font-family:monospace;'>
+<div style='font-family:monospace; font-size:15px;'>
 Original logit diff = 7.489<br><br>
-
 New logit diff after mean-ablating head...<br>
-
 ...0.0 = 0.614<br>
 ...0.1 = 6.642<br>
 ...1.0 = 0.299<br>
-...1.1 = 6.815<br>
-
+...1.1 = 6.815<br><br>
 New logit diff after zero-ablating head...<br>
 ...0.0 = 1.672<br>
 ...0.1 = 3.477<br>
@@ -464,7 +471,7 @@ At this point I thought that 1.1 was doing something important at position 20, b
 
 # 3. Full QK matrix of head 0.0
 
-I wanted to see what the full QK matrices of the heads looked like. I generated them for both heads in layer 0, and also for heads in layer 1 (but I guessed these wouldn't tell me as much, because composition would play a larger role in these heads' input).
+I wanted to see what the full QK matrices of the heads looked like. I generated them for both heads in layer 0, and also for heads in layer 1 (but I guessed these wouldn't tell me as much, because composition would play a larger role in these heads' input, hence I don't show the layer-1 plots below).
 
 In the attention scores plot, I decided to concatenate the embedding and positional embedding matrices, so I could see all interactions between embeddings and positional embeddings. The main reason I did this wasn't for the cross terms (I didn't expect to learn much from seeing how much token $t_i$ attends to position $p_j$), but just so that I could see all the $t_i$-$t_j$ terms next to the $p_i$-$p_j$ terms in a single plot (and compare them to see if positions or tokens had a larger effect on attention scores).
 
@@ -491,8 +498,7 @@ imshow(
     labels = {"x": "Source", "y": "Dest"},
     facet_col = 0,
     facet_labels = ["0.0", "0.1", "1.0", "1.1"],
-    facet_col_wrap = 2,
-    height = 1900,
+    height = 1000,
     width = 1900,
 )
 ```
@@ -517,9 +523,6 @@ r"""
         * *If $x$ and $x'$ are different, then $x$ attends back to $x'$. Otherwise, $x$ attends to both $x$ and $x'$.*
     * I would guess that this signal is being used in the same way as the signal from 0.0, but in the opposite direction.
     * Going back to the attention patterns at the top, we can see that this is happening for token 20 (not for 18).
-* Heads in layer 1 have complimentary patterns when `END` is the destination token.
-    * e.g. in head 1.0, `END` anti-attends to position 20, but head 1.1 strongly attends to position 20.
-    * This supports my hypothesis from earlier, that head 1.0 has a blind spot at 20, and 1.1 is compensating for this by doing basically the same thing at position 20.
 
 To make the plots for head 0.0 clearer, I plotted $W_E$ and $W_{pos}$ for head 0.0 separately, and after softmaxing (note I apply a causal mask for positions, not for tokens). Because I wanted to see if any nonlinear trickery was happening with the layernorm in layer zero, I checked the standard deviation of layernorm at each sequence position - it was very small, meaning this kind of plot is reasonable.
 
@@ -605,6 +608,7 @@ cv.attention.from_cache(
     attention_type = "info-weighted",
     radioitems = True,
 )
+```
 """, unsafe_allow_html=True)
     
     with open(palindromes_dir / "fig5.html", 'r') as f: fig5 = f.read()
@@ -633,10 +637,12 @@ Two exercises to the reader:
 ```python
 is_advex = (probs_correct < 0.5)
 
-is_palindromic_per_token = (dataset.toks == dataset.toks.flip(-1))[:, 1:-1]
-advex_indices = [17-1, 19-1]
-non_advex_indices = [i for i in range(10, 20) if i not in advex_indices]
-is_17_or_19_type = t.all(is_palindromic_per_token[:, non_advex_indices], dim=-1) & t.all(~is_palindromic_per_token[:, advex_indices], dim=-1)
+is_palindromic_per_token = (dataset.toks == dataset.toks.flip(-1))
+advex_indices = [17, 19]
+non_advex_indices = [i for i in range(11, 21) if i not in advex_indices]
+
+is_palindrome_at_non_advex = t.all(is_palindromic_per_token[:, non_advex_indices], dim=-1)
+is_17_or_19_type = is_palindrome_at_non_advex & t.any(~is_palindromic_per_token[:, advex_indices], dim=-1)
 
 print(f"Number of advexes which are in the 17/19 category:    {(is_17_or_19_type & is_advex).sum()}")
 print(f"Number of advexes which aren't in the 17/19 category: {(~is_17_or_19_type & is_advex).sum()}")
@@ -657,60 +663,74 @@ START - 13 - <span style='color:red'>30</span> - 18 - <span style='color:red'>17
 
 # 5. Composition of 0.0 and 1.0
 
-This is really the final big question that needs to be answered - how are `0.0` and `1.0` composing to give us the actual result?
+This is the final big question that needs to be answered - how are `0.0` and `1.0` composing to give us the actual result?
 
-Here, we return to the quantity $(x - x')^T W_{OV}^{0.0}$ discussed earlier. If $x$ entirely self-attends (which we expect if $x$ is non-palindromic) then $x^T W_{OV}^{0.0}$ gets added to $x$, whereas if $x$ attends to $x'$ (which we expect if it's palindromic) then $x'^T W_{OV}^{0.0}$ gets added to $x$. So we might guess that the difference between these two vectors $(x - x')^T W_{OV}^{0.0}$ is the "this token is non-palindromic" signal.
+Here, we return to the quantity $(x - x')^T W_{OV}^{0.0}$ discussed earlier, and I justify my choice of this vector.
 
-First, let's just make sure that attention difference between $x \to x$ and $x \to x'$ is actually enough to separate palindromic tokens from non-palindromic tokens. We've observed this from eyeballing attention patterns, and the full QK matrices make us think that this should be happening, but it's also good to check over the whole dataset.
+Suppose each $x$ attends to $(x, x')$ with probability $(p_1, p_1')$ respectively when $x$ is palindromic, and $(p_2, p_2')$ when $x$ is non-palindromic (so we expect $p_1 + p_1' \approx 1, p_2 + p_2' \approx 1$ in most cases, and $p_2 > p_1$). This means that the vector added to $x$ is $p_2 x^T W_{OV}^{0.0} + p_2' x'^T W_{OV}^{0.0}$ in the non-palindromic case, and $p_1 x^T W_{OV}^{0.0} + p_1' x'^T W_{OV}^{0.0}$ in the palindromic case. The difference between these two vectors is:
+
+$$
+((p_2 - p_1) x - (p_1' - p_2') x')^T W_{OV}^{0.0} \approx (p_2 - p_1) (x - x')^T W_{OV}^{0.0}
+$$
+
+where I've used the approximations $p_1 + p_1' \approx 1, p_2 + p_2' \approx 1$. This is a positive mulitple of the thing we've defined as our "difference vector". Therefore, it's natural to guess that the "this token is non-palindromic" information is stored in the direction defined by this vector.
+
+First, we should check that both $p_2 - p_1$ and $p_1' - p_2'$ are consistently positive (this definitely looked like the case when we eyeballed attention patterns, but we'd ideally like to be more careful).
+
+Note - the plot that I'm making here is a box plot, which I don't have code for in `plotly_utils`. When there's a plot like this which I find myself wanting to make, I usually defer to using ChatGPT (creating quick and clear visualisations is one of the main ways I use it in my regular workflow).
 
 ```python
-non_adversarial_x = [i for i in range(11, 21) if i not in [17, 19]]
-non_adversarial_x_prime = [21 - i for i in non_adversarial_x]
+second_half_indices = list(range(11, 21))
+first_half_indices = [21-i for i in second_half_indices]
+base_dataset = PalindromeDataset(size=1000, max_value=30, half_length=10).to(device)
 
-attn = cache["pattern", 0][:, 0] # (batch, seqQ, seqK)
+# Get a set of palindromic tokens & non-palindromic tokens (with the second half of both tok sequences the same)
+palindromic_tokens = base_dataset.toks.clone()
+palindromic_tokens[:, 1:11] = palindromic_tokens[:, 11:21].flip(-1)
+nonpalindromic_tokens = palindromic_tokens.clone()
+# Use some modular arithmetic to make sure the sequence I'm creating is fully non-palindromic
+nonpalindromic_tokens[:, 1:11] += t.randint_like(nonpalindromic_tokens[:, 1:11], low=1, high=30)
+nonpalindromic_tokens[:, 1:11] %= 31
 
-x_to_x_attn = attn[:, non_adversarial_x, non_adversarial_x]
-x_to_x_prime_attn = attn[:, non_adversarial_x, non_adversarial_x_prime]
-attn_diff = x_to_x_attn - x_to_x_prime_attn
+# Run with cache, and get attention differences
+_, cache_palindromic = model.run_with_cache(palindromic_tokens, return_type=None)
+_, cache_nonpalindromic = model.run_with_cache(nonpalindromic_tokens, return_type=None)
+p1 = cache_palindromic["pattern", 0][:, 0, second_half_indices, second_half_indices] # [batch seqQ]
+p1_prime = cache_palindromic["pattern", 0][:, 0, second_half_indices, first_half_indices] # [batch seqQ]
+p2 = cache_nonpalindromic["pattern", 0][:, 0, second_half_indices, second_half_indices] # [batch seqQ]
+p2_prime = cache_nonpalindromic["pattern", 0][:, 0, second_half_indices, first_half_indices] # [batch seqQ]
 
-x_is_palindromic = (dataset.toks[:, non_adversarial_x] == dataset.toks[:, non_adversarial_x_prime])
+fig_names = ["fig6a", "fig6b"]
 
-attn_diff_for_palindromic_tokens = attn_diff.flatten()[x_is_palindromic.flatten()]
-attn_diff_for_non_palindromic_tokens = attn_diff.flatten()[~x_is_palindromic.flatten()]
-
-fig = go.Figure(layout=dict(
-    title = "Attn diff for tokens in second half of sequence, in head 0.0<br>(excluding adversarial posns 17 & 19)",
-    template = "simple_white",
-    width = 700,
-    height = 400,
-))
-fig.add_trace(go.Histogram(x=utils.to_numpy(attn_diff_for_palindromic_tokens), name="Palindromic", nbinsx=100))
-fig.add_trace(go.Histogram(x=utils.to_numpy(attn_diff_for_non_palindromic_tokens), name="Non-palindromic", nbinsx=100))
-
-fig.update_layout(barmode='overlay', xaxis_title_text="Attn diff")
-fig.update_traces(opacity=0.75)
-fig.show()
-
-print(f"Mean attn diff for non-palindromes = {attn_diff_for_non_palindromic_tokens.mean():.3f}")
-print(f"Mean attn diff for palindromes = {attn_diff_for_palindromic_tokens.mean():.3f}")
-print(f"Difference = {attn_diff_for_non_palindromic_tokens.mean() - attn_diff_for_palindromic_tokens.mean():.3f}")
+for diff, title in zip([p2 - p1, p1_prime - p2_prime], ["p<sub>2</sub> - p<sub>1</sub>", "p<sub>1</sub>' - p<sub>2</sub>'"]):
+    fig = go.Figure(
+        data = [
+            go.Box(y=utils.to_numpy(diff[:, i]), name=f"({j1}, {j2})", boxpoints='suspectedoutliers')
+            for i, (j1, j2) in enumerate(zip(first_half_indices, second_half_indices))
+        ],
+        layout = go.Layout(
+            title = f"Attn diff: {title}",
+            template = "simple_white",
+            width = 800,
+        )
+    ).add_hline(y=0, opacity=1.0, line_color="black", line_width=1)
+    fig.show()
+    print(f"Avg diff (over non-adversarial tokens) = {diff[:, [i for i in range(10) if i not in [17-11, 19-11]]].mean():.3f}")
 ```
 """, unsafe_allow_html=True)
     
-    fig6 = go.Figure(json.loads(open(palindromes_dir / "fig6.json", 'r').read()))
-    st.plotly_chart(fig6, use_container_width=False)
+    fig6a = go.Figure(json.loads(open(palindromes_dir / "fig6a.json", 'r').read()))
+    fig6b = go.Figure(json.loads(open(palindromes_dir / "fig6b.json", 'r').read()))
+    st.plotly_chart(fig6a, use_container_width=False)
+    st.markdown(r"""<div style='font-family:monospace; font-size:15px;'>Avg diff (over non-adversarial tokens) = 0.373</div><br>""", unsafe_allow_html=True)
+    st.plotly_chart(fig6b, use_container_width=False)
+    st.markdown(r"""<div style='font-family:monospace; font-size:15px;'>Avg diff (over non-adversarial tokens) = 0.544</div><br>""", unsafe_allow_html=True)
     
     st.markdown(
 r"""
-<div style='font-family:monospace;'>
-Mean attn diff for non-palindromes = 0.538<br>
-Mean attn diff for palindromes = -0.386<br>
-Difference = 0.924
-</div><br>
-
 ## Conclusion
 
-Yep, it looks like this "attn diff" does generally separate palindromic and non-palindromic tokens very well. Also, remember that in most non-palindromic sequences there will be more than one non-palindromic token, so we don't actually need perfect separation most of the time.
+Yep, it looks like this "attn diff" does generally separate palindromic and non-palindromic tokens very well. Also, remember that in most non-palindromic sequences there will be more than one non-palindromic token, so we don't actually need perfect separation most of the time. We'll use the conservative figure of $0.373$ as our coefficient when we perform logit attribution later.
 
 A quick sidenote - when we add back in adversarial positions 17 & 19, the points are no longer cleanly separate. We can verify that in head `1.0`, the `END` token never attends to positions 17 & 19 (which makes sense, if these tokens don't contain useful information). Code showing this is below.
 
@@ -777,20 +797,20 @@ For each of these difference vectors, we can compute the corresponding keys for 
 There are advantages and disadvantages of using cosine similarity. The main disadvantage is that it doesn't tell you anything about magnitudes. The main advantage is that, by normalizing for scale, the information you get from it is more immediately interpretable (because you can use baselines such as "all cosine sims are between 0 and 1" and "the expected value of the cosine sim of two random vectors in N-dimensional space is zero, with a standard deviation of $\sqrt{1/N}$").
 
 ```python
-second_half_indices = list(range(11, 21))
-first_half_indices = [21-i for i in second_half_indices]
-
 def get_keys_and_queries(layer_1_head: int):
 
-    W_pos_scaled = model.W_pos / cache["scale", 0, "ln1"][:, :, 0].mean(0)
+    scale0 = cache["scale", 0, "ln1"][:, :, 0].mean(0) # [seq 1]
+    W_pos_scaled = model.W_pos / cache["scale", 0, "ln1"][:, :, 0].mean(0) # [seq d_model]
 
-    difference_vectors = (W_pos_scaled[second_half_indices] - W_pos_scaled[first_half_indices]) @ model.W_V[0, 0] @ model.W_O[0, 0]
+    W_pos_diff_vectors = W_pos_scaled[second_half_indices] - W_pos_scaled[first_half_indices] # [half_seq d_model]
+    difference_vectors = W_pos_diff_vectors @ model.W_V[0, 0] @ model.W_O[0, 0] # [half_seq d_model]
 
-    difference_vectors_scaled = difference_vectors / cache["scale", 1, "ln1"][:, second_half_indices, layer_1_head].mean(0)
-    all_keys = difference_vectors_scaled @ model.W_K[1, layer_1_head]
+    scale1 = cache["scale", 1, "ln1"][:, second_half_indices, layer_1_head].mean(0) # [half_seq 1]
+    difference_vectors_scaled = difference_vectors / scale1 # [half_seq d_model]
+    all_keys = difference_vectors_scaled @ model.W_K[1, layer_1_head] # [half_seq d_head]
 
     # Averaging queries over batch dimension (to make sure we're not missing any bias terms)
-    END_query = cache["q", 1][:, -1, layer_1_head].mean(0)
+    END_query = cache["q", 1][:, -1, layer_1_head].mean(0) # [d_head]
 
     # Get the cosine similarity
     all_keys_normed = all_keys / all_keys.norm(dim=-1, keepdim=True)
@@ -799,6 +819,7 @@ def get_keys_and_queries(layer_1_head: int):
 
     assert cos_sim.shape == (10,)
     return cos_sim
+
 
 cos_sim_L1H0 = get_keys_and_queries(0)
 cos_sim_L1H1 = get_keys_and_queries(1)
@@ -834,23 +855,24 @@ These results are very striking. We make the following conclusions:
 Let's look at the direct logit attribution we get when we feed this difference vector through the OV matrix of heads in layer 1. We can re-use a lot of our code from the previous function.
 
 ```python
-second_half_indices = list(range(11, 21))
-first_half_indices = [21-i for i in second_half_indices]
-
 def get_DLA(layer_1_head: int):
 
     W_pos_scaled = model.W_pos / cache["scale", 0, "ln1"][:, :, 0].mean(0)
 
-    difference_vectors = (W_pos_scaled[second_half_indices] - W_pos_scaled[first_half_indices]) @ model.W_V[0, 0] @ model.W_O[0, 0]
+    W_pos_diff_vectors = W_pos_scaled[second_half_indices] - W_pos_scaled[first_half_indices] # [half_seq d_model]
+    difference_vectors = W_pos_diff_vectors @ model.W_V[0, 0] @ model.W_O[0, 0] # [half_seq d_model]
 
-    # This is the average multiple of this vector that gets added to non-palindromic tokens relative to palindromic tokens
-    difference_vectors *= 0.5 * 0.924
+    # This is the average multiple of this vector that gets added to the non-palindromic tokens relative to the
+    # palindromic tokens (from the experiment we ran earlier)
+    difference_vectors *= 0.373
 
-    difference_vectors_scaled = difference_vectors / cache["scale", 1, "ln1"][:, second_half_indices, layer_1_head].mean(0)
+    scale1 = cache["scale", 1, "ln1"][:, second_half_indices, layer_1_head].mean(0) # [half_seq 1]
+    difference_vectors_scaled = difference_vectors / scale1
     all_outputs = difference_vectors_scaled @ model.W_V[1, layer_1_head] @ model.W_O[1, layer_1_head]
 
     # Scale & get direct logit attribution
-    all_outputs_scaled = all_outputs / cache["scale"][:, -1].mean()
+    final_ln_scale = cache["scale"][~dataset.is_palindrome.bool(), -1].mean()
+    all_outputs_scaled = all_outputs / final_ln_scale
     logit_attribution = all_outputs_scaled @ model.W_U
     # Get logit diff (which is positive for the "non-palindrome" classification)
     logit_diff = logit_attribution[:, 0] - logit_attribution[:, 1]
@@ -860,9 +882,10 @@ def get_DLA(layer_1_head: int):
 
 dla_L1H0 = get_DLA(0)
 dla_L1H1 = get_DLA(1)
+dla_L1 = t.stack([dla_L1H0, dla_L1H1])
 
 imshow(
-    t.stack([dla_L1H0, dla_L1H1]),
+    dla_L1,
     title = "Direct logit attribution for the path W<sub>pos</sub> 'difference vectors' ➔ 0.0 ➔ (1.0 & 1.1) ➔ logits",
     width = 850,
     height = 400,
@@ -883,8 +906,7 @@ r"""
 
 * The results for head 1.0 agree with our expectation. The values in the 3 adversarial cases don't matter because `END` never pays attention to these tokens.
 * The results for head 1.1 show us that this head compensates for the blind spot at position 20, but not at positions 17 or 19.
-* There's some mistake I'm making here, because the values of direct logit attribution are about a factor of 2x larger than the actual logit diffs we tend to get.
-    * Not sure what's going on here, would be grateful if anyone spots my mistake (-:
+* The sizes of DLAs look about reasonable - in particular, the size of DLA for head 1.0 on all the non-adversarial positions is only a bit larger than the empirically observed logit diff (which is about 7.5 - see code cell below), which makes sense given that head 1.0 will usually pay very large (but not quite 100%) attention to non-palindromic tokens in the second half of the sequence, conditional on some non-palindromic tokens existing.
 
 <br>
 
@@ -896,23 +918,22 @@ I consider the main problem to have basically been solved now, but here are a fe
 
 Our previous results suggested that both 0.1 and 1.1 seem to compensate for blind spots at position 20. We should guess that mean ablating them everywhere except at position 20 shouldn't change the loss by much at all.
 
-In the case of head 0.1, we should mean ablate the result everywhere except position 20 (because it's the output at this position that we care about). We also want to preserve the output at position 1 
-
-In the case of head 1.1, we should mean ablate the value vectors everywhere except position 20 (because it's the input at this position that we care about).
+In the case of head 0.1, we should mean ablate the result everywhere except position 20 (because it's the output at this position that we care about). In the case of head 1.1, we should mean ablate the value vectors everywhere except position 20 (because it's the input at this position that we care about).
 
 Note - in this case we're measuring loss rather than logit diff. This is because the purpose of heads 0.1 and 1.1 is to fix the model's blind spots, not to increase logit diff overall. It's entirely possible for a head to decrease loss and increase logit diff (in fact this is what we see for head 1.1).
 
 ```python
-def get_loss_from_targeted_mean_ablation(head: Tuple[int, int], ablation_type: Literal["input", "output"], preserve_20: bool):
+def targeted_mean_ablation_loss(
+    head: Tuple[int, int],
+    ablation_type: Literal["input", "output"],
+    ablate_20: bool
+):
 
-    # Mean ablate everywhere except position 20
+    # Get values for doing mean ablation everywhere (except possibly position 20)
     layer, head_idx = head
-    component = {"output": "result", "input": "v"}[ablation_type]
-    if not(preserve_20):
-        seq_pos_to_ablate = slice(None)
-    else:
-        seq_pos_to_ablate = [i for i in range(22) if i != 20]
-    ablation_values = cache[component, layer][:, seq_pos_to_ablate, head_idx].mean(0) # shape (seq, d_model,)
+    component = "result" if ablation_type == "output" else "v"
+    seq_pos_to_ablate = slice(None) if ablate_20 else [i for i in range(22) if i != 20]
+    ablation_values = cache[component, layer][:, seq_pos_to_ablate, head_idx].mean(0) # [seq d_model]
 
     # Define hook function
     def hook_patch_mean(activation: Float[Tensor, "batch seq nheads d"], hook: HookPoint):
@@ -931,13 +952,13 @@ def get_loss_from_targeted_mean_ablation(head: Tuple[int, int], ablation_type: L
 
 
 print(f"Original loss                           = {avg_cross_entropy_loss:.3f}\n")
-print(f"0.1 ablated everywhere (incl. posn 20)  = {get_loss_from_targeted_mean_ablation((0, 1), 'output', False):.3f}")
-print(f"0.1 ablated everywhere (except posn 20) = {get_loss_from_targeted_mean_ablation((0, 1), 'output', True):.3f}\n")
-print(f"1.1 ablated everywhere (incl. posn 20)  = {get_loss_from_targeted_mean_ablation((1, 1), 'input', False):.3f}")
-print(f"1.1 ablated everywhere (except posn 20) = {get_loss_from_targeted_mean_ablation((1, 1), 'input', True):.3f}")
+print(f"0.1 ablated everywhere (incl. posn 20)  = {targeted_mean_ablation_loss((0, 1), 'output', ablate_20=True):.3f}")
+print(f"0.1 ablated everywhere (except posn 20) = {targeted_mean_ablation_loss((0, 1), 'output', ablate_20=False):.3f}\n")
+print(f"1.1 ablated everywhere (incl. posn 20)  = {targeted_mean_ablation_loss((1, 1), 'input', ablate_20=True):.3f}")
+print(f"1.1 ablated everywhere (except posn 20) = {targeted_mean_ablation_loss((1, 1), 'input', ablate_20=False):.3f}")
 ```
 
-<div style='font-family:monospace;'>
+<div style='font-family:monospace; font-size:15px;'>
 Original loss                           = 0.008<br>
 <br>
 0.1 ablated everywhere (incl. posn 20)  = 0.118<br>
@@ -960,9 +981,8 @@ It makes sense that this result doesn't hold for 17 and 19 (because 0.0's attent
 ```python
 W_pos_scaled = model.W_pos / cache["scale", 0, "ln1"][:, :, 0].mean(0)
 
-second_half_indices = list(range(11, 21))
-first_half_indices = [21-i for i in second_half_indices]
-difference_vectors = (W_pos_scaled[second_half_indices] - W_pos_scaled[first_half_indices]) @ model.W_V[0, 0] @ model.W_O[0, 0]
+W_pos_difference_vectors = W_pos_scaled[second_half_indices] - W_pos_scaled[first_half_indices]
+difference_vectors = W_pos_difference_vectors @ model.W_V[0, 0] @ model.W_O[0, 0]
 
 difference_vectors_normed = difference_vectors / difference_vectors.norm(dim=-1, keepdim=True)
 
@@ -1025,7 +1045,7 @@ The following material isn't essential, but is very strongly recommended:
 
 ## Difficulty
 
-This problem is of roughly comparable difficulty to the June problem. The algorithmic problem is of a similar flavour, and the model architecture is very similar (the main difference is that this model has 3 attention heads per layer, instead of 2). I've done this because this problem is the first I'm also crossposting to LessWrong, and I want it to be reasonably accessible. The next problem in this sequence will probably be a step up in difficulty.
+This problem is of roughly comparable difficulty to the July problem. The algorithmic problem is of a similar flavour, and the model architecture is very similar (the main difference is that this model has 3 attention heads per layer, instead of 2). I've done this because this problem is the first I'm also crossposting to LessWrong, and I want it to be reasonably accessible. The next problem in this sequence will probably be a step up in difficulty.
 
 ## Motivation
 
@@ -1103,7 +1123,7 @@ for seq, first_unique_char_seq in zip(dataset.str_toks, dataset.str_tok_labels):
     print(f"Seq = {''.join(seq)}, Target = {''.join(first_unique_char_seq)}")
 ```
 
-<div style='font-family:monospace;'>
+<div style='font-family:monospace; font-size:15px;'>
 Seq = ?acbba, Target = ?aaaac<br>
 Seq = ?cbcbc, Target = ?ccb??
 </div><br>
@@ -1225,7 +1245,7 @@ print(f"Average probability on correct label: {avg_correct_prob:.3f}")
 print(f"Min probability on correct label: {min_correct_prob:.3f}")
 ```
 
-<div style='font-family:monospace;'>
+<div style='font-family:monospace; font-size:15px;'>
 Average cross entropy loss: 0.017<br>
 Average probability on correct label: 0.988<br>
 Min probability on correct label: 0.001
