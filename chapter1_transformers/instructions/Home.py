@@ -26,6 +26,7 @@ if os.getcwd().endswith("pages") and "../" not in sys.path:
 ANALYTICS_PATH = root_path / "pages/analytics.json"
 import streamlit_analytics
 streamlit_analytics.start_tracking(
+    verbose=True,
     load_from_json=ANALYTICS_PATH.resolve(),
 )
 
