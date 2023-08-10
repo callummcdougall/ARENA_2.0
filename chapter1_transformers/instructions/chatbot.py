@@ -21,9 +21,9 @@ import platform
 is_local = (platform.processor() != "")
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
-# Get to chapter0_fundamentals directory (or whatever the chapter dir is)
+# Get to chapter1_transformers directory (or whatever the chapter dir is)
 import os, sys
-CHAPTER = r"chapter0_fundamentals"
+CHAPTER = r"chapter1_transformers"
 chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
 sys.path.append(chapter_dir + CHAPTER)
 instructions_dir = Path(f"{os.getcwd().split(CHAPTER)[0]}/{CHAPTER}/instructions").resolve()

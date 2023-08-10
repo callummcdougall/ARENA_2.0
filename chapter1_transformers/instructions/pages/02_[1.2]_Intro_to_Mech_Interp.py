@@ -22,7 +22,10 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics.json"
+ANALYTICS_PATH = instructions_dir / "pages/analytics_02.json"
+if not ANALYTICS_PATH.exists():
+    with open(ANALYTICS_PATH, "w") as f:
+        f.write(r"{}")
 import streamlit_analytics
 streamlit_analytics.start_tracking(
     load_from_json=ANALYTICS_PATH.resolve(),

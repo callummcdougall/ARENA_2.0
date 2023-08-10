@@ -28,7 +28,10 @@ for instructions_dir in [
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics.json"
+ANALYTICS_PATH = instructions_dir / "pages/analytics_99.json"
+if not ANALYTICS_PATH.exists():
+    with open(ANALYTICS_PATH, "w") as f:
+        f.write(r"{}")
 import streamlit_analytics
 streamlit_analytics.start_tracking(
     load_from_json=ANALYTICS_PATH.resolve(),
@@ -40,6 +43,8 @@ files = (instructions_dir / "pages").glob("*.py")
 names = [f.stem for f in files if f.stem[0].isdigit() and "Chatbot" not in f.stem and "]" in f.stem]
 names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 # names are ["Ray Tracing", "CNNs", "Backprop", "ResNets", "Optimization"]
+
+
 
 # %%
 

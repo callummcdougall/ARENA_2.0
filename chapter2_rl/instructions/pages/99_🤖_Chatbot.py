@@ -25,7 +25,10 @@ sys.path.append(str(root_path.parent))
 
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
-ANALYTICS_PATH = root_path / "pages/analytics.json"
+ANALYTICS_PATH = root_path / "pages/analytics_99.json"
+if not ANALYTICS_PATH.exists():
+    with open(ANALYTICS_PATH, "w") as f:
+        f.write(r"{}")
 import streamlit_analytics
 streamlit_analytics.start_tracking(
     load_from_json=ANALYTICS_PATH.resolve(),
