@@ -14,7 +14,10 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics.json"
+ANALYTICS_PATH = instructions_dir / "pages/analytics_03.json"
+if not ANALYTICS_PATH.exists():
+    with open(ANALYTICS_PATH, "w") as f:
+        f.write(r"{}")
 import streamlit_analytics
 streamlit_analytics.start_tracking(
     load_from_json=ANALYTICS_PATH.resolve(),
@@ -30,9 +33,9 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
     <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li><ul class="contents">
-        <li><a class='contents-el' href='#110125-building-training-a-cnn'>1️⃣ Building & training a CNN</a></li>
-        <li><a class='contents-el' href='#1010125-assembling-resnet'>2️⃣ Assembling ResNet</a></li>
-        <li><a class='contents-el' href='#12510125-resnet-feature-extraction'>3️⃣ ResNet feature extraction</a></li>
+        <li><a class='contents-el' href='#1-building-training-a-cnn'>1️⃣ Building & training a CNN</a></li>
+        <li><a class='contents-el' href='#2-assembling-resnet'>2️⃣ Assembling ResNet</a></li>
+        <li><a class='contents-el' href='#3-resnet-feature-extraction'>3️⃣ ResNet feature extraction</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
