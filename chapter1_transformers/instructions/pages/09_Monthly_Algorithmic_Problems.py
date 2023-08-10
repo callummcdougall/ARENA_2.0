@@ -44,9 +44,7 @@ def section_0_july():
     <li><a class='contents-el' href='#model'>Model</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(
-r"""
-
+    st.markdown(r"""
 # Monthly Algorithmic Challenge (July 2023): Palindromes
 
 ### Colab: [problem](https://colab.research.google.com/drive/1qTUBj16kp6ZOCEBJefCKdzXvBsU1S-yz) | [solutions](https://colab.research.google.com/drive/1zJepKvgfEHMT1iKY3x_CGGtfSR2EKn40)
@@ -294,8 +292,7 @@ def section_1_july():
     </ul></li>
 </ul></li>""", unsafe_allow_html=True)
     
-    st.markdown(
-r"""
+    st.markdown(r"""
 # Monthly Algorithmic Challenge (July 2023): Solutions
 
 We assume you've run all the setup code from the previous page "Palindromes Challenge". Here's all the new setup code you'll need:
@@ -389,8 +386,7 @@ cv.attention.from_cache(
     with open(palindromes_dir / "fig1.html", 'r') as f: fig1 = f.read()
     st_html(fig1, height=625)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 ## Conclusions
 
 * The reflection hypotheses seems straightforwardly correct.
@@ -516,8 +512,7 @@ imshow(
     fig2 = go.Figure(json.loads(open(palindromes_dir / "fig2.json", 'r').read()))
     st.plotly_chart(fig2, use_container_width=True)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 ## Conclusions
 
 * As expected, 0.0 had the most distinctive patterns.
@@ -584,8 +579,7 @@ for (name, matrix) in zip(["tokens", "positions"], [W_QK_full_tokens, W_QK_full_
     st.plotly_chart(fig4_tokens, use_container_width=False)
     st.plotly_chart(fig4_positions, use_container_width=False)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 Result - we can clearly see the pattern that was observed earlier. However, some results aren't as clean as I was expecting (in particular the positional results). The blind spots at positions 17 and 19 are very apparent here.
 
 # 4. Investigating adversarial examples
@@ -623,8 +617,7 @@ cv.attention.from_cache(
     with open(palindromes_dir / "fig5.html", 'r') as f: fig5 = f.read()
     st_html(fig5, height=525)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 ## Conclusion
 
 This is exactly what I expected - 17 and 19 are adversarial examples. When only one of these positions is non-palindromic, the model will incorrectly classify the sequence as palindromic with high probability.
@@ -735,8 +728,7 @@ for diff, title in zip([p2 - p1, p1_prime - p2_prime], ["p<sub>2</sub> - p<sub>1
     st.plotly_chart(fig6b, use_container_width=False)
     st.markdown(r"""<div style='font-family:monospace; font-size:15px;'>Avg diff (over non-adversarial tokens) = 0.544</div><br>""", unsafe_allow_html=True)
     
-    st.markdown(
-r"""
+    st.markdown(r"""
 ## Conclusion
 
 Yep, it looks like this "attn diff" does generally separate palindromic and non-palindromic tokens very well. Also, remember that in most non-palindromic sequences there will be more than one non-palindromic token, so we don't actually need perfect separation most of the time. We'll use the conservative figure of $0.373$ as our coefficient when we perform logit attribution later.
@@ -769,8 +761,7 @@ bar(
     fig7 = go.Figure(json.loads(open(palindromes_dir / "fig7.json", 'r').read()))
     st.plotly_chart(fig7, use_container_width=False)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 Another thing which this plot makes obvious is that position 20 is rarely attended to by head 1.0 (explaining the third advex we found above). However, if you look at the attention patterns for head 1.1, you can see that it picks up the slack by attending to position 20 a lot, especially for non-palindromes.
 
 Another thing which this plot makes obvious is that position 20 is rarely attended to by head 1.0 (explaining the third advex we found above). However, if you look at the attention patterns for head 1.1, you can see that it picks up the slack by attending to position 20 a lot, especially for non-palindromes.
@@ -849,8 +840,7 @@ imshow(
     fig8 = go.Figure(json.loads(open(palindromes_dir / "fig8.json", 'r').read()))
     st.plotly_chart(fig8, use_container_width=False)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 ## Conclusion
 
 These results are very striking. We make the following conclusions:
@@ -909,8 +899,7 @@ imshow(
     fig9 = go.Figure(json.loads(open(palindromes_dir / "fig9.json", 'r').read()))
     st.plotly_chart(fig9, use_container_width=False)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 ## Conclusions
 
 * The results for head 1.0 agree with our expectation. The values in the 3 adversarial cases don't matter because `END` never pays attention to these tokens.
@@ -1030,8 +1019,7 @@ def section_0_august():
     <li><a class='contents-el' href='#model'>Model</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(
-r"""
+    st.markdown(r"""
 # Monthly Algorithmic Challenge (August 2023): First Unique Character
 
 ### Colab: [problem](https://colab.research.google.com/drive/15huO8t1io2oYuLdszyjhMhrPF3WiWhf1)
