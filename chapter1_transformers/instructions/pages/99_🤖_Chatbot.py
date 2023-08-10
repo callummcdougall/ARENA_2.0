@@ -25,6 +25,11 @@ for instructions_dir in [
 ]:
     if instructions_dir.exists():
         break
+else:
+    # raise error in streamlit
+    st.error(f"Path error - please contact author at `cal.s.mcdougall@gmail.com`.")
+    st.stop()
+
 if str(instructions_dir) not in sys.path: sys.path.append(str(instructions_dir))
 os.chdir(instructions_dir)
 
@@ -51,7 +56,10 @@ names = [name.split("]")[1].replace("_", " ").strip() for name in names]
 if "my_embeddings" not in st.session_state:
     path = instructions_dir / "my_embeddings.pkl"
     with open(str(path), "rb") as f:
-        st.session_state["my_embeddings"] = pickle.load(f)
+        try:
+            st.session_state["my_embeddings"] = pickle.load(f)
+        except:
+            st.write(path.resolve())
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
