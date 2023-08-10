@@ -23,6 +23,12 @@ if os.getcwd().endswith("chapter1_transformers") and "./instructions" not in sys
 if os.getcwd().endswith("pages") and "../" not in sys.path:
     sys.path.append("../")
 
+ANALYTICS_PATH = root_path / "pages/analytics.json"
+import streamlit_analytics
+streamlit_analytics.start_tracking(
+    load_from_json=ANALYTICS_PATH.resolve(),
+)
+
 st.sidebar.markdown(r"""
 ## Table of Contents
 
@@ -415,3 +421,9 @@ section_home()
 #     width=0,
 #     height=0
 # )  # Jav
+
+
+streamlit_analytics.stop_tracking(
+    unsafe_password=st.secrets["analytics_password"],
+    save_to_json=ANALYTICS_PATH.resolve(),
+)
