@@ -764,8 +764,6 @@ bar(
     st.markdown(r"""
 Another thing which this plot makes obvious is that position 20 is rarely attended to by head 1.0 (explaining the third advex we found above). However, if you look at the attention patterns for head 1.1, you can see that it picks up the slack by attending to position 20 a lot, especially for non-palindromes.
 
-Another thing which this plot makes obvious is that position 20 is rarely attended to by head 1.0 (explaining the third advex we found above). However, if you look at the attention patterns for head 1.1, you can see that it picks up the slack by attending to position 20 a lot, especially for non-palindromes.
-
 ## Next steps
 
 We want to try and formalize this composition between head 0.0 and 1.0. We think that K-composition (and possibly V-composition) is going on.
