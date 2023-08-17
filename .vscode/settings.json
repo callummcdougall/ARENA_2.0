@@ -19,5 +19,6 @@
         // "${workspaceFolder}/chapter2_rl",
         // "${workspaceFolder}/chapter2_rl/exercises",
         "C:/Users/calsm/anaconda3/envs/tl_intro_test/Lib/site-packages",
-    ]
+    ],
+    "git.enabled": true
 }
