@@ -145,8 +145,6 @@ from rich.table import Table
 from rich import print as rprint
 import datasets
 from torch.utils.data import DataLoader
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
 import wandb
 from pathlib import Path
 import webbrowser
