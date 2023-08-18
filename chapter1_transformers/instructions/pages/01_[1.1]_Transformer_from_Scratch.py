@@ -148,6 +148,9 @@ from torch.utils.data import DataLoader
 import wandb
 from pathlib import Path
 import webbrowser
+# (removed PyTorch Lightning from exercises)
+# import pytorch_lightning as pl
+# from pytorch_lightning.loggers import WandbLogger
 
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
