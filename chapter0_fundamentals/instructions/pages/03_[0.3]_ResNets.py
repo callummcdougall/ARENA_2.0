@@ -38,6 +38,7 @@ def section_0():
         <li><a class='contents-el' href='#3-resnet-feature-extraction'>3️⃣ ResNet feature extraction</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
+    <li class='margtop'><a class='contents-el' href='#note-on-mac-setup'>Note on Mac setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
@@ -134,8 +135,12 @@ from plotly_utils import line, plot_train_loss_and_test_accuracy_from_trainer
 device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
 MAIN = __name__ == "__main__"
-
 ```
+                
+## Note on Mac setup
+                
+Using the correct `device` variable on MacOS can be quite difficult, and the same code that we've provided above might not work for you. You might instead want to use `torch.device("mps")` if it is available. See [these](https://pytorch.org/docs/stable/notes/mps.html) [two](https://developer.apple.com/metal/pytorch/) links for more information on using PyTorch on Mac devices. If you have any other problems or suggestions, please feel free to reach out to us.
+
 
 
 

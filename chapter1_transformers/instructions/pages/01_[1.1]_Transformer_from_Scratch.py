@@ -31,7 +31,8 @@ streamlit_analytics.start_tracking(
 
 def section_0():
 
-    st.sidebar.markdown(r"""
+    st.sidebar.markdown(
+r"""
 
 ## Table of Contents
 
@@ -39,9 +40,11 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#introduction'>Introduction</a></li>
     <li class='margtop'><a class='contents-el' href='#content-learning-objectives'>Content & Learning Objectives</a></li>
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
+    <li class='margtop'><a class='contents-el' href='#note-on-mac-setup'>Note on Mac setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # [1.1] - Transformers from scratch
 
@@ -52,9 +55,6 @@ Please send any problems / bugs on the `#errata` channel in the [Slack group](ht
 You can toggle dark mode from the buttons on the top-right of this page.
 
 <img src="https://raw.githubusercontent.com/callummcdougall/TransformerLens-intro/main/images/page_images/transformer-building.png" width="350">
-
-
-
 
 ## Introduction
 
@@ -167,8 +167,10 @@ MAIN = __name__ == '__main__'
 
 reference_gpt2 = HookedTransformer.from_pretrained("gpt2-small", fold_ln=False, center_unembed=False, center_writing_weights=False)
 ```
-
-
+                
+## Note on Mac setup
+                
+Using the correct `device` variable on MacOS can be quite difficult, and the same code that we've provided above might not work for you. You might instead want to use `torch.device("mps")` if it is available. See [these](https://pytorch.org/docs/stable/notes/mps.html) [two](https://developer.apple.com/metal/pytorch/) links for more information on using PyTorch on Mac devices. If you have any other problems or suggestions, please feel free to reach out to us.
 
 """, unsafe_allow_html=True)
 
