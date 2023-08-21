@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "C:/Users/calsm/Documents/AI Alignment/ARENA_2/chapter1_transformers/exercises"
+    ],
+    "python.analysis.include": [
+        "C:/Users/calsm/Documents/AI Alignment/ARENA_2/chapter1_transformers/exercises"
+    ],
+}

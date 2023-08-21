@@ -25,6 +25,8 @@ def imshow(tensor: t.Tensor, renderer=None, **kwargs):
     border = kwargs_pre.pop("border", False)
     return_fig = kwargs_pre.pop("return_fig", False)
     text = kwargs_pre.pop("text", None)
+    xaxis_tickangle = kwargs_post.pop("xaxis_tickangle", None)
+    static = kwargs_pre.pop("static", False)
     if "color_continuous_scale" not in kwargs_pre:
         kwargs_pre["color_continuous_scale"] = "RdBu"
     if "color_continuous_midpoint" not in kwargs_pre:
@@ -58,7 +60,13 @@ def imshow(tensor: t.Tensor, renderer=None, **kwargs):
                 texttemplate="%{text}", 
                 textfont={"size": 12}
             )
-    return fig if return_fig else fig.show(renderer=renderer)
+    # Very hacky way of fixing the fact that updating layout with new tickangle only applies to first facet by default
+    if xaxis_tickangle is not None:
+        n_facets = 1 if tensor.ndim == 2 else tensor.shape[0]
+        for i in range(1, 1+n_facets):
+            xaxis_name = "xaxis" if i == 1 else f"xaxis{i}"
+            fig.layout[xaxis_name]["tickangle"] = xaxis_tickangle
+    return fig if return_fig else fig.show(renderer=renderer, config={"staticPlot": static})
 
 
 def reorder_list_in_plotly_way(L: list, col_wrap: int):
