@@ -28,6 +28,7 @@ gdown
 jaxtyping
 typeguard
 streamlit
+streamlit-analytics
 torchinfo
 frozendict
 streamlit-chat

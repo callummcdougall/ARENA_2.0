@@ -18,3 +18,4 @@ secrets.toml
 *interp_on_model*.ipynb
 *other_solns
 *gitignore
+*.vscode
