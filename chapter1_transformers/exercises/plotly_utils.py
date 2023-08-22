@@ -243,7 +243,7 @@ def hist(tensor, renderer=None, **kwargs):
 # PLOTTING FUNCTIONS FOR PART 2: INTRO TO MECH INTERP
 
 def plot_comp_scores(model, comp_scores, title: str = "", baseline: Optional[t.Tensor] = None) -> go.Figure:
-    return px.imshow(
+    px.imshow(
         to_numpy(comp_scores),
         y=[f"L0H{h}" for h in range(model.cfg.n_heads)],
         x=[f"L1H{h}" for h in range(model.cfg.n_heads)],
@@ -252,7 +252,7 @@ def plot_comp_scores(model, comp_scores, title: str = "", baseline: Optional[t.T
         color_continuous_scale="RdBu" if baseline is not None else "Blues",
         color_continuous_midpoint=baseline if baseline is not None else None,
         zmin=None if baseline is not None else 0.0,
-    )
+    ).show()
 
 def convert_tokens_to_string(model: HookedTransformer, tokens, batch_index=0):
     '''

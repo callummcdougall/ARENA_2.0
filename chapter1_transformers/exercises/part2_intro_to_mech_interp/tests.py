@@ -75,3 +75,5 @@ def test_get_comp_score(get_comp_score: Callable):
     comp_score_expected = solutions.get_comp_score(W_A, W_B)
 
     t.testing.assert_close(comp_score, comp_score_expected)
+
+    print("All tests in `test_get_comp_score` passed!")
