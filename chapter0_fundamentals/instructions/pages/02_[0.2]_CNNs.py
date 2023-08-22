@@ -1167,6 +1167,7 @@ def section_3():
     <li class='margtop'><a class='contents-el' href='#reading'>Reading</a></li>
     <li class='margtop'><a class='contents-el' href='#conv1d-minimal'>conv1d minimal</a></li>
     <li><ul class="contents">
+        <li><a class='contents-el' href='#a-note-on-out-channels'>A note on out_channels</a></li>
         <li><a class='contents-el' href='#exercise-implement-minimal-1d-convolutions'><b>Exercise</b> - implement minimal 1D convolutions</a></li>
     </ul></li>
     <li class='margtop'><a class='contents-el' href='#conv2d-minimal'>conv2d minimal</a></li>
@@ -1252,6 +1253,11 @@ A typical convolution operation is illustrated in the sketch below. Some notes o
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ch0-conv1d-general.png" width=1050>
 
+### A note on `out_channels`
+
+The out_channels in a conv2d layer denotes the number of filters the layer uses. Each filter detects specific features in the input, producing an output with as many channels as filters.
+
+This number isn't tied to the input image's channels but is a design choice in the neural network architecture. Commonly, powers of 2 are chosen for computational efficiency, and deeper layers might have more channels to capture complex features. Additionally, this parameter is sometimes chosen based on the heuristic of wanting to balance the parameter count / compute for each layer - which is why you often see `out_channels` growing as the size of each feature map gets smaller.
 
 ### Exercise - implement minimal 1D convolutions
 
