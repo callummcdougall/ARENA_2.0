@@ -2447,18 +2447,6 @@ probs = model(toks)[:, 0].softmax(-1)[:, 1]
 print("\n".join([f"{ex:{m}} -> {p:.4%} balanced confidence" for (ex, p) in zip(examples, probs)]))
 ```
 
-<details>
-<summary>Solution</summary>
-
-
-```python
-    return "".join(["(" for _ in range(length)] + [")" for _ in range(length)])
-example = tallest_balanced_bracket(15) + ")(" + tallest_balanced_bracket(4)
-examples.append(example)
-
-```
-</details>
-
 
 ## Dealing with early closing parens
 
