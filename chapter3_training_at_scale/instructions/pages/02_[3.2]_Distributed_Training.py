@@ -514,7 +514,7 @@ Implement all-reduce using a naive (all-to-one-to-all) topology
     2. Send all tensors to rank 0, using dist.barrier to ensure synchronization (reduce step)
     3. Send the result from rank 0 process to all process (scatter step)
 
-<img src="https://mermaid.ink/svg/pako:eNqV0UELgjAYBuC_Mj5BChJS2SEPgbprpzruMtxMwblYGxXif2_lRRYo7fTx8uzw8g5QKS4gg7pTj6ph2qALoT1yL483eRgc4jB4pnt3pFsURUeUJ3488WLG43VezniyzsmMp-v8N584_osX2K-0yEvsV1rkBPuVYAdSaMla7gYZPp8pmEZIQSFzJxc1s52hQPvRUWaNOr_6CjKjrdiBvXFmBGnZVTMJWc26u0sFb43Sp2nk79bjG1uPdD0" width="400">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/q_mermaid.svg" width="400">
 
 ```python
 from test import test_allreduce_naive

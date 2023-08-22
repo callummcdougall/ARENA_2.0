@@ -382,7 +382,7 @@ You should spend up to 10-20 minutes on this exercise.
 
 Use `layer_init` to initialize each `Linear`, overriding the standard deviation argument `std` according to the diagram. 
 
-<figure style="max-width:510px"><embed type="image/svg+xml" src="https://mermaid.ink/svg/pako:eNqNkU9LAzEQxb_KMicLW-3W0sOihWC9CR7sbVPKbDJ1A012yZ-DlH53s8buqhV0IMnk8QZ-LzmCaCVBCa8WuybbrLnJYrlQJ-HBKq9EEvt6UobQFhWH1F21tdu5BjvKs-ViwmGbTaerbIOmKap-T_dkno9jy8WFf37hv_3uLyZ3tb1ZOS_vi_Pgc_DcJDwy8gc8E761Izv7Jzz7Qv9x_4ueJXwO_TmIv2YwQe9QeNUaN6aZXc-GQCwmquLaDqEgB01Wo5Lxm469zME3pIlDGVtJewwHz4GbU7SGTqKnR6lidCj3eHCUAwbfvrwZAaW3gc6mtcL4TvrTdXoHrTShmw" /></figure>
+<figure style="max-width:510px"><embed type="image/svg+xml" src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo_mermaid.svg" /></figure>
 
 You can ignore the `mode` argument below for now, we'll return to it later when we do Atari & MuJoCo.
                 
@@ -2033,7 +2033,7 @@ You should spend up to 10-15 minutes on this exercise.
 
 The function `get_actor_and_critic` had a boolean argument `atari`, which we ignored previously, but which we'll now return to. When this argument is `False` then the function should behave exactly as it did before (i.e. the Cartpole version), but when `True` then it should return a shared CNN architecture for the actor and critic. The architecture should be as follows:
 
-<img src="https://mermaid.ink/svg/pako:eNqVkm1rwjAUhf9KyCeFOuzLhitTGMpg0MHQ-ckOic3VBtqkpIlziP99N-10KoOxEMjNyblP-nL2NFMcaEw3mlU5eZukkuCo7aoVUoqz1dx4lpU1i5Q268NKj-qcVUCGpBN5JMHZTek76fVGZKzk1kfnYDdoamcOAzLOmZRQ1G77yjgXckP6bjMzWnAgkauPjCkU1jGmkMzPuQFq0S46ce-iP7nBJTeZB79wQ9TCXfgfrn_OfSqYMSCbWsPC4duDREhg-h7xbeWabv2AKGvwO9bYjy5nx6V1nKwd9HlELllmuq5Nq4-lVLoc9m_6_vFiptD_mBmlv5F48PPTHPjsMaIrtn_JPUG3DjrWwojsmgqSU4-WoEsmOIZn7-SUmhxKSGmMJYc1s4Vx2TmglVmjZp8yo7HRFjxqK84MTATDlJU0XrOiRhW4wFd4aQPZ5PLwBaxo0a4" width="350">
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/ppo_mermaid_2.svg" width="350">
 
 Note - when calculating the number of input features for the linear layer, you can assume that the value `L` is 4 modulo 8, i.e. we can write `L = 8m + 4` for some integer `m`. This will make the convolutions easier to track. You shouldn't hardcode the number of input features assuming an input shape of `(4, 84, 84)`; this is bad practice!
 

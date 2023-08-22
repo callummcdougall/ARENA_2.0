@@ -338,6 +338,8 @@ The link below shows a diagram of a single layer (called a `TransformerBlock`) f
 The next link is to a diagram of a `TransformerBlock` with full features (including biases, layernorms, and MLPs). Don't worry if not all of this makes sense at first - we'll return to some of the details later. As we work with these transformers, we'll get more comfortable with their architecture.
 
 [Link to diagram](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/full-merm.svg)
+                
+There's also an annotated version of the larger diagram [here](https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/transformer-full-updated.png).
 
 
 A few shortctus to make your lives easier when using these models:

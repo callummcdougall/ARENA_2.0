@@ -208,8 +208,8 @@ Our network is doing MNIST classification, so this output should represent (in s
 
 We can also represent this network using a diagram:
 
-<img src="https://mermaid.ink/svg/pako:eNp9kUFrwzAMhf-K8bmF1RkjhNFLtsEg60rKTnEPaqw2BscOjj0ySv_77GSFlI35IJ7QJz14PtPaCKQZPVnoGlKUXPf-MDWc5psNp1yT8F5151011seDXbN0YOmeLJdrkhv9WSVDMoo4SxipG9AaVR_bLQgh9YmsJrxE5asSi4-pbWHojFEVGxh5g2EbdFzaOSsFEjZBdbjMbjwe7kn-l8dsd-bHfhsm_zu-KHAO9agLqRGrWMFGcsVSYrwLSfT7KzAf391O370jXKMWdEFbtC1IEfI-x1g5dQ22yGkWpMAjeOVi4JeA-k6Aw2chnbE0O4LqcUHBO7P70jXNnPV4hZ4khB9rf6jLN9JgmcE" width="150">
-
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/conv_mermaid.svg" width="150">
+                
 which is something we'll be using a lot in future exercises, as we deal with more complicated architectures with hierarchically nested components.
 
 

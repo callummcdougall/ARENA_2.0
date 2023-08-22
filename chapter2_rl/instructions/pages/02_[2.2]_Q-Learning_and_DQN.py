@@ -1204,7 +1204,7 @@ The dimensions of the hidden_sizes are provided.
 
 Here is a diagram of what our particular Q-Network will look like for CartPole:
 
-<figure style="max-width:250px"><embed type="image/svg+xml" src="https://mermaid.ink/svg/pako:eNplkEtrwzAMgP-K0WkDB5ash5LDTtmhUDa616UeRY3VxSx-4AdjlP73Oc3WpkwHIaTvA0l7aK0kqOHDo-vYSyMMyxHSdmw0RI6tigeKX9Z_jsMhFmYtYGFciuzKbsMmdOiIXwt4Z0Vxx5bKEPoyM2M1YVhZ3Zy4J1q-lushT73q7GWYs_nsQqj-CbdnYT7jzCS9wTYqa8JJXL1hn6nHFI87T5Dj1uNlZCRw0OQ1Kpmfsh_aAmJHmgTUuZS0w9RHAcIcMpqcxEj3UkXrod5hH4gDpmifv00LdfSJ_qBGYX6p_qUOP7mqd2g" /></figure>
+<figure style="max-width:250px"><embed type="image/svg+xml" src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/q_mermaid.svg" /></figure>
 
 <details>
 <summary>Why do we not include a ReLU at the end?</summary>
