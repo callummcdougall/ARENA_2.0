@@ -14,14 +14,8 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics_03.json"
-if not ANALYTICS_PATH.exists():
-    with open(ANALYTICS_PATH, "w") as f:
-        f.write(r"{}")
 import streamlit_analytics
-streamlit_analytics.start_tracking(
-    load_from_json=ANALYTICS_PATH.resolve(),
-)
+streamlit_analytics.start_tracking()
 
 def section_0():
 
@@ -2158,7 +2152,10 @@ Tomorrow, we'll dig a bit deeper into training and optimizers, and we'll end by 
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Building & Training a CNN"),     (section_2, "2️⃣ Assembling ResNet"),     (section_3, "3️⃣ ResNet feature extraction"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Building & Training a CNN"),
+    (section_2, "2️⃣ Assembling ResNet"),
+    (section_3, "3️⃣ ResNet feature extraction"), 
 ]
 
 func_list = [func for func, page in func_page_list]
@@ -2179,5 +2176,4 @@ page()
 
 streamlit_analytics.stop_tracking(
     unsafe_password=st.secrets["analytics_password"],
-    save_to_json=ANALYTICS_PATH.resolve(),
 )

@@ -242,7 +242,7 @@ def hist(tensor, renderer=None, **kwargs):
 
 # PLOTTING FUNCTIONS FOR PART 2: INTRO TO MECH INTERP
 
-def plot_comp_scores(model, comp_scores, title: str = "", baseline: Optional[t.Tensor] = None) -> go.Figure:
+def plot_comp_scores(model: HookedTransformer, comp_scores, title: str = "", baseline: Optional[t.Tensor] = None) -> go.Figure:
     px.imshow(
         to_numpy(comp_scores),
         y=[f"L0H{h}" for h in range(model.cfg.n_heads)],

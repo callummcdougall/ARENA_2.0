@@ -19,14 +19,8 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics_05.json"
-if not ANALYTICS_PATH.exists():
-    with open(ANALYTICS_PATH, "w") as f:
-        f.write(r"{}")
 import streamlit_analytics
-streamlit_analytics.start_tracking(
-    load_from_json=ANALYTICS_PATH.resolve(),
-)
+streamlit_analytics.start_tracking()
 
 def section_0():
 
@@ -3257,7 +3251,11 @@ Some thoughts on future directions I'd be excited to see - if you're interested 
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Periodicity & Fourier basis"),     (section_2, "2️⃣ Circuit and Feature Analysis"),     (section_3, "3️⃣ Analysis During Training"),     (section_4, "4️⃣ Discussion & Future Directions"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Periodicity & Fourier basis"),
+    (section_2, "2️⃣ Circuit and Feature Analysis"),
+    (section_3, "3️⃣ Analysis During Training"),
+    (section_4, "4️⃣ Discussion & Future Directions"), 
 ]
 
 func_list = [func for func, page in func_page_list]
@@ -3277,5 +3275,4 @@ page()
 
 streamlit_analytics.stop_tracking(
     unsafe_password=st.secrets["analytics_password"],
-    save_to_json=ANALYTICS_PATH.resolve(),
 )

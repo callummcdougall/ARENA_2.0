@@ -19,14 +19,8 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics_04.json"
-if not ANALYTICS_PATH.exists():
-    with open(ANALYTICS_PATH, "w") as f:
-        f.write(r"{}")
 import streamlit_analytics
-streamlit_analytics.start_tracking(
-    load_from_json=ANALYTICS_PATH.resolve(),
-)
+streamlit_analytics.start_tracking()
 
 def section_0():
 
@@ -2011,7 +2005,8 @@ def hook_fn_display_attn_patterns(
         tokens=labels, 
         attention=avg_head_attn_pattern,
         attention_head_names=["0.0", "0.1"],
-        max_value=avg_head_attn_pattern.max()
+        max_value=avg_head_attn_pattern.max(),
+        mask_upper_tri=False, # use for bidirectional models
     ))
 
 
@@ -2026,31 +2021,6 @@ model.run_with_hooks(
     ]
 )
 ```
-
-<details>
-<summary>Help - my <code>attention_heads</code> plots are behaving weirdly (e.g. they continually shrink after I plot them).</summary>
-
-This seems to be a bug in `circuitsvis` - on VSCode, the attention head plots continually shrink in size.
-
-Until this is fixed, one way to get around it is to open the plots in your browser. You can do this inline with the `webbrowser` library:
-
-```python
-attn_heads = cv.attention.attention_heads(
-    tokens=labels, 
-    attention=avg_head_attn_pattern,
-    attention_head_names=["0.0"],
-)
-
-path = "attn_heads.html"
-
-with open(path, "w") as f:
-    f.write(str(attn_heads))
-
-webbrowser.open(path)
-```
-
-To check exactly where this is getting saved, you can print your current working directory with `os.getcwd()`.
-</details>
 
 <details>
 <summary>Question - what are the noteworthy features of head <code>0.0</code> in this plot?</summary>
@@ -2488,7 +2458,11 @@ You can also get more ideas from Neel Nanda's [200 Concrete Open Problems in MI:
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Bracket classifier"),     (section_2, "2️⃣ Moving backwards"),     (section_3, "3️⃣ Understanding the total elevation circuit"),     (section_4, "4️⃣ Bonus exercises"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Bracket classifier"),
+    (section_2, "2️⃣ Moving backwards"),
+    (section_3, "3️⃣ Understanding the total elevation circuit"),
+    (section_4, "4️⃣ Bonus exercises"), 
 ]
 
 func_list = [func for func, page in func_page_list]
@@ -2509,5 +2483,4 @@ page()
 
 streamlit_analytics.stop_tracking(
     unsafe_password=st.secrets["analytics_password"],
-    save_to_json=ANALYTICS_PATH.resolve(),
 )

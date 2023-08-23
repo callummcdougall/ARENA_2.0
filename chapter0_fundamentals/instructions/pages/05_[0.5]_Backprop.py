@@ -14,14 +14,8 @@ st_dependencies.styling()
 import platform
 is_local = (platform.processor() != "")
 
-ANALYTICS_PATH = instructions_dir / "pages/analytics_05.json"
-if not ANALYTICS_PATH.exists():
-    with open(ANALYTICS_PATH, "w") as f:
-        f.write(r"{}")
 import streamlit_analytics
-streamlit_analytics.start_tracking(
-    load_from_json=ANALYTICS_PATH.resolve(),
-)
+streamlit_analytics.start_tracking()
 
 def section_0():
 
@@ -3582,7 +3576,12 @@ So far we've registered a separate backwards for each input argument that could 
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Introduction"),     (section_2, "2️⃣ Autograd"),     (section_3, "3️⃣ More forward & backward functions"),     (section_4, "4️⃣ Putting everything together"),     (section_5, "5️⃣ Bonus"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Introduction"),
+    (section_2, "2️⃣ Autograd"),
+    (section_3, "3️⃣ More forward & backward functions"),
+    (section_4, "4️⃣ Putting everything together"),
+    (section_5, "5️⃣ Bonus"), 
 ]
 
 func_list = [func for func, page in func_page_list]
@@ -3603,5 +3602,4 @@ page()
 
 streamlit_analytics.stop_tracking(
     unsafe_password=st.secrets["analytics_password"],
-    save_to_json=ANALYTICS_PATH.resolve(),
 )

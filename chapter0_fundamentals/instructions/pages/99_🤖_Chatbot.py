@@ -23,11 +23,8 @@ root_path = (Path.cwd() / "chapter0_fundamentals" / "instructions").resolve()
 sys.path.append(str(root_path))
 sys.path.append(str(root_path.parent))
 
-ANALYTICS_PATH = root_path / "pages/analytics.json"
 import streamlit_analytics
-streamlit_analytics.start_tracking(
-    load_from_json=ANALYTICS_PATH.resolve(),
-)
+streamlit_analytics.start_tracking()
 
 from chatbot import answer_question, Embedding, EmbeddingGroup
 
@@ -182,5 +179,4 @@ else:
 
 streamlit_analytics.stop_tracking(
     unsafe_password=st.secrets["analytics_password"],
-    save_to_json=ANALYTICS_PATH.resolve(),
 )

@@ -3176,7 +3176,12 @@ This was (deliberately!) a pretty rushed and shallow investigation, and I cut a 
 
 
 func_page_list = [
-    (section_0, "🏠 Home"),     (section_1, "1️⃣ Model Setup & Linear Probes"),     (section_2, "2️⃣ Looking for modular circuits"),     (section_3, "3️⃣ Neuron Interpretability: A Deep Dive"),     (section_4, "4️⃣ Training a Probe"),     (section_5, "5️⃣ Bonus - Future Work I'm Excited about"), 
+    (section_0, "🏠 Home"),
+    (section_1, "1️⃣ Model Setup & Linear Probes"),
+    (section_2, "2️⃣ Looking for modular circuits"),
+    (section_3, "3️⃣ Neuron Interpretability: A Deep Dive"),
+    (section_4, "4️⃣ Training a Probe"),
+    (section_5, "5️⃣ Bonus - Future Work I'm Excited about"), 
 ]
 
 func_list = [func for func, page in func_page_list]
