@@ -59,7 +59,7 @@ Some highlights from this chapter include:
 """, unsafe_allow_html=True)
     
     st.error(r"""
-Note - this section will be updated significantly with new content, some time in the coming month. I currently expect the new content to be released by Friday 28th July (current date as of writing this message is 6th July).
+Note - this section will be updated significantly with new content. There is unfortunately no current timeline on implementation, but this page will be updated when we have more information.
 """)
     
     st.markdown(r"""

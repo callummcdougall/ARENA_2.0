@@ -54,13 +54,13 @@ You can toggle dark mode from the buttons on the top-right of this page.
     
     st.error(
 r"""
-Note - this section will be updated significantly with new content, during late July - early August. The plan is to introduce a 3-step process for building towards RLHF:
+Note - this section will be updated significantly with new content shortly. Unfortuntely I've had to delay the planned implementation date to September, due to other commitments. The plan is to introduce a 3-step process for building towards RLHF:
              
 * RLHF on Atari / MuJoCo (as a follow-on from PPO on these two environments, which is included in the previous set of exercises)
 * RLHF on transformers, from first principles - you assemble all the parts of the RLHF algorithm, including things like the transformer's value head
-* RLHF on transformers, using a library (TRLX) which handles all the parts of the RLHF algorithm for you
+* RLHF on transformers, using a library (TRLX) which handles all the parts of the RLHF algorithm for you (this will be based on page you're reading, but heavily modified)
 
-rather than just having the third of these steps (which is the current state of this page). We also plan to heavily modify this third section.
+rather than just having the third of these steps (which is the current state of this page). 
 """)
     
     st.markdown(r"""
