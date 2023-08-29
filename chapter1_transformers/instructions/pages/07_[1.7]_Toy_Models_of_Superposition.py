@@ -72,13 +72,13 @@ def section_0():
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
+                
+Links to other chapters: [**(0) Fundamentals**](https://arena-ch0-fundamentals.streamlit.app/), [**(2) RL**](https://arena-ch2-rl.streamlit.app/).
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/galaxies.jpeg" width="350">
 
 
-
 ## Introduction
-
 
 Superposition is a crucially important concept for understanding how transformers work. A definition from Neel Nanda's glossary:
 
@@ -90,7 +90,6 @@ This topic is mostly theoretical, rather than exercise-heavy. The exercises that
 
 
 ## Content & Learning Objectives
-
 
 Unlike many other topics in this chapter, there's quite a bit of theory which needs to be understood before we start making inferences from the results of our coding experiments. We start by suggesting a few useful papers / videos / blog posts for you to go through, then we'll move into replication of the main results from the "toy models" paper. We'll conclude with a discussion of future directions for superposition research.
 

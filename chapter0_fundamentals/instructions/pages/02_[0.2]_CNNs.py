@@ -46,6 +46,8 @@ Please send any problems / bugs on the `#errata` channel in the [Slack group](ht
 
 You can toggle dark mode from the buttons on the top-right of this page.
 
+Links to other chapters: [**(1) Transformers & Mech Interp**](https://arena-ch1-transformers.streamlit.app/), [**(2) RL**](https://arena-ch2-rl.streamlit.app/).
+
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/cnn.png" width="350">
 
 ## Introduction

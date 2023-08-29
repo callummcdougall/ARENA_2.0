@@ -14,7 +14,6 @@ numpy-stl
 mediapy
 pandas
 scikit-learn
-black
 wandb==0.13.10
 ftfy
 tensorboard
@@ -42,4 +41,3 @@ autorom[accept-rom-license]
 ale-py
 protobuf==3.20.3
 mujoco
-free-mujoco-py

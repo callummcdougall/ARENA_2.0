@@ -36,7 +36,8 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 
 # [0.5] - Build Your Own Backpropagation Framework
 
@@ -45,6 +46,8 @@ def section_0():
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
+
+Links to other chapters: [**(1) Transformers & Mech Interp**](https://arena-ch1-transformers.streamlit.app/), [**(2) RL**](https://arena-ch2-rl.streamlit.app/).
 
 <img src="https://raw.githubusercontent.com/callummcdougall/Fundamentals/main/images/backprop.png" width="350">
 

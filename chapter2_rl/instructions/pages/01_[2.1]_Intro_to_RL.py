@@ -35,7 +35,8 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 # [2.1] - Intro to RL
                 
 ### Colab: [**exercises**](https://colab.research.google.com/drive/1H9xSZ1W6U36NsqpzapDeu8RjmMQ9vyyx) | [**solutions**](https://colab.research.google.com/drive/1_KbxLVtugLSFQcGuwHPAMMj-7Lt5w20k)
@@ -43,6 +44,8 @@ def section_0():
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
+
+Links to other chapters: [**(0) Fundamentals**](https://arena-ch0-fundamentals.streamlit.app/), [**(1) Transformers & Mech Interp**](https://arena-ch1-transformers.streamlit.app/).
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/bandit.png" width="350">
 

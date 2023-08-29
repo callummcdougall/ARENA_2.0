@@ -43,20 +43,21 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#setup'>Setup</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
-
-<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/coffee.png" width="350">
-
+    st.markdown(
+r"""
 Please send any problems / bugs on the `#errata` channel in the [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), and ask any questions on the dedicated channels for this chapter of material.
 
 You can toggle dark mode from the buttons on the top-right of this page.
+                
+Links to other chapters: [**(0) Fundamentals**](https://arena-ch0-fundamentals.streamlit.app/), [**(1) Transformers & Mech Interp**](https://arena-ch1-transformers.streamlit.app/).
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/coffee.png" width="350">
 """, unsafe_allow_html=True)
     
     st.error(
 r"""
 Note - this section will be updated significantly with new content shortly. Unfortuntely I've had to delay the planned implementation date to September, due to other commitments. The plan is to introduce a 3-step process for building towards RLHF:
              
-* RLHF on Atari / MuJoCo (as a follow-on from PPO on these two environments, which is included in the previous set of exercises)
 * RLHF on transformers, from first principles - you assemble all the parts of the RLHF algorithm, including things like the transformer's value head
 * RLHF on transformers, using a library (TRLX) which handles all the parts of the RLHF algorithm for you (this will be based on page you're reading, but heavily modified)
 
@@ -64,12 +65,9 @@ rather than just having the third of these steps (which is the current state of 
 """)
     
     st.markdown(r"""
-
 # [2.3] - Reinforcement Learning from Human Feedback
 
-
 ## Introduction
-
 
 ### Context - Pretraining is not enough
 
