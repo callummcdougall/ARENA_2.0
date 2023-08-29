@@ -19,3 +19,5 @@ secrets.toml
 *other_solns
 *gitignore
 *.vscode
+*part4_rlhf2
+*stats.md

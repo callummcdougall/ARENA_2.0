@@ -294,3 +294,5 @@ f"""## Context
         st.session_state["history"][-1] += text_func(response)
         with container.container():
             st.markdown(st.session_state["history"][-1])
+
+# %%
