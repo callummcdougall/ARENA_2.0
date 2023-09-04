@@ -21,3 +21,4 @@ secrets.toml
 *.vscode
 *part4_rlhf2
 *stats.md
+chapter1_transformers/instructions/media/media
