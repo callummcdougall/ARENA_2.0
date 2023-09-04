@@ -1015,7 +1015,7 @@ def section_0_august():
     st.markdown(r"""
 # Monthly Algorithmic Challenge (August 2023): First Unique Character
 
-### Colab: [problem](https://colab.research.google.com/drive/15huO8t1io2oYuLdszyjhMhrPF3WiWhf1)
+### Colab: [problem](https://colab.research.google.com/drive/15huO8t1io2oYuLdszyjhMhrPF3WiWhf1) | [solutions](https://colab.research.google.com/drive/1E22t3DP5F_MEDNepARlrZy-5w7bv0_8G)
 
 This post is the second in the sequence of monthly mechanistic interpretability challenges. They are designed in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
@@ -1035,7 +1035,7 @@ The following material isn't essential, but is recommended:
 
 ## Difficulty
 
-This problem is a step up in difficulty to the July problem. The algorithmic problem is of a similar flavour, and the model architecture is very similar (the main difference is that this model has 3 attention heads per layer, instead of 2). I've done this because this problem is the first I'm also crossposting to LessWrong.
+This problem is a step up in difficulty to the July problem. The algorithmic problem is of a similar flavour, and the model architecture is very similar (the main difference is that this model has 3 attention heads per layer, instead of 2).
 
 ## Motivation
 
@@ -1278,18 +1278,11 @@ def section_1_august():
 ## Table of Contents
 
 <ul class="contents">
-    <li><a class='contents-el' href='#0-hypotheses'>0. Hypotheses</a></li>
-    <li><a class='contents-el' href='#1-eyeball-attention-patterns'>1. Eyeball attention patterns</a></li>
-    <li><a class='contents-el' href='#2-head-ablations'>2. Head ablations</a></li>
-    <li><a class='contents-el' href='#3-full-qk-matrix-of-head-0-0'>3. Full QK matrix of head <code>0.0</code></a></li>
-    <li><a class='contents-el' href='#4-investigating-adversarial-examples'>4. Investigating adversarial examples</a></li>
-    <li><a class='contents-el' href='#5-composition-of-0-0-and-1-0'>5. Composition of <code>0.0</code> and <code>1.0</code></a></li>
-    <li><ul class="contents">
-        <li><a class='contents-el' href='#first-experiment-k-composition'>K-composition</a></li>
-        <li><a class='contents-el' href='#second-experiment-v-composition'>V-composition</a></li>
-    </ul></li>
-    <br>
-    <li><a class='contents-el' href='#a-few-more-experiments'>A few more experiments</a></li>
+    <li><a class='contents-el' href='#some-initial-notes'>Some initial notes</a></li>
+    <li><a class='contents-el' href='#attention-patterns'>Attention patterns</a></li>
+    <li><a class='contents-el' href='#ov-circuits'>OV circuits</a></li>
+    <li><a class='contents-el' href='#qk-circuits'>QK circuits</a></li>
+
     <li><ul class="contents">
         <li><a class='contents-el' href='#targeted-ablation'>Targeted ablations</a></li>
         <li><a class='contents-el' href='#composition-scores'>Composition scores</a></li>
@@ -1361,7 +1354,15 @@ print(f"Average probability on correct label: {avg_correct_prob:.3f}")
 print(f"Min probability on correct label: {min_correct_prob:.3f}")
 ```
 
-## Some initial notes
+Output:
+
+<div style='font-family:monospace; font-size:15px;'>
+Average cross entropy loss: 0.017<br>
+Average probability on correct label: 0.988<br>
+Min probability on correct label: 0.001
+</div><br>
+
+# Some initial notes
 
 I initially expected the same high-level story as July's model:
 
@@ -1384,7 +1385,7 @@ Other thoughts:
 
 * With multiple low-dimensional heads, it's possible their functionality is being split. We kinda saw this in the July problem (with posn 20 being mostly handled by head 1.1 and the other positions in the second half being handled by head 1.0 to varying degrees of success). 
 
-## Attention patterns
+# Attention patterns
 
 I've visualised attention patterns below. I wrote a function to perform some HTML formatting (aided by ChatGPT) to make the sequences easier to interpret, by highlighting all the tokens which are the first unique character *at some point in the sequence*. Also, note that `batch_labels` was supplied not as a list of strings, but as a function mapping (batch index, str toks) to a string. Either are accepted by the `cv.attention.from_cache` function.
 
@@ -1447,7 +1448,7 @@ From all this evidence, we form a new hypothesis:
 
 This hypothesis turns out to be pretty much correct, minus a few details.
 
-## OV circuits
+# OV circuits
 
 The next thing I wanted to do was plot all OV circuits: both for the actual attention heads and the virtual attention heads. Before doing this, I wanted to make clear predictions about what I'd see based on the two different versions of my hypothesis:
 
@@ -1531,7 +1532,7 @@ imshow(
 
     st.markdown(
 r"""
-### Conclusion
+## Conclusion
 
 These results basically fit with my new hypothesis, and I consider this plot and the conclusions drawn from it to be the central figure for explaining this model.
 
@@ -1553,7 +1554,7 @@ The ways in which this plot doesn't fit with my new hypothesis:
 Some more notes on this visualisation:
 * This plot might make it seem like the virtual paths are way more important than the single attention head paths. This is partly true, but also can be slightly misleading - these virtual paths will have smaller magnitudes than the plot suggests, since the attention patterns are formed by multiplying together two different attention patterns (and as we saw from the info-weighted attention patterns above, a lot of attention goes to the null character at the start of the sequence, and the result vector from this is very small so unlikely to be used in composition).
 
-## QK circuits
+# QK circuits
 
 I'm now going to plot some QK circuits. I expect to see the following:
 
@@ -1621,7 +1622,7 @@ imshow(
 
     st.markdown(
 r"""
-### Conclusions
+## Conclusions
 
 This pretty fits with both the two expectations I had in the previous section. The query-side positional embeddings actually seem to have a slight bias towards attending to later positions, but it looks like this is dominated by the effect from the query-side token embeddings (which show a stronger "attend to earlier positions" effect). Also, note that 0.1 has a bias against self-attention, which makes sense given its role as a DTH.
 
@@ -1629,7 +1630,7 @@ One other observation - heads 0.0 and 0.2 self-attending strongly at position 1 
 
 **Exercise to the reader** - can you find evidence for/against this claim? You can find all the details of training, including random seeds, in the notebook `august23_unique_char/training_model.ipynb`. Is this heuristic one of the first things the model learns? If you force the model not to learn this heuristic during training (e.g. by adding a permanent hook to make sure heads in layer 0 never self-attend), does the model learn a different algorithm more like the one proposed at the start?
 
-## Direct Logit Attribution
+# Direct Logit Attribution
 
 The last thing I'll do here (before moving onto some adversarial examples) is write a function to decompose the model's logit attribution by path through the model. Specifically, I can split it up into the same 16 paths as we saw in the "full virtual OV circuits" heatmap earlier. This will help to see whether the theories I've proposed about the model's behaviour are correct.
 
@@ -1750,7 +1751,7 @@ Now consider the attribution for `g`:
 * The path (0.0 ➔ 1.2) boosts `g` at positions 3 & 4, as expected from the virtual OV circuits plot.
 * The paths (direct, 0.2 ➔ 1.2) kick in after the duplicated token to suppress `g` for the rest of the sequence (as well as 0.1 ➔ 1.2, but this one is weaker) - again, this is the path we expect to see.
 
-## Final summary
+# Final summary
 
 Some layer 0 heads (0.1 everywhere except `a`, and 0.2 on `[a, b, g]`) are duplicate token heads; they're composing with layer 1 heads to cause those heads to attend to & suppress duplicate tokens. This is done both with K-composition (heads in layer 1 attend more to duplicated tokens), and V-composition (the actual outputs of the DTHs are used as value input to heads in layer 1 to suppress duplicated tokens).
 
@@ -1758,7 +1759,7 @@ All other layer 0 head paths are involved in boosting, rather than suppression. 
 
 Layer 1 heads split their functionality across the vocabulary. 1.0 handles boosting / suppression for `[a, c]`, 1.1 handles `[d, e, f, j]`, and 1.2 handles `[b, g, h, i]`. These sets are disjoint, and their union is the whole vocabulary. This makes sense, because layer 1 attention is a finite resource, and it has to be used to suppress every duplicated token in the sequence (missing even one duplicated token could cause the model to make an incorrect classification).
 
-## Adversarial examples
+# Adversarial examples
 
 To make things interesting, I'll try and find an example where the model thinks the answer is X rather than Y (as opposed to thinking that there is a unique solution when there isn't, or vice-versa).
 
@@ -1851,9 +1852,9 @@ Verify that head 1.2 is attending strongly to the duplicated `gbi` tokens, less 
 
     st.markdown(
 r"""
-## Remaining questions / notes / things not discussed
+# Remaining questions / notes / things not discussed
 
-### Null character
+## Null character
 
 I've not discussed how the model predicts the null character yet, because I didn't consider it a crucial part of the model's functionality. Some more investigation leads me to the following hypothesis:
 
@@ -1861,11 +1862,11 @@ I've not discussed how the model predicts the null character yet, because I didn
 * In later positions, `?` is predicted in much the same way other tokens are predicted: all duplicated tokens are strongly suppressed, and `?` is boosted mainly via V-composition paths. This effect is weaker than for other tokens in the vocabulary - which it has to be, because if any non-duplicated token exists then it needs to dominate the boosting of `?`.
 * Unlike the other characters in the vocabulary, `?` doesn't have a dedicated head in layer 1. 
 
-### Layer 1 QK circuits
+## Layer 1 QK circuits
 
 There are some interesting patterns here, somewhat analogous to the patterns in the layer 0 QK circuits. I've not discussed them here though, because I don't consider them critical to understand how this model functions.
 
-### How can the model predict a token with high probability, without ever attending to it with high probability?
+## How can the model predict a token with high probability, without ever attending to it with high probability?
 
 I'm including a short answer to this question, because it's something which confused me a lot when I started looking at this model. 
 
