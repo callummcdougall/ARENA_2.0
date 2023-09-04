@@ -1845,6 +1845,14 @@ imshow(
     st.markdown(
 r"""
 Verify that head 1.2 is attending strongly to the duplicated `gbi` tokens, less to to `h` and those after it:
+
+```python
+cv.attention.from_cache(
+    advex_cache,
+    tokens = list(str_toks),
+    attention_type = "standard",
+)
+```
 """, unsafe_allow_html=True)
     
     with open(unique_char_dir / "fig_attn_2.html", 'r') as f: fig1 = f.read()
