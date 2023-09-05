@@ -290,7 +290,7 @@ def section_1_july():
     st.markdown(r"""
 # Monthly Algorithmic Challenge (July 2023): Solutions
 
-We assume you've run all the setup code from the previous page "Palindromes Challenge". Here's all the new setup code you'll need:
+We assume you've run all the setup code from the previous page "[July] Palindromes". Here's all the new setup code you'll need:
 
 ```python
 dataset = PalindromeDataset(size=2500, max_value=30, half_length=10).to(device)
@@ -1290,9 +1290,9 @@ def section_1_august():
     
     st.markdown(
 r"""
-# Monthly Algorithmic Challenge (July 2023): Solutions
+# Monthly Algorithmic Challenge (August 2023): Solutions
 
-We assume you've run all the setup code from the previous page "Palindromes Challenge". Here's all the new setup code you'll need:
+We assume you've run all the setup code from the previous page "[August] First Unique Token". Here's all the new setup code you'll need:
                 
 ```python
 %pip install git+https://github.com/callummcdougall/eindex.git
