@@ -1282,12 +1282,10 @@ def section_1_august():
     <li><a class='contents-el' href='#attention-patterns'>Attention patterns</a></li>
     <li><a class='contents-el' href='#ov-circuits'>OV circuits</a></li>
     <li><a class='contents-el' href='#qk-circuits'>QK circuits</a></li>
-
-    <li><ul class="contents">
-        <li><a class='contents-el' href='#targeted-ablation'>Targeted ablations</a></li>
-        <li><a class='contents-el' href='#composition-scores'>Composition scores</a></li>
-        <li><a class='contents-el' href='#how-is-the-non-palindromic-information-stored'>How is the "non-palindromic" information stored?</a></li>
-    </ul></li>
+    <li><a class='contents-el' href='#direct-logit-attribution'>Direct Logit Attribution</a></li>
+    <li><a class='contents-el' href='#final-summary'>Final summary</a></li>
+    <li><a class='contents-el' href='#adversarial-examples'>Adversarial examples</a></li>
+    <li><a class='contents-el' href='#remaining-questions-notes-things-not-discussed'>Remaining questions / notes / things not discussed</a></li>
 </ul></li>""", unsafe_allow_html=True)
     
     st.markdown(
@@ -1728,13 +1726,13 @@ dla_mean = dla_imshow(
 )
 ```
 
-```
+<div style='font-family:monospace; font-size:15px;'>
 Seq = ?chgegfaeadieaebcffh, Target = ?ccccccccccccccchhhd
-```
+</div><br>
 """, unsafe_allow_html=True)
     
     with open(unique_char_dir / "fig_dla.html", 'r') as f: fig1 = f.read()
-    st_html(fig1, height=600)
+    st_html(fig1, height=620, width=1000, scrolling=True)
 
     st.markdown(
 r"""
