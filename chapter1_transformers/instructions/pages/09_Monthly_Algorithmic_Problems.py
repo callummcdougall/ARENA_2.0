@@ -1557,7 +1557,7 @@ Some more notes on this visualisation:
 I'm now going to plot some QK circuits. I expect to see the following:
 
 * Head (0.1 off token `a`) and (0.2 on tokens `[a, b, g]`) will have a positive stripe, for the (query-embedding) x (key-embedding) QK circuit.
-* Head 0.0, and (0.2 off tokens `[a, g, g]`) will attend more to early tokens, i.e. they'll have a smooth gradient over source positions for both the (query-embedding) x (key-pos-embed) and (query-pos-embed) x (key-pos-embed) QK circuits.
+* Head 0.0, and (0.2 everywhere except `[a, b, g]`) will attend more to early tokens, i.e. they'll have a smooth gradient over source positions for both the (query-embedding) x (key-pos-embed) and (query-pos-embed) x (key-pos-embed) QK circuits.
 
 To be safe, I also wanted to make a bar chart of the mean & std of the layernorm scale factors which I'm using in this computation, to make sure they aren't implementing any complicated logic (they seem not to be).
 
@@ -1765,7 +1765,7 @@ Firstly, it seems like a good idea to overload single heads if we can (think of 
 
 Secondly, we don't want the correct token to be the one at the first non-null position - that would be too easy! Heads like 0.0 and 0.2 strongly self-attend at the first non-null position, and then heads in layer 1 attend to this position in order to boost those logits. We need to put a few duplicated tokens first in the sequence.
 
-Thirdly, we should have 2 unique tokens right next to each other, in the hope that the model will think the second one is the correct answer rather than the first one. We saw a smooth gradient with the full QK circuits (when the key-side circuit was positional), but 
+Thirdly, we should have 2 unique tokens right next to each other, in the hope that the model will think the second one is the correct answer rather than the first one. We saw a smooth gradient with the full QK circuits (when the key-side circuit was positional), so the differences between adjacent tokens should be minimal.
 
 After searching for a bit, I found the example below. We're overloading head 1.2, by including duplicated tokens `[g, b, i]` before a non-duplicated `h` and non-duplicated `a`. Head 1.0 is able to boost `a` because it's not overloaded, but head 1.2 is unable to boost `h` because it's already attending to & suppressing the duplicated tokens `[g, b, i]`. There are a few more examples like this you can create if you play around with the exact order and identity of tokens.
 
@@ -1876,7 +1876,7 @@ There are some interesting patterns here, somewhat analogous to the patterns in 
 
 I'm including a short answer to this question, because it's something which confused me a lot when I started looking at this model. 
 
-Consider a sequence like `?aab...c` as an example. How can the model correctly predict `b` at position `c`? The answer, in short - **in heads 0.0 and 0.2, all the tokens between `b` and `c` will slightly attend to `c`. Then in head 1.2, `c` will attend to these intermediate tokens, and these virtual OV circuits will boost `b`.** Also, the duplicate token head 0.1 makes sure `a` is very suppressed, so that `b` will be predicted with highest probability.""")
+Consider a sequence like `?aab...c` as an example. How can the model correctly predict `b` at position `c`? The answer, in short - **in heads 0.0 and 0.2, all the tokens between `b` and `c` will slightly attend to `b`. Then in head 1.2, `c` will attend to these intermediate tokens, and these virtual OV circuits will boost `b`.** Also, the duplicate token head 0.1 makes sure `a` is very suppressed, so that `b` will be predicted with highest probability.""")
 
 
 
