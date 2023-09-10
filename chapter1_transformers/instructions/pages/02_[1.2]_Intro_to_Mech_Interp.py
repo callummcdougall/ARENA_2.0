@@ -38,7 +38,7 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-# [1.2] TransformerLens & induction circuits
+# [1.2] Intro to Mech Interp: TransformerLens & induction circuits
 
 
 
