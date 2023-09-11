@@ -1244,18 +1244,23 @@ Min probability on correct label: 0.001
 And a visualisation of its probability output for a single sequence:
 
 ```python
-imshow(
-    probs[0].T,
-    y=dataset.vocab,
-    x=[f"{dataset.str_toks[0][i]}<br>({i})" for i in range(model.cfg.n_ctx)],
-    labels={"x": "Token", "y": "Vocab"},
-    xaxis_tickangle=0,
-    title="Sample model probabilities (for batch idx = 0), with correct classification highlighted",
-    text=[
-        ["〇" if str_tok == correct_str_tok else "" for correct_str_tok in dataset.str_tok_labels[0]]
-        for str_tok in dataset.vocab
-    ], # text can be a 2D list of lists, with the same shape as the data
-)
+def show(i):
+    imshow(
+        probs[i].T,
+        y=dataset.vocab,
+        x=[f"{dataset.str_toks[i][j]}<br><sub>({j})</sub>" for j in range(model.cfg.n_ctx)],
+        labels={"x": "Token", "y": "Vocab"},
+        xaxis_tickangle=0,
+        title=f"Sample model probabilities (for batch idx = {i}), with correct classification highlighted",
+        text=[
+            ["〇" if str_tok == correct_str_tok else "" for correct_str_tok in dataset.str_tok_labels[i]]
+            for str_tok in dataset.vocab
+        ],
+        width=900,
+        height=450,
+    )
+
+show(0)
 ```
 """, unsafe_allow_html=True)
     
