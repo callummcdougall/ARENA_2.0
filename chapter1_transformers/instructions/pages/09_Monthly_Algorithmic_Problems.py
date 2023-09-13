@@ -1051,7 +1051,7 @@ Also, they're hopefully pretty fun, because why shouldn't we have some fun while
 
 ## Logistics
 
-The solution to this problem will be published on this page in the first few days of September, at the same time as the next problem in the sequence. There will also be an associated LessWrong post.
+The solution to this problem will be published on this page at the start of October, at the same time as the next problem in the sequence. There will also be an associated LessWrong post.
 
 If you try to interpret this model, you can send your attempt in any of the following formats:
 
