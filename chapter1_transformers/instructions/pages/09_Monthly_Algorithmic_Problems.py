@@ -1985,9 +1985,6 @@ from monthly_algorithmic_problems.september23_sum.dataset import SumDataset
 from monthly_algorithmic_problems.september23_sum.model import create_model
 from plotly_utils import hist, bar, imshow
 
-%pip install git+https://github.com/callummcdougall/eindex.git
-from eindex import eindex
-
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 ```
 
@@ -1997,13 +1994,15 @@ The problem for this month (or at least as much of the month as remains!) is int
                 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/predictions.png" width="600">
 
+All the left-hand numbers are below 5000, so we don't have to worry about carrying past the thousands digit.
+
 Here is an example of what this dataset looks like:
 
 ```python
 dataset = SumDataset(size=1, num_digits=4, seed=42)
 
-print(dataset[0].tolist())
-print("".join(dataset.str_toks[0]))
+print(dataset[0].tolist()) # tokens, for passing into model
+print("".join(dataset.str_toks[0])) # string tokens, for printing
 ```
 
 <div style='font-family:monospace; font-size:15px;'>
@@ -2109,7 +2108,10 @@ logits = logits[:, -5:-1]
 logprobs = logits.log_softmax(-1) # [batch seq_len vocab_out]
 probs = logprobs.softmax(-1)
 
-batch_size, seq_len = dataset.toks.shape
+# Library developed for easier indexing - feel free not to use
+%pip install git+https://github.com/callummcdougall/eindex.git
+from eindex import eindex
+
 logprobs_correct = eindex(logprobs, targets, "batch seq [batch seq]")
 probs_correct = eindex(probs, targets, "batch seq [batch seq]")
 
