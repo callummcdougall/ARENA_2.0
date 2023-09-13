@@ -1904,7 +1904,8 @@ r"""
     <li><a class='contents-el' href='#model'>Model</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 # Monthly Algorithmic Challenge (September 2023): Sum Of Two Numbers
 
 ### Colab: [problem](https://colab.research.google.com/drive/1770X6JLjizn5GLFPoLw3wWx44TXxQVg5)
@@ -1983,6 +1984,9 @@ if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 from monthly_algorithmic_problems.september23_sum.dataset import SumDataset
 from monthly_algorithmic_problems.september23_sum.model import create_model
 from plotly_utils import hist, bar, imshow
+
+%pip install git+https://github.com/callummcdougall/eindex.git
+from eindex import eindex
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 ```
