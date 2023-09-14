@@ -453,9 +453,9 @@ Just like yesterday, you'll implement a cheating agent that peeks at the info an
 
 ### Exercise - implement `Cheater`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -602,9 +602,9 @@ Both `SARSA` and `QLearning` will inherit from `EpsilonGreedy`, and differ in ho
 
 ### Exercise - Implement Q-learning and SARSA
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 25-45 minutes on these exercises.
 
@@ -846,9 +846,9 @@ If you don't have domain knowledge to leverage, or you care specifically about m
 ## Bonus - build your own CliffWalking environment
 
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 30-60 minutes on this exercise.
 ```
@@ -1224,9 +1224,9 @@ The network is learning Q-values (the sum of all future expected discounted rewa
 
 ### Exercise - implement `QNetwork`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1317,9 +1317,9 @@ You should also include objects `self.observations`, `self.actions`, etc in your
 
 ### Exercise - implement `ReplayBuffer`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-30 minutes on this exercise.
 ```
@@ -1548,9 +1548,9 @@ in the environment.
 
 ### Exercise - implement linear scheduler
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -1616,9 +1616,9 @@ See Sutton and Barto, Section 6.7 if you'd like a more detailed explanation, or 
 
 ### Exercise - implement the epsilon greedy policy
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -1726,9 +1726,9 @@ assert env.action_space.shape == ()
 
 ### Exercise - implement additional probe environments
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 10-30 minutes on this exercise.
 
@@ -2055,9 +2055,9 @@ utils.arg_help(args)
 
 ### Exercise - fill in the agent class
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 25-49 minutes on this exercise.
 ```
@@ -2212,9 +2212,9 @@ A few tips for both of these functions:
 
 ### Exercise - write DQN training loop
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 30-60 minutes on this exercise.
 ```

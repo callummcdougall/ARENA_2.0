@@ -209,9 +209,9 @@ A series of images follow below, which have been created using `einops` function
 
 ### Einops exercises
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~45 minutes on these exercises collectively.
 
@@ -541,9 +541,9 @@ Although there are many different kinds of operations you can perform, they are 
 
 ### Einsum exercises
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on these exercises collectively.
 
@@ -716,9 +716,9 @@ We can call the `stride` method to get the strides of this particular array. Run
 
 ### Exercise - fill in the correct size and stride
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to ~30 minutes on these exercises collectively.
 
@@ -895,9 +895,9 @@ Now that you're comfortable with the basics, we'll dive a little deeper with `as
 
 ### Exercise - trace
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -949,9 +949,9 @@ def as_strided_trace(mat: Float[Tensor, "i j"]) -> Float[Tensor, ""]:
 
 ### Exercise - matrix-vector multiplication
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 
@@ -1051,9 +1051,9 @@ def as_strided_mv(mat: Float[Tensor, "i j"], vec: Float[Tensor, "j"]) -> Float[T
 
 ### Exercise - matrix-matrix multiplication
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 
@@ -1257,9 +1257,9 @@ This number isn't tied to the input image's channels but is a design choice in t
 
 ### Exercise - implement minimal 1D convolutions
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 
@@ -1342,9 +1342,9 @@ def conv1d_minimal_simple(x: Float[Tensor, "w"], weights: Float[Tensor, "kw"]) -
 Once you've implemented this function, you should now adapt it to make a "full version", which includes batch, in_channel and out_channel dimensions. If you're stuck, the dropdowns provide hints for how each of these dimensions should be handled.
 
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -1434,9 +1434,9 @@ For this reason, 1D convolutions tend to be used for signals (e.g. audio), 2D co
 
 ### Exercise - implement 2D minimal convolutions
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -1513,9 +1513,9 @@ def conv2d_minimal(x: Float[Tensor, "b ic h w"], weights: Float[Tensor, "oc ic k
 
 ### Exercise - implement padding
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise, and the next.
 ```
@@ -1634,9 +1634,9 @@ Docs for pytorch's `conv1d` can be found [here](https://pytorch.org/docs/stable/
 
 ### Exercise - implement 1D convolutions
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 ```
@@ -1726,9 +1726,9 @@ def conv1d(
 
 ### Exercise - implement 2D convolutions
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 ```
@@ -1843,9 +1843,9 @@ The way multiple channels work is also different. A convolution has some number 
 
 ### Exercise - implement 2D max pooling
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2061,9 +2061,9 @@ The first module you should implement is `MaxPool2d`. This will relatively simpl
 
 ### Exercise - implement `MaxPool2d`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -2156,9 +2156,9 @@ Flatten is most often used to stack over all non-batched dimensions, which inclu
 
 ### Exercise - implement `ReLU` and `Flatten`
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -2340,9 +2340,9 @@ However, you don't need to worry about any of this here, just implement Kaiming 
 
 ### Exercise - implement `Linear`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```

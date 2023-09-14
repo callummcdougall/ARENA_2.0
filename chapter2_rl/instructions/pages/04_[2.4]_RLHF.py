@@ -296,9 +296,9 @@ In the RLHF exercises you'll be taking advantage of BERT's ability to be used as
 
 ### Exercise - load BERT, and play around with it
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -353,9 +353,9 @@ imdb = load_dataset("imdb", split="train+test")
 
 ### Exercise - Figure out the positive-negative review split in the dataset
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -394,9 +394,9 @@ def label_split(dataset) -> Tuple[int, int]:
 
 ### Exercise - Create a set of prompts 
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -439,9 +439,9 @@ The model that we will perform RLHF on is a GPT-2 model fine-tuned on the IMDB d
 
 ### Exercise - Load the GPT-2 model and generate reviews from prompts
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-25 minutes on this exercise.
 ```
@@ -498,9 +498,9 @@ Judging by the name of this chapter you might think that you would be providing 
 
 #### Exercise - Get sentiment scores for a review
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-30 minutes on this exercise.
 ```
@@ -570,9 +570,9 @@ This is an alternate way to get a reward model working directly using Huggingfac
 
 **Part A: Create a huggingface pipeline to output sentiment scores for a generated review**
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-25 minutes on this exercise.
 ```
@@ -628,9 +628,9 @@ def create_pipeline(model_path):
 
 **Part B: Map the sentiment pipeline to a reward function**
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -675,9 +675,9 @@ def reward_model(samples: List[str], **kwargs) -> List[float]:
 
 ### Exercise - Sentiment playground
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -838,9 +838,9 @@ In this particular prompt, the initial prompt choice will cause the eval reward 
 
 ## Exercise: Putting it all together - Reinforcing positive sentiment
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -946,9 +946,9 @@ TRLX logs to W&B and you should be prompted to add in your W&B key at some point
 
 ## Exercise: Sentiment playground - Post RLHF
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -962,9 +962,9 @@ generate_completion('< Insert prompt here >')
 
 ## Exercise: Change eval prompts to observe model behaviour
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1001,9 +1001,9 @@ def main() -> None:
 
 ## Exercise: Change reward function to return high reward for neutral sentiment
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```

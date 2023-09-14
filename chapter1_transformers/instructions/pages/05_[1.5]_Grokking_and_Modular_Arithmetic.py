@@ -397,9 +397,9 @@ You should get an extremely small loss (around `2.4e-07`).
 
 #### Exercise - extract key activations
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5-10 minutes on these exercises.
 
@@ -431,9 +431,9 @@ Next, let's think about the functional form of our model's solution.
 
 ### Exercise - answer some initial questions
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-30 minutes on these exercises.
 
@@ -496,9 +496,9 @@ imshow(attn_mat.mean(0), xaxis='Position', yaxis='Head', title='Average Attentio
 
 ### Exercise - derive the functional form
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-30 minutes on these exercises.
 
@@ -629,9 +629,9 @@ Note - the $W_E$ and $W_U$ above mostly refer to the reduced matrices (hence the
 
 ### Exercise - define the effective weight matrices
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on these exercises.
 
@@ -787,9 +787,9 @@ Note also that the waves (esp. at high frequencies) look jagged, not smooth. Thi
 
 ### Exercise - create the 1D Fourier basis
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -870,9 +870,9 @@ Now that we've shown the Fourier transform is indeed an orthonormal basis, we ca
 
 ### Exercise - 1D Fourier transform
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 This should be a short, one-line function. Again, this is much more important to understand conceptually as opposed to being difficult to implement.
 ```
@@ -966,9 +966,9 @@ Although we can think of these as vectors of length $p^2$, it makes much more se
 
 ### Exercise - create the 2D Fourier basis
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 This should be a short, one-line function. Again, this is much more important to understand conceptually.
 ```
@@ -1035,9 +1035,9 @@ Let's implement this transform now!
 
 ### Exercise - Implementing the 2D Fourier Transform
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1181,9 +1181,9 @@ imshow_fourier(
 
 ### Exercise - spot patterns in the activations
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -1497,9 +1497,9 @@ Let's have a closer look at some of the coefficients for these 2D Fourier basis 
 
 ### Exercise - calculate the mean squared coefficient
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 
@@ -1585,9 +1585,9 @@ This is important because our model can calculate the first of these two express
 
 ### Exercise - verify the quadratic term matters, and that $\gamma > 0$
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -1672,9 +1672,9 @@ Now that we've established that the neurons each seem to have some single freque
 
 ### Exercise - find neuron clusters
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -1869,9 +1869,9 @@ Now that we've found what appear to be neuron clusters, it's time to validate ou
 
 ### Exercise - validate neuron clusters
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 25-40 minutes on the following exercises.
 
@@ -2183,9 +2183,9 @@ You should find that the linear and constant terms have more or less vanished re
 
 ### Exercise - validate by only taking quadratic terms
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 
@@ -2602,9 +2602,9 @@ get_metrics(model, metric_cache, train_loss, 'train_loss')
 
 ### Exercise - implement excluded loss
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-30 minutes on this exercise.
 ```
@@ -2696,9 +2696,9 @@ We can plot the norms of the embedding of each 1D Fourier component at each epoc
 
 ### Exercise - define `fourier_embed`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 This exercise shouldn't take more than ~10 minutes.
 ```
@@ -2750,9 +2750,9 @@ animate_lines(
 
 ### Exercise - Examine the SVD of $W_E$
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```

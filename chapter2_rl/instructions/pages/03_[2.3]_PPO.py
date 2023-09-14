@@ -376,9 +376,9 @@ Note that today `envs` will actually have multiple instances of the environment 
 
 ### Exercise - implement `get_actor_and_critic`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -507,9 +507,9 @@ Remember that the sum in $(11)$ should be truncated at the first instance when t
 
 ### Exercise - implement `compute_advantages`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-40 minutes on this exercise.
 ```
@@ -596,9 +596,9 @@ Our replay buffer has some similarities to the replay buffer from yesterday, as 
 
 ### Exercise - implement `minibatch_indices`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -659,9 +659,9 @@ It will store episodes of the form $s_t, a_t, \log{\pi(a_t\mid s_t)}, d_t, r_{t+
 
 ### Exercise - explain the values in `ReplayBufferSamples`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-25 minutes on this exercise.
 
@@ -876,9 +876,9 @@ In PPO, you'll do the following:
 
 ### Exercise - implement `PPOAgent`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-35 minutes on this exercise.
 ```
@@ -1076,9 +1076,9 @@ Note - if you're wondering why we're using a `Categorical` type rather than just
 
 ### Exercise - write `calc_clipped_surrogate_objective`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-25 minutes on this exercise.
 ```
@@ -1173,9 +1173,9 @@ The PPO paper did a more complicated thing with clipping, but we're going to dev
 
 ### Exercise - write `calc_value_function_loss`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1256,9 +1256,9 @@ Separately from its role in the loss function, the entropy of our action distrib
 
 ### Exercise - write `calc_entropy_bonus`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1309,9 +1309,9 @@ Note, the training terminates after `num_updates`, so you don't need to worry ab
 
 ### Exercise - implement `PPOScheduler`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1476,9 +1476,9 @@ You should only focus on logging once you've got a mininal version of the code w
 
 ### Exercise - complete the `PPOTrainer` class
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 30-60 minutes on this exercise (including logging).
 ```
@@ -1823,9 +1823,9 @@ Note - if you want to use the maximum possible values of `x` and `theta` in your
 
 ### Exercise - implement reward shaping
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-30 minutes on this exercise.
 ```
@@ -2027,9 +2027,9 @@ This is the most interesting one conceptually. If we have a new observation spac
 
 ### Exercise - rewrite `get_actor_and_critic`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2179,9 +2179,9 @@ def get_actor_and_critic(
 
 ### Exercise - additional rewrites
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2357,9 +2357,9 @@ Because of this extra complexity, we'll create a class for our actor and critic 
 
 ### Exercise - implement `Actor` and `Critic`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2501,9 +2501,9 @@ class Actor(nn.Module):
 
 ### Exercise - additional rewrites
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-25 minutes on this exercise.
 ```

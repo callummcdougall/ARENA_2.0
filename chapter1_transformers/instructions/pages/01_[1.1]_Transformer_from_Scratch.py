@@ -865,9 +865,9 @@ def load_gpt2_test(cls, gpt2_layer, input):
 
 ## LayerNorm
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -933,9 +933,9 @@ class LayerNorm(nn.Module):
 
 ## Embedding
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -992,9 +992,9 @@ class Embed(nn.Module):
 
 ## Positional Embedding
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1040,9 +1040,9 @@ class PosEmbed(nn.Module):
 
 ## Attention
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 30-45 minutes on this exercise.
 ```
@@ -1337,9 +1337,9 @@ class Attention(nn.Module):
 
 ## MLP
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1409,9 +1409,9 @@ class MLP(nn.Module):
 
 ## Transformer Block
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1466,9 +1466,9 @@ class TransformerBlock(nn.Module):
 
 ## Unembedding
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1523,9 +1523,9 @@ class Unembed(nn.Module):
 
 ## Full Transformer
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1769,9 +1769,9 @@ If you did the material on [training loops](https://arena-ch0-fundamentals.strea
 
 ### Exercise - write training loop
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -2242,9 +2242,9 @@ The first thing you should do is implement the `sample` method.
 
 ### Exercise - implement `sample`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 ```
@@ -2515,9 +2515,9 @@ Note that this will be slow since we aren't batching the samples, but don't worr
 
 ### Exercise - Basic Sampling
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2573,9 +2573,9 @@ def sample_basic(logits: t.Tensor) -> int:
 
 ### Exercise - Temperature
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2623,9 +2623,9 @@ The limit when temperature goes to infinity is uniform random sampling over all 
 
 ### Exercise - Frequency Penalty
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2712,9 +2712,9 @@ Conceptually, the steps in top-k sampling are:
 
 ### Exercise - implement `sample_top_k`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2800,9 +2800,9 @@ Optionally, refer to the paper [The Curious Case of Neural Text Degeneration](ht
 
 ### Exercise - implement `sample_top_p`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -2938,9 +2938,9 @@ How do we deal with sequences that terminate early (i.e. by generating an EOS to
 
 ### Exercise - implement `beam_search`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -3388,9 +3388,9 @@ At each attention layer, the only things the attention layer needs from the prev
 
 ### Exercise - implement caching
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵⚪⚪⚪⚪
 
 You are expected to spend well over an hour on this exercise, if you choose to do it.
 ```
@@ -4054,7 +4054,7 @@ print("Tests passed!")
 
 func_page_list = [
     (section_0, "🏠 Home"),
-    (section_1, "1️⃣ Understanding Inputs & Outputs of a Transformer"),
+    (section_1, "1️⃣ Inputs & Outputs of a Transformer"),
     (section_2, "2️⃣ Clean Transformer Implementation"),
     (section_3, "3️⃣ Training a Transformer"),
     (section_4, "4️⃣ Sampling from a Transformer"), 

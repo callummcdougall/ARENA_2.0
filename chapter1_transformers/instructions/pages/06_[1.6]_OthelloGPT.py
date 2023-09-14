@@ -834,9 +834,9 @@ Note that we can see the probe is worse near corners, as we anecdotally observed
 
 ### Exercise - calculate probe cosine similarities
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -905,9 +905,9 @@ Having a single meaningful direction is important, because it allows us to inter
 
 ### Exercise - define your probe directions
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 5-10 minutes on this exercise.
 
@@ -1003,9 +1003,9 @@ I apply the fairly janky technique of taking current coordinate in the given dir
 
 ### Exercise - define the `apply_scale` function
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -1232,9 +1232,9 @@ We now plot the contributions of the attention and MLP layers to the `my_probe` 
 
 ### Exercise - compute attn and mlp contributions
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-20 minutes on this exercise.
 
@@ -1370,9 +1370,9 @@ def calculate_accumulated_probe_score(
 
 ### Exercise - repeat this for the "blank" probe
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 This just involves copying code and changing the probe name!
 ```
@@ -1406,9 +1406,9 @@ blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.
 
 ### Exercise - calculate neuron input weights
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 10-25 minutes on this exercise.
 ```
@@ -1867,9 +1867,9 @@ corrupted_log_probs = corrupted_logits.log_softmax(dim=-1)
 
 ### Exercise - create a patching metric
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 ```
@@ -1931,9 +1931,9 @@ def patching_metric(patched_logits: Float[Tensor, "batch=1 seq=21 d_vocab=61"]):
 
 ### Exercise - write a patching function
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 This exercise is very important; getting it right shows you understand activation patching.
 ```
@@ -2134,9 +2134,9 @@ One hypothesis is that the unembed for `C0` and `D1` are highly aligned, so it c
 
 ### Exercise - compare the unembeds for C0 and D1
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2173,9 +2173,9 @@ To check that this is a *big* part of the neuron's output, lets look at the frac
 
 ### Exercise - compute fraction of variance explained by unembedding subspace
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 
@@ -2305,9 +2305,9 @@ We see that, for all moves in the max activating dataset, `D1` is theirs and `E2
 
 ### Exercise - investigate more neurons
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-30 minutes on this exercise.
 
@@ -2441,9 +2441,9 @@ make_spectrum_plot(neuron_acts.flatten(), label[:, :-1].flatten())
 
 ### Exercise - investigate this spectrum plot
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵⚪
 
 This is a very open-ended exercise, with no time estimates. You can come back to this at the end if you like.
 ```
@@ -2453,9 +2453,9 @@ Look at the moves with this configuration and low activations - what's going on 
 
 ### Exercise - make more spectrum plots
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 This is a very open-ended exercise, with no time estimates. You can come back to this at the end if you like.
 ```
@@ -2577,9 +2577,9 @@ Now for our main block of code - we'll write a class for training our linear pro
 
 ### Exercise - fill in the missing code below
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 30-40 minutes on this exercise.
 

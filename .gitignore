@@ -22,3 +22,4 @@ secrets.toml
 *part4_rlhf2
 *stats.md
 chapter1_transformers/instructions/media/media
+my_regex.py

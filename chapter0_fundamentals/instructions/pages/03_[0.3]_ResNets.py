@@ -212,9 +212,9 @@ which is something we'll be using a lot in future exercises, as we deal with mor
 
 ### Exercise - creating `ConvNet`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to ~15 minutes on this exercise.
 ```
@@ -761,9 +761,9 @@ line(
 
 ### Exercise - add a validation loop
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to ~20 minutes on this exercise.
 
@@ -1154,9 +1154,9 @@ In eval mode, you should use the running mean and variance that you stored befor
 
 ### Exercise - implement `BatchNorm2d`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -1281,9 +1281,9 @@ Luckily, the simplest possible solution works decently: take the mean over the s
 
 ### Exercise - implement `AveragePool`
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -1351,9 +1351,9 @@ Similarly, `BlockGroup` is nested multiple times (four to be precise) in the ful
 
 ### Exercise - implement `ResidualBlock`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -1475,9 +1475,9 @@ class ResidualBlock(nn.Module):
 
 ### Exercise - implement `BlockGroup`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1543,9 +1543,9 @@ class BlockGroup(nn.Module):
 
 ### Exercise - implement `ResNet34`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 25-30 minutes on this exercise.
 
@@ -1750,9 +1750,9 @@ IMAGENET_TRANSFORM = transforms.Compose([
 
 ### Exercise - prepare the data
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~5 minutes on this exercise.
 ```
@@ -1976,9 +1976,9 @@ assert layer1.weight.grad is not None
 
 ### Exercise - prepare ResNet for feature extraction
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -2071,9 +2071,9 @@ The dataclass we've defined containing training arguments is basically the same 
 
 ### Exercise - write training loop for feature extraction
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```

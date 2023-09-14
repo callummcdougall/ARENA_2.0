@@ -315,9 +315,9 @@ When you call `np.random.randint` or similar, you're using the old-school Mersen
 
 ### Exercise - implement `RandomAgent`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -429,9 +429,9 @@ class RandomAgent(Agent):
 
 ### Exercise - implement reward averaging
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-30 minutes on this exercise.
 ```
@@ -553,9 +553,9 @@ The cheater agent will always choose the best arm. It's a good idea to implement
 
 ### Exercise - implement cheater agent
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-25 minutes on this exercise.
 
@@ -660,9 +660,9 @@ You should expect to see a small improvement over `RewardAveraging` using this s
 
 ### Exercise - implement `UCBASelection`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-40 minutes on this exercise.
 ```
@@ -978,9 +978,9 @@ $\forall s \in S. V_{\pi_1}(s) \geq V_{\pi_2}(s)$.
 
 ### Exercise - compute the value $V_{\pi}(s_0)$ for $\pi = \pi_L$ and $\pi = \pi_R$.
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-25 minutes on this exercise.
 
@@ -1286,9 +1286,9 @@ We continue looping this update rule until the result stabilizes: $\max_s |\hat{
 
 ### Exercise - implement `policy_eval_numerical`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-30 minutes on this exercise.
 ```
@@ -1393,9 +1393,9 @@ Is the inverse $(I - \gamma P^\pi)^{-1}$ guaranteed to exist? Discuss with your 
 
 ### Exercise - implement `policy_eval_exact`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-30 minutes on this exercise.
 ```
@@ -1461,9 +1461,9 @@ Note that we are simultaneously applying this improvement over all states $s$.
 
 ### Exercise - implement `policy_improvement`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-25 minutes on this exercise.
 ```
@@ -1524,9 +1524,9 @@ $$
 
 ### Exercise - implement `find_optimal_policy`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-30 minutes on this exercise.
 ```

@@ -302,9 +302,9 @@ In the heatmap, we can see two pairs of vectors (the 1st & 2nd, and the 0th & 4t
 
 ### Exercise - define your model
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-25 minutes on this exercise.
 ```
@@ -441,9 +441,9 @@ class Model(nn.Module):
 
 ### Exercise - implement `generate_batch`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -488,9 +488,9 @@ The details of training aren't very conceptually important, so we've given you m
 
 ### Exercise - implement `calculate_loss`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -633,9 +633,9 @@ plot_Ws_from_model(model, config)
 
 ### Exercise - interpret these diagrams
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -720,9 +720,9 @@ In this section, you'll define a new data-generating function for correlated fea
 
 ### Exercise - implement `generate_correlated_batch`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-40 minutes on this exercise.
 
@@ -954,9 +954,9 @@ plot_Ws_from_model(model, config)
 
 ### Exercise - generate more feature correlation plots
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -1060,9 +1060,9 @@ while on the other hand, $W$ in the ReLU hidden layer model can be directly inte
 
 ### Exercise - plot $W$ in privileged basis
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-40 minutes on this exercise.
 ```
@@ -1318,9 +1318,9 @@ Intuitively, this is a measure of what "fraction of a dimension" a specific feat
 
 ### Exercise - compute dimensionality
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```

@@ -184,10 +184,10 @@ summary {
 .css-fg4pbf code {
     background: rgb(247, 248, 250);
 }
-.css-fg4pbf code.language-c, .css-fg4pbf pre:has(code.language-c) {
+.css-fg4pbf code.language-c, .css-fg4pbf pre:has(code.language-c), .css-fg4pbf code.language-yaml, .css-fg4pbf pre:has(code.language-yaml) {
     background-color: #ffe3c4 !important;
 }
-.css-ffhzg2 code.language-c, .css-ffhzg2 pre:has(code.language-c) {
+.css-ffhzg2 code.language-c, .css-ffhzg2 pre:has(code.language-c), .css-ffhzg2 code.language-yaml, .css-ffhzg2 pre:has(code.language-yaml) {
     background-color: #3d2000 !important;
 }
 </style>""", unsafe_allow_html=True)

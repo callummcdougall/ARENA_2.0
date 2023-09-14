@@ -437,9 +437,9 @@ We'll later be evaluating how model performance differs upon performing various 
 
 ## Exercise - implement the performance evaluation function
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -780,9 +780,9 @@ We can now decompose the residual stream! First we apply a technique called the 
 
 ### Exercise - implement `residual_stack_to_logit_diff`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -1226,9 +1226,9 @@ print(f"Corrupted logit diff: {corrupted_logit_diff:.4f}")
 
 ### Exercise - create a metric
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -1337,9 +1337,9 @@ To be clear, the striking thing about this graph isn't that the first row is zer
 
 ### Exercise - implement head-to-residual patching
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -1501,9 +1501,9 @@ I only have suggestive evidence of this, and would love to see someone look into
 
 ### Exercise (optional) - implement head-to-block patching
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to ~10 minutes on this exercise. 
 
@@ -1619,9 +1619,9 @@ We see some of the heads that we observed in our attention plots at the end of l
 
 ### Exercise - implement head-to-head patching
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise. 
 
@@ -1774,9 +1774,9 @@ imshow(
 
 ### Exercise (optional) - implement head-to-head-input patching
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to ~10 minutes on this exercise. 
 
@@ -2329,9 +2329,9 @@ Here is an illustration for a 2-layer transformer:
 
 ### Exercise - implement path patching to the final residual stream value
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 30-45 minutes on this exercise.
 
@@ -2595,9 +2595,9 @@ The paper's results from path patching are shown in figure 5(b), on page 7.
 
 ### Exercise - implement path patching from head to head
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -2847,9 +2847,9 @@ We'll start this section by replicating the paper's analysis of the **name mover
 
 ### Exercise - replicate writing direction results
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -2984,9 +2984,9 @@ The same is true for the negative name mover head `11.10`, only it works in the 
 
 ### Exercise - replicate copying score results
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 30-40 minutes on this exercise.
 
@@ -3146,9 +3146,9 @@ Note, it's a leaky abstraction to say things like "head X is an induction head",
 
 ### Exercise - perform head validation
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-30 minutes on this exercise.
 
@@ -3355,9 +3355,9 @@ In other words, when they performed ablation by patching in the output of a head
 
 ### Exercise - constructing the minimal circuit
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵⚪⚪⚪
 
 This exercise is expected to take a long time; at least an hour. It is probably the most challenging exercise in this notebook.
 ```
@@ -3659,9 +3659,9 @@ def add_mean_ablation_hook(
 
 ### Exercise - calculate minimality scores
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵⚪⚪⚪
 
 This exercise is expected to take a long time; at least an hour. It is probably the second most challenging exercise in this notebook.
 ```
@@ -3982,9 +3982,9 @@ Note that this is a superficial study of whether something is an induction head 
 
 ### Exercise - validate prev token heads via patching
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 This just involves performing a specific kind of patching, with functions you've already written.
 ```
@@ -4303,9 +4303,9 @@ Let's dig a little deeper. Rather than just looking at the S-inhibition heads co
 
 ### Exercise - decompose S-Inhibition heads
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 

@@ -335,9 +335,9 @@ The most obvious answer is the exponential function, `out = e ^ x`. Here, the gr
 
 ### Exercise - implement `log_back`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -524,9 +524,9 @@ We used the term "unbroadcast" because the way that our tensor's shape changes w
 
 ### Exercise - implement `unbroadcast`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 
@@ -611,9 +611,9 @@ Functions that are differentiable with respect to more than one input tensor are
 
 ### Exercise - implement both `multiply_back` functions
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on these exercises.
 ```
@@ -681,9 +681,9 @@ Now we'll use our backward functions to do backpropagation manually, for the fol
 
 ### Exercise - implement `forward_and_back`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on these exercises.
 
@@ -858,9 +858,9 @@ The `Recipe` takes care of tracking the forward functions in our computational g
 
 ### Exercise - implement `BackwardFuncLookup`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on these exercises.
 
@@ -1120,9 +1120,9 @@ Let's start with a simple case: our `log` function. `log_forward` is a wrapper, 
 
 ### Exercise - implement `log_forward`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -1213,9 +1213,9 @@ Now let's do the same for multiply, to see how to handle functions with multiple
 
 ### Exercise - implement `multiply_forward`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -1310,9 +1310,9 @@ Implement the higher order function `wrap_forward_fn` that takes a `Arr -> Arr` 
 
 ### Exercise - implement `wrap_forward_fn`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -1463,9 +1463,9 @@ As part of backprop, we need to sort the nodes of our graph so we can traverse t
 
 ### Exercise - implement `topological_sort`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -1732,9 +1732,9 @@ In the computational graph in the next section, the only leaves are `a`, `b` and
 
 ### Exercise - implement `backprop`
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 30-40 minutes on this exercise.
 
@@ -2004,9 +2004,9 @@ if MAIN:
 
 ### Exercise - `negative`
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2043,9 +2043,9 @@ def negative_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
 
 ### Exercise - `exp`
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2080,9 +2080,9 @@ def exp_back(grad_out: Arr, out: Arr, x: Arr) -> Arr:
 
 ### Exercise - `reshape`
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```
@@ -2121,9 +2121,9 @@ def reshape_back(grad_out: Arr, out: Arr, x: Arr, new_shape: tuple) -> Arr:
 
 ### Exercise - `permute`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2215,9 +2215,9 @@ def invert_transposition(axes: tuple) -> tuple:
 
 ### Exercise - `expand`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -2316,9 +2316,9 @@ def _expand(x: Arr, new_shape) -> Arr:
 
 ### Exercise - `sum`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -2377,9 +2377,9 @@ def sum_back(grad_out: Arr, out: Arr, x: Arr, dim=None, keepdim=False):
 
 ### Exercise - Indexing
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -2478,9 +2478,9 @@ def getitem_back(grad_out: Arr, out: Arr, x: Arr, index: Index):
 
 ### elementwise add, subtract, divide
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2610,9 +2610,9 @@ if MAIN:
 
 ### Exercise - `max`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2680,9 +2680,9 @@ def maximum_back1(grad_out: Arr, out: Arr, x: Arr, y: Arr):
 
 ### Exercise - functional `ReLU`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2723,9 +2723,9 @@ def relu(x: Tensor) -> Tensor:
 
 ### Exercise - 2D `matmul`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 ```
@@ -2834,9 +2834,9 @@ def section_4():
 
 ## Exercise - build your own `nn.Parameter`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -2885,9 +2885,9 @@ class Parameter(Tensor):
 
 ## Exercise - build your own `nn.Module`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 25-30 minutes on this exercise.
 ```
@@ -3066,9 +3066,9 @@ class Module:
 
 ## Build Your Own Linear Layer
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-25 minutes on this exercise.
 ```
@@ -3206,9 +3206,9 @@ class MLP(Module):
 
 ## Build Your Own Cross-Entropy Loss
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -3270,9 +3270,9 @@ def cross_entropy(logits: Tensor, true_labels: Tensor) -> Tensor:
 
 ## Build your own `NoGrad` context manager
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```

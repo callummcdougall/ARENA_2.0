@@ -1284,6 +1284,7 @@ def section_1_august():
 ## Table of Contents
 
 <ul class="contents">
+    <li><a class='contents-el' href='#summary-of-how-the-model-works'>Summary of how the model works</a></li>
     <li><a class='contents-el' href='#some-initial-notes'>Some initial notes</a></li>
     <li><a class='contents-el' href='#attention-patterns'>Attention patterns</a></li>
     <li><a class='contents-el' href='#ov-circuits'>OV circuits</a></li>
@@ -1365,6 +1366,23 @@ Average cross entropy loss: 0.017<br>
 Average probability on correct label: 0.988<br>
 Min probability on correct label: 0.001
 </div><br>
+
+# Summary of how the model works
+
+In case you don't want to read the entire solution, I'll present a summary of it here (glossing over the actual research process I went through). You can read approximately the same thing in the [LessWrong post](https://www.lesswrong.com/posts/67xQqsimxywp9wYjC/mech-interp-challenge-september-deciphering-the-addition).
+
+The key idea with this model is **path decomposition** (see the [corresponding section](https://transformer-circuits.pub/2021/framework/index.html#three-kinds-of-composition) of A Mathematical Framework for Transformer Circuits). There are several different important types of path in this model, with different interpretations & purposes. We might call these **negative paths** and **positive paths**. The negative paths are designed to suppress repeated tokens, and the positive paths are designed to boost tokens which are more likely to be the first unique token.
+
+Let's start with the **negative paths**. Some layer 0 heads are **duplicate token heads**; they're composing with layer 1 heads to cause those heads to attend to & suppress duplicated tokens. This is done both with K-composition (heads in layer 1 suppress duplicated tokens because they attend to them more), and V-composition (the actual outputs of the DTHs are used as value input to heads in layer 1 to suppress duplicated tokens). Below is an example, where the second and third instances of a attend back to the first instance of a in **head 0.2**, and this composes with **head 1.0** which attends back to (and suppresses) all the duplicated a tokens.
+
+<img src="https://res.cloudinary.com/lesswrong-2-0/image/upload/f_auto,q_auto/v1/mirroredImages/67xQqsimxywp9wYjC/fkeofkykojp22nlxwk4y" width="700">
+<img src="https://res.cloudinary.com/lesswrong-2-0/image/upload/f_auto,q_auto/v1/mirroredImages/67xQqsimxywp9wYjC/fqqbgblysh4mipye7s1e" width="700">
+
+Now, let's move on to the **positive paths**. Heads in layer 0 will attend to early tokens which aren't the same as the current destination token, because both these bits of evidence correlate with this token being the first unique token at this position (this is most obvious with the second token, since the first token is the correct answer here if and only if it doesn't equal the second token). Additionally, the outputs of heads in layer 0 are used as **value input** to heads in layer 1 to boost these tokens, i.e. as a virtual OV circuit. These paths aren't as obviously visible in the attention probabilities, because they're distributed: many tokens will weakly attend to some early token in a layer-0 head, and then all of those tokens will be weakly attended to by some layer-1 head. But the paths can be seen when we plot all the OV circuits, coloring each value by how much the final logits for that token are affected at the destination position:
+
+<img src="https://res.cloudinary.com/lesswrong-2-0/image/upload/f_auto,q_auto/v1/mirroredImages/67xQqsimxywp9wYjC/zmerzkwzh05r9bs0grm2" width="700">
+
+Another important thing to note - these paths aren't just split by head, they're also split by character. For example, the path with heads 0.2 & 1.0 is a negative path for token `a` (we saw evidence of this in the attention patterns earlier). But it's a positive path for token `c`, and indeed when we look at the dataset we can see evidence of head 0.2 attending to early instances of the `c` token, and this being used by head 1.0 to boost `c`. Also, note how all letters in the vocabulary are covered by at least one head: the paths through head 1.0 manage boosting / suppression for tokens `[a, c]`, and heads 1.1, 1.2 manage `[d, e, f, j]` and `[b, h, i]` respectively. The disjoint union of these groups is the whole vocabulary.
 
 # Some initial notes
 

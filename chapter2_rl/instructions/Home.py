@@ -322,9 +322,7 @@ We've created an experimental chatbot assistant to help you answer questions abo
 
 You can see example questions to ask the chatbot if you navigate to the chatbot page.
 
-If you run the page locally and add your own OpenAI API key, you can also get access to the GPT-4 version of the chatbot (rather than just the 3.5 or davinci versions). 
-
-To run the page locally, see the previous section. To add your own API key, take the following steps:
+If you run the page locally, you'll need to add your own API key to make the model work. This requires the following steps:
 
 * Go to the [OpenAI API keys page](https://platform.openai.com/account/api-keys), to generate your own API key.
 * Create a file called `secrets.toml` which looks like `openai_api_key = "sk-<rest-of-your-key>"`. Save it as `chapter2_rl/instructions/.streamlit/secrets.toml`.

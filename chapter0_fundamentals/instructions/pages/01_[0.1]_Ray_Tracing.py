@@ -232,9 +232,9 @@ To start, we'll let the z dimension in our `(x, y, z)` space be zero and work in
 
 #### Exercise - implement `make_rays_1d`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -354,9 +354,9 @@ Once we've found values of $u$ and $v$ which satisfy this equation, if any (the 
 
 ### Exercise - which segments intersect with the rays?
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -390,9 +390,9 @@ render_lines_with_plotly(rays1d, segments)
 
 ### Exercise - implement `intersect_ray_1d`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -666,9 +666,9 @@ On the other hand, if `B` had shape `(2,)` then broadcasting would fail, because
 
 ### Exercise - implement `intersect_rays_1d`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 25-30 minutes on this exercise.
 
@@ -832,9 +832,9 @@ Now we're going to make use of the z dimension and have rays emitted from the or
 
 ### Exercise - implement `make_rays_2d`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -997,9 +997,9 @@ We can therefore find the coordinates `s`, `u`, `v` of the intersection point by
 
 ### Exercise - implement `triangle_ray_intersects`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -1115,9 +1115,9 @@ Here, `y` was created through basic indexing, so `y` is a view and `y._base` ref
 
 ### Exercise - implement `raytrace_triangle`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 
@@ -1323,9 +1323,9 @@ For each ray (pixel) we will return a float representing the minimum distance to
 
 ### Exercise - implement `raytrace_mesh`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-25 minutes on this exercise.
 

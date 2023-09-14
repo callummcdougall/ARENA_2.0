@@ -286,9 +286,9 @@ To test our algorithms, we can implement a simple function to train two paramete
 
 ### Exercise - implement `opt_fn_with_sgd`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -439,9 +439,9 @@ You should also fill in the default PyTorch keyword arguments, where appropriate
 
 ### Exercise - implement `SGD`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 20-25 minutes on this exercise.
 
@@ -587,9 +587,9 @@ class SGD:
 
 ### Exercise - implement `RMSprop`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -700,9 +700,9 @@ class RMSprop:
 
 ### Exercise - implement `Adam`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -809,9 +809,9 @@ class Adam:
 
 ### Exercise - implement `AdamW`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -932,9 +932,9 @@ Finally, we've provided some code which should allow you to plot more than one o
 
 ### Exercise - implement `opt_fn`
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```
@@ -1094,9 +1094,9 @@ More generally, if you're trying to replicate a paper, it's important to be able
 
 ### Exercise - rewrite SGD to use parameter groups
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -1464,9 +1464,9 @@ This function should be called at the end of your training loop. It finishes the
 
 ### Exercise - rewrite training loop
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -1598,9 +1598,9 @@ To perform hyperparameter sweeps, we follow the following 3-step process:
 
 ### Exercise - define a sweep config (step 1)
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -1647,9 +1647,9 @@ sweep_config = dict(
 
 ### Exercise - define a training function (step 2)
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```

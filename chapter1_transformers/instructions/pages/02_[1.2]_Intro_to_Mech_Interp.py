@@ -38,9 +38,7 @@ def section_0():
 </ul></li>""", unsafe_allow_html=True)
 
     st.markdown(r"""
-# [1.2] Intro to Mech Interp: TransformerLens & induction circuits
-
-
+# [1.2] Intro to Mechanistic Interpretability: TransformerLens & induction circuits
 
 ### Colab: [**exercises**](https://colab.research.google.com/drive/1w9zCWpE7xd1sDuMT_rsjARfFozeWiKF4) | [**solutions**](https://colab.research.google.com/drive/10tzGmOCQb3LoDB69vPFw71DV2d395hJl)
 
@@ -52,12 +50,9 @@ Links to other chapters: [**(0) Fundamentals**](https://arena-ch0-fundamentals.s
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/lens2.png" width="350">
 
-
-
 ## Introduction
 
-
-These pages are designed to get you introduced to Neel's **TransformerLens** library.
+These pages are designed to get you introduced to the core concepts of mechanistic interpretability, via Neel Nanda's **TransformerLens** library.
 
 Most of the sections are constructed in the following way:
 
@@ -68,12 +63,9 @@ The running theme of the exercises is **induction circuits**. Induction circuits
 
 Each exercise will have a difficulty and importance rating out of 5, as well as an estimated maximum time you should spend on these exercises and sometimes a short annotation. You should interpret the ratings & time estimates relatively (e.g. if you find yourself spending about 50% longer on the exercises than the time estimates, adjust accordingly). Please do skip exercises / look at solutions if you don't feel like they're important enough to be worth doing, and you'd rather get to the good stuff!
 
-
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/kcomp_diagram.png" width="1000">
 
-
 ## Content & Learning Objectives
-
 
 #### 1️⃣ TransformerLens: Introduction
 
@@ -239,9 +231,9 @@ Even if you don't define your model in this way, you can still access the config
 
 ### Exercise - inspect your model
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 ```
 
 Use `gpt2_small.cfg` to find the following, for your GPT-2 Small model:
@@ -380,9 +372,9 @@ Further, *some* models are trained to need a BOS token (OPT and my interpretabil
 
 ### Exercise - how many words does your model guess correctly?
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 ```
@@ -494,9 +486,9 @@ You can use the diagram from the **Transformer Architecture** section to help yo
 
 ### Exercise - verify activations
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-15 minutes on this exercise.
 
@@ -815,9 +807,9 @@ Use the [diagram at this link](https://raw.githubusercontent.com/callummcdougall
 
 ### Exercise - visualise attention patterns
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to ~10 minutes on this exercise.
 
@@ -883,9 +875,9 @@ Now that we've observed our three basic attention patterns, it's time to make de
 
 ### Exercise - write your own detectors
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 15-20 minutes on these exercises.
 
@@ -1051,9 +1043,9 @@ Note - we're using small sequences (and just one sequence), since the results ar
 
 ### Exercise - plot per-token loss on repeated sequence
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 10-15 minutes on these exercises.
 ```
@@ -1182,9 +1174,9 @@ You should see that heads 4 and 10 are strongly induction-y, and the rest aren't
 
 ### Exercise - make an induction-head detector
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 5-10 minutes on this exercise.
 
@@ -1454,9 +1446,9 @@ Note that, in theory, this could all be done using the `run_with_cache` function
 
 ### Exercise - calculate induction scores with hooks
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 15-20 minutes on this exercise.
 
@@ -1561,9 +1553,9 @@ def induction_score_hook(
 
 ### Exercise - find induction heads in GPT2-small
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 10-20 minutes on this exercise.
 
@@ -1689,9 +1681,9 @@ Because log probs aren't linear, they go through `log_softmax`, a non-linear fun
 
 ### Exercise - build logit attribution tool
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 
@@ -1833,9 +1825,9 @@ This is because of a point we discussed earlier - this plot doesn't pick up on t
 
 ### Exercise - logit attribution for the induction heads
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than ~10 minutes on this exercise.
 
@@ -1908,9 +1900,9 @@ As mentioned in [the glossary](https://dynalist.io/d/n2ZWtnoYHrU1s4vnFSAQ519J#z=
 
 ### Exercise - induction head ablation
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than ~10 minutes on this exercise.
 
@@ -2285,9 +2277,9 @@ This is all possible because knowing the factorisation of a matrix gives us a mu
 
 ### Exercise - deriving properties of a factored matrix
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 10-25 minutes on this exercise.
 
@@ -2587,9 +2579,9 @@ full_OV_circuit = W_E @ OV_circuit @ W_U
 
 ### Exercise - verify this is the identity
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 5-10 minutes on this exercise.
 
@@ -2718,9 +2710,9 @@ This should return about 30.79% - pretty underwhelming. It goes up to 47.73% for
 
 ### Exercise - compute effective circuit
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 5-10 minutes on this exercise.
 
@@ -2794,9 +2786,9 @@ Why is it justified to ignore token encodings? In this case, it turns out that t
 
 ### Exercise - compute full QK-circuit for `0.7`
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 
@@ -2889,9 +2881,9 @@ with each $y_i$ having shape `[seq, d_model]`, and the sum of $y_i$s being the f
 
 ### Exercise - analyse the relative importance
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 15-25 minutes on these exercises.
 
@@ -3030,9 +3022,9 @@ This is a bilinear function of q and k, and so we will end up with a `decomposed
 
 ### Exercise - decompose attention scores
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 5-10 minutes on this exercise.
 
@@ -3186,9 +3178,9 @@ An illustration:
 
 ### Exercise - compute the K-comp circuit
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 10-20 minutes on this exercise.
 ```
@@ -3305,9 +3297,9 @@ How do we formalise overlap? This is basically an open question, but a surprisin
 
 ### Exercise - calculate composition scores
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 15-25 minutes on these exercises.
 
@@ -3400,9 +3392,9 @@ for i in tqdm(range(model.cfg.n_heads)):
 
 ### Exercise - Setting a Baseline
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than ~10 minutes on this exercise.
 ```
@@ -3569,9 +3561,9 @@ To build intuition, let's consider a couple of extreme examples.
 
 ### Exercise - batching, and using the `FactoredMatrix` class
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵⚪⚪⚪⚪
 
 This exercise is optional, and not a vitally important conceptual part  of this section. It's also quite messy to rearrange our tensors in the right way! You are invited to skip it if you want.
 ```

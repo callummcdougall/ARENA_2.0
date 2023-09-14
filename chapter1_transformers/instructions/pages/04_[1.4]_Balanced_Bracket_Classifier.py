@@ -538,9 +538,9 @@ print(f"\nModel got {n_correct} out of {len(data)} training examples correct!")
 
 ### Exercise - handwritten solution (for loop)
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than ~10 minutes on this exercise.
 
@@ -591,9 +591,9 @@ def is_balanced_forloop(parens: str) -> bool:
 
 ### Exercise -  handwritten solution (vectorized)
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than ~10 minutes on this exercise.
 ```
@@ -789,9 +789,9 @@ The diagram below shows how we can step back through the model to find our **unb
 
 ### Exercise - get the `post_final_ln_dir`
 
-```c
-Difficulty: 🟠⚪⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴⚪⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than ~5 minutes on this exercise.
 ```
@@ -855,9 +855,9 @@ Now, we can ask 'What leads to the _input_ to the LayerNorm having a high dot-pr
 
 ### Exercise - get the `pre_final_ln_dir`
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 25-35 minutes on the following set of exercises.
 
@@ -1063,9 +1063,9 @@ In order to answer this question, we need the following tools:
 
 ### Exercise - breaking down the residual stream by component
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 15-20 minutes on this exercise.
 
@@ -1177,9 +1177,9 @@ This would be **strong evidence that this component is important for the model's
 
 ### Exercise - compute output in unbalanced direction for each component
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 
@@ -1260,9 +1260,9 @@ We'll also ignore sentences that start with a close paren, as the behaviour is s
 
 ### Exercise - classify bracket strings by failure type
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 15-20 minutes on this exercise.
 
@@ -1438,9 +1438,9 @@ Which tokens is 2.0 paying attention to when the query is an open paren at token
 
 ### Exercise - get attention probabilities
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 5-10 minutes on this exercise.
 
@@ -1502,9 +1502,9 @@ Here is an annotated diagram to help better explain exactly what we're doing.
 
 #### Exercise - calculate the pre-head 2.0 unbalanced direction
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 15-20 minutes on these exercises.
 
@@ -1566,9 +1566,9 @@ def get_pre_20_dir(model, data) -> Float[Tensor, "d_model"]:
 
 ### Exercise - compute component magnitudes
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You shouldn't spend more than 10-15 minutes on these exercises.
 
@@ -1659,9 +1659,9 @@ Diagram illustrating this (without biases):
 
 ### Exercise - get output by neuron
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You shouldn't spend more than 25-35 minutes on these exercises.
 
@@ -1780,9 +1780,9 @@ def get_out_by_neuron_in_20_dir(model: HookedTransformer, data: BracketsDataset,
 
 ### Exercise - implement the same function, using less memory
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 
@@ -1900,9 +1900,9 @@ We want to play around with the attention patterns in our heads. For instance, w
 
 ### Exercise - extracting queries and keys using hooks
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than ~10 minutes on this exercise.
 
@@ -2146,9 +2146,9 @@ Finally, we have an ability to formulate a test for our hypothesis in terms of t
 
 ### Exercise - validate the hypothesis
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 
@@ -2194,9 +2194,9 @@ Note - we don't actually require $\color{orange}{\vec v_L}$ and $\color{orange}{
 
 ### Exercise - cosine similarity of input directions (optional)
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠⚪⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵⚪⚪⚪⚪
 
 You shouldn't spend more than 10-15 minutes on this exercise.
 ```
