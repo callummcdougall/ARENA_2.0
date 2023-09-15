@@ -42,3 +42,4 @@ autorom[accept-rom-license]
 ale-py
 protobuf==3.20.3
 mujoco
+imageio-ffmpeg

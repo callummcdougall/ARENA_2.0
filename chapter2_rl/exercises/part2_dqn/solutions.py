@@ -32,6 +32,11 @@ from IPython.display import clear_output
 
 Arr = np.ndarray
 
+from IPython import get_ipython
+ipython = get_ipython()
+ipython.run_line_magic("load_ext", "autoreload")
+ipython.run_line_magic("autoreload", "2")
+
 # Make sure exercises are in the path
 chapter = r"chapter2_rl"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()

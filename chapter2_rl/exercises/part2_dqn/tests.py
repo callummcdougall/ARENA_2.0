@@ -141,7 +141,8 @@ def test_agent(DQNAgent):
     replay_buffer = ReplayBuffer(args.buffer_size, len(envs.envs), args.seed)
     agent = DQNAgent(envs, args, replay_buffer, q_network, target_network, rng)
 
-    for obs in range(num_observations):
+    for _obs in range(num_observations):
+        obs = np.full(shape=(1, num_observations), fill_value=_obs, dtype=np.float32)
         actions = agent.get_actions(obs)
         assert actions.shape == (len(envs.envs),)
         epsilon = linear_schedule(agent.steps, args.start_e, args.end_e, args.exploration_fraction, args.total_timesteps)
