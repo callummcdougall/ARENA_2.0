@@ -63,7 +63,8 @@ def section_0():
     <li class='margtop'><a class='contents-el' href='#further-reading'>Further Reading</a></li>
 </ul></li>""", unsafe_allow_html=True)
 
-    st.markdown(r"""
+    st.markdown(
+r"""
 # [1.7] - Toy  Models of Superposition
 
 ### Colab: [**exercises**](https://colab.research.google.com/drive/1oJcqxd4CS5zl-RO9fufQJI5lpxTzCYGw) | [**solutions**](https://colab.research.google.com/drive/1ygVrrrJH0DynAj9tkLgwsZ_xOk85p9oV)
@@ -132,9 +133,9 @@ from tqdm.auto import tqdm
 from dataclasses import dataclass
 
 # Make sure exercises are in the path
-chapter = r"chapter1_transformers"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part7_toy_models_of_superposition"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part7_toy_models_of_superposition', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow, line

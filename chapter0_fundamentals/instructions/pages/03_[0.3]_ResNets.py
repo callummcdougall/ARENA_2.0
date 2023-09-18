@@ -118,11 +118,10 @@ import pandas as pd
 from jaxtyping import Float, Int
 
 # Make sure exercises are in the path
-chapter = r"chapter0_fundamentals"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part3_resnets"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part3_resnets', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
-os.chdir(section_dir)
 
 from part2_cnns.solutions import get_mnist, Linear, Conv2d, Flatten, ReLU, MaxPool2d
 from part3_resnets.utils import print_param_count

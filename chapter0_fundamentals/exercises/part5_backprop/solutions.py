@@ -17,11 +17,10 @@ Arr = np.ndarray
 grad_tracking_enabled = True
 
 # Make sure exercises are in the path
-chapter = r"chapter0_fundamentals"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part5_backprop"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part5_backprop', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
-os.chdir(section_dir)
 
 import part5_backprop.tests as tests
 from part5_backprop.utils import visualize, get_mnist

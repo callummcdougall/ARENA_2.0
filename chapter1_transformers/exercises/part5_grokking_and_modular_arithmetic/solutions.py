@@ -1,20 +1,17 @@
 # %%
 
+import sys, os
 import torch as t
 import torch.nn.functional as F
 import numpy as np
-
 from pathlib import Path
 import os
-
 import plotly.express as px
 import plotly.graph_objects as go
-
 from typing import List, Tuple, Union, Optional
 from fancy_einsum import einsum
 import einops
 from tqdm import tqdm
-
 from transformer_lens import HookedTransformer, HookedTransformerConfig, utils
 
 from part5_grokking_and_modular_arithmetic.my_utils import *
@@ -22,11 +19,10 @@ import part5_grokking_and_modular_arithmetic.tests as tests
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
-import sys, os
 # Make sure exercises are in the path
-chapter = r"chapter1_transformers"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part5_grokking_and_modular_arithmetic"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part5_grokking_and_modular_arithmetic', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 # print(os.getcwd())

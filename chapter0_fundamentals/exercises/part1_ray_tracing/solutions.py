@@ -14,9 +14,9 @@ from jaxtyping import Float, Int, Bool, Shaped, jaxtyped
 import typeguard
 
 # Make sure exercises are in the path
-chapter = r"chapter0_fundamentals"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part1_ray_tracing"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part1_ray_tracing', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from plotly_utils import imshow
@@ -55,7 +55,6 @@ if MAIN:
 	fig = render_lines_with_plotly(rays1d)
 
 # %%
-
 
 if MAIN:
 	fig = setup_widget_fig_ray()

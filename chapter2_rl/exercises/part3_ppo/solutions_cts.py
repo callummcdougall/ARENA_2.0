@@ -20,9 +20,10 @@ import wandb
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-chapter = r"chapter2_rl"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part3_ppo"
+# Make sure exercises are in the path
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part3_ppo', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from part3_ppo.utils import set_global_seeds, make_env

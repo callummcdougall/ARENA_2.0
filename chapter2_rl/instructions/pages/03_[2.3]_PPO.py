@@ -244,14 +244,14 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 # Make sure exercises are in the path
-chapter = r"chapter2_rl"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part3_ppo"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part3_ppo', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-from part1_intro_to_rl.utils import make_env
 from part2_dqn.utils import set_global_seeds
 from part2_dqn.solutions import Probe1, Probe2, Probe3, Probe4, Probe5
+from part3_ppo.utils import make_env
 import part3_ppo.utils as utils
 import part3_ppo.tests as tests
 from plotly_utils import plot_cartpole_obs_and_dones

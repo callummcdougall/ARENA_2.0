@@ -6,7 +6,8 @@ joblib
 tqdm
 ipykernel
 notebook
-ipywidgets
+ipywidgets==7.7.1
+jupyterlab-widgets==1.1.1
 jupyter
 flask
 matplotlib

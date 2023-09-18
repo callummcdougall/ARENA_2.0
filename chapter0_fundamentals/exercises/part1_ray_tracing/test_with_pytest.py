@@ -1,7 +1,7 @@
 import os, sys
-CHAPTER = r"chapter0_fundamentals"
-chapter_dir = r"./" if CHAPTER in os.listdir() else os.getcwd().split(CHAPTER)[0]
-sys.path.append(chapter_dir + f"{CHAPTER}/exercises")
+from pathlib import Path
+exercises_dir = Path(__file__).parent.parent
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 import torch as t
 import pytest

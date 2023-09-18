@@ -220,9 +220,9 @@ import logging
 from typing import cast, Any, List, Optional, Union, Tuple
 
 # Make sure exercises are in the path
-chapter = r"chapter2_rl"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part4_rlhf"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part4_rlhf', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 import part4_rlhf.tests as tests

@@ -33,9 +33,9 @@ from IPython.display import clear_output
 Arr = np.ndarray
 
 # Make sure exercises are in the path
-chapter = r"chapter2_rl"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part2_dqn"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part2_dqn', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
 from part1_intro_to_rl.utils import make_env

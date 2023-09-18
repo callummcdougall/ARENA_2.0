@@ -107,11 +107,10 @@ import numpy as np
 from IPython.display import display, HTML
 
 # Make sure exercises are in the path
-chapter = r"chapter0_fundamentals"
-exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "part4_optimization"
+section_dir = Path(__file__).parent
+exercises_dir = section_dir.parent
+assert exercises_dir.name == "exercises", f"This file should be run inside 'exercises/part4_optimization', not '{section_dir}'"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
-os.chdir(section_dir)
 
 from plotly_utils import bar, imshow, plot_train_loss_and_test_accuracy_from_trainer
 from part3_resnets.solutions import IMAGENET_TRANSFORM, ResNet34, get_resnet_for_feature_extraction
