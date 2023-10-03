@@ -3094,11 +3094,11 @@ from pathlib import Path
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
 exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
-section_dir = exercises_dir / "monthly_algorithmic_problems" / "september23_sum"
+section_dir = exercises_dir / "monthly_algorithmic_problems" / "october23_sorted_list"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-from monthly_algorithmic_problems.september23_sum.dataset import SumDataset
-from monthly_algorithmic_problems.september23_sum.model import create_model
+from monthly_algorithmic_problems.october23_sorted_list.dataset import SortedListDataset
+from monthly_algorithmic_problems.october23_sorted_list.model import create_model
 from plotly_utils import hist, bar, imshow
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
