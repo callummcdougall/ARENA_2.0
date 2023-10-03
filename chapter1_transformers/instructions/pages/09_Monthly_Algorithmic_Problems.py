@@ -3042,7 +3042,7 @@ The following material isn't essential, but is recommended:
 
 ## Difficulty
 
-This problem is slightly easier than the September problem. I expect solutions to rely less on high-level ideas like path decomposition, relative to last month's problem. It is still a more difficult problem than the July problem.
+**This problem is probably the easiest in the sequence so far**, so I expect solutions to have fully reverse-engineered it, as well as presenting adversarial examples and explaining how & why they work.**
 
 ## Motivation
 
@@ -3080,8 +3080,6 @@ Going through the solutions for the previous problems in the sequence (July: Pal
 * Describe a mechanism for how the model solves the task, in the form of the QK and OV circuits of various attention heads (and possibly any other mechanisms the model uses, e.g. the direct path, or nonlinear effects from layernorm),
 * Provide evidence for your mechanism, e.g. with tools like attention plots, targeted ablation / patching, or direct logit attribution.
 * (Optional) Include additional detail, e.g. identifying the subspaces that the model uses for certain forms of information transmission, or using your understanding of the model's behaviour to construct adversarial examples.
-
-**This problem is probably the easiest in the sequence so far**, so I expect solutions to have fully reverse-engineered it, as well as presenting adversarial examples and explaining how & why they work.**
 
 # Setup
 
