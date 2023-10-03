@@ -3019,7 +3019,7 @@ r"""
 
     st.markdown(
 r"""
-# Monthly Algorithmic Challenge (October 2023): Sum Of Two Numbers
+# Monthly Algorithmic Challenge (October 2023): Sorted List
 
 ### Colab: [problem](https://colab.research.google.com/drive/1IygYxp98JGvMRLNmnEbHjEGUBAxBkLeU)
 
