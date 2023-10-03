@@ -3214,7 +3214,7 @@ A demonstration of the model working:
 
 ```python
 logits, cache = model.run_with_cache(dataset.toks)
-logits: Tensor = logits[:, dataset.list_len:-1, :]
+logits: t.Tensor = logits[:, dataset.list_len:-1, :]
 
 targets = dataset.toks[:, dataset.list_len+1:]
 
