@@ -3019,9 +3019,9 @@ r"""
 
     st.markdown(
 r"""
-# Monthly Algorithmic Challenge (September 2023): Sum Of Two Numbers
+# Monthly Algorithmic Challenge (October 2023): Sum Of Two Numbers
 
-### Colab: [problem](https://colab.research.google.com/drive/1770X6JLjizn5GLFPoLw3wWx44TXxQVg5)
+### Colab: [problem](https://colab.research.google.com/drive/1IygYxp98JGvMRLNmnEbHjEGUBAxBkLeU)
 
 This post is the fourth in the sequence of monthly mechanistic interpretability challenges. They are designed in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
@@ -3288,6 +3288,7 @@ Best of luck! 🎈
 # st_html(fig1, height=620)
 
 func_page_list = [
+    (section_0_october, "[October] Sorted List"),
     (section_0_september, "[September] Sum Of Two Numbers"),
     (section_1_september, "[September] Solutions"),
     (section_0_august, "[August] First Unique Token"),
