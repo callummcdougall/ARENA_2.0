@@ -260,6 +260,7 @@ Best of luck! 🎈
 palindromes_dir = instructions_dir / "media/palindromes"
 unique_char_dir = instructions_dir / "media/unique_char"
 sum_dir = instructions_dir / "media/sum"
+sorted_list_dir = instructions_dir / "media/sorted_list"
 import plotly.graph_objects as go
 from streamlit.components.v1 import html as st_html
 import json
@@ -2995,6 +2996,284 @@ The heads in layer 1 mostly process this information by self-attending. They don
 
 By the end of layer 1, the residual stream is parameterized by a single value: the angle $\theta$. The digits from 0-9 are evenly spaced around the unit circle, and the model's prediction depends on which angle they're closest to.
 """, unsafe_allow_html=True)
+
+
+
+def section_0_october():
+
+    st.sidebar.markdown(
+r"""
+
+## Table of Contents
+
+<ul class="contents">
+    <li><a class='contents-el' href='#prerequisites'>Prerequisites</a></li>
+    <li><a class='contents-el' href='#difficulty'>Difficulty</a></li>
+    <li><a class='contents-el' href='#motivation'>Motivation</a></li>
+    <li><a class='contents-el' href='#logistics'>Logistics</a></li>
+    <li><a class='contents-el' href='#what-counts-as-a-solution'>What counts as a solution?</a></li>
+    <li><a class='contents-el' href='#setup'>Setup</a></li>
+    <li><a class='contents-el' href='#task-dataset'>Task & Dataset</a></li>
+    <li><a class='contents-el' href='#model'>Model</a></li>
+</ul></li>""", unsafe_allow_html=True)
+
+    st.markdown(
+r"""
+# Monthly Algorithmic Challenge (September 2023): Sum Of Two Numbers
+
+### Colab: [problem](https://colab.research.google.com/drive/1770X6JLjizn5GLFPoLw3wWx44TXxQVg5)
+
+This post is the fourth in the sequence of monthly mechanistic interpretability challenges. They are designed in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
+
+<img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/machines.png" width="350">
+
+## Prerequisites
+
+The following ARENA material should be considered essential:
+
+* **[1.1] Transformer from scratch** (sections 1-3)
+* **[1.2] Intro to Mech Interp** (sections 1-3)
+
+The following material isn't essential, but is recommended:
+
+* **[1.2] Intro to Mech Interp** (section 4)
+* **July's Algorithmic Challenge - writeup** (on the sidebar of this page)
+* Previous algorithmic problems in the sequence
+
+## Difficulty
+
+This problem is slightly easier than the September problem. I expect solutions to rely less on high-level ideas like path decomposition, relative to last month's problem. It is still a more difficult problem than the July problem.
+
+## Motivation
+
+Neel Nanda's post [200 COP in MI: Interpreting Algorithmic Problems](https://www.lesswrong.com/posts/ejtFsvyhRkMofKAFy/200-cop-in-mi-interpreting-algorithmic-problems) does a good job explaining the motivation behind solving algorithmic problems such as these. I'd strongly recommend reading the whole post, because it also gives some high-level advice for approaching such problems.
+
+The main purpose of these challenges isn't to break new ground in mech interp, rather they're designed to help you practice using & develop better understanding for standard MI tools (e.g. interpreting attention, direct logit attribution), and more generally working with libraries like TransformerLens.
+
+Also, they're hopefully pretty fun, because why shouldn't we have some fun while we're learning?
+
+## Logistics
+
+The solution to this problem will be published on this page in the first few days of September, at the same time as the next problem in the sequence. There will also be an associated LessWrong post.
+
+If you try to interpret this model, you can send your attempt in any of the following formats:
+
+* Colab notebook,
+* GitHub repo (e.g. with ipynb or markdown file explaining results),
+* Google Doc (with screenshots and explanations),
+* or any other sensible format.
+
+You can send your attempt to me (Callum McDougall) via any of the following methods:
+
+* The [Slack group](https://join.slack.com/t/arena-la82367/shared_invite/zt-1uvoagohe-JUv9xB7Vr143pdx1UBPrzQ), via a direct message to me
+* My personal email: `cal.s.mcdougall@gmail.com`
+* LessWrong message ([here](https://www.lesswrong.com/users/themcdouglas) is my user)
+
+**I'll feature the names of everyone who sends me a solution on this website, and also give a shout out to the best solutions.**
+
+Please don't discuss specific things you've found about this model until the challenge is over (although you can discuss general strategies and techniques, and you're also welcome to work in a group if you'd like). The deadline for this problem will be the end of this month, i.e. 31st August.
+
+## What counts as a solution?
+
+Going through the solutions for the previous problems in the sequence (July: Palindromes & August: First Unique Character) as well as the exercises in **[1.4] Balanced Bracket Classifier** should give you a good idea of what I'm looking for. In particular, I'd expect you to:
+
+* Describe a mechanism for how the model solves the task, in the form of the QK and OV circuits of various attention heads (and possibly any other mechanisms the model uses, e.g. the direct path, or nonlinear effects from layernorm),
+* Provide evidence for your mechanism, e.g. with tools like attention plots, targeted ablation / patching, or direct logit attribution.
+* (Optional) Include additional detail, e.g. identifying the subspaces that the model uses for certain forms of information transmission, or using your understanding of the model's behaviour to construct adversarial examples.
+
+**This problem is probably the easiest in the sequence so far**, so I expect solutions to have fully reverse-engineered it, as well as presenting adversarial examples and explaining how & why they work.**
+
+# Setup
+
+```python
+import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import sys
+import torch as t
+from pathlib import Path
+
+# Make sure exercises are in the path
+chapter = r"chapter1_transformers"
+exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").resolve()
+section_dir = exercises_dir / "monthly_algorithmic_problems" / "september23_sum"
+if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
+
+from monthly_algorithmic_problems.september23_sum.dataset import SumDataset
+from monthly_algorithmic_problems.september23_sum.model import create_model
+from plotly_utils import hist, bar, imshow
+
+device = t.device("cuda" if t.cuda.is_available() else "cpu")
+```
+
+## Task & Dataset
+
+The problem for this month is interpreting a model which has been trained to sort a list. The model is fed sequences like:
+
+```
+[11, 2, 5, 0, 3, 9, SEP, 0, 2, 3, 5, 9, 11]
+```
+
+and has been trained to predict each element in the sorted list (in other words, the output at the `SEP` token should be a prediction of `0`, the output at `0` should be a prediction of `2`, etc).
+
+Here is an example of what this dataset looks like:
+
+```python
+dataset = SortedListDataset(size=1, list_len=5, max_value=10, seed=42)
+
+print(dataset[0].tolist())
+print(dataset.str_toks[0])
+```
+
+<div style='font-family:monospace; font-size:15px;'>
+[9, 6, 2, 4, 5, 11, 2, 4, 5, 6, 9]<br>
+['9', '6', '2', '4', '5', 'SEP', '2', '4', '5', '6', '9']
+</div><br>
+
+The relevant files can be found at:
+
+```
+chapter1_transformers/
+└── exercises/
+    └── monthly_algorithmic_problems/
+        └── october23_sorted_list/
+            ├── model.py               # code to create the model
+            ├── dataset.py             # code to define the dataset
+            ├── training.py            # code to training the model
+            └── training_model.ipynb   # actual training script
+```
+
+## Model
+
+The model is attention-only, with 1 layer, and 2 attention heads per layer. It was trained with layernorm, weight decay, and an Adam optimizer with linearly decaying learning rate.
+
+You can load the model in as follows:
+
+```python
+filename = section_dir / "sorted_list_model.pt"
+
+model = create_model(
+    list_len=10,
+    max_value=50,
+    seed=0,
+    d_model=96,
+    d_head=48,
+    n_layers=1,
+    n_heads=2,
+    normalization_type="LN",
+    d_mlp=None
+)
+
+state_dict = t.load(filename)
+
+state_dict = model.center_writing_weights(t.load(filename))
+state_dict = model.center_unembed(state_dict)
+state_dict = model.fold_layer_norm(state_dict)
+state_dict = model.fold_value_biases(state_dict)
+model.load_state_dict(state_dict, strict=False);
+```
+
+The code to process the state dictionary is a bit messy, but it's necessary to make sure the model is easy to work with. For instance, if you inspect the model's parameters, you'll see that `model.ln_final.w` is a vector of 1s, and `model.ln_final.b` is a vector of 0s (because the weight and bias have been folded into the unembedding).
+
+```python
+print("ln_final weight: ", model.ln_final.w)
+print("\nln_final, bias: ", model.ln_final.b)
+```
+
+<details>
+<summary>Aside - the other weight processing parameters</summary>
+
+Here's some more code to verify that our weights processing worked, in other words:
+
+* The unembedding matrix has mean zero over both its input dimension (`d_model`) and output dimension (`d_vocab`)
+* All writing weights (i.e. `b_O`, `W_O`, and both embeddings) have mean zero over their output dimension (`d_model`)
+* The value biases `b_V` are zero (because these can just be folded into the output biases `b_O`)
+
+```python
+W_U_mean_over_input = einops.reduce(model.W_U, "d_model d_vocab -> d_model", "mean")
+t.testing.assert_close(W_U_mean_over_input, t.zeros_like(W_U_mean_over_input))
+
+W_U_mean_over_output = einops.reduce(model.W_U, "d_model d_vocab -> d_vocab", "mean")
+t.testing.assert_close(W_U_mean_over_output, t.zeros_like(W_U_mean_over_output))
+
+W_O_mean_over_output = einops.reduce(model.W_O, "layer head d_head d_model -> layer head d_head", "mean")
+t.testing.assert_close(W_O_mean_over_output, t.zeros_like(W_O_mean_over_output))
+
+b_O_mean_over_output = einops.reduce(model.b_O, "layer d_model -> layer", "mean")
+t.testing.assert_close(b_O_mean_over_output, t.zeros_like(b_O_mean_over_output))
+
+W_E_mean_over_output = einops.reduce(model.W_E, "token d_model -> token", "mean")
+t.testing.assert_close(W_E_mean_over_output, t.zeros_like(W_E_mean_over_output))
+
+W_pos_mean_over_output = einops.reduce(model.W_pos, "position d_model -> position", "mean")
+t.testing.assert_close(W_pos_mean_over_output, t.zeros_like(W_pos_mean_over_output))
+
+b_V = model.b_V
+t.testing.assert_close(b_V, t.zeros_like(b_V))
+```
+
+</details>
+
+A demonstration of the model working:
+
+```python
+logits, cache = model.run_with_cache(dataset.toks)
+logits: Tensor = logits[:, dataset.list_len:-1, :]
+
+targets = dataset.toks[:, dataset.list_len+1:]
+
+logprobs = logits.log_softmax(-1) # [batch seq_len vocab_out]
+probs = logprobs.softmax(-1)
+
+batch_size, seq_len = dataset.toks.shape
+logprobs_correct = eindex(logprobs, targets, "batch seq [batch seq]")
+probs_correct = eindex(probs, targets, "batch seq [batch seq]")
+
+avg_cross_entropy_loss = -logprobs_correct.mean().item()
+
+print(f"Average cross entropy loss: {avg_cross_entropy_loss:.3f}")
+print(f"Mean probability on correct label: {probs_correct.mean():.3f}")
+print(f"Median probability on correct label: {probs_correct.median():.3f}")
+print(f"Min probability on correct label: {probs_correct.min():.3f}")
+```
+
+<div style='font-family:monospace; font-size:15px;'>
+Average cross entropy loss: 0.039<br>
+Mean probability on correct label: 0.966<br>
+Median probability on correct label: 0.981<br>
+Min probability on correct label: 0.001
+</div><br>
+
+And a visualisation of its probability output for a single sequence:
+
+```python
+def show(i):
+
+    imshow(
+        probs[i].T,
+        y=dataset.vocab,
+        x=[f"{dataset.str_toks[i][j]}<br><sub>({j})</sub>" for j in range(dataset.list_len+1, dataset.seq_len)],
+        labels={"x": "Token", "y": "Vocab"},
+        xaxis_tickangle=0,
+        title=f"Sample model probabilities:<br>Unsorted = ({','.join(dataset.str_toks[i][:dataset.list_len])})",
+        text=[
+            ["〇" if (str_tok == target) else "" for target in dataset.str_toks[i][dataset.list_len+1: dataset.seq_len]]
+            for str_tok in dataset.vocab
+        ],
+        width=400,
+        height=1000,
+    )
+
+show(0)
+```
+""", unsafe_allow_html=True)
+    
+    with open(sorted_list_dir / "fig_demo.html", 'r', encoding='utf-8') as f: fig1 = f.read()
+    st_html(fig1, height=1000)
+
+    st.markdown(r"""
+Best of luck! 🎈
+
+""", unsafe_allow_html=True)
+
 
 
 
