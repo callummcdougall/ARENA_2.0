@@ -29,6 +29,7 @@ jaxtyping
 typeguard
 streamlit
 streamlit-analytics
+streamlit-antd-components
 torchinfo
 frozendict
 streamlit-chat
