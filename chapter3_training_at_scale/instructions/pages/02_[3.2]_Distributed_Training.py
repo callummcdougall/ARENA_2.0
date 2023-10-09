@@ -214,9 +214,9 @@ To avoid such race conditions, strategies such as locking or synchronization bar
 
 ### Exercise - Test simulated race conditions on multiple threads
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 5 minutes on this exercise.
 ```
@@ -279,9 +279,9 @@ Here, we will implement broadcast, reduce, and all-reduce using multiple topolog
 
 ### Exercise - Broadcast
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10 to 20 minutes on each subexercise.
 ```
@@ -387,9 +387,9 @@ def broadcast_ring(tensor: torch.Tensor, src: int):
 
 ### Exercise - Reduce
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 10-20 minutes on each subexercise.
 ```
@@ -500,9 +500,9 @@ def reduce_tree(tensor: torch.Tensor, dst: int, op=ReduceOp.SUM):
 
 ### Exercise - All-reduce Naive
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -541,9 +541,9 @@ def allreduce_naive(tensor: torch.Tensor, op=ReduceOp.SUM):
 
 ### Exercise - All-reduce Butterfly
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠⚪⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵⚪⚪
 
 You should spend up to 10-20 minutes on this exercise.
 ```
@@ -785,9 +785,9 @@ You might want to start by copying the setup/teardown template from broadcast.py
 
 From this point onwards in this chapter all code will be executed as individual python files. Also they will need to be executed using the <code>run.sh</code> file like so: <code>run.sh <example.py></code>.
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -909,9 +909,9 @@ Optionally, log the loss and accuracy metrics, and see how they improve as you t
 
 If you are training a model from scratch, remember to ensure that all the models have the same weights - this can be done by setting a random seed, or `dist.broadcast()`
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵🔵
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -1093,9 +1093,9 @@ The version of pipeline parallelism we are going to implement is fairly basic - 
 1. In each rank, calculate the layers that rank is responsible for. You should also set the other layers to None to be extra sure that they are not used. Looking at [bloom's forward pass](https://github.com/huggingface/transformers/blob/c5454eba9eac00a3e7d0a46a3d25aacd43187f1e/src/transformers/models/bloom/modeling_bloom.py#L682) might be belpful - I basically copied the forward function, and added `dist.send` and `dist.recv` calls wherever applicable.
 1. Start the forward pass by sending the input to the first rank. The first rank should then perform the forward pass on its layers, and send the output to the next rank. The next rank should then perform the forward pass on its layers, and send the output to the next rank. Repeat until you reach the last rank, which should return the output to the first rank (which should then return the output to the user).
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -1575,9 +1575,9 @@ In the second scheme, each device can take a partition of `x` and computes parti
 
 ### Exercise - Tensor parallelism for bias parameter
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠⚪⚪⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵⚪⚪⚪
 
 You should spend up to 5-10 minutes on this exercise.
 ```

@@ -253,9 +253,9 @@ prof.export_chrome_trace("trace_afterwarmup.json")
 
 ### Exercise: Profile your ResNet-34 model from Chapter 0
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -385,9 +385,9 @@ compare.print()
 ```
 
 ## Exercise: Apply kernel fusion by using torch jit decorator
-```c
+```yaml
 Difficulty: 2/5
-Importance: 🟠🟠🟠🟠⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -671,9 +671,9 @@ test(model, test_loader)
 
 ### Exercise - fill in `quantize` and `dequantize` functions
 
-```c
-Difficulty: 🟠🟠🟠🟠🟠
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴🔴
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -769,9 +769,9 @@ def dequantize_tensor(q_x) -> torch.tensor:
 
 We'll be using the `calcScaleZeroPoint` function to calculate the values of the scale and zero point for a given `max_val` and `min_val` of a tensor. The function should work for `num_bits=8` as a baseline but can be lowered for harsher quantisation.
 
-```c
-Difficulty: 🟠🟠⚪⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴⚪⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 15-20 minutes on this exercise.
 ```
@@ -857,9 +857,9 @@ stats = gatherStats(q_model, test_loader)
 
 ### Exercise - Fill out the quantizeLayer function
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 30-50 minutes on this exercise.
 ```
@@ -1025,9 +1025,9 @@ testQuant(model, test_loader=test_loader, quant=True, stats=stats)
 
 ### Exercise - Benchmark q_model and model
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 10-15 minutes on this exercise.
 ```

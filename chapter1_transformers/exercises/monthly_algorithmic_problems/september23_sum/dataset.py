@@ -7,15 +7,12 @@ class SumDataset(Dataset):
 
     def __init__(self, size: int, num_digits: int, seed: int = 42):
         '''
-        We create our non-palindromic examples via the following process (for each sequence):
+        Dataset of the form [a1, ..., an, +, b1, ..., bn, =, c1, ..., cn], where the sum
+        of the numbers with digits a & b equals c.
 
-            1. Generate a random seq of length N/2
-            2. Generate another random seq of length N/2, by randomly changing X values of the previous
-               seq, where X is some random integer between 0 and N/2 inclusive.
-            3. Concatenate the two sequences (flipping the second one)
-        
-        This makes sure we have a good variety of palindromic numbers, including quite a lot with only
-        one number flipped (otherwise it would be too easy for the model to distinguish).
+        The digits in a and b are uniformly chosen from 0 to 9 inclusive, except for the
+        first digits which are between 0 to 4 inclusive (to make sure the sum is also a 
+        4-digit number).
         '''
         self.vocab = [str(i) for i in range(10)] + ["+", "="]
         self.size = size

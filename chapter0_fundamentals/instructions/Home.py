@@ -24,6 +24,10 @@ if os.getcwd().endswith("pages") and "../" not in sys.path:
 import st_dependencies
 st_dependencies.styling()
 
+import streamlit_antd_components as sac
+
+sac.alert(message='This is no longer the most updated version of these exercises: see [here](https://arena3-chapter0-fundamentals.streamlit.app/) for the newest page.', icon=True, closable=True, banner=True)
+
 st.sidebar.markdown(r"""
 ## Table of Contents
 

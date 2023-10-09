@@ -34,7 +34,7 @@ class Trainer:
         self.args = args
         self.model = create_model(**args.__dict__)
         if args.use_wandb:
-            wandb.init(project="palindromes")
+            wandb.init(project="palindromes-model")
             wandb.watch(self.model)
 
     def training_step(self, batch: Tuple[Tensor, Tensor]) -> t.Tensor:

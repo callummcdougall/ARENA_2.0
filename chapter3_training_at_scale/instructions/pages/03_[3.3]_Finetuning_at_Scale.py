@@ -116,9 +116,9 @@ Accelerate achieves this by abstracting away the complexities of distributed tra
 
 ### Exercise - Convert into distributed training loop using Huggingface Accelerate
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -285,9 +285,9 @@ Cons:
 
 ### Exercise - Huggingface Finetuning
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -371,9 +371,9 @@ Out of the optimisations bundled in with DeepSpeed the following are the most no
 Huggingface Accelerate comes prepackaged with Microsoft DeepSpeed optimisations and the only way to use them in a Jupyter notebook is through the (Huggingface Trainer class)[https://huggingface.co/docs/transformers/main_classes/trainer]. 
 
 ### Exercise - Huggingface Trainer class
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 20-30 minutes on this exercise.
 ```
@@ -430,9 +430,9 @@ trainer.train()
 
 ### Exercise - DeepSpeed training loop
 
-```c
-Difficulty: 🟠🟠🟠🟠⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴🔴⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 30-40 minutes on this exercise.
 ```
@@ -571,9 +571,9 @@ accelerator.wait_for_everyone()
 
 ### Exercise - TRLX distributed training
 
-```c
-Difficulty: 🟠🟠🟠⚪⚪
-Importance: 🟠🟠🟠🟠⚪
+```yaml
+Difficulty: 🔴🔴🔴⚪⚪
+Importance: 🔵🔵🔵🔵⚪
 
 You should spend up to 40-50 minutes on this exercise.
 ```

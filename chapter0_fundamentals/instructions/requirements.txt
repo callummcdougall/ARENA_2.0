@@ -6,3 +6,4 @@ matplotlib
 scipy
 torch
 streamlit-analytics
+streamlit-antd-components

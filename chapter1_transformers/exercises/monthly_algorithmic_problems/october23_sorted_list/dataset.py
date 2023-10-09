@@ -10,7 +10,7 @@ class SortedListDataset(Dataset):
     def __init__(self, size: int, list_len: int, max_value: int, seed: int = 42):
         '''
         Generates a dataset of sorted lists, i.e. of the form [a1, ..., an, SEP, b1, ..., bn],
-        where (b1, ..., bn) is the sorted (ascending) version of (a1, ..., an).
+        where (b1, ..., bn) is the sorted version of (a1, ..., an) (in ascending order).
 
         Parameters
 

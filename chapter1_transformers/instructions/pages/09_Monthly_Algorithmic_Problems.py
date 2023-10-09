@@ -1927,7 +1927,7 @@ r"""
 r"""
 # Monthly Algorithmic Challenge (September 2023): Sum Of Two Numbers
 
-### Colab: [problem](https://colab.research.google.com/drive/1770X6JLjizn5GLFPoLw3wWx44TXxQVg5)
+### Colab: [problem](https://colab.research.google.com/drive/1770X6JLjizn5GLFPoLw3wWx44TXxQVg5) | [solutions](https://colab.research.google.com/drive/1HBec9II1Ozt_1i6lE9uWbGa6v1VKUC6y)
 
 This post is the third in the sequence of monthly mechanistic interpretability challenges. They are designed in the spirit of [Stephen Casper's challenges](https://www.lesswrong.com/posts/KSHqLzQscwJnv44T8/eis-vii-a-challenge-for-mechanists), but with the more specific aim of working well in the context of the rest of the ARENA material, and helping people put into practice all the things they've learned so far.
 
@@ -2815,7 +2815,11 @@ def plot_projections_onto_singular_values(
     fig.show()
 
 
-plot_projections_onto_singular_values(svd_tensor = model.W_U[:, :10], activations = cache['resid_post', 1])
+plot_projections_onto_singular_values(
+    svd_tensor = model.W_U[:, :10],
+    activations = cache['resid_post', 1],
+    title = "Projections of residual stream onto singular directions of W<sub>U</sub>"
+)
 ```
 """, unsafe_allow_html=True)
 
@@ -2941,7 +2945,7 @@ labels = (large_dataset.toks[:, LABELS_DICT["A3"]] + large_dataset.toks[:, LABEL
 trainset = TensorDataset(activations, labels)
 probe_digitsum = train_probe(output_dim, trainset, epochs=75, batch_size=300)
 
-
+# Plot results
 plot_svd_single(probe_digitsum.fc.weight.T, title="SVD of directions found by probe")
 ```
 """, unsafe_allow_html=True)
@@ -2957,7 +2961,7 @@ labels = large_dataset.toks[:, LABELS_DICT["A3"]]
 trainset = TensorDataset(activations, labels)
 probe_digitA = train_probe(output_dim, trainset, epochs=75, batch_size=300)
 
-
+# Plot results
 plot_svd_single(probe_digitA.fc.weight.T, title="SVD of directions found by probe")
 ```
 """, unsafe_allow_html=True)

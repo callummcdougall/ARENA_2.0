@@ -38,7 +38,7 @@ class Trainer:
         self.args = args
         self.model = create_model(**args.__dict__) # Not great practice I think, but ¯\_(ツ)_/¯
         if args.use_wandb:
-            wandb.init(project="unique-char")
+            wandb.init(project="unique-char-model")
             wandb.watch(self.model)
 
     def training_step(self, batch: Tuple[Tensor, Tensor]) -> t.Tensor:

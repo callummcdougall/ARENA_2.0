@@ -7,7 +7,7 @@ from torch import Tensor
 
 class PalindromeDataset(Dataset):
 
-    def __init__(self, size, max_value, half_length, seed=42):
+    def __init__(self, size: int, max_value: int, half_length: int, seed=42):
         '''
         We create our non-palindromic examples via the following process (for each sequence):
 
