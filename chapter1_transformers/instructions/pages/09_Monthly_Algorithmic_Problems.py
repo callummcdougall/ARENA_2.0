@@ -3956,10 +3956,10 @@ print(f"Min probability on correct label: {probs_correct.min():.3f}")
 ```
 
 <div style='font-family:monospace; font-size:15px;'>
-Average cross entropy loss: 0.039<br>
-Mean probability on correct label: 0.966<br>
-Median probability on correct label: 0.981<br>
-Min probability on correct label: 0.001
+Average cross entropy loss: 0.073<br>
+Mean probability on correct label: 0.938<br>
+Median probability on correct label: 0.999<br>
+Min probability on correct label: 0.579
 </div><br>
 
 And a visualisation of its probability output for a single sequence:
@@ -3996,8 +3996,9 @@ show(dataset, 0)
     st_html(fig1, height=350)
 
     st.markdown(r"""
-Best of luck! 🎈
+Note, it was trained with a lot of weight decay, which is what makes its probabilities quite far from 100% (even if accuracy is basically 100%).
 
+Best of luck! 🎈
 """, unsafe_allow_html=True)
 
 
