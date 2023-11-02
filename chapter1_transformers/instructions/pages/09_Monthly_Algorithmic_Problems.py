@@ -3843,7 +3843,7 @@ Going through the solutions for the previous problems in the sequence (July: Pal
 * Provide evidence for your mechanism, e.g. with tools like attention plots, targeted ablation / patching, or direct logit attribution.
 * (Optional) Include additional detail, e.g. identifying the subspaces that the model uses for certain forms of information transmission, or using your understanding of the model's behaviour to construct adversarial examples.
 
-# Setup
+## Setup
 
 ```python
 import os
