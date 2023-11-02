@@ -3383,7 +3383,7 @@ def show_multiple(dataset: SortedListDataset):
 
 ## Summary of how the model works
 
-In the second half of the sequence, the attention heads perform the algorithm "attend back to (and copy) the first token which is larger than me. For example, in a sequence like:
+In the second half of the sequence, the attention heads perform the algorithm "attend back to (and copy) the first token which is larger than me". For example, in a sequence like:
 
 ```
 [7, 5, 12, 3, SEP, 3, 5, 7, 12]
