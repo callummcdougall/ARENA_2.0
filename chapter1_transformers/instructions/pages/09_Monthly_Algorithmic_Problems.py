@@ -3306,7 +3306,7 @@ r"""
 r"""
 # Monthly Algorithmic Challenge (October 2023): Solutions
 
-We assume you've run all the setup code from the previous page "[September] Sum of Two Numbers". Here's all the new setup code you'll need (we've also added a function to plot all sequences in a dataset, not just one).
+We assume you've run all the setup code from the previous page "[October] Sorted List". Here's all the new setup code you'll need (we've also added a function to plot all sequences in a dataset, not just one).
 
 ```python
 import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
@@ -3846,10 +3846,11 @@ Going through the solutions for the previous problems in the sequence (July: Pal
 # Setup
 
 ```python
-import os; os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+import os
 import sys
 import torch as t
 from pathlib import Path
+from eindex import eindex
 
 # Make sure exercises are in the path
 chapter = r"chapter1_transformers"
@@ -3857,8 +3858,8 @@ exercises_dir = Path(f"{os.getcwd().split(chapter)[0]}/{chapter}/exercises").res
 section_dir = exercises_dir / "monthly_algorithmic_problems" / "november23_cumsum"
 if str(exercises_dir) not in sys.path: sys.path.append(str(exercises_dir))
 
-from monthly_algorithmic_problems.november23_sorted_list.dataset import CumsumDataset
-from monthly_algorithmic_problems.november23_sorted_list.model import create_model
+from monthly_algorithmic_problems.november23_cumsum.dataset import CumsumDataset
+from monthly_algorithmic_problems.november23_cumsum.model import create_model
 from plotly_utils import hist, bar, imshow
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
@@ -3996,7 +3997,7 @@ show(dataset, 0)
     st_html(fig1, height=350)
 
     st.markdown(r"""
-Note, it was trained with a lot of weight decay, which is what makes its probabilities quite far from 100% (even if accuracy is basically 100%).
+Note, it was trained with a lot of weight decay, which is what makes its probabilities sometimes far from 100% (even if accuracy is basically 100%).
 
 Best of luck! 🎈
 """, unsafe_allow_html=True)
