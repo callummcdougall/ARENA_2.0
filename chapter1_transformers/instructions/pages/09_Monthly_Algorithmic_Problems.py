@@ -3912,18 +3912,18 @@ The model is **not attention only**. It has one attention layer with a single he
 You can load the model in as follows. Note that this code is different to previous months, because we've removed the layernorm folding.
 
 ```python
-filename = section_dir / "sorted_list_model.pt"
+filename = section_dir / "cumsum_model.pt"
 
 model = create_model(
-    list_len=10,
-    max_value=50,
+    max_value=5,
+    seq_len=20,
     seed=0,
-    d_model=96,
-    d_head=48,
+    d_model=24,
+    d_head=12,
     n_layers=1,
-    n_heads=2,
-    normalization_type="LN",
-    d_mlp=None
+    n_heads=1,
+    normalization_type=None,
+    d_mlp=8,
 )
 
 state_dict = t.load(filename)
