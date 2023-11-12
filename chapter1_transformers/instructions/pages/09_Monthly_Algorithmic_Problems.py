@@ -3915,6 +3915,7 @@ Here is an example (and also a demonstration of all the important attributes of 
 
 ```python
 dataset = CumsumDataset(size=1, seq_len=6, max_value=3, seed=40)
+fix_dataset(dataset)
 
 print(dataset[0]) # same as (dataset.toks[0], dataset.labels[0])
 
@@ -3924,7 +3925,7 @@ print(", ".join(dataset.str_labels[0])) # whether the cumsum of inputs is strict
 ```
 
 <div style='font-family:monospace; font-size:15px;'>
-(tensor([ 0,  1, -3, -3, -2,  3]), tensor([1, 2, 0, 0, 0, 0]))<br>
+(tensor([ 3, 4, 0, 0, 1, 6]), tensor([1, 2, 0, 0, 0, 0]))<br>
 +0, +1, -3, -3, -2, +3<br>
 zero, pos, neg, neg, neg, neg
 </div><br>
@@ -3969,6 +3970,8 @@ state_dict = model.center_writing_weights(t.load(filename))
 state_dict = model.center_unembed(state_dict)
 state_dict = model.fold_value_biases(state_dict)
 model.load_state_dict(state_dict, strict=False);
+
+fix_model(model)
 ```
 
 A demonstration of the model working:
@@ -3976,6 +3979,7 @@ A demonstration of the model working:
 ```python
 N = 1000
 dataset = CumsumDataset(size=1000, max_value=5, seq_len=20, seed=42).to(device)
+fix_dataset(dataset)
 
 logits, cache = model.run_with_cache(dataset.toks)
 
