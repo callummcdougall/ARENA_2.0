@@ -3789,6 +3789,40 @@ This post is the fifth in the sequence of monthly mechanistic interpretability c
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cumsum2.png" width="350">
 
+> **Important announcement** - a mistake was found in the inital setup of this problem, wherein the dataset tokens were negative and causing negative indexing into the embedding matrix. You should use the functions below to fix this problem (note that you only need to run them once, for each dataset / model).
+> 
+> ```python
+> def fix_dataset(dataset: CumsumDataset):
+>     '''
+>     There was a mistake in the original setup of the problem: some tokens were negative, so they
+>     were causing negative indexing into the model's embedding matrix.
+>     
+>     This function adds to the tokens so they're all non-negative. In other words, the token indices
+>     (0, 1, 2, ..., max_value*2) now correspond to the values (-max_value, ..., +max_value) when we
+>     take the cumulative sum.
+>     '''
+>     dataset.toks += dataset.max_value
+> 
+> 
+> def fix_model(model: HookedTransformer):
+>     '''
+>     There was a mistake in the original setup of the problem: some tokens were negative, so they
+>     were causing negative indexing into the model's embedding matrix.
+>     
+>     This function rearranges the model's embedding matrix so that it works with the dataset returned
+>     from 'fix_dataset'. In other words, the rows of the model's embedding matrix now correspond to
+>     the values (-max_value, ..., +max_value) respectively.
+>     '''
+>     max_value = model.W_E.shape[0] // 2
+>     model.embed.W_E.data = t.concat([model.W_E[-max_value:], model.W_E[:-max_value]])
+> 
+> 
+> # Example of use (only needs to be run once):
+> dataset = CumsumDataset(size=1000, max_value=5, seq_len=20, seed=42).to(device)
+> fix_dataset(dataset)
+> fix_model(model)
+> ```
+
 ## Prerequisites
 
 The following ARENA material should be considered essential:
