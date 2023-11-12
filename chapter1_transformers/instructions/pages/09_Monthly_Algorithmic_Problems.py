@@ -3838,7 +3838,7 @@ The following material isn't essential, but is recommended:
 
 ## Difficulty
 
-**I estimate that this problem is of about average difficulty in the series.** It's probably harder than both the single-layer attention problems, but easier than either of the 2-layer models. However, this problem is unique in introducing MLPs, so your mileage may vary!
+**I estimate that this problem is slightly easier than average difficulty in the series.** It's slightly harder (or at least more novel) than both the single-layer attention problems, but much easier than either of the 2-layer models. However, this problem is unique in introducing MLPs, so your mileage may vary!
 
 ## Motivation
 
