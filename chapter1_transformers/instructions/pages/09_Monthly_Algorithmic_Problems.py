@@ -3789,6 +3789,8 @@ This post is the fifth in the sequence of monthly mechanistic interpretability c
 
 <img src="https://raw.githubusercontent.com/callummcdougall/computational-thread-art/master/example_images/misc/cumsum2.png" width="350">
 
+> ### Fixing mistake in problem setup
+> 
 > **Important announcement** - a mistake was found in the inital setup of this problem, wherein the dataset tokens were negative and causing negative indexing into the embedding matrix. You should use the functions below to fix this problem (note that you only need to run them once, for each dataset / model).
 > 
 > ```python
