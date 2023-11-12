@@ -3794,6 +3794,8 @@ This post is the fifth in the sequence of monthly mechanistic interpretability c
 A mistake was found in the inital setup of this problem, wherein the dataset tokens were negative and causing negative indexing into the embedding matrix. You should use the functions below to fix this problem (note that you only need to run them once, for each dataset / model).
 
 ```python
+from transformer_lens import HookedTransformer
+
 def fix_dataset(dataset: CumsumDataset):
     '''
     There was a mistake in the original setup of the problem: some tokens were negative, so they
@@ -3804,7 +3806,6 @@ def fix_dataset(dataset: CumsumDataset):
     take the cumulative sum.
     '''
     dataset.toks += dataset.max_value
-
 
 def fix_model(model: HookedTransformer):
     '''
