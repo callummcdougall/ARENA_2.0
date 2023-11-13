@@ -110,6 +110,9 @@ question = st.text_area(
     placeholder="Type your prompt here, then press Ctrl+Enter.\nThe prompt will be prepended with most of the page content (so you can ask questions about the material)."
 )
 
+def model_name(model_id: str):
+    return {"gpt-4-1106-preview": "gpt-4-turbo"}.get(model_id, model_id)
+
 with st.sidebar:
     
     exercises = st.multiselect(
@@ -119,8 +122,9 @@ with st.sidebar:
 
     model = st.radio(
         "Model",
-        options = ["gpt-4", "gpt-3.5-turbo", "text-davinci-003"], # if is_local else ["gpt-3.5-turbo", "text-davinci-003"],
-        index = 1, # if is_local else 0,
+        options = ["gpt-4-1106-preview", "gpt-3.5-turbo", "text-davinci-003"], # if is_local else ["gpt-3.5-turbo", "text-davinci-003"],
+        index = 0,
+        format_func = model_name,
     )
 
     temp = st.slider(
