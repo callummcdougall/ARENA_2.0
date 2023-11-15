@@ -207,7 +207,19 @@ number of distances = {len(embedding_distances)}
 
 prompt_templates_dict = {
     "SIMPLE": """
-Try to answer the question based on the context below. If the question can't be answered based on the context, say \"I don't know how to answer that based on the context from this course, but I'll still try to answer.\", then answer the question like you normally would.\n\nContext: {context}\n\n---\n\nQuestion: {question} Answer in detail.\nAnswer:
+Try to answer the question based on the context below. If the topic being asked about in the question is completely unrelated to any of the topics in the context below, say "I'm sorry, I can't answer this based on the context, because", then briefly explain why the context is unrelated to the question, then try to answer the question to the best of your knowledge.
+
+Context: {context}
+
+---
+
+Question: {question}
+
+---
+
+To repeat: you should try to answer the question at the start based on the context above. If the topic being asked about in the question is completely unrelated to any of the topics in the context, say "I'm sorry, I can't answer this based on the context, because", then briefly explain why the context is unrelated to the question, then try to answer the question to the best of your knowledge.
+
+Answer:
 """,
 
     "COMPLEX": """
