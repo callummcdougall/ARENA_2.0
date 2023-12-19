@@ -86,7 +86,10 @@ question = st.text_area(
 )
 
 def model_name(model_id: str):
-    return {"gpt-4-1106-preview": "gpt-4-turbo"}.get(model_id, model_id)
+    return {
+        "gpt-4-1106-preview": "gpt-4-turbo",
+        "gpt-3.5-turbo-1106": "gpt-3.5-turbo",
+    }.get(model_id, model_id)
 
 with st.sidebar:
     
