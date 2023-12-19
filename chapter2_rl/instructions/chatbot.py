@@ -249,7 +249,7 @@ Helpful Answer:
 
 def answer_question(
     my_embeddings: EmbeddingGroup,
-    model: str = "text-davinci-003",
+    model: str = "gpt-3.5-turbo-1106",
     question: str = "What is an example question which you can answer for me?",
     prompt_template: str = "SIMPLE",
     prompt_templates_dict: Dict[str, str] = prompt_templates_dict,
@@ -294,12 +294,12 @@ f"""## Context
         model=model,
         stream=True
     )
-    if model in ["text-davinci-003"]:
-        create_func = lambda prompt: openai.Completion.create(prompt=prompt, **kwargs)
-        text_func = lambda response: response["choices"][0]["text"]
-    else:
-        create_func = lambda prompt: openai.ChatCompletion.create(messages=[{"role": "user", "content": prompt}], **kwargs)
-        text_func = lambda response: response["choices"][0]["delta"].get("content", "") # ["message"]["content"]
+    # if model in ["text-davinci-003"]:
+    #     create_func = lambda prompt: openai.Completion.create(prompt=prompt, **kwargs)
+    #     text_func = lambda response: response["choices"][0]["text"]
+    # else:
+    create_func = lambda prompt: openai.ChatCompletion.create(messages=[{"role": "user", "content": prompt}], **kwargs)
+    text_func = lambda response: response["choices"][0]["delta"].get("content", "") # ["message"]["content"]
     
     st.session_state["history"].append("")
     for response in create_func(prompt):
