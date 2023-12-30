@@ -28,6 +28,9 @@ streamlit_analytics.start_tracking(
     verbose=True,
 )
 
+import streamlit_antd_components as sac
+sac.alert(message='This is no longer the most updated version of these exercises: see [here](https://arena3-chapter1-transformer-interp.streamlit.app/) for the newest page.', icon=True, closable=True, banner=True)
+
 st.sidebar.markdown(r"""
 ## Table of Contents
 
