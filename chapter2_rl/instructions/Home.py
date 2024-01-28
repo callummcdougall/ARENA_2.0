@@ -23,6 +23,9 @@ if os.getcwd().endswith("chapter1_transformers") and "./instructions" not in sys
 if os.getcwd().endswith("pages") and "../" not in sys.path:
     sys.path.append("../")
 
+import streamlit_antd_components as sac
+sac.alert(message='This is no longer the most updated version of these exercises: see [here](https://arena3-chapter2-rl.streamlit.app/) for the newest page.', icon=True, closable=True, banner=True)
+
 st.sidebar.markdown(r"""
 ## Table of Contents
 
