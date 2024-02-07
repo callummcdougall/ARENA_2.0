@@ -23,6 +23,8 @@ streamlit_analytics.start_tracking(
     load_from_json=ANALYTICS_PATH.resolve(),
 )
 
+st.error("This is no longer the most updated version of these exercises: see [here](https://arena3-chapter2-rl.streamlit.app/) for the newest page.", icon="🚨")
+
 def section_0():
 
     st.sidebar.markdown(r"""
