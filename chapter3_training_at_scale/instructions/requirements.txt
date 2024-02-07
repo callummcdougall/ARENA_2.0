@@ -5,4 +5,4 @@ plotly
 matplotlib
 scipy
 torch
-streamlit-antd-components
+streamlit-antd-components==0.2.1

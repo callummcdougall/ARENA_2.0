@@ -6,4 +6,4 @@ matplotlib
 scipy
 torch
 streamlit-analytics
-streamlit-antd-components
+streamlit-antd-components==0.2.1
