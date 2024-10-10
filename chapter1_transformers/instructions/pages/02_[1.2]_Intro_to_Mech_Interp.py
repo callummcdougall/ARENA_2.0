@@ -2817,6 +2817,8 @@ def mask_scores(attn_scores: Float[Tensor, "query_nctx key_nctx"]):
     return masked_attn_scores
 
 
+layer = 0
+head_index = 7
 
 # YOUR CODE HERE - calculate the matrix `pos_by_pos_pattern` as described above
 tests.test_pos_by_pos_pattern(pos_by_pos_pattern, model, layer, head_index)
