@@ -128,7 +128,8 @@ import sys
 import einops
 from dataclasses import dataclass
 from transformer_lens import HookedTransformer
-from transformer_lens.utils import gelu_new, tokenize_and_concatenate
+from transformer_lens.utilities.activation_functions import gelu_new
+from transformer_lens.utilities.tokenize_utils import tokenize_and_concatenate
 import torch as t
 from torch import Tensor
 import torch.nn as nn
